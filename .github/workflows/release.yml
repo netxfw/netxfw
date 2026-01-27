@@ -49,8 +49,8 @@ jobs:
 
           # Create /usr/include/asm symlink if missing (required in GitHub Actions)
           if [ ! -e /usr/include/asm ]; then
-            ARCH= $ (dpkg --print-architecture)
-            case  $ ARCH in
+            ARCH= $(dpkg --print-architecture)
+            case  $ARCH in
               amd64)
                 sudo ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/asm
                 ;;
@@ -58,7 +58,7 @@ jobs:
                 sudo ln -s /usr/include/aarch64-linux-gnu/asm /usr/include/asm
                 ;;
               *)
-                echo "Unsupported architecture:  $ ARCH" >&2
+                echo "Unsupported architecture:  $ARCH" >&2
                 exit 1
                 ;;
             esac
