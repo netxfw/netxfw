@@ -23,14 +23,22 @@
 ## 🚀 快速开始
 
 ### 1. 构建
-# 1. 克隆
+
+#### 环境要求
+在构建之前，请确保您的系统已安装以下依赖（以 Ubuntu/Debian 为例）：
+```bash
+sudo apt-get update
+sudo apt-get install -y clang llvm libelf-dev libbpf-dev gcc-multilib make
 ```
+*注：Go 版本需 >= 1.21*
+
+#### 编译步骤
+```bash
+# 1. 克隆
 git clone https://github.com/livp123/netxfw.git
 cd netxfw
-```
 
-# 2. 生成 eBPF 脚手架并构建
-```
+# 2. 生成 eBPF 字节码并构建二进制文件
 make generate
 make build
 ```
