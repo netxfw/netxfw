@@ -1,0 +1,9 @@
+rules:
+  - name: ssh_bruteforce
+    port: 22
+    threshold: 5
+    duration: "1h"
+  - name: web_scan
+    port: 80
+    threshold: 20
+    duration: "30m"
