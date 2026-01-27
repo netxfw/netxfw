@@ -37,7 +37,6 @@ jobs:
       - name: Install BPF build dependencies
         run: |
           sudo apt-get update
-          # Core dependencies for eBPF compilation
           sudo apt-get install -y \
               clang \
               llvm \
@@ -45,11 +44,25 @@ jobs:
               libbpf-dev \
               gcc \
               linux-headers-generic \
-              linux-headers-$(uname -r)
-          
-          # Optional: ARM64 cross-compilation support (for building arm64 binary on amd64 runner)
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+              linux-headers- $ (uname -r) \
+              gcc-aarch64-linux-gnu
 
+          # Create /usr/include/asm symlink if missing (required in GitHub Actions)
+          if [ ! -e /usr/include/asm ]; then
+            ARCH= $ (dpkg --print-architecture)
+            case  $ ARCH in
+              amd64)
+                sudo ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/asm
+                ;;
+              arm64)
+                sudo ln -s /usr/include/aarch64-linux-gnu/asm /usr/include/asm
+                ;;
+              *)
+                echo "Unsupported architecture:  $ ARCH" >&2
+                exit 1
+                ;;
+            esac
+          fi
 
 
 
