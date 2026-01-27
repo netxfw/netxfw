@@ -4,19 +4,23 @@
 #include <bpf/bpf_endian.h>
 #include <linux/if_ether.h>
 #include <linux/ip.h>
-#include <linux/tcp.h>
 
-// 黑名单 Map：key=IPv4, value=1 (blocked)
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 65536);
     __type(key, __u32);
-    __type(value, __u8);
+    __type(value, __u64);
 } blacklist SEC(".maps");
 
-// 辅助函数：检查是否被封
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, __u64);
+} drop_stats SEC(".maps");
+
 static inline int is_blocked(__u32 ip) {
-    __u8 *val = bpf_map_lookup_elem(&blacklist, &ip);
+    __u64 *val = bpf_map_lookup_elem(&blacklist, &ip);
     return val != NULL;
 }
 
@@ -29,7 +33,6 @@ int xdp_firewall(struct xdp_md *ctx) {
     if (data + sizeof(*eth) > data_end)
         return XDP_PASS;
 
-    // 只处理 IPv4
     if (eth->h_proto != bpf_htons(ETH_P_IP))
         return XDP_PASS;
 
@@ -37,9 +40,17 @@ int xdp_firewall(struct xdp_md *ctx) {
     if (data + sizeof(*eth) + sizeof(*ip) > data_end)
         return XDP_PASS;
 
-    __u32 src_ip = ip->saddr; // 网络字节序
+    if (is_blocked(ip->saddr)) {
+        __u64 *cnt = bpf_map_lookup_elem(&blacklist, &ip->saddr);
+        if (cnt) {
+            __sync_fetch_and_add(cnt, 1);
+        }
 
-    if (is_blocked(src_ip)) {
+        __u32 key = 0;
+        __u64 *count = bpf_map_lookup_elem(&drop_stats, &key);
+        if (count) {
+            *count += 1;
+        }
         return XDP_DROP;
     }
 

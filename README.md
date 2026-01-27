@@ -27,3 +27,17 @@
 ```bash
 wget https://github.com/livp123/netxfw/releases/latest/download/netxfw-linux-amd64 -O netxfw
 chmod +x netxfw
+
+### 2. 构建
+# 1. 克隆
+git clone https://github.com/livp123/netxfw.git
+cd netxfw
+
+# 2. 安装依赖（Ubuntu/Debian）
+sudo apt install clang libbpf-dev linux-headers- $ (uname -r)
+
+# 3. 生成 eBPF 脚手架
+make generate
+
+# 4. 构建并运行
+make run

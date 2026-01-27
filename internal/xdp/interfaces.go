@@ -5,7 +5,6 @@ import (
 	"strings"
 )
 
-// GetPhysicalInterfaces returns active non-virtual network interfaces.
 func GetPhysicalInterfaces() ([]string, error) {
 	interfaces, err := net.Interfaces()
 	if err != nil {
@@ -14,20 +13,18 @@ func GetPhysicalInterfaces() ([]string, error) {
 	var names []string
 	for _, iface := range interfaces {
 		if iface.Flags&net.FlagUp != 0 && iface.Flags&net.FlagLoopback == 0 {
-			// Skip virtual interfaces
-			if isVirtualInterface(iface.Name) {
-				continue
+			if !isVirtual(iface.Name) {
+				names = append(names, iface.Name)
 			}
-			names = append(names, iface.Name)
 		}
 	}
 	return names, nil
 }
 
-func isVirtualInterface(name string) bool {
-	virtualPrefixes := []string{"lo", "docker", "veth", "virbr", "br-", "tun", "tap"}
-	for _, prefix := range virtualPrefixes {
-		if strings.HasPrefix(name, prefix) {
+func isVirtual(name string) bool {
+	prefixes := []string{"lo", "docker", "veth", "virbr", "br-", "tun", "tap", "kube"}
+	for _, p := range prefixes {
+		if strings.HasPrefix(name, p) {
 			return true
 		}
 	}
