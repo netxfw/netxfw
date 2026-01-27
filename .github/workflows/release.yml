@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang llvm libelf-dev gcc-multilib
+          sudo apt-get install -y clang llvm libelf-dev gcc-multilib libbpf-dev
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
