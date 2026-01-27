@@ -12,7 +12,15 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type NetXfwIn6Addr struct{ In6U struct{ U6Addr8 [16]uint8 } }
+type NetXfwLpmKey4 struct {
+	Prefixlen uint32
+	Data      uint32
+}
+
+type NetXfwLpmKey6 struct {
+	Prefixlen uint32
+	Data      struct{ In6U struct{ U6Addr8 [16]uint8 } }
+}
 
 // LoadNetXfw returns the embedded CollectionSpec for NetXfw.
 func LoadNetXfw() (*ebpf.CollectionSpec, error) {
@@ -62,9 +70,9 @@ type NetXfwProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type NetXfwMapSpecs struct {
-	Blacklist  *ebpf.MapSpec `ebpf:"blacklist"`
-	Blacklist6 *ebpf.MapSpec `ebpf:"blacklist6"`
 	DropStats  *ebpf.MapSpec `ebpf:"drop_stats"`
+	LockList   *ebpf.MapSpec `ebpf:"lock_list"`
+	LockList6  *ebpf.MapSpec `ebpf:"lock_list6"`
 	Whitelist  *ebpf.MapSpec `ebpf:"whitelist"`
 	Whitelist6 *ebpf.MapSpec `ebpf:"whitelist6"`
 }
@@ -88,18 +96,18 @@ func (o *NetXfwObjects) Close() error {
 //
 // It can be passed to LoadNetXfwObjects or ebpf.CollectionSpec.LoadAndAssign.
 type NetXfwMaps struct {
-	Blacklist  *ebpf.Map `ebpf:"blacklist"`
-	Blacklist6 *ebpf.Map `ebpf:"blacklist6"`
 	DropStats  *ebpf.Map `ebpf:"drop_stats"`
+	LockList   *ebpf.Map `ebpf:"lock_list"`
+	LockList6  *ebpf.Map `ebpf:"lock_list6"`
 	Whitelist  *ebpf.Map `ebpf:"whitelist"`
 	Whitelist6 *ebpf.Map `ebpf:"whitelist6"`
 }
 
 func (m *NetXfwMaps) Close() error {
 	return _NetXfwClose(
-		m.Blacklist,
-		m.Blacklist6,
 		m.DropStats,
+		m.LockList,
+		m.LockList6,
 		m.Whitelist,
 		m.Whitelist6,
 	)

@@ -24,19 +24,31 @@
 
 ### 1. 构建
 # 1. 克隆
+```
 git clone https://github.com/livp123/netxfw.git
 cd netxfw
+```
 
 # 2. 生成 eBPF 脚手架并构建
 make generate
 make build
 
+# 3. 安装 (创建 /etc/netxfw/ 目录并配置默认文件)
+sudo make install
+
 ### 2. 使用方法
 
 #### 启动防火墙服务
+默认会加载 `/etc/netxfw/config.yaml`。
 ```bash
-sudo ./netxfw load xdp
+sudo netxfw load xdp
 ```
+
+#### 配置说明
+在 `/etc/netxfw/config.yaml` 中，你可以提前配置：
+- `whitelist`: 白名单列表，支持单个 IP 或 CIDR 网段（例如 `192.168.1.0/24`）
+- `metrics_port`: Prometheus 指标服务端口（默认 9100）
+- `rules`: 动态拦截规则
 
 #### 封禁 IP (支持 IPv4/IPv6)
 ```bash

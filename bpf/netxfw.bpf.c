@@ -6,20 +6,44 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 
+/**
+ * LPM (Longest Prefix Match) structures for CIDR matching
+ * LPM (最长前缀匹配) 结构体，用于 CIDR 网段匹配
+ */
+struct lpm_key4 {
+    __u32 prefixlen;
+    __u32 data;
+};
+
+struct lpm_key6 {
+    __u32 prefixlen;
+    struct in6_addr data;
+};
+
+/**
+ * Lock maps: store locked IPv4/IPv6 ranges and their drop counts
+ * 锁定 Map：存储封禁的 IPv4/IPv6 网段及其拦截计数
+ */
 struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_LPM_TRIE);
     __uint(max_entries, 65536);
-    __type(key, __u32);
+    __type(key, struct lpm_key4);
     __type(value, __u64);
-} blacklist SEC(".maps");
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} lock_list SEC(".maps");
 
 struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_LPM_TRIE);
     __uint(max_entries, 65536);
-    __type(key, struct in6_addr);
+    __type(key, struct lpm_key6);
     __type(value, __u64);
-} blacklist6 SEC(".maps");
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} lock_list6 SEC(".maps");
 
+/**
+ * Global drop statistics
+ * 全局拦截统计次数
+ */
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(max_entries, 1);
@@ -27,66 +51,110 @@ struct {
     __type(value, __u64);
 } drop_stats SEC(".maps");
 
+/**
+ * Whitelist maps: store allowed IPv4/IPv6 ranges
+ * 白名单 Map：存储允许通过的 IPv4/IPv6 网段
+ */
 struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_LPM_TRIE);
     __uint(max_entries, 65536);
-    __type(key, __u32);
+    __type(key, struct lpm_key4);
     __type(value, __u8);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
 } whitelist SEC(".maps");
 
 struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_LPM_TRIE);
     __uint(max_entries, 65536);
-    __type(key, struct in6_addr);
+    __type(key, struct lpm_key6);
     __type(value, __u8);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
 } whitelist6 SEC(".maps");
 
+/**
+ * Helper to check if an IPv4 address is whitelisted
+ * 检查 IPv4 地址是否在白名单中
+ */
 static inline int is_whitelisted(__u32 ip) {
-    __u8 *val = bpf_map_lookup_elem(&whitelist, &ip);
+    struct lpm_key4 key = {
+        .prefixlen = 32,
+        .data = ip,
+    };
+    __u8 *val = bpf_map_lookup_elem(&whitelist, &key);
     return val != NULL;
 }
 
+/**
+ * Helper to check if an IPv6 address is whitelisted
+ * 检查 IPv6 地址是否在白名单中
+ */
 static inline int is_whitelisted6(struct in6_addr *ip) {
-    __u8 *val = bpf_map_lookup_elem(&whitelist6, ip);
+    struct lpm_key6 key = {
+        .prefixlen = 128,
+    };
+    __builtin_memcpy(&key.data, ip, sizeof(struct in6_addr));
+    __u8 *val = bpf_map_lookup_elem(&whitelist6, &key);
     return val != NULL;
 }
 
-static inline int is_blocked(__u32 ip) {
-    __u64 *val = bpf_map_lookup_elem(&blacklist, &ip);
-    return val != NULL;
+/**
+ * Helper to get lock stats for an IPv4 address (checks if locked)
+ * 获取 IPv4 地址的锁定统计（同时检查是否被锁定）
+ */
+static inline __u64 *get_lock_stats(__u32 ip) {
+    struct lpm_key4 key = {
+        .prefixlen = 32,
+        .data = ip,
+    };
+    return bpf_map_lookup_elem(&lock_list, &key);
 }
 
-static inline int is_blocked6(struct in6_addr *ip) {
-    __u64 *val = bpf_map_lookup_elem(&blacklist6, ip);
-    return val != NULL;
+/**
+ * Helper to get lock stats for an IPv6 address (checks if locked)
+ * 获取 IPv6 地址的锁定统计（同时检查是否被锁定）
+ */
+static inline __u64 *get_lock_stats6(struct in6_addr *ip) {
+    struct lpm_key6 key = {
+        .prefixlen = 128,
+    };
+    __builtin_memcpy(&key.data, ip, sizeof(struct in6_addr));
+    return bpf_map_lookup_elem(&lock_list6, &key);
 }
 
+/**
+ * Main XDP firewall program
+ * XDP 防火墙主程序
+ */
 SEC("xdp")
 int xdp_firewall(struct xdp_md *ctx) {
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
 
+    // Ethernet header check / 以太网头部检查
     struct ethhdr *eth = data;
     if (data + sizeof(*eth) > data_end)
         return XDP_PASS;
 
     __u16 h_proto = eth->h_proto;
 
+    // Handle IPv4 / 处理 IPv4
     if (h_proto == bpf_htons(ETH_P_IP)) {
         struct iphdr *ip = data + sizeof(*eth);
         if (data + sizeof(*eth) + sizeof(*ip) > data_end)
             return XDP_PASS;
 
+        // 1. Check whitelist first / 首先检查白名单
         if (is_whitelisted(ip->saddr)) {
             return XDP_PASS;
         }
 
-        if (is_blocked(ip->saddr)) {
-            __u64 *cnt = bpf_map_lookup_elem(&blacklist, &ip->saddr);
-            if (cnt) {
-                __sync_fetch_and_add(cnt, 1);
-            }
+        // 2. Check lock list / 检查锁定列表
+        __u64 *cnt = get_lock_stats(ip->saddr);
+        if (cnt) {
+            // Increment per-IP/range drop counter / 增加对应 IP/网段的拦截计数
+            __sync_fetch_and_add(cnt, 1);
 
+            // Increment global drop counter / 增加全局拦截计数
             __u32 key = 0;
             __u64 *count = bpf_map_lookup_elem(&drop_stats, &key);
             if (count) {
@@ -94,21 +162,25 @@ int xdp_firewall(struct xdp_md *ctx) {
             }
             return XDP_DROP;
         }
-    } else if (h_proto == bpf_htons(ETH_P_IPV6)) {
+    } 
+    // Handle IPv6 / 处理 IPv6
+    else if (h_proto == bpf_htons(ETH_P_IPV6)) {
         struct ipv6hdr *ip6 = data + sizeof(*eth);
         if (data + sizeof(*eth) + sizeof(*ip6) > data_end)
             return XDP_PASS;
 
+        // 1. Check whitelist first / 首先检查白名单
         if (is_whitelisted6(&ip6->saddr)) {
             return XDP_PASS;
         }
 
-        if (is_blocked6(&ip6->saddr)) {
-            __u64 *cnt = bpf_map_lookup_elem(&blacklist6, &ip6->saddr);
-            if (cnt) {
-                __sync_fetch_and_add(cnt, 1);
-            }
+        // 2. Check lock list / 检查锁定列表
+        __u64 *cnt = get_lock_stats6(&ip6->saddr);
+        if (cnt) {
+            // Increment per-IP/range drop counter / 增加对应 IP/网段的拦截计数
+            __sync_fetch_and_add(cnt, 1);
 
+            // Increment global drop counter / 增加全局拦截计数
             __u32 key = 0;
             __u64 *count = bpf_map_lookup_elem(&drop_stats, &key);
             if (count) {

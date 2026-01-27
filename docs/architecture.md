@@ -9,7 +9,7 @@
 - **职责**：
     - 对进入的每一个数据包进行检查。
     - 解析以太网、IPv4 和 IPv6 头部。
-    - 查找黑名单 Map (`blacklist` 和 `blacklist6`)。
+    - 查找锁定列表 Map (`lock_list` 和 `lock_list6`)。
     - 如果匹配成功，执行 `XDP_DROP` 并更新原子计数器。
     - 如果未匹配，执行 `XDP_PASS`。
 
@@ -18,16 +18,16 @@
 - **职责**：
     - **加载器**：负责将编译好的 BPF 字节码加载到内核。
     - **管理器**：处理网卡挂载逻辑，支持多网卡自动发现。
-    - **API/CLI**：提供用户接口来修改黑名单 Map。
+    - **API/CLI**：提供用户接口来修改锁定列表 Map。
     - **监控**：定期从内核 Map 中拉取统计数据，并转换为 Prometheus 指标。
 
 ## 状态共享机制 (Map Pinning)
 
 为了支持非持久化运行后的命令行操作，`netxfw` 使用了 eBPF 的 **Pinning** 特性：
 
-1. 当 `load xdp` 启动时，它会将黑名单 Map 固定在 BPF 虚拟文件系统中：
-   - `/sys/fs/bpf/netxfw/blacklist` (IPv4)
-   - `/sys/fs/bpf/netxfw/blacklist6` (IPv6)
+1. 当 `load xdp` 启动时，它会将锁定列表 Map 固定在 BPF 虚拟文件系统中：
+   - `/sys/fs/bpf/netxfw/lock_list` (IPv4)
+   - `/sys/fs/bpf/netxfw/lock_list6` (IPv6)
 2. 当用户运行 `./netxfw lock <IP>` 时，该独立进程会通过路径加载这些已固定的 Map，从而实现对正在运行的防火墙的实时控制。
 
 ## 流程图
@@ -40,7 +40,7 @@
 |   XDP (内核态数据面)    | <-------+
 +-----------------------+         |
       |                           |
-      | (匹配黑名单?)              | [ Map Pinning ]
+      | (匹配锁定列表?)              | [ Map Pinning ]
       |                           | (/sys/fs/bpf/netxfw/)
       +--- [是] ---> (丢弃 & 计数)  |
       |                           |

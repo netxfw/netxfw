@@ -1,13 +1,15 @@
 package main
 
 import (
-	"gopkg.in/yaml.v3"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Rules     []Rule   `yaml:"rules"`
-	Whitelist []string `yaml:"whitelist"`
+	Rules       []Rule   `yaml:"rules"`
+	Whitelist   []string `yaml:"whitelist"`
+	MetricsPort int      `yaml:"metrics_port"`
 }
 
 type Rule struct {
