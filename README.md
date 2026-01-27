@@ -30,8 +30,10 @@ cd netxfw
 ```
 
 # 2. 生成 eBPF 脚手架并构建
+```
 make generate
 make build
+```
 
 # 3. 安装 (创建 /etc/netxfw/ 目录并配置默认文件)
 sudo make install
