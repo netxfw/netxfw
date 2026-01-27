@@ -12,32 +12,50 @@
 ## ✨ 为什么选择 netxfw？
 
 - ✅ **极致性能**：在网卡驱动层丢包（XDP），CPU 开销 <1%，支持百万 PPS  
-- ✅ **开箱即用**：单二进制文件，无依赖，`sudo ./netxfw run` 即可运行  
+- ✅ **全协议支持**：完美支持 IPv4 & IPv6 流量阻断  
 - ✅ **智能多网卡**：自动保护所有物理网卡，跳过 `lo`/`docker0` 等虚拟接口  
-- ✅ **全局黑名单**：一次封禁，全网卡生效  
+- ✅ **实时统计**：精确记录每个封禁 IP 的丢包次数  
 - ✅ **可观测**：内置 Prometheus 指标，轻松对接 Grafana  
-- ✅ **可扩展**：YAML 规则 + 插件架构（未来支持 Rust/Zig 多语言运行时）  
-- 🌆 **成都验证**：已在华为云（成都 region）、天府软件园多台服务器稳定运行
+- ✅ **可扩展**：YAML 规则 + 命令行实时控制
 
 ---
 
 ## 🚀 快速开始
 
-### 1. 下载（Linux x86_64）
-```bash
-wget https://github.com/livp123/netxfw/releases/latest/download/netxfw-linux-amd64 -O netxfw
-chmod +x netxfw
-
-### 2. 构建
+### 1. 构建
 # 1. 克隆
 git clone https://github.com/livp123/netxfw.git
 cd netxfw
 
-# 2. 安装依赖（Ubuntu/Debian）
-sudo apt install clang libbpf-dev linux-headers- $ (uname -r)
-
-# 3. 生成 eBPF 脚手架
+# 2. 生成 eBPF 脚手架并构建
 make generate
+make build
 
-# 4. 构建并运行
-make run
+### 2. 使用方法
+
+#### 启动防火墙服务
+```bash
+sudo ./netxfw load xdp
+```
+
+#### 封禁 IP (支持 IPv4/IPv6)
+```bash
+sudo ./netxfw lock 1.2.3.4
+sudo ./netxfw lock 2001:db8::1
+```
+
+#### 查看封禁列表及统计
+```bash
+sudo ./netxfw list
+```
+
+#### 解封 IP
+```bash
+sudo ./netxfw unlock 1.2.3.4
+```
+
+---
+
+## 📖 详细文档
+- [命令行手册](docs/cli.md)
+- [系统架构](docs/architecture.md)

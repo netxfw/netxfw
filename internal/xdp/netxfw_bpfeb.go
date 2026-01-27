@@ -12,6 +12,8 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type NetXfwIn6Addr struct{ In6U struct{ U6Addr8 [16]uint8 } }
+
 // LoadNetXfw returns the embedded CollectionSpec for NetXfw.
 func LoadNetXfw() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_NetXfwBytes)
@@ -60,8 +62,9 @@ type NetXfwProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type NetXfwMapSpecs struct {
-	Blacklist *ebpf.MapSpec `ebpf:"blacklist"`
-	DropStats *ebpf.MapSpec `ebpf:"drop_stats"`
+	Blacklist  *ebpf.MapSpec `ebpf:"blacklist"`
+	Blacklist6 *ebpf.MapSpec `ebpf:"blacklist6"`
+	DropStats  *ebpf.MapSpec `ebpf:"drop_stats"`
 }
 
 // NetXfwObjects contains all objects after they have been loaded into the kernel.
@@ -83,13 +86,15 @@ func (o *NetXfwObjects) Close() error {
 //
 // It can be passed to LoadNetXfwObjects or ebpf.CollectionSpec.LoadAndAssign.
 type NetXfwMaps struct {
-	Blacklist *ebpf.Map `ebpf:"blacklist"`
-	DropStats *ebpf.Map `ebpf:"drop_stats"`
+	Blacklist  *ebpf.Map `ebpf:"blacklist"`
+	Blacklist6 *ebpf.Map `ebpf:"blacklist6"`
+	DropStats  *ebpf.Map `ebpf:"drop_stats"`
 }
 
 func (m *NetXfwMaps) Close() error {
 	return _NetXfwClose(
 		m.Blacklist,
+		m.Blacklist6,
 		m.DropStats,
 	)
 }

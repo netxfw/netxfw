@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -123,46 +124,72 @@ func runServer() {
 	log.Println("👋 Shutting down...")
 }
 
-func updateBlacklist(ip string, lock bool) {
-	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/blacklist", nil)
+func updateBlacklist(ipStr string, lock bool) {
+	parsedIP := net.ParseIP(ipStr)
+	if parsedIP == nil {
+		log.Fatalf("❌ Invalid IP address: %s", ipStr)
+	}
+
+	mapPath := "/sys/fs/bpf/netxfw/blacklist"
+	if parsedIP.To4() == nil {
+		mapPath = "/sys/fs/bpf/netxfw/blacklist6"
+	}
+
+	m, err := ebpf.LoadPinnedMap(mapPath, nil)
 	if err != nil {
 		log.Fatalf("❌ Failed to load pinned map (is the server running?): %v", err)
 	}
 	defer m.Close()
 
 	if lock {
-		if err := xdp.BanIP(m, ip); err != nil {
-			log.Fatalf("❌ Failed to lock IP %s: %v", ip, err)
+		if err := xdp.BanIP(m, ipStr); err != nil {
+			log.Fatalf("❌ Failed to lock IP %s: %v", ipStr, err)
 		}
-		log.Printf("🛡️ Locked IP: %s", ip)
+		log.Printf("🛡️ Locked IP: %s", ipStr)
 	} else {
-		if err := xdp.UnbanIP(m, ip); err != nil {
-			log.Fatalf("❌ Failed to unlock IP %s: %v", ip, err)
+		if err := xdp.UnbanIP(m, ipStr); err != nil {
+			log.Fatalf("❌ Failed to unlock IP %s: %v", ipStr, err)
 		}
-		log.Printf("🔓 Unlocked IP: %s", ip)
+		log.Printf("🔓 Unlocked IP: %s", ipStr)
 	}
 }
 
 func listBlacklist() {
-	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/blacklist", nil)
+	// List IPv4
+	m4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/blacklist", nil)
 	if err != nil {
-		log.Fatalf("❌ Failed to load pinned map (is the server running?): %v", err)
+		log.Fatalf("❌ Failed to load IPv4 blacklist: %v", err)
 	}
-	defer m.Close()
+	defer m4.Close()
 
-	ips, err := xdp.ListBlockedIPs(m)
+	ips4, err := xdp.ListBlockedIPs(m4, false)
 	if err != nil {
-		log.Fatalf("❌ Failed to list blocked IPs: %v", err)
+		log.Fatalf("❌ Failed to list IPv4 blocked IPs: %v", err)
 	}
 
-	if len(ips) == 0 {
+	// List IPv6
+	m6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/blacklist6", nil)
+	if err != nil {
+		log.Fatalf("❌ Failed to load IPv6 blacklist: %v", err)
+	}
+	defer m6.Close()
+
+	ips6, err := xdp.ListBlockedIPs(m6, true)
+	if err != nil {
+		log.Fatalf("❌ Failed to list IPv6 blocked IPs: %v", err)
+	}
+
+	if len(ips4) == 0 && len(ips6) == 0 {
 		fmt.Println("Empty blacklist.")
 		return
 	}
 
 	fmt.Println("🛡️ Currently blocked IPs and drop counts:")
-	for ip, count := range ips {
-		fmt.Printf(" - %s: %d drops\n", ip, count)
+	for ip, count := range ips4 {
+		fmt.Printf(" - [IPv4] %s: %d drops\n", ip, count)
+	}
+	for ip, count := range ips6 {
+		fmt.Printf(" - [IPv6] %s: %d drops\n", ip, count)
 	}
 }
 

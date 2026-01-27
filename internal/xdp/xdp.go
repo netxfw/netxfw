@@ -17,10 +17,11 @@ import (
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang NetXfw ../../bpf/netxfw.bpf.c -- -I../../bpf
 
 type Manager struct {
-	objs      NetXfwObjects
-	links     []link.Link
-	blacklist *ebpf.Map
-	dropStats *ebpf.Map
+	objs       NetXfwObjects
+	links      []link.Link
+	blacklist  *ebpf.Map
+	blacklist6 *ebpf.Map
+	dropStats  *ebpf.Map
 }
 
 func NewManager() (*Manager, error) {
@@ -34,9 +35,10 @@ func NewManager() (*Manager, error) {
 	}
 
 	return &Manager{
-		objs:      objs,
-		blacklist: objs.Blacklist,
-		dropStats: objs.DropStats,
+		objs:       objs,
+		blacklist:  objs.Blacklist,
+		blacklist6: objs.Blacklist6,
+		dropStats:  objs.DropStats,
 	}, nil
 }
 
@@ -66,6 +68,10 @@ func (m *Manager) Blacklist() *ebpf.Map {
 	return m.blacklist
 }
 
+func (m *Manager) Blacklist6() *ebpf.Map {
+	return m.blacklist6
+}
+
 func (m *Manager) GetDropCount() (uint64, error) {
 	var key uint32 = 0
 	var values []uint64
@@ -90,10 +96,14 @@ func (m *Manager) Pin(path string) error {
 	if err := os.MkdirAll(path, 0755); err != nil {
 		return err
 	}
-	return m.blacklist.Pin(path + "/blacklist")
+	if err := m.blacklist.Pin(path + "/blacklist"); err != nil {
+		return err
+	}
+	return m.blacklist6.Pin(path + "/blacklist6")
 }
 
 func (m *Manager) Unpin(path string) error {
 	_ = m.blacklist.Unpin()
+	_ = m.blacklist6.Unpin()
 	return os.RemoveAll(path)
 }
