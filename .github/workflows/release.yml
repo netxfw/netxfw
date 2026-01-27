@@ -25,7 +25,10 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang llvm libelf-dev gcc-multilib libbpf-dev
+          sudo apt-get install -y clang llvm libelf-dev libbpf-dev
+          sudo apt-get install -y gcc-multilib || true
+          # Fix for missing asm/types.h in some environments
+          sudo ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/asm || true
           sudo apt-get install -y gcc-aarch64-linux-gnu || sudo apt-get install -y binutils-aarch64-linux-gnu
 
       - name: Run GoReleaser
