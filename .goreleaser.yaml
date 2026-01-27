@@ -19,17 +19,17 @@ builds:
     ldflags:
       - -s -w
 
-  # - id: netxfw-arm64
-  #   env:
-  #     - CGO_ENABLED=1
-  #     - CC=aarch64-linux-gnu-gcc
-  #   goos:
-  #     - linux
-  #   goarch:
-  #     - arm64
-  #   main: ./cmd/netxfw
-  #   ldflags:
-  #     - -s -w
+  - id: netxfw-arm64
+    env:
+      - CGO_ENABLED=1
+      - CC=aarch64-linux-gnu-gcc
+    goos:
+      - linux
+    goarch:
+      - arm64
+    main: ./cmd/netxfw
+    ldflags:
+      - -s -w
 
 archives:
   - format: tar.gz
