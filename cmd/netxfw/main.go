@@ -79,11 +79,21 @@ func main() {
 		// List whitelisted ranges / 查看白名单列表
 		showWhitelist()
 	case "import":
-		// Import lock list from file / 从文件导入锁定列表
-		if len(os.Args) < 3 {
-			log.Fatal("❌ Missing file path")
+		// Import list from file / 从文件导入列表
+		if len(os.Args) < 4 {
+			usage()
+			return
 		}
-		importLockListFromFile(os.Args[2])
+		subCommand := os.Args[2]
+		filePath := os.Args[3]
+		switch subCommand {
+		case "lock":
+			importLockListFromFile(filePath)
+		case "allow":
+			importWhitelistFromFile(filePath)
+		default:
+			usage()
+		}
 	case "unload":
 		// Unload XDP program / 卸载 XDP 程序
 		if len(os.Args) < 3 || os.Args[2] != "xdp" {
@@ -108,10 +118,11 @@ func usage() {
 	fmt.Println("  ./netxfw unlock 1.2.3.4  # 解封 IP 或网段")
 	fmt.Println("  ./netxfw allow 1.2.3.4   # 将 IP 或网段加入白名单")
 	fmt.Println("  ./netxfw unallow 1.2.3.4 # 将 IP 或网段从白名单移除")
-	fmt.Println("  ./netxfw list            # 查看封禁 IP 列表及拦截统计")
-	fmt.Println("  ./netxfw allow-list      # 查看白名单 IP 列表")
-	fmt.Println("  ./netxfw import file.txt # 从文件导入锁定列表 IP 列表")
-	fmt.Println("  ./netxfw unload xdp      # 从网卡卸载 XDP 程序")
+	fmt.Println("  ./netxfw list                  # 查看封禁 IP 列表及拦截统计")
+	fmt.Println("  ./netxfw allow-list            # 查看白名单 IP 列表")
+	fmt.Println("  ./netxfw import lock file.txt  # 从文件批量导入封禁列表")
+	fmt.Println("  ./netxfw import allow file.txt # 从文件批量导入白名单列表")
+	fmt.Println("  ./netxfw unload xdp            # 从网卡卸载 XDP 程序")
 }
 
 /**
@@ -481,7 +492,7 @@ func importLockListFromFile(filePath string) {
 		}
 
 		if err := xdp.LockIP(targetMap, line); err != nil {
-			log.Printf("❌ Failed to import %s: %v", line, err)
+			log.Printf("❌ Failed to import %s to lock list: %v", line, err)
 		} else {
 			count++
 		}
@@ -491,5 +502,56 @@ func importLockListFromFile(filePath string) {
 		log.Printf("❌ Error reading lock list file %s: %v", filePath, err)
 	}
 
-	log.Printf("🛡️ Imported %d IPs/ranges from %s", count, filePath)
+	log.Printf("🛡️ Imported %d IPs/ranges from %s to lock list", count, filePath)
+}
+
+/**
+ * importWhitelistFromFile reads IPs/CIDRs from a file and loads them into pinned BPF maps.
+ */
+func importWhitelistFromFile(filePath string) {
+	m4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist", nil)
+	if err != nil {
+		log.Fatalf("❌ Failed to load IPv4 whitelist (is the daemon running?): %v", err)
+	}
+	defer m4.Close()
+
+	m6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist6", nil)
+	if err != nil {
+		log.Fatalf("❌ Failed to load IPv6 whitelist (is the daemon running?): %v", err)
+	}
+	defer m6.Close()
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Fatalf("❌ Failed to open whitelist file %s: %v", filePath, err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	count := 0
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		var targetMap *ebpf.Map
+		if !isIPv6(line) {
+			targetMap = m4
+		} else {
+			targetMap = m6
+		}
+
+		if err := xdp.AllowIP(targetMap, line); err != nil {
+			log.Printf("❌ Failed to import %s to whitelist: %v", line, err)
+		} else {
+			count++
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("❌ Error reading whitelist file %s: %v", filePath, err)
+	}
+
+	log.Printf("⚪ Imported %d IPs/ranges from %s to whitelist", count, filePath)
 }
