@@ -12,6 +12,20 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type NetXfwLpmIp4PortKey struct {
+	Prefixlen uint32
+	Port      uint16
+	Pad       uint16
+	Ip        uint32
+}
+
+type NetXfwLpmIp6PortKey struct {
+	Prefixlen uint32
+	Port      uint16
+	Pad       uint16
+	Ip        struct{ In6U struct{ U6Addr8 [16]uint8 } }
+}
+
 type NetXfwLpmKey4 struct {
 	Prefixlen uint32
 	Data      uint32
@@ -20,6 +34,11 @@ type NetXfwLpmKey4 struct {
 type NetXfwLpmKey6 struct {
 	Prefixlen uint32
 	Data      struct{ In6U struct{ U6Addr8 [16]uint8 } }
+}
+
+type NetXfwRuleValue struct {
+	Counter   uint64
+	ExpiresAt uint64
 }
 
 // LoadNetXfw returns the embedded CollectionSpec for NetXfw.
@@ -70,11 +89,15 @@ type NetXfwProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type NetXfwMapSpecs struct {
-	DropStats  *ebpf.MapSpec `ebpf:"drop_stats"`
-	LockList   *ebpf.MapSpec `ebpf:"lock_list"`
-	LockList6  *ebpf.MapSpec `ebpf:"lock_list6"`
-	Whitelist  *ebpf.MapSpec `ebpf:"whitelist"`
-	Whitelist6 *ebpf.MapSpec `ebpf:"whitelist6"`
+	AllowedPorts *ebpf.MapSpec `ebpf:"allowed_ports"`
+	DropStats    *ebpf.MapSpec `ebpf:"drop_stats"`
+	GlobalConfig *ebpf.MapSpec `ebpf:"global_config"`
+	IpPortRules  *ebpf.MapSpec `ebpf:"ip_port_rules"`
+	IpPortRules6 *ebpf.MapSpec `ebpf:"ip_port_rules6"`
+	LockList     *ebpf.MapSpec `ebpf:"lock_list"`
+	LockList6    *ebpf.MapSpec `ebpf:"lock_list6"`
+	Whitelist    *ebpf.MapSpec `ebpf:"whitelist"`
+	Whitelist6   *ebpf.MapSpec `ebpf:"whitelist6"`
 }
 
 // NetXfwObjects contains all objects after they have been loaded into the kernel.
@@ -96,16 +119,24 @@ func (o *NetXfwObjects) Close() error {
 //
 // It can be passed to LoadNetXfwObjects or ebpf.CollectionSpec.LoadAndAssign.
 type NetXfwMaps struct {
-	DropStats  *ebpf.Map `ebpf:"drop_stats"`
-	LockList   *ebpf.Map `ebpf:"lock_list"`
-	LockList6  *ebpf.Map `ebpf:"lock_list6"`
-	Whitelist  *ebpf.Map `ebpf:"whitelist"`
-	Whitelist6 *ebpf.Map `ebpf:"whitelist6"`
+	AllowedPorts *ebpf.Map `ebpf:"allowed_ports"`
+	DropStats    *ebpf.Map `ebpf:"drop_stats"`
+	GlobalConfig *ebpf.Map `ebpf:"global_config"`
+	IpPortRules  *ebpf.Map `ebpf:"ip_port_rules"`
+	IpPortRules6 *ebpf.Map `ebpf:"ip_port_rules6"`
+	LockList     *ebpf.Map `ebpf:"lock_list"`
+	LockList6    *ebpf.Map `ebpf:"lock_list6"`
+	Whitelist    *ebpf.Map `ebpf:"whitelist"`
+	Whitelist6   *ebpf.Map `ebpf:"whitelist6"`
 }
 
 func (m *NetXfwMaps) Close() error {
 	return _NetXfwClose(
+		m.AllowedPorts,
 		m.DropStats,
+		m.GlobalConfig,
+		m.IpPortRules,
+		m.IpPortRules6,
 		m.LockList,
 		m.LockList6,
 		m.Whitelist,
