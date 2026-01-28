@@ -120,6 +120,34 @@ func UnlockIP(mapPtr *ebpf.Map, cidrStr string) error {
 }
 
 /**
+ * ListWhitelistedIPs iterates over the BPF whitelist map and returns all allowed ranges.
+ * ListWhitelistedIPs 遍历 BPF 白名单 Map 并返回所有允许的网段。
+ */
+func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool) ([]string, error) {
+	var ips []string
+
+	iter := mapPtr.Iterate()
+	if isIPv6 {
+		var key NetXfwLpmKey6
+		var val uint8
+		for iter.Next(&key, &val) {
+			ip := net.IP(key.Data.In6U.U6Addr8[:]).String()
+			ips = append(ips, fmt.Sprintf("%s/%d", ip, key.Prefixlen))
+		}
+	} else {
+		var key NetXfwLpmKey4
+		var val uint8
+		for iter.Next(&key, &val) {
+			ip := make(net.IP, 4)
+			binary.BigEndian.PutUint32(ip, key.Data)
+			ips = append(ips, fmt.Sprintf("%s/%d", ip, key.Prefixlen))
+		}
+	}
+
+	return ips, iter.Err()
+}
+
+/**
  * ListBlockedIPs iterates over the BPF map and returns all blocked ranges and stats.
  * ListBlockedIPs 遍历 BPF Map 并返回所有封禁的网段及其统计信息。
  */

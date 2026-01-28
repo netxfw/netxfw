@@ -57,9 +57,24 @@ func main() {
 			log.Fatal("❌ Missing IP address")
 		}
 		syncLockMap(os.Args[2], false)
+	case "allow":
+		// Whitelist an IP or CIDR / 将 IP 或网段加入白名单
+		if len(os.Args) < 3 {
+			log.Fatal("❌ Missing IP address")
+		}
+		syncWhitelistMap(os.Args[2], true)
+	case "unallow":
+		// Remove an IP or CIDR from whitelist / 将 IP 或网段从白名单移除
+		if len(os.Args) < 3 {
+			log.Fatal("❌ Missing IP address")
+		}
+		syncWhitelistMap(os.Args[2], false)
 	case "list":
 		// List blocked ranges / 查看封禁列表
 		showLockList()
+	case "allow-list":
+		// List whitelisted ranges / 查看白名单列表
+		showWhitelist()
 	case "import":
 		// Import lock list from file / 从文件导入锁定列表
 		if len(os.Args) < 3 {
@@ -87,7 +102,10 @@ func usage() {
 	fmt.Println("  ./netxfw load xdp        # 加载 XDP 程序到网卡")
 	fmt.Println("  ./netxfw lock 1.2.3.4    # 封禁 IP 或网段 (如 192.168.1.0/24)")
 	fmt.Println("  ./netxfw unlock 1.2.3.4  # 解封 IP 或网段")
+	fmt.Println("  ./netxfw allow 1.2.3.4   # 将 IP 或网段加入白名单")
+	fmt.Println("  ./netxfw unallow 1.2.3.4 # 将 IP 或网段从白名单移除")
 	fmt.Println("  ./netxfw list            # 查看封禁 IP 列表及拦截统计")
+	fmt.Println("  ./netxfw allow-list      # 查看白名单 IP 列表")
 	fmt.Println("  ./netxfw import file.txt # 从文件导入锁定列表 IP 列表")
 	fmt.Println("  ./netxfw unload xdp      # 卸载 XDP 程序")
 }
@@ -238,6 +256,79 @@ func syncLockMap(cidrStr string, lock bool) {
 			log.Fatalf("❌ Failed to unlock %s: %v", cidrStr, err)
 		}
 		log.Printf("🔓 Unlocked: %s", cidrStr)
+	}
+}
+
+/**
+ * syncWhitelistMap interacts with pinned BPF maps to allow/unallow ranges.
+ * syncWhitelistMap 通过操作固定的 BPF Map 来允许或移除白名单网段。
+ */
+func syncWhitelistMap(cidrStr string, allow bool) {
+	mapPath := "/sys/fs/bpf/netxfw/whitelist"
+	if isIPv6(cidrStr) {
+		mapPath = "/sys/fs/bpf/netxfw/whitelist6"
+	}
+
+	// Load map from filesystem / 从文件系统加载 Map
+	m, err := ebpf.LoadPinnedMap(mapPath, nil)
+	if err != nil {
+		log.Fatalf("❌ Failed to load pinned map (is the server running?): %v", err)
+	}
+	defer m.Close()
+
+	if allow {
+		if err := xdp.AllowIP(m, cidrStr); err != nil {
+			log.Fatalf("❌ Failed to allow %s: %v", cidrStr, err)
+		}
+		log.Printf("⚪ Whitelisted: %s", cidrStr)
+	} else {
+		if err := xdp.UnlockIP(m, cidrStr); err != nil {
+			log.Fatalf("❌ Failed to unallow %s: %v", cidrStr, err)
+		}
+		log.Printf("❌ Removed from whitelist: %s", cidrStr)
+	}
+}
+
+/**
+ * showWhitelist reads and prints all whitelisted ranges.
+ * showWhitelist 读取并打印所有白名单中的网段。
+ */
+func showWhitelist() {
+	// List IPv4 whitelist / 列出 IPv4 白名单
+	m4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist", nil)
+	if err != nil {
+		log.Fatalf("❌ Failed to load IPv4 whitelist: %v", err)
+	}
+	defer m4.Close()
+
+	ips4, err := xdp.ListWhitelistedIPs(m4, false)
+	if err != nil {
+		log.Fatalf("❌ Failed to list IPv4 whitelisted IPs: %v", err)
+	}
+
+	// List IPv6 whitelist / 列出 IPv6 白名单
+	m6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist6", nil)
+	if err != nil {
+		log.Fatalf("❌ Failed to load IPv6 whitelist: %v", err)
+	}
+	defer m6.Close()
+
+	ips6, err := xdp.ListWhitelistedIPs(m6, true)
+	if err != nil {
+		log.Fatalf("❌ Failed to list IPv6 whitelisted IPs: %v", err)
+	}
+
+	if len(ips4) == 0 && len(ips6) == 0 {
+		fmt.Println("Empty whitelist.")
+		return
+	}
+
+	fmt.Println("⚪ Currently whitelisted IPs/ranges:")
+	for _, ip := range ips4 {
+		fmt.Printf(" - [IPv4] %s\n", ip)
+	}
+	for _, ip := range ips6 {
+		fmt.Printf(" - [IPv6] %s\n", ip)
 	}
 }
 

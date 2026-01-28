@@ -7,9 +7,12 @@
 | 命令 | 参数 | 描述 |
 | :--- | :--- | :--- |
 | `load xdp` | 无 | 启动服务，加载 BPF 程序到网卡 |
-| `lock` | `<IP>` | 将指定 IP (IPv4/IPv6) 加入锁定列表 |
-| `unlock` | `<IP>` | 从锁定列表中移除指定 IP |
+| `lock` | `<IP/CIDR>` | 将指定 IP 或网段加入锁定列表 |
+| `unlock` | `<IP/CIDR>` | 从锁定列表中移除指定 IP 或网段 |
+| `allow` | `<IP/CIDR>` | 将指定 IP 或网段加入白名单 |
+| `unallow` | `<IP/CIDR>` | 从白名单中移除指定 IP 或网段 |
 | `list` | 无 | 查看当前锁定列表中的 IP 及其丢包统计 |
+| `allow-list` | 无 | 查看当前白名单中的 IP 列表 |
 | `import` | `<FILE>` | 从文件批量导入 IP 到锁定列表 |
 | `unload xdp` | 无 | 提示如何卸载程序 |
 
@@ -59,7 +62,19 @@ sudo ./netxfw list
 sudo ./netxfw unlock 1.1.1.1
 ```
 
-### 5. 批量导入 (import)
+### 5. 白名单操作 (allow/unallow/allow-list)
+管理白名单，白名单中的 IP 将绕过所有封禁规则。
+- `allow`: 添加到白名单。
+- `unallow`: 从白名单移除。
+- `allow-list`: 查看当前白名单。
+
+```bash
+sudo ./netxfw allow 192.168.1.0/24
+sudo ./netxfw allow-list
+sudo ./netxfw unallow 192.168.1.0/24
+```
+
+### 6. 批量导入 (import)
 从文本文件中批量读取 IP 或 CIDR 并加入锁定列表。
 
 ```bash

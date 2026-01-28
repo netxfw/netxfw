@@ -122,7 +122,10 @@ rules:
 | :--- | :--- | :--- |
 | `lock` | 封禁指定 IP/网段 | `sudo netxfw lock 1.2.3.4` |
 | `unlock` | 解封指定 IP/网段 | `sudo netxfw unlock 1.2.3.4` |
+| `allow` | 将 IP/网段加入白名单 | `sudo netxfw allow 1.2.3.4` |
+| `unallow` | 将 IP/网段从白名单移除 | `sudo netxfw unallow 1.2.3.4` |
 | `list` | 查看当前封禁列表及统计 | `sudo netxfw list` |
+| `allow-list` | 查看当前白名单列表 | `sudo netxfw allow-list` |
 | `import` | 从文件批量导入锁定列表 | `sudo netxfw import ips.txt` |
 | `unload` | 卸载 XDP 程序 | `sudo netxfw unload xdp` |
 
