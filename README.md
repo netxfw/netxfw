@@ -1,6 +1,6 @@
 # netxfw — The eXtensible eBPF Firewall
 
-[![License](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/livp123/netxfw)](https://goreportcard.com/report/github.com/livp123/netxfw)
 [![Release](https://img.shields.io/github/v/release/livp123/netxfw)](https://github.com/livp123/netxfw/releases)
 
@@ -139,4 +139,4 @@ lock_list:
 
 ## 📄 开源协议
 
-本项目采用 [GPL-3.0](LICENSE) 协议开源。
+本项目采用 [MIT](LICENSE) 协议开源。

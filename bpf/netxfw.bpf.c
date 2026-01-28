@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: MIT
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
@@ -391,4 +391,4 @@ drop_packet:
     return XDP_DROP;
 }
 
-char _license[] SEC("license") = "GPL";
+char _license[] SEC("license") = "MIT";
