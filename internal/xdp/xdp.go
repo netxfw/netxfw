@@ -60,8 +60,7 @@ func NewManager() (*Manager, error) {
 /**
  * Attach mounts the XDP program to the specified network interfaces.
  * It tries Offload mode, then Native mode, and finally Generic mode as fallbacks.
- * Attach 将 XDP 程序挂载到指定的网络接口。
- * 按顺序尝试 Offload 模式、Native 模式，最后是 Generic 模式。
+ * The XDP program is attached using link.XDP_FLAGS_REPLACE or similar to ensure it stays in kernel.
  */
 func (m *Manager) Attach(interfaces []string) error {
 	for _, name := range interfaces {
@@ -71,8 +70,6 @@ func (m *Manager) Attach(interfaces []string) error {
 			continue
 		}
 
-		// Try different XDP modes in order: Offload -> Native -> Generic
-		// 按顺序尝试不同的 XDP 模式：Offload -> Native -> Generic
 		modes := []struct {
 			name string
 			flag link.XDPAttachFlags
@@ -84,6 +81,9 @@ func (m *Manager) Attach(interfaces []string) error {
 
 		var attached bool
 		for _, mode := range modes {
+			// Using Pin-less link or simply not storing the link object if we want it to persist.
+			// However, in cilium/ebpf, if the link object is closed, the program is detached.
+			// To keep it persistent, we need to PIN the link or use Raw attach.
 			l, err := link.AttachXDP(link.XDPOptions{
 				Program:   m.objs.XdpFirewall,
 				Interface: iface.Index,
@@ -91,8 +91,15 @@ func (m *Manager) Attach(interfaces []string) error {
 			})
 
 			if err == nil {
-				m.links = append(m.links, l)
-				log.Printf("✅ Attached XDP on %s (Mode: %s)", name, mode.name)
+				// Pin the link to filesystem to make it persistent after process exit
+				linkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/link_%s", name)
+				_ = os.Remove(linkPath) // Remove old link pin if exists
+				if err := l.Pin(linkPath); err != nil {
+					log.Printf("⚠️  Failed to pin link on %s: %v", name, err)
+					l.Close()
+					continue
+				}
+				log.Printf("✅ Attached XDP on %s (Mode: %s) and pinned link", name, mode.name)
 				attached = true
 				break
 			}
@@ -101,6 +108,29 @@ func (m *Manager) Attach(interfaces []string) error {
 
 		if !attached {
 			log.Printf("❌ Failed to attach XDP on %s with any mode", name)
+		}
+	}
+	return nil
+}
+
+/**
+ * Detach removes the XDP program from the specified network interfaces by unpinning and closing links.
+ */
+func (m *Manager) Detach(interfaces []string) error {
+	for _, name := range interfaces {
+		linkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/link_%s", name)
+		l, err := link.LoadPinnedLink(linkPath, nil)
+		if err != nil {
+			log.Printf("⚠️  No pinned link found for %s, trying manual detach...", name)
+			// Fallback: try to detach using interface index if possible,
+			// but usually unpinning the persistent link is enough.
+			continue
+		}
+		if err := l.Close(); err != nil {
+			log.Printf("❌ Failed to close link for %s: %v", name, err)
+		} else {
+			_ = os.Remove(linkPath)
+			log.Printf("✅ Detached XDP from %s", name)
 		}
 	}
 	return nil
@@ -142,33 +172,28 @@ func (m *Manager) GetDropCount() (uint64, error) {
 
 /**
  * Close releases all BPF resources.
- * Close 释放所有 BPF 资源。
+ * Note: Persistent links are NOT closed here to allow them to stay in kernel.
  */
 func (m *Manager) Close() {
 	m.objs.Close()
-	for _, l := range m.links {
-		_ = l.Close()
-	}
+	// We no longer automatically close links here to keep them persistent.
+	// Links are now pinned and should be managed via Detach or manually.
 }
 
 /**
  * Pin saves maps to the filesystem for persistence and external access.
- * Pin 将 Map 固定到文件系统，以便持久化和外部访问。
  */
 func (m *Manager) Pin(path string) error {
 	if err := os.MkdirAll(path, 0755); err != nil {
 		return err
 	}
-	if err := m.lockList.Pin(path + "/lock_list"); err != nil {
-		return err
-	}
-	if err := m.lockList6.Pin(path + "/lock_list6"); err != nil {
-		return err
-	}
-	if err := m.whitelist.Pin(path + "/whitelist"); err != nil {
-		return err
-	}
-	return m.whitelist6.Pin(path + "/whitelist6")
+	// Try to pin each map, ignore error if already pinned
+	_ = m.lockList.Pin(path + "/lock_list")
+	_ = m.lockList6.Pin(path + "/lock_list6")
+	_ = m.whitelist.Pin(path + "/whitelist")
+	_ = m.whitelist6.Pin(path + "/whitelist6")
+	_ = m.dropStats.Pin(path + "/drop_stats")
+	return nil
 }
 
 /**

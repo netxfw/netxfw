@@ -44,7 +44,10 @@ func main() {
 			usage()
 			return
 		}
-		runServer()
+		installXDP()
+	case "daemon":
+		// Start daemon for metrics and sync / 启动常驻进程
+		runDaemon()
 	case "lock":
 		// Block an IP or CIDR / 封禁 IP 或网段
 		if len(os.Args) < 3 {
@@ -87,7 +90,7 @@ func main() {
 			usage()
 			return
 		}
-		unloadXDP()
+		removeXDP()
 	default:
 		usage()
 	}
@@ -99,7 +102,8 @@ func main() {
  */
 func usage() {
 	fmt.Println("Usage:")
-	fmt.Println("  ./netxfw load xdp        # 加载 XDP 程序到网卡")
+	fmt.Println("  ./netxfw load xdp        # 安装 XDP 程序到内核 (安装即退出)")
+	fmt.Println("  ./netxfw daemon          # 启动后台进程 (监控指标与同步规则)")
 	fmt.Println("  ./netxfw lock 1.2.3.4    # 封禁 IP 或网段 (如 192.168.1.0/24)")
 	fmt.Println("  ./netxfw unlock 1.2.3.4  # 解封 IP 或网段")
 	fmt.Println("  ./netxfw allow 1.2.3.4   # 将 IP 或网段加入白名单")
@@ -107,35 +111,13 @@ func usage() {
 	fmt.Println("  ./netxfw list            # 查看封禁 IP 列表及拦截统计")
 	fmt.Println("  ./netxfw allow-list      # 查看白名单 IP 列表")
 	fmt.Println("  ./netxfw import file.txt # 从文件导入锁定列表 IP 列表")
-	fmt.Println("  ./netxfw unload xdp      # 卸载 XDP 程序")
+	fmt.Println("  ./netxfw unload xdp      # 从网卡卸载 XDP 程序")
 }
 
 /**
- * runServer initializes the XDP manager and starts the metrics server.
- * runServer 初始化 XDP 管理器并启动指标服务。
+ * installXDP initializes the XDP manager and mounts the program to interfaces, then exits.
  */
-func runServer() {
-	// Try loading config, priority: /etc/netxfw/config.yaml > rules/default.yaml
-	// 尝试加载配置，优先级：/etc/netxfw/config.yaml > rules/default.yaml
-	configPath := "/etc/netxfw/config.yaml"
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		configPath = "rules/default.yaml"
-	}
-
-	cfg, err := LoadConfig(configPath)
-	if err != nil {
-		log.Printf("⚠️ Failed to load config from %s: %v, using defaults", configPath, err)
-	} else {
-		log.Printf("📖 Loaded %d rules and %d whitelisted IPs from %s", len(cfg.Rules), len(cfg.Whitelist), configPath)
-	}
-
-	// Metrics port / 指标服务端口
-	metricsAddr := ":9100"
-	if cfg != nil && cfg.MetricsPort > 0 {
-		metricsAddr = fmt.Sprintf(":%d", cfg.MetricsPort)
-	}
-
-	// Get all physical interfaces / 获取所有物理网卡
+func installXDP() {
 	interfaces, err := xdp.GetPhysicalInterfaces()
 	if err != nil {
 		log.Fatalf("❌ Failed to get interfaces: %v", err)
@@ -144,26 +126,53 @@ func runServer() {
 		log.Fatal("❌ No physical interfaces found")
 	}
 
-	// Initialize XDP Manager / 初始化 XDP 管理器
+	manager, err := xdp.NewManager()
+	if err != nil {
+		log.Fatalf("❌ Failed to create XDP manager: %v", err)
+	}
+
+	if err := manager.Pin("/sys/fs/bpf/netxfw"); err != nil {
+		log.Fatalf("❌ Failed to pin maps: %v", err)
+	}
+
+	if err := manager.Attach(interfaces); err != nil {
+		log.Fatalf("❌ Failed to attach XDP: %v", err)
+	}
+
+	log.Println("🚀 XDP program installed successfully and pinned to /sys/fs/bpf/netxfw")
+	log.Println("✨ You can now start the daemon with './netxfw daemon' or use CLI to manage rules.")
+}
+
+/**
+ * runDaemon starts the background process for metrics and rule synchronization.
+ */
+func runDaemon() {
+	configPath := "/etc/netxfw/config.yaml"
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		configPath = "rules/default.yaml"
+	}
+
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		log.Printf("⚠️ Failed to load config from %s: %v, using defaults", configPath, err)
+	}
+
+	metricsAddr := ":9100"
+	if cfg != nil && cfg.MetricsPort > 0 {
+		metricsAddr = fmt.Sprintf(":%d", cfg.MetricsPort)
+	}
+
 	manager, err := xdp.NewManager()
 	if err != nil {
 		log.Fatalf("❌ Failed to create XDP manager: %v", err)
 	}
 	defer manager.Close()
 
-	// Pin maps for external control (CLI) / 固定 Map 到文件系统以供 CLI 访问
 	if err := manager.Pin("/sys/fs/bpf/netxfw"); err != nil {
-		log.Fatalf("❌ Failed to pin maps: %v", err)
-	}
-	defer manager.Unpin("/sys/fs/bpf/netxfw")
-
-	// Attach XDP to all interfaces / 将 XDP 程序挂载到所有网卡
-	if err := manager.Attach(interfaces); err != nil {
-		log.Fatalf("❌ Failed to attach XDP: %v", err)
+		log.Printf("⚠️  Map pinning warning: %v", err)
 	}
 
-	// Load whitelisted ranges from config / 从配置中加载白名单网段
-	if cfg != nil && len(cfg.Whitelist) > 0 {
+	if cfg != nil {
 		for _, ipStr := range cfg.Whitelist {
 			var targetMap *ebpf.Map
 			if !isIPv6(ipStr) {
@@ -171,62 +180,69 @@ func runServer() {
 			} else {
 				targetMap = manager.Whitelist6()
 			}
-
-			if err := xdp.AllowIP(targetMap, ipStr); err != nil {
-				log.Printf("❌ Failed to add %s to whitelist: %v", ipStr, err)
-			} else {
-				log.Printf("⚪ Whitelisted: %s", ipStr)
+			if err := xdp.AllowIP(targetMap, ipStr); err == nil {
+				log.Printf("⚪ Whitelisted (from config): %s", ipStr)
 			}
 		}
-	}
 
-	// Load locked ranges from config or file / 从配置或文件中加载封禁网段
-	if cfg != nil {
 		lockListPath := cfg.LockListFile
-		// If not specified in config, check default path / 如果配置中未指定，则检查默认路径
 		if lockListPath == "" {
 			defaultPath := "/etc/netxfw/lock.conf"
 			if _, err := os.Stat(defaultPath); err == nil {
 				lockListPath = defaultPath
 			}
 		}
-
 		if lockListPath != "" {
 			loadLockListFromFile(manager, lockListPath)
 		}
-
-		// 2. Load from rules (future expansion) / 从规则中加载（后续扩展）
-		/*
-			if len(cfg.Rules) > 0 {
-				// ...
-			}
-		*/
 	}
 
-	// Start Prometheus metrics server / 启动 Prometheus 指标服务
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
 		log.Printf("📊 Metrics server listening on %s", metricsAddr)
 
-		// Periodic metrics update / 定期更新统计指标
-		go func() {
-			ticker := time.NewTicker(1 * time.Second)
-			for range ticker.C {
-				count, err := manager.GetDropCount()
-				if err == nil {
-					UpdateMetrics(count)
-				}
+		ticker := time.NewTicker(2 * time.Second)
+		for range ticker.C {
+			count, err := manager.GetDropCount()
+			if err == nil {
+				UpdateMetrics(count)
 			}
-		}()
-
+		}
 		log.Fatal(http.ListenAndServe(metricsAddr, nil))
 	}()
 
-	// Wait for exit signal (Ctrl+C, etc) / 等待退出信号
+	log.Println("🛡️ Daemon is running. Monitoring metrics and managing rules...")
+
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
-	log.Println("👋 Shutting down...")
+	log.Println("👋 Daemon shutting down (XDP program remains in kernel)...")
+}
+
+/**
+ * removeXDP detaches the XDP program from all interfaces and unpins everything.
+ */
+func removeXDP() {
+	interfaces, err := xdp.GetPhysicalInterfaces()
+	if err != nil {
+		log.Fatalf("❌ Failed to get interfaces: %v", err)
+	}
+
+	manager, err := xdp.NewManager()
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager for removal: %v", err)
+	}
+	defer manager.Close()
+
+	if err := manager.Detach(interfaces); err != nil {
+		log.Printf("⚠️  Some interfaces failed to detach: %v", err)
+	}
+
+	if err := manager.Unpin("/sys/fs/bpf/netxfw"); err != nil {
+		log.Printf("⚠️  Unpin warning: %v", err)
+	}
+
+	log.Println("✅ XDP program removed and cleanup completed.")
 }
 
 /**
@@ -242,7 +258,7 @@ func syncLockMap(cidrStr string, lock bool) {
 	// Load map from filesystem / 从文件系统加载 Map
 	m, err := ebpf.LoadPinnedMap(mapPath, nil)
 	if err != nil {
-		log.Fatalf("❌ Failed to load pinned map (is the server running?): %v", err)
+		log.Fatalf("❌ Failed to load pinned map (is the daemon running?): %v", err)
 	}
 	defer m.Close()
 
@@ -272,7 +288,7 @@ func syncWhitelistMap(cidrStr string, allow bool) {
 	// Load map from filesystem / 从文件系统加载 Map
 	m, err := ebpf.LoadPinnedMap(mapPath, nil)
 	if err != nil {
-		log.Fatalf("❌ Failed to load pinned map (is the server running?): %v", err)
+		log.Fatalf("❌ Failed to load pinned map (is the daemon running?): %v", err)
 	}
 	defer m.Close()
 
@@ -429,18 +445,17 @@ func loadLockListFromFile(manager *xdp.Manager, filePath string) {
 
 /**
  * importLockListFromFile reads IPs/CIDRs from a file and loads them into pinned BPF maps.
- * importLockListFromFile 从文件中读取 IP/CIDR 并加载到固定的 BPF Map 中。
  */
 func importLockListFromFile(filePath string) {
 	m4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
 	if err != nil {
-		log.Fatalf("❌ Failed to load IPv4 lock list (is the server running?): %v", err)
+		log.Fatalf("❌ Failed to load IPv4 lock list (is the daemon running?): %v", err)
 	}
 	defer m4.Close()
 
 	m6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list6", nil)
 	if err != nil {
-		log.Fatalf("❌ Failed to load IPv6 lock list (is the server running?): %v", err)
+		log.Fatalf("❌ Failed to load IPv6 lock list (is the daemon running?): %v", err)
 	}
 	defer m6.Close()
 
