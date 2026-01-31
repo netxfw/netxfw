@@ -1,21 +1,29 @@
 package types
 
 type GlobalConfig struct {
-	Base    BaseConfig    `yaml:"base"`
-	Metrics MetricsConfig `yaml:"metrics"`
-	Port    PortConfig    `yaml:"port"`
+	Base      BaseConfig      `yaml:"base"`
+	Metrics   MetricsConfig   `yaml:"metrics"`
+	Port      PortConfig      `yaml:"port"`
+	Conntrack ConntrackConfig `yaml:"conntrack"`
 }
 
 type BaseConfig struct {
 	DefaultDeny        bool     `yaml:"default_deny"`
-	AllowReturnTraffic bool     `yaml:"allow_return_traffic"`
+	AllowReturnTraffic bool     `yaml:"allow_return_traffic"` // Stateless check (ACK + Port range)
 	AllowICMP          bool     `yaml:"allow_icmp"`
 	Whitelist          []string `yaml:"whitelist"`
-	LockListFile    string   `yaml:"lock_list_file"`    // rules.deny.txt
-	LockListBinary  string   `yaml:"lock_list_binary"`  // rules.deny.bin.zst
-	EnableExpiry    bool     `yaml:"enable_expiry"`    // 是否开启规则过期
-	CleanupInterval string   `yaml:"cleanup_interval"` // 规则清理频率，例如 "1m", "1h"
-	PersistRules    bool     `yaml:"persist_rules"`    // 是否持久化规则到文件
+	LockListFile    string   `yaml:"lock_list_file"`
+	LockListBinary  string   `yaml:"lock_list_binary"`
+	EnableExpiry    bool     `yaml:"enable_expiry"`
+	CleanupInterval string   `yaml:"cleanup_interval"`
+	PersistRules    bool     `yaml:"persist_rules"`
+}
+
+type ConntrackConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	MaxEntries int `yaml:"max_entries"`
+	TCPTimeout string `yaml:"tcp_timeout"`
+	UDPTimeout string `yaml:"udp_timeout"`
 }
 
 type MetricsConfig struct {

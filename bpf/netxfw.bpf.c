@@ -8,6 +8,51 @@
 #include <linux/in.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+#include <linux/pkt_cls.h>
+
+/**
+ * Conntrack (Connection Tracking) structures
+ * 连接追踪结构体
+ */
+struct ct_key {
+    __u32 src_ip;
+    __u32 dst_ip;
+    __u16 src_port;
+    __u16 dst_port;
+    __u8  protocol;
+    __u8  _pad[3]; // Explicit padding for alignment
+} __attribute__((packed));
+
+struct ct_key6 {
+    struct in6_addr src_ip;
+    struct in6_addr dst_ip;
+    __u16 src_port;
+    __u16 dst_port;
+    __u8  protocol;
+    __u8  _pad[3]; // Explicit padding for alignment
+} __attribute__((packed));
+
+struct ct_value {
+    __u64 last_seen;
+};
+
+/**
+ * Conntrack map: stores active connections using LRU for auto-eviction
+ * 连接追踪 Map：使用 LRU 存储活跃连接，支持自动驱逐
+ */
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 100000);
+    __type(key, struct ct_key);
+    __type(value, struct ct_value);
+} conntrack_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 100000);
+    __type(key, struct ct_key6);
+    __type(value, struct ct_value);
+} conntrack_map6 SEC(".maps");
 
 /**
  * LPM (Longest Prefix Match) structures for CIDR matching
@@ -146,6 +191,8 @@ struct {
 #define CONFIG_DEFAULT_DENY 0
 #define CONFIG_ALLOW_RETURN_TRAFFIC 1
 #define CONFIG_ALLOW_ICMP 2
+#define CONFIG_ENABLE_CONNTRACK 3
+#define CONFIG_CONNTRACK_TIMEOUT 4
 
 /**
  * Helper to check if an IPv4 address is whitelisted
@@ -258,12 +305,33 @@ int xdp_firewall(struct xdp_md *ctx) {
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
 
-    // Ethernet header check / 以太网头部检查
+    // ethernet header check / 以太网头部检查
     struct ethhdr *eth = data;
     if (data + sizeof(*eth) > data_end)
         return XDP_PASS;
 
     __u16 h_proto = eth->h_proto;
+
+    // Cache config values to reduce map lookups
+    __u32 ct_enabled = 0;
+    __u32 *ct_ptr = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ENABLE_CONNTRACK});
+    if (ct_ptr) ct_enabled = *ct_ptr;
+
+    __u32 allow_icmp = 0;
+    __u32 *icmp_ptr = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ALLOW_ICMP});
+    if (icmp_ptr) allow_icmp = *icmp_ptr;
+
+    __u32 allow_return = 0;
+    __u32 *return_ptr = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ALLOW_RETURN_TRAFFIC});
+    if (return_ptr) allow_return = *return_ptr;
+
+    __u32 default_deny = 0;
+    __u32 *deny_ptr = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_DEFAULT_DENY});
+    if (deny_ptr) default_deny = *deny_ptr;
+
+    __u64 ct_timeout = 3600000000000ULL; // Default 1 hour in ns
+    __u64 *timeout_ptr = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_CONNTRACK_TIMEOUT});
+    if (timeout_ptr) ct_timeout = *timeout_ptr;
 
     // Handle IPv4 / 处理 IPv4
     if (h_proto == bpf_htons(ETH_P_IP)) {
@@ -273,16 +341,37 @@ int xdp_firewall(struct xdp_md *ctx) {
 
         // Extract port first to support port-specific whitelist
         // 首先提取端口，以支持特定端口的白名单校验
+        __u16 src_port = 0;
         __u16 dest_port = 0;
         if (ip->protocol == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip + sizeof(*ip);
             if ((void *)tcp + sizeof(*tcp) <= data_end) {
+                src_port = bpf_ntohs(tcp->source);
                 dest_port = bpf_ntohs(tcp->dest);
             }
         } else if (ip->protocol == IPPROTO_UDP) {
             struct udphdr *udp = (void *)ip + sizeof(*ip);
             if ((void *)udp + sizeof(*udp) <= data_end) {
+                src_port = bpf_ntohs(udp->source);
                 dest_port = bpf_ntohs(udp->dest);
+            }
+        }
+
+        // 0. Check Conntrack (Stateful) / 检查连接追踪（有状态）
+        if (ct_enabled == 1) {
+            struct ct_key look_key = {
+                .src_ip = ip->daddr,
+                .dst_ip = ip->saddr,
+                .src_port = dest_port,
+                .dst_port = src_port,
+                .protocol = ip->protocol,
+            };
+            struct ct_value *ct_val = bpf_map_lookup_elem(&conntrack_map, &look_key);
+            if (ct_val) {
+                // Security check: dynamic timeout
+                if (bpf_ktime_get_ns() - ct_val->last_seen < ct_timeout) {
+                    return XDP_PASS;
+                }
             }
         }
 
@@ -308,19 +397,13 @@ int xdp_firewall(struct xdp_md *ctx) {
 
         // 3.4 Check for ICMP / 检查 ICMP 流量
         if (ip->protocol == IPPROTO_ICMP) {
-            __u32 icmp_key = CONFIG_ALLOW_ICMP;
-            __u32 *allow_icmp = bpf_map_lookup_elem(&global_config, &icmp_key);
-            if (allow_icmp && *allow_icmp == 1) {
+            if (allow_icmp == 1) {
                 return XDP_PASS;
             }
-            // If default deny is on and ICMP is not explicitly allowed, it will be dropped in step 4
-            // 如果默认拒绝开启且 ICMP 未显式允许，它将在第 4 步被拦截
         }
 
         // 3.5 Check for return traffic / 检查回包流量
-        __u32 return_traffic_key = CONFIG_ALLOW_RETURN_TRAFFIC;
-        __u32 *allow_return = bpf_map_lookup_elem(&global_config, &return_traffic_key);
-        if (allow_return && *allow_return == 1) {
+        if (allow_return == 1) {
             if (ip->protocol == IPPROTO_TCP) {
                 struct tcphdr *tcp = (void *)ip + sizeof(*ip);
                 if ((void *)tcp + sizeof(*tcp) <= data_end) {
@@ -340,12 +423,9 @@ int xdp_firewall(struct xdp_md *ctx) {
         }
 
         // 4. Check Default Deny and Port Allow List / 检查默认拒绝和端口白名单
-        __u32 config_key = CONFIG_DEFAULT_DENY;
-        __u32 *default_deny = bpf_map_lookup_elem(&global_config, &config_key);
-
         if (dest_port > 0) {
             // Then check global allowed ports if default deny is on / 如果开启了默认拒绝，再检查全局允许端口
-            if (default_deny && *default_deny == 1) {
+            if (default_deny == 1) {
                 struct rule_value *port_allowed = bpf_map_lookup_elem(&allowed_ports, &dest_port);
                 if (port_allowed) {
                     return XDP_PASS;
@@ -361,16 +441,37 @@ int xdp_firewall(struct xdp_md *ctx) {
             return XDP_PASS;
 
         // Extract port first
+        __u16 src_port = 0;
         __u16 dest_port = 0;
         if (ip6->nexthdr == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
             if ((void *)tcp + sizeof(*tcp) <= data_end) {
+                src_port = bpf_ntohs(tcp->source);
                 dest_port = bpf_ntohs(tcp->dest);
             }
         } else if (ip6->nexthdr == IPPROTO_UDP) {
             struct udphdr *udp = (void *)ip6 + sizeof(*ip6);
             if ((void *)udp + sizeof(*udp) <= data_end) {
+                src_port = bpf_ntohs(udp->source);
                 dest_port = bpf_ntohs(udp->dest);
+            }
+        }
+
+        // 0. Check Conntrack (Stateful) / 检查连接追踪（有状态）
+        if (ct_enabled == 1) {
+            struct ct_key6 look_key = {
+                .src_ip = ip6->daddr,
+                .dst_ip = ip6->saddr,
+                .src_port = dest_port,
+                .dst_port = src_port,
+                .protocol = ip6->nexthdr,
+            };
+            struct ct_value *ct_val = bpf_map_lookup_elem(&conntrack_map6, &look_key);
+            if (ct_val) {
+                // Security check: dynamic timeout
+                if (bpf_ktime_get_ns() - ct_val->last_seen < ct_timeout) {
+                    return XDP_PASS;
+                }
             }
         }
 
@@ -396,17 +497,13 @@ int xdp_firewall(struct xdp_md *ctx) {
 
         // 3.4 Check for ICMPv6 / 检查 ICMPv6 流量
         if (ip6->nexthdr == IPPROTO_ICMPV6) {
-            __u32 icmp_key = CONFIG_ALLOW_ICMP;
-            __u32 *allow_icmp = bpf_map_lookup_elem(&global_config, &icmp_key);
-            if (allow_icmp && *allow_icmp == 1) {
+            if (allow_icmp == 1) {
                 return XDP_PASS;
             }
         }
 
         // 3.5 Check for return traffic / 检查回包流量
-        __u32 return_traffic_key = CONFIG_ALLOW_RETURN_TRAFFIC;
-        __u32 *allow_return = bpf_map_lookup_elem(&global_config, &return_traffic_key);
-        if (allow_return && *allow_return == 1) {
+        if (allow_return == 1) {
             if (ip6->nexthdr == IPPROTO_TCP) {
                 struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
                 if ((void *)tcp + sizeof(*tcp) <= data_end) {
@@ -422,12 +519,9 @@ int xdp_firewall(struct xdp_md *ctx) {
         }
 
         // 4. Check Default Deny and Port Allow List / 检查默认拒绝和端口白名单
-        __u32 config_key = CONFIG_DEFAULT_DENY;
-        __u32 *default_deny = bpf_map_lookup_elem(&global_config, &config_key);
-
         if (dest_port > 0) {
             // Then check global allowed ports if default deny is on / 如果开启了默认拒绝，再检查全局允许端口
-            if (default_deny && *default_deny == 1) {
+            if (default_deny == 1) {
                 struct rule_value *port_allowed = bpf_map_lookup_elem(&allowed_ports, &dest_port);
                 if (port_allowed) {
                     return XDP_PASS;
@@ -449,6 +543,106 @@ drop_packet:
         }
     }
     return XDP_DROP;
+}
+
+/**
+ * TC Egress program for connection tracking
+ * 用于连接追踪的 TC 出站程序
+ */
+SEC("classifier")
+int tc_egress(struct __sk_buff *skb) {
+    void *data = (void *)(long)skb->data;
+    void *data_end = (void *)(long)skb->data_end;
+
+    // Check if conntrack is enabled
+    __u32 key = CONFIG_ENABLE_CONNTRACK;
+    __u32 *enabled = bpf_map_lookup_elem(&global_config, &key);
+    if (!enabled || *enabled != 1) {
+        return TC_ACT_OK;
+    }
+
+    struct ethhdr *eth = data;
+    if (data + sizeof(*eth) > data_end)
+        return TC_ACT_OK;
+
+    __u16 src_port = 0, dst_port = 0;
+
+    // Handle IPv4
+    if (eth->h_proto == bpf_htons(ETH_P_IP)) {
+        struct iphdr *ip = data + sizeof(*eth);
+        if (data + sizeof(*eth) + sizeof(*ip) > data_end)
+            return TC_ACT_OK;
+
+        if (ip->protocol == IPPROTO_TCP) {
+            struct tcphdr *tcp = (void *)ip + sizeof(*ip);
+            if ((void *)tcp + sizeof(*tcp) <= data_end) {
+                src_port = bpf_ntohs(tcp->source);
+                dst_port = bpf_ntohs(tcp->dest);
+            }
+        } else if (ip->protocol == IPPROTO_UDP) {
+            struct udphdr *udp = (void *)ip + sizeof(*ip);
+            if ((void *)udp + sizeof(*udp) <= data_end) {
+                src_port = bpf_ntohs(udp->source);
+                dst_port = bpf_ntohs(udp->dest);
+            }
+        }
+
+        if (src_port == 0 || dst_port == 0)
+            return TC_ACT_OK;
+
+        struct ct_key ct_key = {
+            .src_ip = ip->saddr,
+            .dst_ip = ip->daddr,
+            .src_port = src_port,
+            .dst_port = dst_port,
+            .protocol = ip->protocol,
+        };
+
+        struct ct_value ct_val = {
+            .last_seen = bpf_ktime_get_ns(),
+        };
+
+        bpf_map_update_elem(&conntrack_map, &ct_key, &ct_val, BPF_ANY);
+    }
+    // Handle IPv6
+    else if (eth->h_proto == bpf_htons(ETH_P_IPV6)) {
+        struct ipv6hdr *ip6 = data + sizeof(*eth);
+        if (data + sizeof(*eth) + sizeof(*ip6) > data_end)
+            return TC_ACT_OK;
+
+        if (ip6->nexthdr == IPPROTO_TCP) {
+            struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
+            if ((void *)tcp + sizeof(*tcp) <= data_end) {
+                src_port = bpf_ntohs(tcp->source);
+                dst_port = bpf_ntohs(tcp->dest);
+            }
+        } else if (ip6->nexthdr == IPPROTO_UDP) {
+            struct udphdr *udp = (void *)ip6 + sizeof(*ip6);
+            if ((void *)udp + sizeof(*udp) <= data_end) {
+                src_port = bpf_ntohs(udp->source);
+                dst_port = bpf_ntohs(udp->dest);
+            }
+        }
+
+        if (src_port == 0 || dst_port == 0)
+            return TC_ACT_OK;
+
+        struct ct_key6 ct_key = {
+            .src_ip = ip6->saddr,
+            .dst_ip = ip6->daddr,
+            .src_port = src_port,
+            .dst_port = dst_port,
+            .protocol = ip6->nexthdr,
+        };
+
+        struct ct_value ct_val = {
+            .last_seen = bpf_ktime_get_ns(),
+        };
+
+        bpf_map_update_elem(&conntrack_map6, &ct_key, &ct_val, BPF_ANY);
+    }
+
+    return TC_ACT_OK;
 }
 
 char _license[] SEC("license") = "Dual MIT/GPL";

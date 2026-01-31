@@ -108,6 +108,46 @@ func showWhitelist(limit int, search string) {
 }
 
 /**
+ * showConntrack reads and prints all active connections.
+ */
+func showConntrack() {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+	defer m.Close()
+
+	entries, err := m.ListConntrackEntries()
+	if err != nil {
+		log.Fatalf("❌ Failed to list conntrack entries: %v", err)
+	}
+
+	fmt.Println("🕵️  Active Connections (Conntrack):")
+	if len(entries) == 0 {
+		fmt.Println(" - No active connections.")
+		return
+	}
+
+	fmt.Printf("%-40s %-5s %-40s %-5s %-8s\n", "Source", "Port", "Destination", "Port", "Protocol")
+	fmt.Println(strings.Repeat("-", 110))
+
+	// Sort entries for better display
+	// In a real scenario, we might want to group by src/dst
+	for _, e := range entries {
+		proto := "TCP"
+		if e.Protocol == 17 {
+			proto = "UDP"
+		} else if e.Protocol == 1 {
+			proto = "ICMP"
+		} else if e.Protocol == 58 {
+			proto = "ICMPv6"
+		}
+		fmt.Printf("%-40s %-5d %-40s %-5d %-8s\n", e.SrcIP, e.SrcPort, e.DstIP, e.DstPort, proto)
+	}
+	fmt.Printf("\nTotal active connections: %d\n", len(entries))
+}
+
+/**
  * showLockList reads and prints all blocked ranges and their stats.
  */
 func showLockList(limit int, search string) {
@@ -276,6 +316,16 @@ func showStatus() {
 			status = "Enabled"
 		}
 		fmt.Printf("🏓 Allow ICMP (Ping): %s\n", status)
+	}
+
+	// Check conntrack
+	key = 3 // CONFIG_ENABLE_CONNTRACK
+	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
+		status := "Disabled"
+		if val == 1 {
+			status = "Enabled"
+		}
+		fmt.Printf("🕵️  Connection Tracking: %s\n", status)
 	}
 
 	// Check attached interfaces

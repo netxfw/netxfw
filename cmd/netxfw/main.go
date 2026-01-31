@@ -65,6 +65,10 @@ func main() {
 	case "system":
 		handleSystemCommand(os.Args[2:])
 
+	// --- 连接追踪 (conntrack) ---
+	case "conntrack":
+		showConntrack()
+
 	// --- 快捷方式 & 兼容旧命令 ---
 	case "lock":
 		if len(os.Args) < 3 {
@@ -318,4 +322,7 @@ func printUsage() {
 	fmt.Println("  --- 端口管理 (port) ---")
 	fmt.Println("  ./netxfw port add <port>    # 全局放行端口")
 	fmt.Println("  ./netxfw port remove <port> # 移除全局放行")
+	fmt.Println("")
+	fmt.Println("  --- 连接追踪 (conntrack) ---")
+	fmt.Println("  ./netxfw conntrack          # 查看当前活跃连接")
 }

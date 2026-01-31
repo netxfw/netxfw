@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -17,6 +18,14 @@ import (
 
 // Generate Go bindings for the BPF program / 为 BPF 程序生成 Go 绑定
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang NetXfw ../../bpf/netxfw.bpf.c -- -I../../bpf
+
+const (
+	configDefaultDeny        = 0
+	configAllowReturnTraffic = 1
+	configAllowICMP          = 2
+	configEnableConntrack    = 3
+	configConntrackTimeout   = 4
+)
 
 /**
  * Manager handles the lifecycle of eBPF objects and links.
@@ -34,6 +43,8 @@ type Manager struct {
 	ipPortRules6 *ebpf.Map
 	globalConfig *ebpf.Map
 	dropStats    *ebpf.Map
+	conntrackMap *ebpf.Map
+	conntrackMap6 *ebpf.Map
 }
 
 // LPM Key structures matching BPF definitions / 匹配 BPF 定义的 LPM Key 结构体
@@ -84,6 +95,8 @@ func NewManager() (*Manager, error) {
 		ipPortRules6: objs.IpPortRules6,
 		globalConfig: objs.GlobalConfig,
 		dropStats:    objs.DropStats,
+		conntrackMap: objs.ConntrackMap,
+		conntrackMap6: objs.ConntrackMap6,
 	}, nil
 }
 
@@ -136,6 +149,14 @@ func NewManagerFromPins(path string) (*Manager, error) {
 	if m.dropStats, err = ebpf.LoadPinnedMap(path+"/drop_stats", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned drop_stats: %v", err)
 		m.dropStats = objs.DropStats
+	}
+	if m.conntrackMap, err = ebpf.LoadPinnedMap(path+"/conntrack_map", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned conntrack_map: %v", err)
+		m.conntrackMap = objs.ConntrackMap
+	}
+	if m.conntrackMap6, err = ebpf.LoadPinnedMap(path+"/conntrack_map6", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned conntrack_map6: %v", err)
+		m.conntrackMap6 = objs.ConntrackMap6
 	}
 
 	return m, nil
@@ -190,6 +211,29 @@ func (m *Manager) Attach(interfaces []string) error {
 			log.Printf("⚠️  Failed to attach XDP on %s using %s mode: %v", name, mode.name, err)
 		}
 
+		// Attach TC for egress tracking (required for Conntrack)
+		// 1. Ensure clsact qdisc exists
+		_ = exec.Command("tc", "qdisc", "add", "dev", name, "clsact").Run()
+
+		// 2. Attach TC program
+		tcLink, err := link.AttachTCX(link.TCXOptions{
+			Program:   m.objs.TcEgress,
+			Interface: iface.Index,
+			Attach:    ebpf.AttachTCXEgress,
+		})
+		if err == nil {
+			tcLinkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/tc_link_%s", name)
+			_ = os.Remove(tcLinkPath)
+			if err := tcLink.Pin(tcLinkPath); err != nil {
+				log.Printf("⚠️  Failed to pin TC link on %s: %v", name, err)
+				tcLink.Close()
+			} else {
+				log.Printf("✅ Attached TC Egress on %s and pinned link", name)
+			}
+		} else {
+			log.Printf("⚠️  Failed to attach TC Egress on %s: %v (Conntrack will not work for this interface)", name, err)
+		}
+
 		if !attached {
 			log.Printf("❌ Failed to attach XDP on %s with any mode", name)
 		}
@@ -215,6 +259,17 @@ func (m *Manager) Detach(interfaces []string) error {
 		} else {
 			_ = os.Remove(linkPath)
 			log.Printf("✅ Detached XDP from %s", name)
+		}
+
+		// Detach TC link
+		tcLinkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/tc_link_%s", name)
+		if tl, err := link.LoadPinnedLink(tcLinkPath, nil); err == nil {
+			if err := tl.Close(); err != nil {
+				log.Printf("❌ Failed to close TC link for %s: %v", name, err)
+			} else {
+				_ = os.Remove(tcLinkPath)
+				log.Printf("✅ Detached TC Egress from %s", name)
+			}
 		}
 	}
 	return nil
@@ -282,6 +337,27 @@ func (m *Manager) SetAllowReturnTraffic(enable bool) error {
  */
 func (m *Manager) SetAllowICMP(enable bool) error {
 	var key uint32 = 2 // CONFIG_ALLOW_ICMP
+	var val uint32 = 0
+	if enable {
+		val = 1
+	}
+	return m.globalConfig.Update(&key, &val, ebpf.UpdateAny)
+}
+
+/**
+ * SetConntrackTimeout sets the connection tracking timeout in the BPF program.
+ */
+func (m *Manager) SetConntrackTimeout(timeout time.Duration) error {
+	key := uint32(configConntrackTimeout)
+	val := uint64(timeout.Nanoseconds())
+	return m.globalConfig.Update(&key, &val, ebpf.UpdateAny)
+}
+
+/**
+ * SetConntrack enables or disables the connection tracking.
+ */
+func (m *Manager) SetConntrack(enable bool) error {
+	var key uint32 = 3 // CONFIG_ENABLE_CONNTRACK
 	var val uint32 = 0
 	if enable {
 		val = 1
@@ -447,6 +523,78 @@ func (m *Manager) ListAllowedPorts() ([]uint16, error) {
 }
 
 /**
+ * ConntrackEntry represents a single connection tracking entry.
+ */
+type ConntrackEntry struct {
+	SrcIP    string
+	DstIP    string
+	SrcPort  uint16
+	DstPort  uint16
+	Protocol uint8
+	LastSeen time.Time
+}
+
+/**
+ * ListConntrackEntries retrieves all active connections from the conntrack maps.
+ */
+func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
+	var entries []ConntrackEntry
+
+	// List IPv4 entries
+	if m.conntrackMap != nil {
+		var key NetXfwCtKey
+		var val NetXfwCtValue
+		iter := m.conntrackMap.Iterate()
+		for iter.Next(&key, &val) {
+			entry := ConntrackEntry{
+				SrcIP:    intToIP(key.SrcIp).String(),
+				DstIP:    intToIP(key.DstIp).String(),
+				SrcPort:  key.SrcPort,
+				DstPort:  key.DstPort,
+				Protocol: key.Protocol,
+				LastSeen: time.Unix(0, int64(val.LastSeen)),
+			}
+			entries = append(entries, entry)
+		}
+		if err := iter.Err(); err != nil {
+			return nil, fmt.Errorf("iterate ipv4 conntrack: %w", err)
+		}
+	}
+
+	// List IPv6 entries
+	if m.conntrackMap6 != nil {
+		var key NetXfwCtKey6
+		var val NetXfwCtValue
+		iter := m.conntrackMap6.Iterate()
+		for iter.Next(&key, &val) {
+			entry := ConntrackEntry{
+				SrcIP:    net.IP(key.SrcIp.In6U.U6Addr8[:]).String(),
+				DstIP:    net.IP(key.DstIp.In6U.U6Addr8[:]).String(),
+				SrcPort:  key.SrcPort,
+				DstPort:  key.DstPort,
+				Protocol: key.Protocol,
+				LastSeen: time.Unix(0, int64(val.LastSeen)),
+			}
+			entries = append(entries, entry)
+		}
+		if err := iter.Err(); err != nil {
+			return nil, fmt.Errorf("iterate ipv6 conntrack: %w", err)
+		}
+	}
+
+	return entries, nil
+}
+
+func intToIP(nn uint32) net.IP {
+	ip := make(net.IP, 4)
+	ip[0] = byte(nn & 0xFF)
+	ip[1] = byte((nn >> 8) & 0xFF)
+	ip[2] = byte((nn >> 16) & 0xFF)
+	ip[3] = byte((nn >> 24) & 0xFF)
+	return ip
+}
+
+/**
  * Close releases all BPF resources.
  * Note: Persistent links are NOT closed here to allow them to stay in kernel.
  */
@@ -473,13 +621,14 @@ func (m *Manager) Pin(path string) error {
 	_ = m.ipPortRules6.Pin(path + "/ip_port_rules6")
 	_ = m.globalConfig.Pin(path + "/global_config")
 	_ = m.dropStats.Pin(path + "/drop_stats")
+	_ = m.conntrackMap.Pin(path + "/conntrack_map")
+	if m.conntrackMap6 != nil {
+		_ = m.conntrackMap6.Pin(path + "/conntrack_map6")
+	}
 	return nil
 }
 
-/**
- * Unpin removes maps from the filesystem.
- * Unpin 从文件系统中移除固定的 Map。
- */
+// Unpin removes maps from the filesystem.
 func (m *Manager) Unpin(path string) error {
 	_ = m.lockList.Unpin()
 	_ = m.lockList6.Unpin()
@@ -490,6 +639,10 @@ func (m *Manager) Unpin(path string) error {
 	_ = m.ipPortRules6.Unpin()
 	_ = m.globalConfig.Unpin()
 	_ = m.dropStats.Unpin()
+	_ = m.conntrackMap.Unpin()
+	if m.conntrackMap6 != nil {
+		_ = m.conntrackMap6.Unpin()
+	}
 	return os.RemoveAll(path)
 }
 

@@ -50,6 +50,8 @@ func initConfiguration() {
 				globalCfg.Port = p.DefaultConfig().(types.PortConfig)
 			case "metrics":
 				globalCfg.Metrics = p.DefaultConfig().(types.MetricsConfig)
+			case "conntrack":
+				globalCfg.Conntrack = p.DefaultConfig().(types.ConntrackConfig)
 			}
 		}
 
