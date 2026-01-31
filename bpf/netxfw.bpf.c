@@ -125,8 +125,8 @@ struct {
 } lock_list6 SEC(".maps");
 
 /**
- * Global drop statistics
- * 全局拦截统计次数
+ * Global statistics
+ * 全局统计信息
  */
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -134,6 +134,13 @@ struct {
     __type(key, __u32);
     __type(value, __u64);
 } drop_stats SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, __u64);
+} pass_stats SEC(".maps");
 
 /**
  * ICMP rate limit state
@@ -443,7 +450,7 @@ int xdp_firewall(struct xdp_md *ctx) {
 
         // 1. Check global whitelist (with port support) / 首先检查全局白名单（支持端口校验）
         if (is_whitelisted(ip->saddr, dest_port)) {
-            return XDP_PASS;
+            goto pass_packet;
         }
 
         // 2. Check global lock list / 检查全局锁定列表
@@ -466,7 +473,7 @@ int xdp_firewall(struct xdp_md *ctx) {
             if (ct_val) {
                 // Security check: dynamic timeout
                 if (bpf_ktime_get_ns() - ct_val->last_seen < ct_timeout) {
-                    return XDP_PASS;
+                    goto pass_packet;
                 }
             }
         }
@@ -475,7 +482,7 @@ int xdp_firewall(struct xdp_md *ctx) {
         if (dest_port > 0) {
             // Check IP+Port rules (Port-first LPM matching) / 检查 IP+端口规则（端口优先的 LPM 匹配）
             int rule_action = check_ip_port_rule(ip->saddr, dest_port);
-            if (rule_action == 1) return XDP_PASS; // Allow / 允许
+            if (rule_action == 1) goto pass_packet; // Allow / 允许
             if (rule_action == 2) goto drop_packet; // Deny / 拒绝
         }
 
@@ -484,7 +491,7 @@ int xdp_firewall(struct xdp_md *ctx) {
             if (allow_icmp == 1) {
                 // Optimized: Add rate limiting to ICMP
                 if (check_icmp_limit()) {
-                    return XDP_PASS;
+                    goto pass_packet;
                 }
                 goto drop_packet;
             }
@@ -498,14 +505,14 @@ int xdp_firewall(struct xdp_md *ctx) {
                     // If it's an ACK packet and destination port is in ephemeral range
                     // 如果是 ACK 包且目标端口在临时端口范围内
                     if (tcp->ack && dest_port >= 32768) {
-                        return XDP_PASS;
+                        goto pass_packet;
                     }
                 }
             } else if (ip->protocol == IPPROTO_UDP) {
                 // For UDP, we can only check if destination port is in ephemeral range
                 // 对 UDP 只能检查目标端口是否在临时端口范围内
                 if (dest_port >= 32768) {
-                    return XDP_PASS;
+                    goto pass_packet;
                 }
             }
         }
@@ -516,7 +523,7 @@ int xdp_firewall(struct xdp_md *ctx) {
             if (default_deny == 1) {
                 struct rule_value *port_allowed = bpf_map_lookup_elem(&allowed_ports, &dest_port);
                 if (port_allowed) {
-                    return XDP_PASS;
+                    goto pass_packet;
                 }
                 goto drop_packet;
             }
@@ -547,7 +554,7 @@ int xdp_firewall(struct xdp_md *ctx) {
 
         // 1. Check global whitelist (with port support)
         if (is_whitelisted6(&ip6->saddr, dest_port)) {
-            return XDP_PASS;
+            goto pass_packet;
         }
 
         // 2. Check global lock list
@@ -570,7 +577,7 @@ int xdp_firewall(struct xdp_md *ctx) {
             if (ct_val) {
                 // Security check: dynamic timeout
                 if (bpf_ktime_get_ns() - ct_val->last_seen < ct_timeout) {
-                    return XDP_PASS;
+                    goto pass_packet;
                 }
             }
         }
@@ -579,7 +586,7 @@ int xdp_firewall(struct xdp_md *ctx) {
         if (dest_port > 0) {
             // Check IP+Port rules (Port-first LPM matching) / 检查 IP+端口规则（端口优先的 LPM 匹配）
             int rule_action = check_ip6_port_rule(&ip6->saddr, dest_port);
-            if (rule_action == 1) return XDP_PASS; // Allow / 允许
+            if (rule_action == 1) goto pass_packet; // Allow / 允许
             if (rule_action == 2) goto drop_packet; // Deny / 拒绝
         }
 
@@ -588,7 +595,7 @@ int xdp_firewall(struct xdp_md *ctx) {
             if (allow_icmp == 1) {
                 // Optimized: Add rate limiting to ICMPv6
                 if (check_icmp_limit()) {
-                    return XDP_PASS;
+                    goto pass_packet;
                 }
                 goto drop_packet;
             }
@@ -600,12 +607,12 @@ int xdp_firewall(struct xdp_md *ctx) {
                 struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
                 if ((void *)tcp + sizeof(*tcp) <= data_end) {
                     if (tcp->ack && dest_port >= 32768) {
-                        return XDP_PASS;
+                        goto pass_packet;
                     }
                 }
             } else if (ip6->nexthdr == IPPROTO_UDP) {
                 if (dest_port >= 32768) {
-                    return XDP_PASS;
+                    goto pass_packet;
                 }
             }
         }
@@ -616,13 +623,24 @@ int xdp_firewall(struct xdp_md *ctx) {
             if (default_deny == 1) {
                 struct rule_value *port_allowed = bpf_map_lookup_elem(&allowed_ports, &dest_port);
                 if (port_allowed) {
-                    return XDP_PASS;
+                    goto pass_packet;
                 }
                 goto drop_packet;
             }
         }
     }
 
+    goto pass_packet;
+
+pass_packet:
+    // Increment global pass counter / 增加全局放行计数
+    {
+        __u32 key = 0;
+        __u64 *count = bpf_map_lookup_elem(&pass_stats, &key);
+        if (count) {
+            *count += 1;
+        }
+    }
     return XDP_PASS;
 
 drop_packet:

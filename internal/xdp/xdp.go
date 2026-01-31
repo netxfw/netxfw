@@ -48,6 +48,7 @@ type Manager struct {
 	ipPortRules6  *ebpf.Map
 	globalConfig  *ebpf.Map
 	dropStats     *ebpf.Map
+	passStats     *ebpf.Map
 	icmpLimitMap  *ebpf.Map
 	conntrackMap  *ebpf.Map
 	conntrackMap6 *ebpf.Map
@@ -127,6 +128,7 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 		ipPortRules6:  objs.IpPortRules6,
 		globalConfig:  objs.GlobalConfig,
 		dropStats:     objs.DropStats,
+		passStats:     objs.PassStats,
 		icmpLimitMap:  objs.IcmpLimitMap,
 		conntrackMap:  objs.ConntrackMap,
 		conntrackMap6: objs.ConntrackMap6,
@@ -188,6 +190,10 @@ func NewManagerFromPins(path string) (*Manager, error) {
 	if m.dropStats, err = ebpf.LoadPinnedMap(path+"/drop_stats", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned drop_stats: %v", err)
 		m.dropStats = objs.DropStats
+	}
+	if m.passStats, err = ebpf.LoadPinnedMap(path+"/pass_stats", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned pass_stats: %v", err)
+		m.passStats = objs.PassStats
 	}
 	if m.icmpLimitMap, err = ebpf.LoadPinnedMap(path+"/icmp_limit_map", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned icmp_limit_map: %v", err)
@@ -349,6 +355,26 @@ func (m *Manager) IpPortRules() *ebpf.Map {
 
 func (m *Manager) IpPortRules6() *ebpf.Map {
 	return m.ipPortRules6
+}
+
+func (m *Manager) DropStats() *ebpf.Map {
+	return m.dropStats
+}
+
+func (m *Manager) PassStats() *ebpf.Map {
+	return m.passStats
+}
+
+func (m *Manager) IcmpLimitMap() *ebpf.Map {
+	return m.icmpLimitMap
+}
+
+func (m *Manager) ConntrackMap() *ebpf.Map {
+	return m.conntrackMap
+}
+
+func (m *Manager) ConntrackMap6() *ebpf.Map {
+	return m.conntrackMap6
 }
 
 /**
@@ -527,6 +553,9 @@ func (m *Manager) RemovePort(port uint16) error {
  * GetDropCount 从 PERCPU Map 中获取全局拦截统计信息。
  */
 func (m *Manager) GetDropCount() (uint64, error) {
+	if m.dropStats == nil {
+		return 0, nil
+	}
 	var key uint32 = 0
 	var values []uint64
 	if err := m.dropStats.Lookup(&key, &values); err != nil {
@@ -537,6 +566,104 @@ func (m *Manager) GetDropCount() (uint64, error) {
 		total += v
 	}
 	return total, nil
+}
+
+/**
+ * GetPassCount retrieves global pass statistics from the PERCPU map.
+ * GetPassCount 从 PERCPU Map 中获取全局放行统计信息。
+ */
+func (m *Manager) GetPassCount() (uint64, error) {
+	if m.passStats == nil {
+		return 0, nil
+	}
+	var key uint32 = 0
+	var values []uint64
+	if err := m.passStats.Lookup(&key, &values); err != nil {
+		return 0, err
+	}
+	var total uint64
+	for _, v := range values {
+		total += v
+	}
+	return total, nil
+}
+
+/**
+ * GetLockedIPCount returns the total number of entries in the lock list maps.
+ * GetLockedIPCount 返回锁定列表 Map 中的条目总数。
+ */
+func (m *Manager) GetLockedIPCount() (uint64, error) {
+	var count uint64
+
+	// Count IPv4 locked IPs
+	if m.lockList != nil {
+		iter := m.lockList.Iterate()
+		var key NetXfwLpmKey4
+		var val NetXfwRuleValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+
+	// Count IPv6 locked IPs
+	if m.lockList6 != nil {
+		iter := m.lockList6.Iterate()
+		var key NetXfwLpmKey6
+		var val NetXfwRuleValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+
+	return count, nil
+}
+
+/**
+ * GetWhitelistCount returns the total number of entries in the whitelist maps.
+ */
+func (m *Manager) GetWhitelistCount() (uint64, error) {
+	var count uint64
+	if m.whitelist != nil {
+		iter := m.whitelist.Iterate()
+		var key NetXfwLpmKey4
+		var val NetXfwRuleValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+	if m.whitelist6 != nil {
+		iter := m.whitelist6.Iterate()
+		var key NetXfwLpmKey6
+		var val NetXfwRuleValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+/**
+ * GetConntrackCount returns the total number of entries in the conntrack maps.
+ */
+func (m *Manager) GetConntrackCount() (uint64, error) {
+	var count uint64
+	if m.conntrackMap != nil {
+		iter := m.conntrackMap.Iterate()
+		var key NetXfwCtKey
+		var val NetXfwCtValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+	if m.conntrackMap6 != nil {
+		iter := m.conntrackMap6.Iterate()
+		var key NetXfwCtKey6
+		var val NetXfwCtValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+	return count, nil
 }
 
 /**
@@ -810,6 +937,9 @@ func (m *Manager) Pin(path string) error {
 	if m.conntrackMap6 != nil {
 		_ = m.conntrackMap6.Pin(path + "/conntrack_map6")
 	}
+	if m.passStats != nil {
+		_ = m.passStats.Pin(path + "/pass_stats")
+	}
 	return nil
 }
 
@@ -828,6 +958,9 @@ func (m *Manager) Unpin(path string) error {
 	_ = m.conntrackMap.Unpin()
 	if m.conntrackMap6 != nil {
 		_ = m.conntrackMap6.Unpin()
+	}
+	if m.passStats != nil {
+		_ = m.passStats.Unpin()
 	}
 	return os.RemoveAll(path)
 }

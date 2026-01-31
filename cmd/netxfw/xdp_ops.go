@@ -68,10 +68,17 @@ func runDaemon() {
 		log.Fatalf("❌ Failed to load global config: %v", err)
 	}
 
-	manager, err := xdp.NewManager(globalCfg.Capacity)
+	// Try to load manager from pins first, so we monitor the actual running firewall
+	// 尝试先从固定路径加载管理器，以便监控实际运行的防火墙
+	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
-		log.Fatalf("❌ Failed to create XDP manager: %v", err)
+		log.Printf("⚠️  Could not load pinned maps, creating new manager: %v", err)
+		manager, err = xdp.NewManager(globalCfg.Capacity)
+		if err != nil {
+			log.Fatalf("❌ Failed to create XDP manager: %v", err)
+		}
 	}
+	defer manager.Close()
 
 	// Register and start plugins
 	for _, p := range plugins.GetPlugins() {

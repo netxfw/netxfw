@@ -291,6 +291,30 @@ func showStatus() {
 		fmt.Printf("📊 Global Drop Count: %d packets\n", drops)
 	}
 
+	// Get pass stats
+	passes, err := m.GetPassCount()
+	if err == nil {
+		fmt.Printf("📊 Global Pass Count: %d packets\n", passes)
+	}
+
+	// Get locked IP count
+	lockedCount, err := m.GetLockedIPCount()
+	if err == nil {
+		fmt.Printf("🔒 Locked IP Count: %d addresses\n", lockedCount)
+	}
+
+	// Get whitelist count
+	whitelistCount, err := m.GetWhitelistCount()
+	if err == nil {
+		fmt.Printf("⚪ Whitelist Count: %d addresses\n", whitelistCount)
+	}
+
+	// Get conntrack count
+	ctCount, err := m.GetConntrackCount()
+	if err == nil {
+		fmt.Printf("🕵️  Active Connections: %d\n", ctCount)
+	}
+
 	// Check default deny policy
 	var key uint32 = 0 // CONFIG_DEFAULT_DENY
 	var val uint64

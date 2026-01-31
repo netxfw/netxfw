@@ -20,12 +20,24 @@ type MetricsPlugin struct {
 }
 
 var (
-	blockedTotal = promauto.NewGaugeVec(
+	xdpDropTotal = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "netxfw_blocked_total",
-			Help: "Total blocked packets by reason",
+			Name: "netxfw_xdp_drop_total",
+			Help: "Total dropped packets by the XDP program",
 		},
 		[]string{"reason"},
+	)
+	xdpPassTotal = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "netxfw_xdp_pass_total",
+			Help: "Total passed packets by the XDP program",
+		},
+	)
+	lockedIPsCount = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "netxfw_locked_ips_count",
+			Help: "Current number of locked IP addresses",
+		},
 	)
 )
 
@@ -65,9 +77,22 @@ func (p *MetricsPlugin) Start(manager *xdp.Manager) error {
 			if !p.running {
 				return
 			}
-			count, err := manager.GetDropCount()
+			// Update drop count
+			dropCount, err := manager.GetDropCount()
 			if err == nil {
-				blockedTotal.WithLabelValues("lock").Set(float64(count))
+				xdpDropTotal.WithLabelValues("firewall").Set(float64(dropCount))
+			}
+
+			// Update pass count
+			passCount, err := manager.GetPassCount()
+			if err == nil {
+				xdpPassTotal.Set(float64(passCount))
+			}
+
+			// Update locked IP count
+			lockedCount, err := manager.GetLockedIPCount()
+			if err == nil {
+				lockedIPsCount.Set(float64(lockedCount))
 			}
 		}
 	}()
