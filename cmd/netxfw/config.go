@@ -3,29 +3,24 @@ package main
 import (
 	"os"
 
+	"github.com/livp123/netxfw/internal/plugins/types"
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	Rules        []Rule   `yaml:"rules"`
-	Whitelist    []string `yaml:"whitelist"`
-	LockListFile string   `yaml:"lock_list_file"`
-	MetricsPort  int      `yaml:"metrics_port"`
-}
-
-type Rule struct {
-	Name      string `yaml:"name"`
-	Port      int    `yaml:"port"`
-	Threshold int    `yaml:"threshold"`
-	Duration  string `yaml:"duration"`
-}
-
-func LoadConfig(path string) (*Config, error) {
+func LoadGlobalConfig(path string) (*types.GlobalConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var cfg Config
+	var cfg types.GlobalConfig
 	err = yaml.Unmarshal(data, &cfg)
 	return &cfg, err
+}
+
+func SaveGlobalConfig(path string, cfg *types.GlobalConfig) error {
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }

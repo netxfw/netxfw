@@ -1,5 +1,0 @@
-- rules:
-    - port: 22
-      protocol: tcp
-      action: allow
-  ip_port_rules: []

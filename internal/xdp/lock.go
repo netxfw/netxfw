@@ -31,7 +31,7 @@ func LockIP(mapPtr *ebpf.Map, cidrStr string) error {
 		ones, _ = ipNet.Mask.Size()
 	}
 
-	val := uint64(0) // Initial drop count / 初始拦截计数
+	val := RuleValue{Counter: 0, ExpiresAt: 0} // Initial drop count and no expiration
 	if ip4 := ip.To4(); ip4 != nil {
 		// IPv4 LPM key
 		key := NetXfwLpmKey4{
@@ -69,7 +69,7 @@ func AllowIP(mapPtr *ebpf.Map, cidrStr string) error {
 		ones, _ = ipNet.Mask.Size()
 	}
 
-	val := uint8(1) // Marker value / 标记值
+	val := RuleValue{Counter: 1, ExpiresAt: 0} // Marker value and no expiration
 	if ip4 := ip.To4(); ip4 != nil {
 		key := NetXfwLpmKey4{
 			Prefixlen: uint32(ones),
@@ -129,14 +129,14 @@ func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool) ([]string, error) {
 	iter := mapPtr.Iterate()
 	if isIPv6 {
 		var key NetXfwLpmKey6
-		var val uint8
+		var val RuleValue
 		for iter.Next(&key, &val) {
 			ip := net.IP(key.Data.In6U.U6Addr8[:]).String()
 			ips = append(ips, fmt.Sprintf("%s/%d", ip, key.Prefixlen))
 		}
 	} else {
 		var key NetXfwLpmKey4
-		var val uint8
+		var val RuleValue
 		for iter.Next(&key, &val) {
 			ip := make(net.IP, 4)
 			binary.BigEndian.PutUint32(ip, key.Data)
@@ -157,18 +157,18 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool) (map[string]uint64, error) {
 	iter := mapPtr.Iterate()
 	if isIPv6 {
 		var key NetXfwLpmKey6
-		var val uint64
+		var val RuleValue
 		for iter.Next(&key, &val) {
 			ip := net.IP(key.Data.In6U.U6Addr8[:]).String()
-			ips[fmt.Sprintf("%s/%d", ip, key.Prefixlen)] = val
+			ips[fmt.Sprintf("%s/%d", ip, key.Prefixlen)] = val.Counter
 		}
 	} else {
 		var key NetXfwLpmKey4
-		var val uint64
+		var val RuleValue
 		for iter.Next(&key, &val) {
 			ip := make(net.IP, 4)
 			binary.BigEndian.PutUint32(ip, key.Data)
-			ips[fmt.Sprintf("%s/%d", ip, key.Prefixlen)] = val
+			ips[fmt.Sprintf("%s/%d", ip, key.Prefixlen)] = val.Counter
 		}
 	}
 

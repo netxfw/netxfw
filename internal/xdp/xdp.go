@@ -366,6 +366,63 @@ func (m *Manager) GetDropCount() (uint64, error) {
 }
 
 /**
+ * ListIPPortRules retrieves all IP+Port rules from the maps.
+ */
+func (m *Manager) ListIPPortRules(isIPv6 bool) (map[string]string, error) {
+	rules := make(map[string]string)
+	var mapToIterate *ebpf.Map
+	if isIPv6 {
+		mapToIterate = m.ipPortRules6
+	} else {
+		mapToIterate = m.ipPortRules
+	}
+
+	if isIPv6 {
+		var key LPMIP6PortKey
+		var val RuleValue
+		iter := mapToIterate.Iterate()
+		for iter.Next(&key, &val) {
+			prefixLen := key.PrefixLen - 32
+			ip := net.IP(key.IP[:])
+			action := "allow"
+			if val.Counter == 2 {
+				action = "deny"
+			}
+			rules[fmt.Sprintf("%s/%d:%d", ip.String(), prefixLen, key.Port)] = action
+		}
+		return rules, iter.Err()
+	} else {
+		var key LPMIP4PortKey
+		var val RuleValue
+		iter := mapToIterate.Iterate()
+		for iter.Next(&key, &val) {
+			prefixLen := key.PrefixLen - 32
+			ip := net.IP(key.IP[:])
+			action := "allow"
+			if val.Counter == 2 {
+				action = "deny"
+			}
+			rules[fmt.Sprintf("%s/%d:%d", ip.String(), prefixLen, key.Port)] = action
+		}
+		return rules, iter.Err()
+	}
+}
+
+/**
+ * ListAllowedPorts retrieves all globally allowed ports.
+ */
+func (m *Manager) ListAllowedPorts() ([]uint16, error) {
+	var ports []uint16
+	var port uint16
+	var val RuleValue
+	iter := m.allowedPorts.Iterate()
+	for iter.Next(&port, &val) {
+		ports = append(ports, port)
+	}
+	return ports, iter.Err()
+}
+
+/**
  * Close releases all BPF resources.
  * Note: Persistent links are NOT closed here to allow them to stay in kernel.
  */
