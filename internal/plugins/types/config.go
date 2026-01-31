@@ -7,9 +7,12 @@ type GlobalConfig struct {
 }
 
 type BaseConfig struct {
-	DefaultDeny  bool     `yaml:"default_deny"`
-	Whitelist    []string `yaml:"whitelist"`
-	LockListFile string   `yaml:"lock_list_file"`
+	DefaultDeny     bool     `yaml:"default_deny"`
+	Whitelist       []string `yaml:"whitelist"`
+	LockListFile    string   `yaml:"lock_list_file"`    // rules.deny.txt
+	LockListBinary  string   `yaml:"lock_list_binary"`  // rules.deny.bin.zst
+	EnableExpiry    bool     `yaml:"enable_expiry"`    // 是否开启规则过期
+	CleanupInterval string   `yaml:"cleanup_interval"` // 规则清理频率，例如 "1m", "1h"
 }
 
 type MetricsConfig struct {

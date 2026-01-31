@@ -56,7 +56,7 @@ struct rule_value {
  */
 struct {
     __uint(type, BPF_MAP_TYPE_LPM_TRIE);
-    __uint(max_entries, 65536);
+    __uint(max_entries, 2000000);
     __type(key, struct lpm_key4);
     __type(value, struct rule_value);
     __uint(map_flags, BPF_F_NO_PREALLOC);
@@ -64,7 +64,7 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_LPM_TRIE);
-    __uint(max_entries, 65536);
+    __uint(max_entries, 1000000);
     __type(key, struct lpm_key6);
     __type(value, struct rule_value);
     __uint(map_flags, BPF_F_NO_PREALLOC);
@@ -146,32 +146,24 @@ struct {
 #define CONFIG_DEFAULT_DENY 0
 
 /**
- * Helper to check if a rule is expired
- * 检查规则是否已过期
- */
-static inline int is_expired(struct rule_value *val) {
-    if (!val || val->expires_at == 0) {
-        return 0; // No expiration / 未设置过期时间
-    }
-    __u64 now = bpf_ktime_get_ns();
-    if (now > val->expires_at) {
-        return 1; // Expired / 已过期
-    }
-    return 0;
-}
-
-/**
  * Helper to check if an IPv4 address is whitelisted
  * 检查 IPv4 地址是否在白名单中
  */
-static inline int is_whitelisted(__u32 ip) {
+static inline int is_whitelisted(__u32 ip, __u16 port) {
     struct lpm_key4 key = {
         .prefixlen = 32,
         .data = ip,
     };
     struct rule_value *val = bpf_map_lookup_elem(&whitelist, &key);
     if (!val) return 0;
-    if (is_expired(val)) return 0;
+
+    // If counter is 0 or 1, it means all ports are allowed (legacy behavior)
+    // If counter > 1, it specifies a specific allowed port
+    // 如果 counter 为 0 或 1，表示允许所有端口（兼容旧行为）
+    // 如果 counter > 1，表示仅允许特定的端口
+    if (val->counter > 1 && val->counter != port) {
+        return 0;
+    }
     return 1;
 }
 
@@ -179,14 +171,17 @@ static inline int is_whitelisted(__u32 ip) {
  * Helper to check if an IPv6 address is whitelisted
  * 检查 IPv6 地址是否在白名单中
  */
-static inline int is_whitelisted6(struct in6_addr *ip) {
+static inline int is_whitelisted6(struct in6_addr *ip, __u16 port) {
     struct lpm_key6 key = {
         .prefixlen = 128,
     };
     __builtin_memcpy(&key.data, ip, sizeof(struct in6_addr));
     struct rule_value *val = bpf_map_lookup_elem(&whitelist6, &key);
     if (!val) return 0;
-    if (is_expired(val)) return 0;
+
+    if (val->counter > 1 && val->counter != port) {
+        return 0;
+    }
     return 1;
 }
 
@@ -204,7 +199,6 @@ static inline int check_ip_port_rule(__u32 ip, __u16 port) {
     };
     struct rule_value *val = bpf_map_lookup_elem(&ip_port_rules, &key);
     if (val) {
-        if (is_expired(val)) return 0;
         return (__u8)val->counter;
     }
     return 0;
@@ -224,7 +218,6 @@ static inline int check_ip6_port_rule(struct in6_addr *ip, __u16 port) {
     __builtin_memcpy(&key.ip, ip, sizeof(struct in6_addr));
     struct rule_value *val = bpf_map_lookup_elem(&ip_port_rules6, &key);
     if (val) {
-        if (is_expired(val)) return 0;
         return (__u8)val->counter;
     }
     return 0;
@@ -239,9 +232,7 @@ static inline struct rule_value *get_lock_stats(__u32 ip) {
         .prefixlen = 32,
         .data = ip,
     };
-    struct rule_value *val = bpf_map_lookup_elem(&lock_list, &key);
-    if (val && is_expired(val)) return NULL;
-    return val;
+    return bpf_map_lookup_elem(&lock_list, &key);
 }
 
 /**
@@ -253,9 +244,7 @@ static inline struct rule_value *get_lock_stats6(struct in6_addr *ip) {
         .prefixlen = 128,
     };
     __builtin_memcpy(&key.data, ip, sizeof(struct in6_addr));
-    struct rule_value *val = bpf_map_lookup_elem(&lock_list6, &key);
-    if (val && is_expired(val)) return NULL;
-    return val;
+    return bpf_map_lookup_elem(&lock_list6, &key);
 }
 
 /**
@@ -280,19 +269,8 @@ int xdp_firewall(struct xdp_md *ctx) {
         if (data + sizeof(*eth) + sizeof(*ip) > data_end)
             return XDP_PASS;
 
-        // 1. Check global whitelist / 首先检查全局白名单
-        if (is_whitelisted(ip->saddr)) {
-            return XDP_PASS;
-        }
-
-        // 2. Check global lock list / 检查全局锁定列表
-        struct rule_value *cnt = get_lock_stats(ip->saddr);
-        if (cnt) {
-            __sync_fetch_and_add(&cnt->counter, 1);
-            goto drop_packet;
-        }
-
-        // 3. Extract port and check IP+Port rules / 提取端口并检查 IP+端口规则
+        // Extract port first to support port-specific whitelist
+        // 首先提取端口，以支持特定端口的白名单校验
         __u16 dest_port = 0;
         if (ip->protocol == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip + sizeof(*ip);
@@ -306,6 +284,19 @@ int xdp_firewall(struct xdp_md *ctx) {
             }
         }
 
+        // 1. Check global whitelist (with port support) / 首先检查全局白名单（支持端口校验）
+        if (is_whitelisted(ip->saddr, dest_port)) {
+            return XDP_PASS;
+        }
+
+        // 2. Check global lock list / 检查全局锁定列表
+        struct rule_value *cnt = get_lock_stats(ip->saddr);
+        if (cnt) {
+            __sync_fetch_and_add(&cnt->counter, 1);
+            goto drop_packet;
+        }
+
+        // 3. Check IP+Port rules
         if (dest_port > 0) {
             // Check IP+Port rules (Port-first LPM matching) / 检查 IP+端口规则（端口优先的 LPM 匹配）
             int rule_action = check_ip_port_rule(ip->saddr, dest_port);
@@ -321,7 +312,7 @@ int xdp_firewall(struct xdp_md *ctx) {
             // Then check global allowed ports if default deny is on / 如果开启了默认拒绝，再检查全局允许端口
             if (default_deny && *default_deny == 1) {
                 struct rule_value *port_allowed = bpf_map_lookup_elem(&allowed_ports, &dest_port);
-                if (port_allowed && !is_expired(port_allowed)) {
+                if (port_allowed) {
                     return XDP_PASS;
                 }
                 goto drop_packet;
@@ -334,19 +325,7 @@ int xdp_firewall(struct xdp_md *ctx) {
         if (data + sizeof(*eth) + sizeof(*ip6) > data_end)
             return XDP_PASS;
 
-        // 1. Check global whitelist / 首先检查全局白名单
-        if (is_whitelisted6(&ip6->saddr)) {
-            return XDP_PASS;
-        }
-
-        // 2. Check global lock list / 检查全局锁定列表
-        struct rule_value *cnt = get_lock_stats6(&ip6->saddr);
-        if (cnt) {
-            __sync_fetch_and_add(&cnt->counter, 1);
-            goto drop_packet;
-        }
-
-        // 3. Extract port and check IP+Port rules / 提取端口并检查 IP+端口规则
+        // Extract port first
         __u16 dest_port = 0;
         if (ip6->nexthdr == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
@@ -360,6 +339,19 @@ int xdp_firewall(struct xdp_md *ctx) {
             }
         }
 
+        // 1. Check global whitelist (with port support)
+        if (is_whitelisted6(&ip6->saddr, dest_port)) {
+            return XDP_PASS;
+        }
+
+        // 2. Check global lock list
+        struct rule_value *cnt = get_lock_stats6(&ip6->saddr);
+        if (cnt) {
+            __sync_fetch_and_add(&cnt->counter, 1);
+            goto drop_packet;
+        }
+
+        // 3. Check IP+Port rules
         if (dest_port > 0) {
             // Check IP+Port rules (Port-first LPM matching) / 检查 IP+端口规则（端口优先的 LPM 匹配）
             int rule_action = check_ip6_port_rule(&ip6->saddr, dest_port);
@@ -375,7 +367,7 @@ int xdp_firewall(struct xdp_md *ctx) {
             // Then check global allowed ports if default deny is on / 如果开启了默认拒绝，再检查全局允许端口
             if (default_deny && *default_deny == 1) {
                 struct rule_value *port_allowed = bpf_map_lookup_elem(&allowed_ports, &dest_port);
-                if (port_allowed && !is_expired(port_allowed)) {
+                if (port_allowed) {
                     return XDP_PASS;
                 }
                 goto drop_packet;
