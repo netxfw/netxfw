@@ -35,9 +35,15 @@ func (p *BasePlugin) Start(manager *xdp.Manager) error {
 		return nil
 	}
 
-	// 1. Set default deny
+	// 1. Set default deny and return traffic
 	if err := manager.SetDefaultDeny(p.config.DefaultDeny); err != nil {
 		log.Printf("⚠️  [BasePlugin] Failed to set default deny: %v", err)
+	}
+	if err := manager.SetAllowReturnTraffic(p.config.AllowReturnTraffic); err != nil {
+		log.Printf("⚠️  [BasePlugin] Failed to set allow return traffic: %v", err)
+	}
+	if err := manager.SetAllowICMP(p.config.AllowICMP); err != nil {
+		log.Printf("⚠️  [BasePlugin] Failed to set allow ICMP: %v", err)
 	}
 
 	// 2. Apply whitelist
@@ -189,8 +195,10 @@ func (p *BasePlugin) Stop() error {
 
 func (p *BasePlugin) DefaultConfig() interface{} {
 	return types.BaseConfig{
-		DefaultDeny:     false,
-		Whitelist:       []string{"127.0.0.1/32"},
+		DefaultDeny:        true,
+		AllowReturnTraffic: true,
+		AllowICMP:          true,
+		Whitelist:          []string{"127.0.0.1/32"},
 		LockListFile:    "/etc/netxfw/rules.deny.txt",
 		LockListBinary:  "/etc/netxfw/rules.deny.bin.zst",
 		EnableExpiry:    false,

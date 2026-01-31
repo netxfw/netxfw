@@ -86,7 +86,7 @@ func (p *MetricsPlugin) Stop() error {
 
 func (p *MetricsPlugin) DefaultConfig() interface{} {
 	return types.MetricsConfig{
-		Enabled: true,
+		Enabled: false,
 		Port:    9100,
 	}
 }

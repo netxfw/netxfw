@@ -65,7 +65,7 @@ func (p *PortPlugin) Stop() error {
 
 func (p *PortPlugin) DefaultConfig() interface{} {
 	return types.PortConfig{
-		AllowedPorts: []uint16{80, 443},
+		AllowedPorts: []uint16{22},
 		IPPortRules:  []types.IPPortRule{},
 	}
 }

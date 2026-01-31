@@ -3,10 +3,37 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/xdp"
 )
+
+/**
+ * getXDPMode returns the XDP attachment mode for a given interface.
+ */
+func getXDPMode(iface string) string {
+	cmd := exec.Command("ip", "link", "show", iface)
+	out, err := cmd.Output()
+	if err != nil {
+		return "Unknown"
+	}
+
+	output := string(out)
+	if strings.Contains(output, "xdpoffload") {
+		return "Offload"
+	} else if strings.Contains(output, "xdpdrv") {
+		return "Native (Driver)"
+	} else if strings.Contains(output, "xdpgeneric") {
+		return "Generic (SKB)"
+	} else if strings.Contains(output, "xdp") {
+		return "Native"
+	}
+
+	return "None"
+}
 
 /**
  * showWhitelist reads and prints all whitelisted ranges.
@@ -198,3 +225,73 @@ func showIPPortRules() {
 		}
 	}
 }
+
+/**
+ * showStatus displays the current firewall status and statistics.
+ */
+func showStatus() {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		fmt.Println("❌ XDP Program Status: Not Loaded (or maps not pinned)")
+		return
+	}
+	defer m.Close()
+
+	fmt.Println("✅ XDP Program Status: Loaded and Running")
+
+	// Get drop stats
+	drops, err := m.GetDropCount()
+	if err != nil {
+		fmt.Printf("⚠️  Could not retrieve drop statistics: %v\n", err)
+	} else {
+		fmt.Printf("📊 Global Drop Count: %d packets\n", drops)
+	}
+
+	// Check default deny policy
+	var key uint32 = 0 // CONFIG_DEFAULT_DENY
+	var val uint32
+	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
+		status := "Disabled (Allow by default)"
+		if val == 1 {
+			status = "Enabled (Deny by default)"
+		}
+		fmt.Printf("🛡️  Default Deny Policy: %s\n", status)
+	}
+
+	// Check allow return traffic
+	key = 1 // CONFIG_ALLOW_RETURN_TRAFFIC
+	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
+		status := "Disabled"
+		if val == 1 {
+			status = "Enabled"
+		}
+		fmt.Printf("🔄 Allow Return Traffic: %s\n", status)
+	}
+
+	// Check allow ICMP
+	key = 2 // CONFIG_ALLOW_ICMP
+	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
+		status := "Disabled"
+		if val == 1 {
+			status = "Enabled"
+		}
+		fmt.Printf("🏓 Allow ICMP (Ping): %s\n", status)
+	}
+
+	// Check attached interfaces
+	fmt.Println("\n🔗 Attached Interfaces:")
+	files, _ := os.ReadDir("/sys/fs/bpf/netxfw")
+	attachedCount := 0
+	for _, f := range files {
+		if strings.HasPrefix(f.Name(), "link_") {
+			iface := strings.TrimPrefix(f.Name(), "link_")
+			mode := getXDPMode(iface)
+			fmt.Printf(" - %s (Mode: %s)\n", iface, mode)
+			attachedCount++
+		}
+	}
+	if attachedCount == 0 {
+		fmt.Println(" - None (Program is loaded but not attached to any interface)")
+	}
+}
+

@@ -29,6 +29,8 @@ func main() {
 
 	command := os.Args[1]
 	switch command {
+	case "help":
+		printUsage()
 	case "init":
 		initConfiguration()
 	case "test":
@@ -244,6 +246,8 @@ func handleSystemCommand(args []string) {
 	}
 
 	switch args[0] {
+	case "status":
+		showStatus()
 	case "init":
 		initConfiguration()
 	case "test":
@@ -290,6 +294,7 @@ func askConfirmation(prompt string) bool {
 func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  --- 系统命令 (system) ---")
+	fmt.Println("  ./netxfw system status             # 查看运行状态和统计")
 	fmt.Println("  ./netxfw system init               # 初始化配置文件")
 	fmt.Println("  ./netxfw system test               # 测试配置有效性")
 	fmt.Println("  ./netxfw system daemon             # 启动后台进程")

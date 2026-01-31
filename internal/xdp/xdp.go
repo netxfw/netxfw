@@ -266,6 +266,30 @@ func (m *Manager) SetDefaultDeny(enable bool) error {
 }
 
 /**
+ * SetAllowReturnTraffic enables or disables the automatic allowance of return traffic.
+ */
+func (m *Manager) SetAllowReturnTraffic(enable bool) error {
+	var key uint32 = 1 // CONFIG_ALLOW_RETURN_TRAFFIC
+	var val uint32 = 0
+	if enable {
+		val = 1
+	}
+	return m.globalConfig.Update(&key, &val, ebpf.UpdateAny)
+}
+
+/**
+ * SetAllowICMP enables or disables the allowance of ICMP traffic.
+ */
+func (m *Manager) SetAllowICMP(enable bool) error {
+	var key uint32 = 2 // CONFIG_ALLOW_ICMP
+	var val uint32 = 0
+	if enable {
+		val = 1
+	}
+	return m.globalConfig.Update(&key, &val, ebpf.UpdateAny)
+}
+
+/**
  * AddIPPortRule adds an IP+Port rule to the firewall.
  * action: 1 for allow, 2 for deny
  */

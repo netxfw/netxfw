@@ -144,6 +144,8 @@ struct {
 } global_config SEC(".maps");
 
 #define CONFIG_DEFAULT_DENY 0
+#define CONFIG_ALLOW_RETURN_TRAFFIC 1
+#define CONFIG_ALLOW_ICMP 2
 
 /**
  * Helper to check if an IPv4 address is whitelisted
@@ -304,6 +306,39 @@ int xdp_firewall(struct xdp_md *ctx) {
             if (rule_action == 2) goto drop_packet; // Deny / 拒绝
         }
 
+        // 3.4 Check for ICMP / 检查 ICMP 流量
+        if (ip->protocol == IPPROTO_ICMP) {
+            __u32 icmp_key = CONFIG_ALLOW_ICMP;
+            __u32 *allow_icmp = bpf_map_lookup_elem(&global_config, &icmp_key);
+            if (allow_icmp && *allow_icmp == 1) {
+                return XDP_PASS;
+            }
+            // If default deny is on and ICMP is not explicitly allowed, it will be dropped in step 4
+            // 如果默认拒绝开启且 ICMP 未显式允许，它将在第 4 步被拦截
+        }
+
+        // 3.5 Check for return traffic / 检查回包流量
+        __u32 return_traffic_key = CONFIG_ALLOW_RETURN_TRAFFIC;
+        __u32 *allow_return = bpf_map_lookup_elem(&global_config, &return_traffic_key);
+        if (allow_return && *allow_return == 1) {
+            if (ip->protocol == IPPROTO_TCP) {
+                struct tcphdr *tcp = (void *)ip + sizeof(*ip);
+                if ((void *)tcp + sizeof(*tcp) <= data_end) {
+                    // If it's an ACK packet and destination port is in ephemeral range
+                    // 如果是 ACK 包且目标端口在临时端口范围内
+                    if (tcp->ack && dest_port >= 32768) {
+                        return XDP_PASS;
+                    }
+                }
+            } else if (ip->protocol == IPPROTO_UDP) {
+                // For UDP, we can only check if destination port is in ephemeral range
+                // 对 UDP 只能检查目标端口是否在临时端口范围内
+                if (dest_port >= 32768) {
+                    return XDP_PASS;
+                }
+            }
+        }
+
         // 4. Check Default Deny and Port Allow List / 检查默认拒绝和端口白名单
         __u32 config_key = CONFIG_DEFAULT_DENY;
         __u32 *default_deny = bpf_map_lookup_elem(&global_config, &config_key);
@@ -357,6 +392,33 @@ int xdp_firewall(struct xdp_md *ctx) {
             int rule_action = check_ip6_port_rule(&ip6->saddr, dest_port);
             if (rule_action == 1) return XDP_PASS; // Allow / 允许
             if (rule_action == 2) goto drop_packet; // Deny / 拒绝
+        }
+
+        // 3.4 Check for ICMPv6 / 检查 ICMPv6 流量
+        if (ip6->nexthdr == IPPROTO_ICMPV6) {
+            __u32 icmp_key = CONFIG_ALLOW_ICMP;
+            __u32 *allow_icmp = bpf_map_lookup_elem(&global_config, &icmp_key);
+            if (allow_icmp && *allow_icmp == 1) {
+                return XDP_PASS;
+            }
+        }
+
+        // 3.5 Check for return traffic / 检查回包流量
+        __u32 return_traffic_key = CONFIG_ALLOW_RETURN_TRAFFIC;
+        __u32 *allow_return = bpf_map_lookup_elem(&global_config, &return_traffic_key);
+        if (allow_return && *allow_return == 1) {
+            if (ip6->nexthdr == IPPROTO_TCP) {
+                struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
+                if ((void *)tcp + sizeof(*tcp) <= data_end) {
+                    if (tcp->ack && dest_port >= 32768) {
+                        return XDP_PASS;
+                    }
+                }
+            } else if (ip6->nexthdr == IPPROTO_UDP) {
+                if (dest_port >= 32768) {
+                    return XDP_PASS;
+                }
+            }
         }
 
         // 4. Check Default Deny and Port Allow List / 检查默认拒绝和端口白名单

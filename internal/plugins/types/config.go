@@ -7,8 +7,10 @@ type GlobalConfig struct {
 }
 
 type BaseConfig struct {
-	DefaultDeny     bool     `yaml:"default_deny"`
-	Whitelist       []string `yaml:"whitelist"`
+	DefaultDeny        bool     `yaml:"default_deny"`
+	AllowReturnTraffic bool     `yaml:"allow_return_traffic"`
+	AllowICMP          bool     `yaml:"allow_icmp"`
+	Whitelist          []string `yaml:"whitelist"`
 	LockListFile    string   `yaml:"lock_list_file"`    // rules.deny.txt
 	LockListBinary  string   `yaml:"lock_list_binary"`  // rules.deny.bin.zst
 	EnableExpiry    bool     `yaml:"enable_expiry"`    // 是否开启规则过期
