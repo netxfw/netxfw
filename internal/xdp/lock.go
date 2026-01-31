@@ -32,10 +32,10 @@ func CheckConflict(mapPtr *ebpf.Map, cidrStr string, isWhitelistMap bool) (bool,
 		ones, _ = ipNet.Mask.Size()
 	}
 
-	var val RuleValue
+	var val NetXfwRuleValue
 	found := false
 	if ip4 := ip.To4(); ip4 != nil {
-		key := NetXfwLpmKey4{Prefixlen: uint32(ones), Data: binary.BigEndian.Uint32(ip4)}
+		key := NetXfwLpmKey4{Prefixlen: uint32(ones), Data: binary.LittleEndian.Uint32(ip4)}
 		if err := mapPtr.Lookup(key, &val); err == nil {
 			found = true
 		}
@@ -47,6 +47,7 @@ func CheckConflict(mapPtr *ebpf.Map, cidrStr string, isWhitelistMap bool) (bool,
 			found = true
 		}
 	}
+
 
 	if found {
 		op := "blacklist"
@@ -80,12 +81,12 @@ func LockIP(mapPtr *ebpf.Map, cidrStr string) error {
 		ones, _ = ipNet.Mask.Size()
 	}
 
-	val := RuleValue{Counter: 0, ExpiresAt: 0} // Initial drop count and no expiration
+	val := NetXfwRuleValue{Counter: 0, ExpiresAt: 0} // Initial drop count and no expiration
 	if ip4 := ip.To4(); ip4 != nil {
 		// IPv4 LPM key
 		key := NetXfwLpmKey4{
 			Prefixlen: uint32(ones),
-			Data:      binary.BigEndian.Uint32(ip4),
+			Data:      binary.LittleEndian.Uint32(ip4),
 		}
 		return mapPtr.Put(key, val)
 	}
@@ -125,11 +126,11 @@ func AllowIP(mapPtr *ebpf.Map, cidrStr string, port uint16) error {
 		counter = uint64(port)
 	}
 
-	val := RuleValue{Counter: counter, ExpiresAt: 0} // Store port in Counter if > 0
+	val := NetXfwRuleValue{Counter: counter, ExpiresAt: 0} // Store port in Counter if > 0
 	if ip4 := ip.To4(); ip4 != nil {
 		key := NetXfwLpmKey4{
 			Prefixlen: uint32(ones),
-			Data:      binary.BigEndian.Uint32(ip4),
+			Data:      binary.LittleEndian.Uint32(ip4),
 		}
 		return mapPtr.Put(key, val)
 	}
@@ -139,6 +140,7 @@ func AllowIP(mapPtr *ebpf.Map, cidrStr string, port uint16) error {
 	copy(key.Data.In6U.U6Addr8[:], ip.To16())
 	return mapPtr.Put(key, val)
 }
+
 
 /**
  * UnlockIP removes an IPv4 or IPv6 address or CIDR from the BPF map.
@@ -164,7 +166,7 @@ func UnlockIP(mapPtr *ebpf.Map, cidrStr string) error {
 	if ip4 := ip.To4(); ip4 != nil {
 		key := NetXfwLpmKey4{
 			Prefixlen: uint32(ones),
-			Data:      binary.BigEndian.Uint32(ip4),
+			Data:      binary.LittleEndian.Uint32(ip4),
 		}
 		return mapPtr.Delete(key)
 	}
@@ -200,10 +202,10 @@ func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string)
 
 		if ip != nil {
 			// Perform direct lookup / 执行直接查找
-			var val RuleValue
+			var val NetXfwRuleValue
 			found := false
 			if ip4 := ip.To4(); ip4 != nil && !isIPv6 {
-				key := NetXfwLpmKey4{Prefixlen: uint32(ones), Data: binary.BigEndian.Uint32(ip4)}
+				key := NetXfwLpmKey4{Prefixlen: uint32(ones), Data: binary.LittleEndian.Uint32(ip4)}
 				if err := mapPtr.Lookup(key, &val); err == nil {
 					found = true
 				}
@@ -215,6 +217,7 @@ func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string)
 					found = true
 				}
 			}
+
 
 			if found {
 				fullStr := fmt.Sprintf("%s/%d", ip.String(), ones)
@@ -232,7 +235,7 @@ func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string)
 
 	if isIPv6 {
 		var key NetXfwLpmKey6
-		var val RuleValue
+		var val NetXfwRuleValue
 		for iter.Next(&key, &val) {
 			// Avoid expensive string formatting if possible
 			// 尽可能避免昂贵的字符串格式化操作
@@ -255,10 +258,10 @@ func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string)
 		}
 	} else {
 		var key NetXfwLpmKey4
-		var val RuleValue
+		var val NetXfwRuleValue
 		ipBuf := make(net.IP, 4)
 		for iter.Next(&key, &val) {
-			binary.BigEndian.PutUint32(ipBuf, key.Data)
+			binary.LittleEndian.PutUint32(ipBuf, key.Data)
 			ipStr := ipBuf.String()
 
 			if search != "" && !strings.Contains(ipStr, search) {
@@ -277,6 +280,7 @@ func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string)
 		}
 	}
 
+
 	return ips, count, iter.Err()
 }
 
@@ -291,7 +295,7 @@ func CleanupExpiredRules(mapPtr *ebpf.Map, isIPv6 bool) (int, error) {
 
 	if isIPv6 {
 		var key NetXfwLpmKey6
-		var val RuleValue
+		var val NetXfwRuleValue
 		for iter.Next(&key, &val) {
 			if val.ExpiresAt > 0 && now > val.ExpiresAt {
 				if err := mapPtr.Delete(key); err == nil {
@@ -301,7 +305,7 @@ func CleanupExpiredRules(mapPtr *ebpf.Map, isIPv6 bool) (int, error) {
 		}
 	} else {
 		var key NetXfwLpmKey4
-		var val RuleValue
+		var val NetXfwRuleValue
 		for iter.Next(&key, &val) {
 			if val.ExpiresAt > 0 && now > val.ExpiresAt {
 				if err := mapPtr.Delete(key); err == nil {
@@ -310,6 +314,7 @@ func CleanupExpiredRules(mapPtr *ebpf.Map, isIPv6 bool) (int, error) {
 			}
 		}
 	}
+
 
 	return removed, iter.Err()
 }
@@ -356,10 +361,10 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) (ma
 		}
 
 		if ip != nil {
-			var val RuleValue
+			var val NetXfwRuleValue
 			found := false
 			if ip4 := ip.To4(); ip4 != nil && !isIPv6 {
-				key := NetXfwLpmKey4{Prefixlen: uint32(ones), Data: binary.BigEndian.Uint32(ip4)}
+				key := NetXfwLpmKey4{Prefixlen: uint32(ones), Data: binary.LittleEndian.Uint32(ip4)}
 				if err := mapPtr.Lookup(key, &val); err == nil {
 					found = true
 				}
@@ -385,7 +390,7 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) (ma
 
 	if isIPv6 {
 		var key NetXfwLpmKey6
-		var val RuleValue
+		var val NetXfwRuleValue
 		for iter.Next(&key, &val) {
 			ip := net.IP(key.Data.In6U.U6Addr8[:])
 			ipStr := ip.String()
@@ -403,10 +408,10 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) (ma
 		}
 	} else {
 		var key NetXfwLpmKey4
-		var val RuleValue
+		var val NetXfwRuleValue
 		ipBuf := make(net.IP, 4)
 		for iter.Next(&key, &val) {
-			binary.BigEndian.PutUint32(ipBuf, key.Data)
+			binary.LittleEndian.PutUint32(ipBuf, key.Data)
 			ipStr := ipBuf.String()
 
 			if search != "" && !strings.Contains(ipStr, search) {
@@ -421,6 +426,7 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) (ma
 			}
 		}
 	}
+
 
 	return ips, count, iter.Err()
 }

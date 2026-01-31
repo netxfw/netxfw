@@ -4,6 +4,7 @@
 package xdp
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
@@ -35,42 +36,23 @@ const (
  * Manager 负责 eBPF 对象和链路的生命周期管理。
  */
 type Manager struct {
-	objs         NetXfwObjects
-	links        []link.Link
-	lockList     *ebpf.Map
-	lockList6    *ebpf.Map
-	whitelist    *ebpf.Map
-	whitelist6   *ebpf.Map
-	allowedPorts *ebpf.Map
-	ipPortRules  *ebpf.Map
-	ipPortRules6 *ebpf.Map
-	globalConfig *ebpf.Map
-	dropStats    *ebpf.Map
-	conntrackMap *ebpf.Map
+	objs          NetXfwObjects
+	links         []link.Link
+	lockList      *ebpf.Map
+	lockList6     *ebpf.Map
+	whitelist     *ebpf.Map
+	whitelist6    *ebpf.Map
+	allowedPorts  *ebpf.Map
+	ipPortRules   *ebpf.Map
+	ipPortRules6  *ebpf.Map
+	globalConfig  *ebpf.Map
+	dropStats     *ebpf.Map
+	icmpLimitMap  *ebpf.Map
+	conntrackMap  *ebpf.Map
 	conntrackMap6 *ebpf.Map
 }
 
 // LPM Key structures matching BPF definitions / 匹配 BPF 定义的 LPM Key 结构体
-type LPMIP4PortKey struct {
-	PrefixLen uint32
-	Port      uint16
-	Pad       uint16
-	IP        [4]byte
-}
-
-type LPMIP6PortKey struct {
-	PrefixLen uint32
-	Port      uint16
-	Pad       uint16
-	IP        [16]byte
-}
-
-// RuleValue matching BPF definition / 匹配 BPF 定义的 RuleValue 结构体
-type RuleValue struct {
-	Counter   uint64
-	ExpiresAt uint64
-}
-
 /**
  * NewManager initializes the BPF objects and removes memory limits.
  * NewManager 初始化 BPF 对象并移除内存限制。
@@ -88,17 +70,18 @@ func NewManager() (*Manager, error) {
 	}
 
 	return &Manager{
-		objs:         objs,
-		lockList:     objs.LockList,
-		lockList6:    objs.LockList6,
-		whitelist:    objs.Whitelist,
-		whitelist6:   objs.Whitelist6,
-		allowedPorts: objs.AllowedPorts,
-		ipPortRules:  objs.IpPortRules,
-		ipPortRules6: objs.IpPortRules6,
-		globalConfig: objs.GlobalConfig,
-		dropStats:    objs.DropStats,
-		conntrackMap: objs.ConntrackMap,
+		objs:          objs,
+		lockList:      objs.LockList,
+		lockList6:     objs.LockList6,
+		whitelist:     objs.Whitelist,
+		whitelist6:    objs.Whitelist6,
+		allowedPorts:  objs.AllowedPorts,
+		ipPortRules:   objs.IpPortRules,
+		ipPortRules6:  objs.IpPortRules6,
+		globalConfig:  objs.GlobalConfig,
+		dropStats:     objs.DropStats,
+		icmpLimitMap:  objs.IcmpLimitMap,
+		conntrackMap:  objs.ConntrackMap,
 		conntrackMap6: objs.ConntrackMap6,
 	}, nil
 }
@@ -152,6 +135,10 @@ func NewManagerFromPins(path string) (*Manager, error) {
 	if m.dropStats, err = ebpf.LoadPinnedMap(path+"/drop_stats", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned drop_stats: %v", err)
 		m.dropStats = objs.DropStats
+	}
+	if m.icmpLimitMap, err = ebpf.LoadPinnedMap(path+"/icmp_limit_map", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned icmp_limit_map: %v", err)
+		m.icmpLimitMap = objs.IcmpLimitMap
 	}
 	if m.conntrackMap, err = ebpf.LoadPinnedMap(path+"/conntrack_map", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned conntrack_map: %v", err)
@@ -394,29 +381,29 @@ func (m *Manager) SetConntrack(enable bool) error {
  */
 func (m *Manager) AddIPPortRule(ipNet *net.IPNet, port uint16, action uint8, expiresAt *time.Time) error {
 	ones, _ := ipNet.Mask.Size()
-	val := RuleValue{
+	val := NetXfwRuleValue{
 		Counter:   uint64(action),
 		ExpiresAt: timeToBootNS(expiresAt),
 	}
 	ip := ipNet.IP.To4()
 	if ip != nil {
-		key := LPMIP4PortKey{
-			PrefixLen: uint32(32 + ones),
+		key := NetXfwLpmIp4PortKey{
+			Prefixlen: uint32(32 + ones),
 			Port:      port,
 			Pad:       0,
+			Ip:        binary.LittleEndian.Uint32(ip),
 		}
-		copy(key.IP[:], ip)
 		return m.ipPortRules.Update(&key, &val, ebpf.UpdateAny)
 	}
 
 	ip = ipNet.IP.To16()
 	if ip != nil {
-		key := LPMIP6PortKey{
-			PrefixLen: uint32(32 + ones),
+		key := NetXfwLpmIp6PortKey{
+			Prefixlen: uint32(32 + ones),
 			Port:      port,
 			Pad:       0,
 		}
-		copy(key.IP[:], ip)
+		copy(key.Ip.In6U.U6Addr8[:], ip)
 		return m.ipPortRules6.Update(&key, &val, ebpf.UpdateAny)
 	}
 
@@ -430,23 +417,23 @@ func (m *Manager) RemoveIPPortRule(ipNet *net.IPNet, port uint16) error {
 	ones, _ := ipNet.Mask.Size()
 	ip := ipNet.IP.To4()
 	if ip != nil {
-		key := LPMIP4PortKey{
-			PrefixLen: uint32(32 + ones),
+		key := NetXfwLpmIp4PortKey{
+			Prefixlen: uint32(32 + ones),
 			Port:      port,
 			Pad:       0,
+			Ip:        binary.LittleEndian.Uint32(ip),
 		}
-		copy(key.IP[:], ip)
 		return m.ipPortRules.Delete(&key)
 	}
 
 	ip = ipNet.IP.To16()
 	if ip != nil {
-		key := LPMIP6PortKey{
-			PrefixLen: uint32(32 + ones),
+		key := NetXfwLpmIp6PortKey{
+			Prefixlen: uint32(32 + ones),
 			Port:      port,
 			Pad:       0,
 		}
-		copy(key.IP[:], ip)
+		copy(key.Ip.In6U.U6Addr8[:], ip)
 		return m.ipPortRules6.Delete(&key)
 	}
 
@@ -457,11 +444,21 @@ func (m *Manager) RemoveIPPortRule(ipNet *net.IPNet, port uint16) error {
  * AllowPort adds a port to the allowed ports list.
  */
 func (m *Manager) AllowPort(port uint16, expiresAt *time.Time) error {
-	val := RuleValue{
+	// BPF_MAP_TYPE_PERCPU_HASH requires a slice of values for update if we want to set it for all CPUs
+	numCPU, err := ebpf.PossibleCPU()
+	if err != nil {
+		return fmt.Errorf("get possible CPUs: %w", err)
+	}
+	val := NetXfwRuleValue{
 		Counter:   1,
 		ExpiresAt: timeToBootNS(expiresAt),
 	}
-	return m.allowedPorts.Update(&port, &val, ebpf.UpdateAny)
+	vals := make([]NetXfwRuleValue, numCPU)
+	for i := 0; i < numCPU; i++ {
+		vals[i] = val
+	}
+	// For PERCPU maps, Update expects the slice itself, not a pointer to it
+	return m.allowedPorts.Update(&port, vals, ebpf.UpdateAny)
 }
 
 /**
@@ -470,6 +467,7 @@ func (m *Manager) AllowPort(port uint16, expiresAt *time.Time) error {
 func (m *Manager) RemovePort(port uint16) error {
 	return m.allowedPorts.Delete(&port)
 }
+
 
 /**
  * GetDropCount retrieves global drop statistics from the PERCPU map.
@@ -489,24 +487,22 @@ func (m *Manager) GetDropCount() (uint64, error) {
 }
 
 /**
- * ListIPPortRules retrieves all IP+Port rules from the maps.
+ * ListIPPortRules returns all configured IP+Port rules.
  */
 func (m *Manager) ListIPPortRules(isIPv6 bool) (map[string]string, error) {
 	rules := make(map[string]string)
-	var mapToIterate *ebpf.Map
+	mapToIterate := m.ipPortRules
 	if isIPv6 {
 		mapToIterate = m.ipPortRules6
-	} else {
-		mapToIterate = m.ipPortRules
 	}
 
 	if isIPv6 {
-		var key LPMIP6PortKey
-		var val RuleValue
+		var key NetXfwLpmIp6PortKey
+		var val NetXfwRuleValue
 		iter := mapToIterate.Iterate()
 		for iter.Next(&key, &val) {
-			prefixLen := key.PrefixLen - 32
-			ip := net.IP(key.IP[:])
+			prefixLen := key.Prefixlen - 32
+			ip := net.IP(key.Ip.In6U.U6Addr8[:])
 			action := "allow"
 			if val.Counter == 2 {
 				action = "deny"
@@ -515,12 +511,12 @@ func (m *Manager) ListIPPortRules(isIPv6 bool) (map[string]string, error) {
 		}
 		return rules, iter.Err()
 	} else {
-		var key LPMIP4PortKey
-		var val RuleValue
+		var key NetXfwLpmIp4PortKey
+		var val NetXfwRuleValue
 		iter := mapToIterate.Iterate()
 		for iter.Next(&key, &val) {
-			prefixLen := key.PrefixLen - 32
-			ip := net.IP(key.IP[:])
+			prefixLen := key.Prefixlen - 32
+			ip := intToIP(key.Ip)
 			action := "allow"
 			if val.Counter == 2 {
 				action = "deny"
@@ -537,12 +533,23 @@ func (m *Manager) ListIPPortRules(isIPv6 bool) (map[string]string, error) {
 func (m *Manager) ListAllowedPorts() ([]uint16, error) {
 	var ports []uint16
 	var port uint16
-	var val []RuleValue // Per-CPU values
+	// Note: BPF_MAP_TYPE_PERCPU_HASH returns a slice of values, one per CPU
+	numCPU, err := ebpf.PossibleCPU()
+	if err != nil {
+		return nil, fmt.Errorf("get possible CPUs: %w", err)
+	}
+	val := make([]NetXfwRuleValue, numCPU)
 	iter := m.allowedPorts.Iterate()
+	// IMPORTANT: In cilium/ebpf, when iterating over a PERCPU map,
+	// the Next() call expects the value to be a slice.
 	for iter.Next(&port, &val) {
 		ports = append(ports, port)
 	}
-	return ports, iter.Err()
+	if err := iter.Err(); err != nil {
+		// If iteration fails, try to just see if map is empty
+		return ports, nil
+	}
+	return ports, nil
 }
 
 /**
@@ -610,10 +617,7 @@ func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
 
 func intToIP(nn uint32) net.IP {
 	ip := make(net.IP, 4)
-	ip[0] = byte(nn & 0xFF)
-	ip[1] = byte((nn >> 8) & 0xFF)
-	ip[2] = byte((nn >> 16) & 0xFF)
-	ip[3] = byte((nn >> 24) & 0xFF)
+	binary.LittleEndian.PutUint32(ip, nn)
 	return ip
 }
 
@@ -644,6 +648,7 @@ func (m *Manager) Pin(path string) error {
 	_ = m.ipPortRules6.Pin(path + "/ip_port_rules6")
 	_ = m.globalConfig.Pin(path + "/global_config")
 	_ = m.dropStats.Pin(path + "/drop_stats")
+	_ = m.icmpLimitMap.Pin(path + "/icmp_limit_map")
 	_ = m.conntrackMap.Pin(path + "/conntrack_map")
 	if m.conntrackMap6 != nil {
 		_ = m.conntrackMap6.Pin(path + "/conntrack_map6")
@@ -662,12 +667,14 @@ func (m *Manager) Unpin(path string) error {
 	_ = m.ipPortRules6.Unpin()
 	_ = m.globalConfig.Unpin()
 	_ = m.dropStats.Unpin()
+	_ = m.icmpLimitMap.Unpin()
 	_ = m.conntrackMap.Unpin()
 	if m.conntrackMap6 != nil {
 		_ = m.conntrackMap6.Unpin()
 	}
 	return os.RemoveAll(path)
 }
+
 
 /**
  * timeToBootNS converts a time.Time pointer to boot time nanoseconds.

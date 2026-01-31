@@ -504,7 +504,7 @@ func clearBlacklist() {
 			removed := 0
 			iter := mapPtr.Iterate()
 			var k interface{}
-			var v xdp.RuleValue
+			var v xdp.NetXfwRuleValue
 			for iter.Next(&k, &v) {
 				if v.Counter == 2 { // Action Deny
 					if err := mapPtr.Delete(k); err == nil {
