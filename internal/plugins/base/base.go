@@ -195,6 +195,7 @@ func (p *BasePlugin) DefaultConfig() interface{} {
 		LockListBinary:  "/etc/netxfw/rules.deny.bin.zst",
 		EnableExpiry:    false,
 		CleanupInterval: "1m",
+		PersistRules:    true,
 	}
 }
 
