@@ -229,6 +229,9 @@ func handleListCommand(args []string) {
 	} else if len(args) > 0 && args[0] == "rules" {
 		showIPPortRules()
 		return
+	} else if len(args) > 0 && args[0] == "conntrack" {
+		showConntrack()
+		return
 	}
 
 	if len(args) > 0 {

@@ -670,7 +670,7 @@ func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
 
 func intToIP(nn uint32) net.IP {
 	ip := make(net.IP, 4)
-	binary.BigEndian.PutUint32(ip, nn)
+	binary.LittleEndian.PutUint32(ip, nn)
 	return ip
 }
 
