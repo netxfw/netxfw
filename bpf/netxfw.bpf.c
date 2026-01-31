@@ -96,6 +96,15 @@ struct rule_value {
 };
 
 /**
+ * ICMP rate limiting structures
+ * ICMP 限速结构体
+ */
+struct icmp_stats {
+    __u64 last_time;
+    __u64 tokens;
+};
+
+/**
  * Lock maps: store locked IPv4/IPv6 ranges and their drop counts
  * 锁定 Map：存储封禁的 IPv4/IPv6 网段及其拦截计数
  */
@@ -127,6 +136,17 @@ struct {
 } drop_stats SEC(".maps");
 
 /**
+ * ICMP rate limit state
+ * ICMP 限速状态
+ */
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, struct icmp_stats);
+} icmp_limit_map SEC(".maps");
+
+/**
  * Whitelist maps: store allowed IPv4/IPv6 ranges
  * 白名单 Map：存储允许通过的 IPv4/IPv6 网段
  */
@@ -149,9 +169,10 @@ struct {
 /**
  * Port allow list: store allowed ports (TCP/UDP)
  * 端口白名单：存储允许的端口 (TCP/UDP)
+ * Optimized: Use PERCPU_HASH for better performance
  */
 struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
     __uint(max_entries, 1024);
     __type(key, __u16);
     __type(value, struct rule_value);
@@ -183,9 +204,9 @@ struct {
  */
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
-    __uint(max_entries, 16);
+    __uint(max_entries, 32);
     __type(key, __u32);
-    __type(value, __u32);
+    __type(value, __u64); // Use __u64 for all config values
 } global_config SEC(".maps");
 
 #define CONFIG_DEFAULT_DENY 0
@@ -193,6 +214,50 @@ struct {
 #define CONFIG_ALLOW_ICMP 2
 #define CONFIG_ENABLE_CONNTRACK 3
 #define CONFIG_CONNTRACK_TIMEOUT 4
+#define CONFIG_ICMP_RATE 5
+#define CONFIG_ICMP_BURST 6
+#define CONFIG_CONFIG_VERSION 7
+
+// BPF-side configuration cache
+static __u64 cached_version = 0;
+static __u32 cached_ct_enabled = 0;
+static __u32 cached_allow_icmp = 0;
+static __u32 cached_allow_return = 0;
+static __u32 cached_default_deny = 0;
+static __u64 cached_ct_timeout = 3600000000000ULL;
+static __u64 cached_icmp_rate = 10;   // 10 packets/sec
+static __u64 cached_icmp_burst = 50;  // 50 packets burst
+
+static __always_inline void refresh_config() {
+    __u32 key = CONFIG_CONFIG_VERSION;
+    __u64 *ver = bpf_map_lookup_elem(&global_config, &key);
+    if (ver && *ver != cached_version) {
+        cached_version = *ver;
+
+        __u64 *val;
+
+        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ENABLE_CONNTRACK});
+        if (val) cached_ct_enabled = (__u32)*val;
+
+        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ALLOW_ICMP});
+        if (val) cached_allow_icmp = (__u32)*val;
+
+        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ALLOW_RETURN_TRAFFIC});
+        if (val) cached_allow_return = (__u32)*val;
+
+        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_DEFAULT_DENY});
+        if (val) cached_default_deny = (__u32)*val;
+
+        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_CONNTRACK_TIMEOUT});
+        if (val) cached_ct_timeout = *val;
+
+        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ICMP_RATE});
+        if (val) cached_icmp_rate = *val;
+
+        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ICMP_BURST});
+        if (val) cached_icmp_burst = *val;
+    }
+}
 
 /**
  * Helper to check if an IPv4 address is whitelisted
@@ -297,6 +362,36 @@ static inline struct rule_value *get_lock_stats6(struct in6_addr *ip) {
 }
 
 /**
+ * Helper to check ICMP rate limit using token bucket
+ * 使用令牌桶检查 ICMP 限速
+ */
+static __always_inline int check_icmp_limit() {
+    __u32 key = 0;
+    struct icmp_stats *stats = bpf_map_lookup_elem(&icmp_limit_map, &key);
+    if (!stats) return 0;
+
+    __u64 now = bpf_ktime_get_ns();
+    __u64 elapsed = now - stats->last_time;
+
+    // Tokens to add: elapsed (ns) * rate (packets/sec) / 1e9 (ns/sec)
+    // For precision and to avoid overflow, we do: (elapsed * rate) / 1,000,000,000
+    __u64 tokens_to_add = (elapsed * cached_icmp_rate) / 1000000000ULL;
+
+    __u64 new_tokens = stats->tokens + tokens_to_add;
+    if (new_tokens > cached_icmp_burst) {
+        new_tokens = cached_icmp_burst;
+    }
+
+    if (new_tokens >= 1) {
+        stats->tokens = new_tokens - 1;
+        stats->last_time = now;
+        return 1; // Allow
+    }
+
+    return 0; // Drop
+}
+
+/**
  * Main XDP firewall program
  * XDP 防火墙主程序
  */
@@ -312,26 +407,15 @@ int xdp_firewall(struct xdp_md *ctx) {
 
     __u16 h_proto = eth->h_proto;
 
-    // Cache config values to reduce map lookups
-    __u32 ct_enabled = 0;
-    __u32 *ct_ptr = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ENABLE_CONNTRACK});
-    if (ct_ptr) ct_enabled = *ct_ptr;
+    // Refresh config from map if version changed
+    refresh_config();
 
-    __u32 allow_icmp = 0;
-    __u32 *icmp_ptr = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ALLOW_ICMP});
-    if (icmp_ptr) allow_icmp = *icmp_ptr;
-
-    __u32 allow_return = 0;
-    __u32 *return_ptr = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ALLOW_RETURN_TRAFFIC});
-    if (return_ptr) allow_return = *return_ptr;
-
-    __u32 default_deny = 0;
-    __u32 *deny_ptr = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_DEFAULT_DENY});
-    if (deny_ptr) default_deny = *deny_ptr;
-
-    __u64 ct_timeout = 3600000000000ULL; // Default 1 hour in ns
-    __u64 *timeout_ptr = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_CONNTRACK_TIMEOUT});
-    if (timeout_ptr) ct_timeout = *timeout_ptr;
+    // Use cached values
+    __u32 ct_enabled = cached_ct_enabled;
+    __u32 allow_icmp = cached_allow_icmp;
+    __u32 allow_return = cached_allow_return;
+    __u32 default_deny = cached_default_deny;
+    __u64 ct_timeout = cached_ct_timeout;
 
     // Handle IPv4 / 处理 IPv4
     if (h_proto == bpf_htons(ETH_P_IP)) {
@@ -357,7 +441,19 @@ int xdp_firewall(struct xdp_md *ctx) {
             }
         }
 
-        // 0. Check Conntrack (Stateful) / 检查连接追踪（有状态）
+        // 1. Check global whitelist (with port support) / 首先检查全局白名单（支持端口校验）
+        if (is_whitelisted(ip->saddr, dest_port)) {
+            return XDP_PASS;
+        }
+
+        // 2. Check global lock list / 检查全局锁定列表
+        struct rule_value *cnt = get_lock_stats(ip->saddr);
+        if (cnt) {
+            __sync_fetch_and_add(&cnt->counter, 1);
+            goto drop_packet;
+        }
+
+        // 3. Check Conntrack (Stateful) / 检查连接追踪（有状态）
         if (ct_enabled == 1) {
             struct ct_key look_key = {
                 .src_ip = ip->daddr,
@@ -375,18 +471,6 @@ int xdp_firewall(struct xdp_md *ctx) {
             }
         }
 
-        // 1. Check global whitelist (with port support) / 首先检查全局白名单（支持端口校验）
-        if (is_whitelisted(ip->saddr, dest_port)) {
-            return XDP_PASS;
-        }
-
-        // 2. Check global lock list / 检查全局锁定列表
-        struct rule_value *cnt = get_lock_stats(ip->saddr);
-        if (cnt) {
-            __sync_fetch_and_add(&cnt->counter, 1);
-            goto drop_packet;
-        }
-
         // 3. Check IP+Port rules
         if (dest_port > 0) {
             // Check IP+Port rules (Port-first LPM matching) / 检查 IP+端口规则（端口优先的 LPM 匹配）
@@ -398,7 +482,11 @@ int xdp_firewall(struct xdp_md *ctx) {
         // 3.4 Check for ICMP / 检查 ICMP 流量
         if (ip->protocol == IPPROTO_ICMP) {
             if (allow_icmp == 1) {
-                return XDP_PASS;
+                // Optimized: Add rate limiting to ICMP
+                if (check_icmp_limit()) {
+                    return XDP_PASS;
+                }
+                goto drop_packet;
             }
         }
 
@@ -457,7 +545,19 @@ int xdp_firewall(struct xdp_md *ctx) {
             }
         }
 
-        // 0. Check Conntrack (Stateful) / 检查连接追踪（有状态）
+        // 1. Check global whitelist (with port support)
+        if (is_whitelisted6(&ip6->saddr, dest_port)) {
+            return XDP_PASS;
+        }
+
+        // 2. Check global lock list
+        struct rule_value *cnt = get_lock_stats6(&ip6->saddr);
+        if (cnt) {
+            __sync_fetch_and_add(&cnt->counter, 1);
+            goto drop_packet;
+        }
+
+        // 3. Check Conntrack (Stateful) / 检查连接追踪（有状态）
         if (ct_enabled == 1) {
             struct ct_key6 look_key = {
                 .src_ip = ip6->daddr,
@@ -475,18 +575,6 @@ int xdp_firewall(struct xdp_md *ctx) {
             }
         }
 
-        // 1. Check global whitelist (with port support)
-        if (is_whitelisted6(&ip6->saddr, dest_port)) {
-            return XDP_PASS;
-        }
-
-        // 2. Check global lock list
-        struct rule_value *cnt = get_lock_stats6(&ip6->saddr);
-        if (cnt) {
-            __sync_fetch_and_add(&cnt->counter, 1);
-            goto drop_packet;
-        }
-
         // 3. Check IP+Port rules
         if (dest_port > 0) {
             // Check IP+Port rules (Port-first LPM matching) / 检查 IP+端口规则（端口优先的 LPM 匹配）
@@ -498,7 +586,11 @@ int xdp_firewall(struct xdp_md *ctx) {
         // 3.4 Check for ICMPv6 / 检查 ICMPv6 流量
         if (ip6->nexthdr == IPPROTO_ICMPV6) {
             if (allow_icmp == 1) {
-                return XDP_PASS;
+                // Optimized: Add rate limiting to ICMPv6
+                if (check_icmp_limit()) {
+                    return XDP_PASS;
+                }
+                goto drop_packet;
             }
         }
 
@@ -566,6 +658,8 @@ int tc_egress(struct __sk_buff *skb) {
         return TC_ACT_OK;
 
     __u16 src_port = 0, dst_port = 0;
+    __u8 tcp_flags = 0;
+    __u8 protocol = 0;
 
     // Handle IPv4
     if (eth->h_proto == bpf_htons(ETH_P_IP)) {
@@ -573,11 +667,16 @@ int tc_egress(struct __sk_buff *skb) {
         if (data + sizeof(*eth) + sizeof(*ip) > data_end)
             return TC_ACT_OK;
 
+        protocol = ip->protocol;
         if (ip->protocol == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip + sizeof(*ip);
             if ((void *)tcp + sizeof(*tcp) <= data_end) {
                 src_port = bpf_ntohs(tcp->source);
                 dst_port = bpf_ntohs(tcp->dest);
+                // Extract flags for fine-grained tracking
+                if (tcp->syn) tcp_flags |= 1;
+                if (tcp->fin) tcp_flags |= 2;
+                if (tcp->rst) tcp_flags |= 4;
             }
         } else if (ip->protocol == IPPROTO_UDP) {
             struct udphdr *udp = (void *)ip + sizeof(*ip);
@@ -590,19 +689,43 @@ int tc_egress(struct __sk_buff *skb) {
         if (src_port == 0 || dst_port == 0)
             return TC_ACT_OK;
 
-        struct ct_key ct_key = {
-            .src_ip = ip->saddr,
-            .dst_ip = ip->daddr,
-            .src_port = src_port,
-            .dst_port = dst_port,
-            .protocol = ip->protocol,
-        };
+        // Fine-grained TCP state tracking:
+        // Only create new entries for SYN packets to prevent scanning from filling CT table.
+        // For UDP, we always create/update.
+        if (protocol == IPPROTO_TCP) {
+            struct ct_key ct_key = {
+                .src_ip = ip->saddr,
+                .dst_ip = ip->daddr,
+                .src_port = src_port,
+                .dst_port = dst_port,
+                .protocol = protocol,
+            };
 
-        struct ct_value ct_val = {
-            .last_seen = bpf_ktime_get_ns(),
-        };
-
-        bpf_map_update_elem(&conntrack_map, &ct_key, &ct_val, BPF_ANY);
+            // If it's a SYN, create or refresh.
+            // If it's FIN/RST, we could shorten the timeout, but for now just update last_seen.
+            // A more advanced version would use a different timeout for FIN_WAIT.
+            if (tcp_flags & 1) { // SYN
+                struct ct_value ct_val = { .last_seen = bpf_ktime_get_ns() };
+                bpf_map_update_elem(&conntrack_map, &ct_key, &ct_val, BPF_ANY);
+            } else {
+                // For non-SYN TCP, only update if entry already exists.
+                struct ct_value *exists = bpf_map_lookup_elem(&conntrack_map, &ct_key);
+                if (exists) {
+                    exists->last_seen = bpf_ktime_get_ns();
+                }
+            }
+        } else {
+            // UDP/other: always update
+            struct ct_key ct_key = {
+                .src_ip = ip->saddr,
+                .dst_ip = ip->daddr,
+                .src_port = src_port,
+                .dst_port = dst_port,
+                .protocol = protocol,
+            };
+            struct ct_value ct_val = { .last_seen = bpf_ktime_get_ns() };
+            bpf_map_update_elem(&conntrack_map, &ct_key, &ct_val, BPF_ANY);
+        }
     }
     // Handle IPv6
     else if (eth->h_proto == bpf_htons(ETH_P_IPV6)) {
@@ -610,11 +733,15 @@ int tc_egress(struct __sk_buff *skb) {
         if (data + sizeof(*eth) + sizeof(*ip6) > data_end)
             return TC_ACT_OK;
 
+        protocol = ip6->nexthdr;
         if (ip6->nexthdr == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
             if ((void *)tcp + sizeof(*tcp) <= data_end) {
                 src_port = bpf_ntohs(tcp->source);
                 dst_port = bpf_ntohs(tcp->dest);
+                if (tcp->syn) tcp_flags |= 1;
+                if (tcp->fin) tcp_flags |= 2;
+                if (tcp->rst) tcp_flags |= 4;
             }
         } else if (ip6->nexthdr == IPPROTO_UDP) {
             struct udphdr *udp = (void *)ip6 + sizeof(*ip6);
@@ -627,19 +754,35 @@ int tc_egress(struct __sk_buff *skb) {
         if (src_port == 0 || dst_port == 0)
             return TC_ACT_OK;
 
-        struct ct_key6 ct_key = {
-            .src_ip = ip6->saddr,
-            .dst_ip = ip6->daddr,
-            .src_port = src_port,
-            .dst_port = dst_port,
-            .protocol = ip6->nexthdr,
-        };
+        if (protocol == IPPROTO_TCP) {
+            struct ct_key6 ct_key = {
+                .src_ip = ip6->saddr,
+                .dst_ip = ip6->daddr,
+                .src_port = src_port,
+                .dst_port = dst_port,
+                .protocol = protocol,
+            };
 
-        struct ct_value ct_val = {
-            .last_seen = bpf_ktime_get_ns(),
-        };
-
-        bpf_map_update_elem(&conntrack_map6, &ct_key, &ct_val, BPF_ANY);
+            if (tcp_flags & 1) { // SYN
+                struct ct_value ct_val = { .last_seen = bpf_ktime_get_ns() };
+                bpf_map_update_elem(&conntrack_map6, &ct_key, &ct_val, BPF_ANY);
+            } else {
+                struct ct_value *exists = bpf_map_lookup_elem(&conntrack_map6, &ct_key);
+                if (exists) {
+                    exists->last_seen = bpf_ktime_get_ns();
+                }
+            }
+        } else {
+            struct ct_key6 ct_key = {
+                .src_ip = ip6->saddr,
+                .dst_ip = ip6->daddr,
+                .src_port = src_port,
+                .dst_port = dst_port,
+                .protocol = protocol,
+            };
+            struct ct_value ct_val = { .last_seen = bpf_ktime_get_ns() };
+            bpf_map_update_elem(&conntrack_map6, &ct_key, &ct_val, BPF_ANY);
+        }
     }
 
     return TC_ACT_OK;

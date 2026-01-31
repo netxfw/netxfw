@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/xdp"
@@ -289,7 +290,7 @@ func showStatus() {
 
 	// Check default deny policy
 	var key uint32 = 0 // CONFIG_DEFAULT_DENY
-	var val uint32
+	var val uint64
 	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
 		status := "Disabled (Allow by default)"
 		if val == 1 {
@@ -316,6 +317,19 @@ func showStatus() {
 			status = "Enabled"
 		}
 		fmt.Printf("🏓 Allow ICMP (Ping): %s\n", status)
+
+		if val == 1 {
+			// Check rate limits
+			var rate, burst uint64
+			kRate := uint32(5)  // CONFIG_ICMP_RATE
+			kBurst := uint32(6) // CONFIG_ICMP_BURST
+			if err := m.GlobalConfig().Lookup(&kRate, &rate); err == nil {
+				if err := m.GlobalConfig().Lookup(&kBurst, &burst); err == nil {
+					fmt.Printf("   ├─ Rate Limit: %d packets/sec\n", rate)
+					fmt.Printf("   └─ Burst Limit: %d packets\n", burst)
+				}
+			}
+		}
 	}
 
 	// Check conntrack
@@ -326,6 +340,14 @@ func showStatus() {
 			status = "Enabled"
 		}
 		fmt.Printf("🕵️  Connection Tracking: %s\n", status)
+
+		if val == 1 {
+			kTimeout := uint32(4) // CONFIG_CONNTRACK_TIMEOUT
+			var timeoutNs uint64
+			if err := m.GlobalConfig().Lookup(&kTimeout, &timeoutNs); err == nil {
+				fmt.Printf("   └─ Idle Timeout: %v\n", time.Duration(timeoutNs))
+			}
+		}
 	}
 
 	// Check attached interfaces

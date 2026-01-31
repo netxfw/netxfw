@@ -25,6 +25,9 @@ const (
 	configAllowICMP          = 2
 	configEnableConntrack    = 3
 	configConntrackTimeout   = 4
+	configICMPRate           = 5
+	configICMPBurst          = 6
+	configVersion            = 7
 )
 
 /**
@@ -309,60 +312,80 @@ func (m *Manager) IpPortRules6() *ebpf.Map {
 }
 
 /**
+ * updateConfig updates a global configuration value and increments the config version.
+ */
+func (m *Manager) updateConfig(key uint32, val uint64) error {
+	if err := m.globalConfig.Update(&key, &val, ebpf.UpdateAny); err != nil {
+		return err
+	}
+
+	// Increment version to trigger BPF cache refresh
+	var verKey uint32 = configVersion
+	var currentVer uint64
+	_ = m.globalConfig.Lookup(&verKey, &currentVer)
+	currentVer++
+	return m.globalConfig.Update(&verKey, &currentVer, ebpf.UpdateAny)
+}
+
+/**
  * SetDefaultDeny enables or disables the default deny policy.
  */
 func (m *Manager) SetDefaultDeny(enable bool) error {
-	var key uint32 = 0 // CONFIG_DEFAULT_DENY
-	var val uint32 = 0
+	var val uint64 = 0
 	if enable {
 		val = 1
 	}
-	return m.globalConfig.Update(&key, &val, ebpf.UpdateAny)
+	return m.updateConfig(configDefaultDeny, val)
 }
 
 /**
  * SetAllowReturnTraffic enables or disables the automatic allowance of return traffic.
  */
 func (m *Manager) SetAllowReturnTraffic(enable bool) error {
-	var key uint32 = 1 // CONFIG_ALLOW_RETURN_TRAFFIC
-	var val uint32 = 0
+	var val uint64 = 0
 	if enable {
 		val = 1
 	}
-	return m.globalConfig.Update(&key, &val, ebpf.UpdateAny)
+	return m.updateConfig(configAllowReturnTraffic, val)
 }
 
 /**
  * SetAllowICMP enables or disables the allowance of ICMP traffic.
  */
 func (m *Manager) SetAllowICMP(enable bool) error {
-	var key uint32 = 2 // CONFIG_ALLOW_ICMP
-	var val uint32 = 0
+	var val uint64 = 0
 	if enable {
 		val = 1
 	}
-	return m.globalConfig.Update(&key, &val, ebpf.UpdateAny)
+	return m.updateConfig(configAllowICMP, val)
+}
+
+/**
+ * SetICMPRateLimit sets the ICMP rate limit (packets/sec) and burst.
+ */
+func (m *Manager) SetICMPRateLimit(rate, burst uint64) error {
+	if err := m.updateConfig(configICMPRate, rate); err != nil {
+		return err
+	}
+	return m.updateConfig(configICMPBurst, burst)
 }
 
 /**
  * SetConntrackTimeout sets the connection tracking timeout in the BPF program.
  */
 func (m *Manager) SetConntrackTimeout(timeout time.Duration) error {
-	key := uint32(configConntrackTimeout)
-	val := uint64(timeout.Nanoseconds())
-	return m.globalConfig.Update(&key, &val, ebpf.UpdateAny)
+	return m.updateConfig(configConntrackTimeout, uint64(timeout.Nanoseconds()))
 }
 
 /**
  * SetConntrack enables or disables the connection tracking.
  */
 func (m *Manager) SetConntrack(enable bool) error {
-	var key uint32 = 3 // CONFIG_ENABLE_CONNTRACK
-	var val uint32 = 0
+	var val uint64 = 0
 	if enable {
 		val = 1
 	}
-	return m.globalConfig.Update(&key, &val, ebpf.UpdateAny)
+	return m.updateConfig(configEnableConntrack, val)
 }
 
 /**
@@ -514,7 +537,7 @@ func (m *Manager) ListIPPortRules(isIPv6 bool) (map[string]string, error) {
 func (m *Manager) ListAllowedPorts() ([]uint16, error) {
 	var ports []uint16
 	var port uint16
-	var val RuleValue
+	var val []RuleValue // Per-CPU values
 	iter := m.allowedPorts.Iterate()
 	for iter.Next(&port, &val) {
 		ports = append(ports, port)

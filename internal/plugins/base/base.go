@@ -45,6 +45,13 @@ func (p *BasePlugin) Start(manager *xdp.Manager) error {
 	if err := manager.SetAllowICMP(p.config.AllowICMP); err != nil {
 		log.Printf("⚠️  [BasePlugin] Failed to set allow ICMP: %v", err)
 	}
+	if p.config.ICMPRate > 0 && p.config.ICMPBurst > 0 {
+		if err := manager.SetICMPRateLimit(p.config.ICMPRate, p.config.ICMPBurst); err != nil {
+			log.Printf("⚠️  [BasePlugin] Failed to set ICMP rate limit: %v", err)
+		} else {
+			log.Printf("✅ [BasePlugin] ICMP rate limit set to %d/s (burst: %d)", p.config.ICMPRate, p.config.ICMPBurst)
+		}
+	}
 
 	// 2. Apply whitelist
 	for _, entry := range p.config.Whitelist {
@@ -198,12 +205,14 @@ func (p *BasePlugin) DefaultConfig() interface{} {
 		DefaultDeny:        true,
 		AllowReturnTraffic: true,
 		AllowICMP:          true,
+		ICMPRate:           10,
+		ICMPBurst:          50,
 		Whitelist:          []string{"127.0.0.1/32"},
-		LockListFile:    "/etc/netxfw/rules.deny.txt",
-		LockListBinary:  "/etc/netxfw/rules.deny.bin.zst",
-		EnableExpiry:    false,
-		CleanupInterval: "1m",
-		PersistRules:    true,
+		LockListFile:       "/etc/netxfw/rules.deny.txt",
+		LockListBinary:     "/etc/netxfw/rules.deny.bin.zst",
+		EnableExpiry:       false,
+		CleanupInterval:    "1m",
+		PersistRules:       true,
 	}
 }
 

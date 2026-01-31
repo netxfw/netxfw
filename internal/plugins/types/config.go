@@ -11,12 +11,14 @@ type BaseConfig struct {
 	DefaultDeny        bool     `yaml:"default_deny"`
 	AllowReturnTraffic bool     `yaml:"allow_return_traffic"` // Stateless check (ACK + Port range)
 	AllowICMP          bool     `yaml:"allow_icmp"`
+	ICMPRate           uint64   `yaml:"icmp_rate"`  // packets per second
+	ICMPBurst          uint64   `yaml:"icmp_burst"` // max burst
 	Whitelist          []string `yaml:"whitelist"`
-	LockListFile    string   `yaml:"lock_list_file"`
-	LockListBinary  string   `yaml:"lock_list_binary"`
-	EnableExpiry    bool     `yaml:"enable_expiry"`
-	CleanupInterval string   `yaml:"cleanup_interval"`
-	PersistRules    bool     `yaml:"persist_rules"`
+	LockListFile       string   `yaml:"lock_list_file"`
+	LockListBinary     string   `yaml:"lock_list_binary"`
+	EnableExpiry       bool     `yaml:"enable_expiry"`
+	CleanupInterval    string   `yaml:"cleanup_interval"`
+	PersistRules       bool     `yaml:"persist_rules"`
 }
 
 type ConntrackConfig struct {
