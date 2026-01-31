@@ -46,6 +46,12 @@ func main() {
 		}
 		initConfiguration()
 		installXDP()
+	case "reload":
+		if len(os.Args) < 3 || os.Args[2] != "xdp" {
+			printUsage()
+			return
+		}
+		reloadXDP()
 	case "unload":
 		if len(os.Args) < 3 || os.Args[2] != "xdp" {
 			printUsage()
@@ -245,7 +251,7 @@ func handleListCommand(args []string) {
 
 func handleSystemCommand(args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: ./netxfw system [init|test|sync|daemon|load|unload|set-default-deny]")
+		fmt.Println("Usage: ./netxfw system [init|test|sync|daemon|load|reload|unload|set-default-deny]")
 		return
 	}
 
@@ -263,6 +269,8 @@ func handleSystemCommand(args []string) {
 	case "load":
 		initConfiguration()
 		installXDP()
+	case "reload":
+		reloadXDP()
 	case "unload":
 		removeXDP()
 	case "set-default-deny":
@@ -303,6 +311,7 @@ func printUsage() {
 	fmt.Println("  ./netxfw system test               # 测试配置有效性")
 	fmt.Println("  ./netxfw system daemon             # 启动后台进程")
 	fmt.Println("  ./netxfw system load               # 加载 XDP 驱动")
+	fmt.Println("  ./netxfw system reload             # 平滑重载 XDP (支持容量调整)")
 	fmt.Println("  ./netxfw system unload             # 卸载 XDP 驱动")
 	fmt.Println("")
 	fmt.Println("  --- 规则管理 (rule) ---")

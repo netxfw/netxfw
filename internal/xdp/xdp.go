@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/livp123/netxfw/internal/plugins/types"
 )
 
 // Generate Go bindings for the BPF program / 为 BPF 程序生成 Go 绑定
@@ -55,17 +56,63 @@ type Manager struct {
 // LPM Key structures matching BPF definitions / 匹配 BPF 定义的 LPM Key 结构体
 /**
  * NewManager initializes the BPF objects and removes memory limits.
- * NewManager 初始化 BPF 对象并移除内存限制。
+ * Supports dynamic map capacity adjustment.
+ * NewManager 初始化 BPF 对象并移除内存限制，支持动态调整 Map 容量。
  */
-func NewManager() (*Manager, error) {
+func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 	// Remove resource limits for BPF / 移除 BPF 资源限制
 	if err := rlimit.RemoveMemlock(); err != nil {
 		return nil, fmt.Errorf("remove memlock: %w", err)
 	}
 
+	// Load BPF collection spec / 加载 BPF 集合规范
+	spec, err := LoadNetXfw()
+	if err != nil {
+		return nil, fmt.Errorf("load netxfw spec: %w", err)
+	}
+
+	// Dynamic capacity adjustment / 动态调整容量
+	if cfg.Conntrack > 0 {
+		if m, ok := spec.Maps["conntrack_map"]; ok {
+			m.MaxEntries = uint32(cfg.Conntrack)
+		}
+		if m, ok := spec.Maps["conntrack_map6"]; ok {
+			m.MaxEntries = uint32(cfg.Conntrack)
+		}
+	}
+	if cfg.LockList > 0 {
+		if m, ok := spec.Maps["lock_list"]; ok {
+			m.MaxEntries = uint32(cfg.LockList)
+		}
+		if m, ok := spec.Maps["lock_list6"]; ok {
+			m.MaxEntries = uint32(cfg.LockList)
+		}
+	}
+	if cfg.Whitelist > 0 {
+		if m, ok := spec.Maps["whitelist"]; ok {
+			m.MaxEntries = uint32(cfg.Whitelist)
+		}
+		if m, ok := spec.Maps["whitelist6"]; ok {
+			m.MaxEntries = uint32(cfg.Whitelist)
+		}
+	}
+	if cfg.IPPortRules > 0 {
+		if m, ok := spec.Maps["ip_port_rules"]; ok {
+			m.MaxEntries = uint32(cfg.IPPortRules)
+		}
+		if m, ok := spec.Maps["ip_port_rules6"]; ok {
+			m.MaxEntries = uint32(cfg.IPPortRules)
+		}
+	}
+	if cfg.AllowedPorts > 0 {
+		if m, ok := spec.Maps["allowed_ports"]; ok {
+			m.MaxEntries = uint32(cfg.AllowedPorts)
+		}
+	}
+
 	// Load BPF objects into the kernel / 将 BPF 对象加载到内核
 	var objs NetXfwObjects
-	if err := LoadNetXfwObjects(&objs, nil); err != nil {
+	if err := spec.LoadAndAssign(&objs, nil); err != nil {
 		return nil, fmt.Errorf("load eBPF objects: %w", err)
 	}
 
@@ -91,7 +138,13 @@ func NewManager() (*Manager, error) {
  * This is useful for CLI tools that need to interact with a running XDP program.
  */
 func NewManagerFromPins(path string) (*Manager, error) {
+	// Remove resource limits for BPF / 移除 BPF 资源限制
+	if err := rlimit.RemoveMemlock(); err != nil {
+		return nil, fmt.Errorf("remove memlock: %w", err)
+	}
+
 	// We still need to load objects to get the program, but we will replace maps with pinned ones
+	// 我们仍需加载对象以获取程序，但将使用固定的 Map 替换它们
 	var objs NetXfwObjects
 	if err := LoadNetXfwObjects(&objs, nil); err != nil {
 		return nil, fmt.Errorf("load eBPF objects: %w", err)
@@ -617,8 +670,112 @@ func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
 
 func intToIP(nn uint32) net.IP {
 	ip := make(net.IP, 4)
-	binary.LittleEndian.PutUint32(ip, nn)
+	binary.BigEndian.PutUint32(ip, nn)
 	return ip
+}
+
+/**
+ * Close releases all BPF resources.
+ * Note: Persistent links are NOT closed here to allow them to stay in kernel.
+ */
+/**
+ * MigrateState copies all entries from an old manager's maps to this manager's maps.
+ * This is used for hot-reloading to preserve conntrack state and rules.
+ * MigrateState 将旧管理器的 Map 条目复制到此管理器的 Map 中，用于热加载以保留状态。
+ */
+func (m *Manager) MigrateState(old *Manager) error {
+	// Migrate Conntrack (IPv4)
+	if old.conntrackMap != nil && m.conntrackMap != nil {
+		var key NetXfwCtKey
+		var val NetXfwCtValue
+		iter := old.conntrackMap.Iterate()
+		for iter.Next(&key, &val) {
+			m.conntrackMap.Put(&key, &val)
+		}
+	}
+
+	// Migrate Conntrack (IPv6)
+	if old.conntrackMap6 != nil && m.conntrackMap6 != nil {
+		var key NetXfwCtKey6
+		var val NetXfwCtValue
+		iter := old.conntrackMap6.Iterate()
+		for iter.Next(&key, &val) {
+			m.conntrackMap6.Put(&key, &val)
+		}
+	}
+
+	// Migrate Lock List (IPv4)
+	if old.lockList != nil && m.lockList != nil {
+		var key NetXfwLpmKey4
+		var val NetXfwRuleValue
+		iter := old.lockList.Iterate()
+		for iter.Next(&key, &val) {
+			m.lockList.Put(&key, &val)
+		}
+	}
+
+	// Migrate Lock List (IPv6)
+	if old.lockList6 != nil && m.lockList6 != nil {
+		var key NetXfwLpmKey6
+		var val NetXfwRuleValue
+		iter := old.lockList6.Iterate()
+		for iter.Next(&key, &val) {
+			m.lockList6.Put(&key, &val)
+		}
+	}
+
+	// Migrate Whitelist (IPv4)
+	if old.whitelist != nil && m.whitelist != nil {
+		var key NetXfwLpmKey4
+		var val NetXfwRuleValue
+		iter := old.whitelist.Iterate()
+		for iter.Next(&key, &val) {
+			m.whitelist.Put(&key, &val)
+		}
+	}
+
+	// Migrate Whitelist (IPv6)
+	if old.whitelist6 != nil && m.whitelist6 != nil {
+		var key NetXfwLpmKey6
+		var val NetXfwRuleValue
+		iter := old.whitelist6.Iterate()
+		for iter.Next(&key, &val) {
+			m.whitelist6.Put(&key, &val)
+		}
+	}
+
+	// Migrate IP+Port Rules (IPv4)
+	if old.ipPortRules != nil && m.ipPortRules != nil {
+		var key NetXfwLpmIp4PortKey
+		var val NetXfwRuleValue
+		iter := old.ipPortRules.Iterate()
+		for iter.Next(&key, &val) {
+			m.ipPortRules.Put(&key, &val)
+		}
+	}
+
+	// Migrate IP+Port Rules (IPv6)
+	if old.ipPortRules6 != nil && m.ipPortRules6 != nil {
+		var key NetXfwLpmIp6PortKey
+		var val NetXfwRuleValue
+		iter := old.ipPortRules6.Iterate()
+		for iter.Next(&key, &val) {
+			m.ipPortRules6.Put(&key, &val)
+		}
+	}
+
+	// Migrate Allowed Ports (PERCPU HASH)
+	if old.allowedPorts != nil && m.allowedPorts != nil {
+		var key uint16
+		numCPU, _ := ebpf.PossibleCPU()
+		val := make([]NetXfwRuleValue, numCPU)
+		iter := old.allowedPorts.Iterate()
+		for iter.Next(&key, &val) {
+			m.allowedPorts.Put(&key, &val)
+		}
+	}
+
+	return nil
 }
 
 /**

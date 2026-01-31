@@ -5,6 +5,15 @@ type GlobalConfig struct {
 	Metrics   MetricsConfig   `yaml:"metrics"`
 	Port      PortConfig      `yaml:"port"`
 	Conntrack ConntrackConfig `yaml:"conntrack"`
+	Capacity  CapacityConfig  `yaml:"capacity"`
+}
+
+type CapacityConfig struct {
+	Conntrack    int `yaml:"conntrack"`
+	LockList     int `yaml:"lock_list"`
+	Whitelist    int `yaml:"whitelist"`
+	IPPortRules  int `yaml:"ip_port_rules"`
+	AllowedPorts int `yaml:"allowed_ports"`
 }
 
 type BaseConfig struct {

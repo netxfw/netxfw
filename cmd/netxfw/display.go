@@ -114,7 +114,8 @@ func showWhitelist(limit int, search string) {
 func showConntrack() {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
-		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+		fmt.Println("❌ XDP Program Status: Not Loaded (or maps not pinned)")
+		return
 	}
 	defer m.Close()
 
@@ -135,8 +136,10 @@ func showConntrack() {
 	// Sort entries for better display
 	// In a real scenario, we might want to group by src/dst
 	for _, e := range entries {
-		proto := "TCP"
-		if e.Protocol == 17 {
+		proto := fmt.Sprintf("%d", e.Protocol)
+		if e.Protocol == 6 {
+			proto = "TCP"
+		} else if e.Protocol == 17 {
 			proto = "UDP"
 		} else if e.Protocol == 1 {
 			proto = "ICMP"

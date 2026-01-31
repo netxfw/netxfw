@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/livp123/netxfw/internal/plugins"
+	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
 )
 
@@ -23,7 +24,13 @@ func installXDP() {
 		log.Fatal("❌ No physical interfaces found")
 	}
 
-	manager, err := xdp.NewManager()
+	// Load global configuration
+	globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
+	if err != nil {
+		log.Fatalf("❌ Failed to load global config: %v", err)
+	}
+
+	manager, err := xdp.NewManager(globalCfg.Capacity)
 	if err != nil {
 		log.Fatalf("❌ Failed to create XDP manager: %v", err)
 	}
@@ -34,12 +41,6 @@ func installXDP() {
 
 	if err := manager.Attach(interfaces); err != nil {
 		log.Fatalf("❌ Failed to attach XDP: %v", err)
-	}
-
-	// Load global configuration
-	globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
-	if err != nil {
-		log.Fatalf("❌ Failed to load global config: %v", err)
 	}
 
 	// Start all plugins to apply configurations
@@ -61,15 +62,15 @@ func installXDP() {
  * runDaemon starts the background process for metrics and rule synchronization.
  */
 func runDaemon() {
-	manager, err := xdp.NewManager()
-	if err != nil {
-		log.Fatalf("❌ Failed to create XDP manager: %v", err)
-	}
-
 	// Load global configuration
 	globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
 	if err != nil {
 		log.Fatalf("❌ Failed to load global config: %v", err)
+	}
+
+	manager, err := xdp.NewManager(globalCfg.Capacity)
+	if err != nil {
+		log.Fatalf("❌ Failed to create XDP manager: %v", err)
 	}
 
 	// Register and start plugins
@@ -140,7 +141,14 @@ func removeXDP() {
 		log.Fatalf("❌ Failed to get interfaces: %v", err)
 	}
 
-	manager, err := xdp.NewManager()
+	// Load global configuration to get max entries
+	globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
+	if err != nil {
+		log.Printf("⚠️  Failed to load global config, using default map capacity: %v", err)
+		globalCfg = &types.GlobalConfig{}
+	}
+
+	manager, err := xdp.NewManager(globalCfg.Capacity)
 	if err != nil {
 		log.Fatalf("❌ Failed to initialize manager for removal: %v", err)
 	}
@@ -155,6 +163,58 @@ func removeXDP() {
 	}
 
 	log.Println("✅ XDP program removed and cleanup completed.")
+}
+
+/**
+ * reloadXDP performs a hot-reload of the XDP program.
+ * It loads new objects, migrates state from old pinned maps, and swaps the program.
+ * reloadXDP 执行 XDP 程序的平滑重载：加载新对象，从旧的固定 Map 迁移状态，并切换程序。
+ */
+func reloadXDP() {
+	log.Println("🔄 Starting hot-reload of XDP program...")
+
+	interfaces, err := xdp.GetPhysicalInterfaces()
+	if err != nil {
+		log.Fatalf("❌ Failed to get interfaces: %v", err)
+	}
+
+	// 1. Load global configuration
+	globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
+	if err != nil {
+		log.Fatalf("❌ Failed to load global config: %v", err)
+	}
+
+	// 2. Initialize new manager with new capacities
+	newManager, err := xdp.NewManager(globalCfg.Capacity)
+	if err != nil {
+		log.Fatalf("❌ Failed to create new XDP manager: %v", err)
+	}
+
+	// 3. Try to load old manager from pins to migrate state
+	oldManager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err == nil {
+		log.Println("📦 Migrating state from old BPF maps...")
+		if err := newManager.MigrateState(oldManager); err != nil {
+			log.Printf("⚠️  State migration partial or failed: %v", err)
+		}
+		oldManager.Close()
+	} else {
+		log.Println("ℹ️  No existing pinned maps found, starting fresh.")
+	}
+
+	// 4. Atomic swap: Attach new manager to interfaces
+	// This will replace the old program if it was attached
+	if err := newManager.Attach(interfaces); err != nil {
+		log.Fatalf("❌ Failed to attach new XDP program: %v", err)
+	}
+
+	// 5. Update pins: Unpin old and pin new
+	_ = newManager.Unpin("/sys/fs/bpf/netxfw") // Ignore error if not pinned
+	if err := newManager.Pin("/sys/fs/bpf/netxfw"); err != nil {
+		log.Fatalf("❌ Failed to pin new maps: %v", err)
+	}
+
+	log.Println("🚀 XDP program reloaded successfully with updated configuration and capacity.")
 }
 
 /**

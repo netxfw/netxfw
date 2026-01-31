@@ -55,6 +55,15 @@ func initConfiguration() {
 			}
 		}
 
+		// Set default capacities
+		globalCfg.Capacity = types.CapacityConfig{
+			Conntrack:    100000,
+			LockList:     2000000,
+			Whitelist:    65536,
+			IPPortRules:  65536,
+			AllowedPorts: 1024,
+		}
+
 		data, _ := yaml.Marshal(globalCfg)
 		if err := os.WriteFile(configPath, data, 0644); err != nil {
 			log.Fatalf("❌ Failed to create config.yaml: %v", err)
