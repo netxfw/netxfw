@@ -3,9 +3,11 @@
 /netxfw-linux-amd64
 /netxfw-linux-arm64
 /netxfw_protected
+/ai-mcp
 
 # Local config
 /etc/
+/vendor/
 
 # BPF objects
 internal/xdp/netxfw_bpfel.o

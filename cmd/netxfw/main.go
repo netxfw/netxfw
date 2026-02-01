@@ -7,6 +7,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/livp123/netxfw/internal/mcp"
+	"github.com/livp123/netxfw/internal/xdp"
 )
 
 /**
@@ -78,6 +81,10 @@ func main() {
 	// --- 连接追踪 (conntrack) ---
 	case "conntrack":
 		showConntrack()
+
+	// --- AI MCP 服务 ---
+	case "ai-mcp":
+		handleAIMCPCommand(os.Args[2:])
 
 	// --- 快捷方式 & 兼容旧命令 ---
 	case "lock":
@@ -327,6 +334,50 @@ func askConfirmation(prompt string) bool {
 	return response == "y" || response == "yes"
 }
 
+func handleAIMCPCommand(args []string) {
+	mode := "stdio"
+	addr := ":11812"
+	token := os.Getenv("NETXFW_MCP_TOKEN")
+
+	if len(args) > 0 {
+		mode = args[0]
+	}
+	if len(args) > 1 {
+		addr = args[1]
+	}
+	if len(args) > 2 {
+		token = args[2]
+	}
+
+	pinPath := "/sys/fs/bpf/netxfw"
+	if _, err := os.Stat(pinPath); os.IsNotExist(err) {
+		log.Fatalf("❌ Error: netxfw is not running or BPF maps are not pinned at %s. Please run 'netxfw load xdp' first.", pinPath)
+	}
+
+	manager, err := xdp.NewManagerFromPins(pinPath)
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+
+	server := mcp.NewMCPServer(manager)
+	if token == "" {
+		token = server.GetOrGenerateToken()
+	} else {
+		server.SetToken(token)
+	}
+
+	if mode == "sse" {
+		if err := server.ServeSSE(addr); err != nil {
+			log.Fatalf("❌ MCP SSE Server error: %v", err)
+		}
+	} else {
+		log.Printf("🤖 netxfw AI MCP Server starting (stdio mode)...")
+		if err := server.Serve(); err != nil {
+			log.Fatalf("❌ MCP Server error: %v", err)
+		}
+	}
+}
+
 /**
  * printUsage prints command line help.
  * printUsage 打印命令行帮助信息。
@@ -367,4 +418,8 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("  --- 连接追踪 (conntrack) ---")
 	fmt.Println("  ./netxfw conntrack          # 查看当前活跃连接")
+	fmt.Println("")
+	fmt.Println("  --- AI MCP 服务 (ai-mcp) ---")
+	fmt.Println("  ./netxfw ai-mcp [mode] [addr] [token] # 启动 AI MCP 服务器 (mode: stdio|sse, addr 默认 :11812)")
+	fmt.Println("                                         # token 可通过参数或 NETXFW_MCP_TOKEN 环境变量设置")
 }

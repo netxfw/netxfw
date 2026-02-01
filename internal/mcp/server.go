@@ -1,17 +1,27 @@
 package mcp
 
 import (
+	"bufio"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"strings"
 
+	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
 
 type MCPServer struct {
-	manager *xdp.Manager
-	server  *server.MCPServer
+	manager    *xdp.Manager
+	server     *server.MCPServer
+	configPath string
+	token      string
 }
 
 func NewMCPServer(manager *xdp.Manager) *MCPServer {
@@ -22,13 +32,52 @@ func NewMCPServer(manager *xdp.Manager) *MCPServer {
 		server.WithLogging(),
 	)
 
-	ms := &MCPServer{
-		manager: manager,
-		server:  s,
+	ms := &MCPServer {
+		manager:    manager,
+		server:     s,
+		configPath: "/etc/netxfw/config.yaml",
 	}
 
 	ms.registerTools()
 	return ms
+}
+
+func (s *MCPServer) SetToken(token string) {
+	s.token = token
+}
+
+func (s *MCPServer) GetOrGenerateToken() string {
+	if s.token != "" {
+		return s.token
+	}
+
+	// Try to load from config
+	cfg, err := types.LoadGlobalConfig(s.configPath)
+	if err == nil && cfg.MCP.Token != "" {
+		s.token = cfg.MCP.Token
+		return s.token
+	}
+
+	// Generate random token if not found
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		log.Printf("❌ Failed to generate random token: %v", err)
+		return ""
+	}
+	s.token = hex.EncodeToString(b)
+
+	// Persist to config
+	if err == nil {
+		cfg.MCP.Token = s.token
+		if cfg.MCP.Port == 0 {
+			cfg.MCP.Port = 11812
+		}
+		if err := types.SaveGlobalConfig(s.configPath, cfg); err == nil {
+			log.Printf("📄 Persisted new MCP token to %s", s.configPath)
+		}
+	}
+
+	return s.token
 }
 
 func (s *MCPServer) registerTools() {
@@ -112,7 +161,102 @@ func (s *MCPServer) handleAddRule(ctx context.Context, request mcp.CallToolReque
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to add rule: %v", opErr)), nil
 	}
 
+	// Persistence logic
+	globalCfg, err := types.LoadGlobalConfig(s.configPath)
+	if err == nil && globalCfg.Base.PersistRules {
+		if action == "deny" {
+			filePath := globalCfg.Base.LockListFile
+			if filePath != "" {
+				// Check if already in file
+				found := false
+				if f, err := os.Open(filePath); err == nil {
+					scanner := bufio.NewScanner(f)
+					for scanner.Scan() {
+						if strings.TrimSpace(scanner.Text()) == cidr {
+							found = true
+							break
+						}
+					}
+					f.Close()
+				}
+
+				if !found {
+					f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err == nil {
+						if _, err := f.WriteString(cidr + "\n"); err == nil {
+							log.Printf("📄 Persisted %s to %s", cidr, filePath)
+						}
+						f.Close()
+					}
+				}
+			}
+		} else {
+			// Whitelist persistence
+			entry := cidr
+			if port > 0 {
+				entry = fmt.Sprintf("%s:%d", cidr, port)
+			}
+			found := false
+			for _, ip := range globalCfg.Base.Whitelist {
+				if ip == entry {
+					found = true
+					break
+				}
+			}
+			if !found {
+				globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
+				if err := types.SaveGlobalConfig(s.configPath, globalCfg); err == nil {
+					log.Printf("📄 Persisted whitelist entry %s to %s", entry, s.configPath)
+				}
+			}
+		}
+	}
+
 	return mcp.NewToolResultText(fmt.Sprintf("Successfully added %s rule for %s (port: %d)", action, cidr, port)), nil
+}
+
+func (s *MCPServer) ServeSSE(addr string) error {
+	// Create SSE server with options
+	sseServer := server.NewSSEServer(s.server,
+		server.WithBaseURL("http://"+addr),
+	)
+
+	// Auth middleware
+	authMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if s.token != "" {
+				// Check Authorization header: Bearer <token>
+				authHeader := r.Header.Get("Authorization")
+				if authHeader == "" {
+					// Also check query parameter: ?token=<token>
+					authHeader = r.URL.Query().Get("token")
+					if authHeader != "" {
+						authHeader = "Bearer " + authHeader
+					}
+				}
+
+				if authHeader != "Bearer "+s.token {
+					http.Error(w, "Unauthorized: Invalid or missing token", http.StatusUnauthorized)
+					log.Printf("⚠️ Unauthorized access attempt from %s", r.RemoteAddr)
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	// Register handlers with auth
+	http.Handle("/sse", authMiddleware(sseServer.SSEHandler()))
+	http.Handle("/message", authMiddleware(sseServer.MessageHandler()))
+
+	log.Printf("🤖 netxfw AI MCP Server starting (SSE mode) on %s", addr)
+	if s.token != "" {
+		log.Printf("🔑 Security: Token authentication enabled")
+	} else {
+		log.Printf("⚠️ Security: No token set, server is public!")
+	}
+	log.Printf("🔗 SSE Endpoint: http://%s/sse", addr)
+	return http.ListenAndServe(addr, nil)
 }
 
 func (s *MCPServer) Serve() error {

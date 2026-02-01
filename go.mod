@@ -6,6 +6,7 @@ toolchain go1.24.12
 
 require (
 	github.com/cilium/ebpf v0.13.0
+	github.com/mark3labs/mcp-go v0.43.2
 	github.com/prometheus/client_golang v1.19.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -18,7 +19,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mark3labs/mcp-go v0.43.2 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.48.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
