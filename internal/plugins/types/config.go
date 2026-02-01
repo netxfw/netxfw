@@ -20,6 +20,7 @@ type BaseConfig struct {
 	DefaultDeny        bool     `yaml:"default_deny"`
 	AllowReturnTraffic bool     `yaml:"allow_return_traffic"` // Stateless check (ACK + Port range)
 	AllowICMP          bool     `yaml:"allow_icmp"`
+	EnableAFXDP        bool     `yaml:"enable_af_xdp"`
 	ICMPRate           uint64   `yaml:"icmp_rate"`  // packets per second
 	ICMPBurst          uint64   `yaml:"icmp_burst"` // max burst
 	Whitelist          []string `yaml:"whitelist"`

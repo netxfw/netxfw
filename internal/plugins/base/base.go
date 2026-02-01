@@ -45,6 +45,9 @@ func (p *BasePlugin) Start(manager *xdp.Manager) error {
 	if err := manager.SetAllowICMP(p.config.AllowICMP); err != nil {
 		log.Printf("⚠️  [BasePlugin] Failed to set allow ICMP: %v", err)
 	}
+	if err := manager.SetEnableAFXDP(p.config.EnableAFXDP); err != nil {
+		log.Printf("⚠️  [BasePlugin] Failed to set enable AF_XDP: %v", err)
+	}
 	if p.config.ICMPRate > 0 && p.config.ICMPBurst > 0 {
 		if err := manager.SetICMPRateLimit(p.config.ICMPRate, p.config.ICMPBurst); err != nil {
 			log.Printf("⚠️  [BasePlugin] Failed to set ICMP rate limit: %v", err)
@@ -205,6 +208,7 @@ func (p *BasePlugin) DefaultConfig() interface{} {
 		DefaultDeny:        true,
 		AllowReturnTraffic: true,
 		AllowICMP:          true,
+		EnableAFXDP:        false,
 		ICMPRate:           10,
 		ICMPBurst:          50,
 		Whitelist:          []string{"127.0.0.1/32"},

@@ -236,6 +236,27 @@ func syncDefaultDeny(enable bool) {
 	log.Printf("🛡️ Default deny policy set to: %v", enable)
 }
 
+func syncEnableAFXDP(enable bool) {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+	defer m.Close()
+
+	if err := m.SetEnableAFXDP(enable); err != nil {
+		log.Fatalf("❌ Failed to set enable AF_XDP: %v", err)
+	}
+
+	configPath := "/etc/netxfw/config.yaml"
+	globalCfg, err := LoadGlobalConfig(configPath)
+	if err == nil {
+		globalCfg.Base.EnableAFXDP = enable
+		SaveGlobalConfig(configPath, globalCfg)
+	}
+
+	log.Printf("🚀 AF_XDP redirection set to: %v", enable)
+}
+
 func syncAllowedPort(port uint16, allow bool) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {

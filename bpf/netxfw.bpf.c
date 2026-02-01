@@ -205,6 +205,13 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } ip_port_rules6 SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_XSKMAP);
+    __uint(max_entries, 64);
+    __uint(key_size, sizeof(int));
+    __uint(value_size, sizeof(int));
+} xsk_map SEC(".maps");
+
 /**
  * Global configuration: flags like DEFAULT_DENY
  * 全局配置：存储如 DEFAULT_DENY 等标志
@@ -223,7 +230,8 @@ struct {
 #define CONFIG_CONNTRACK_TIMEOUT 4
 #define CONFIG_ICMP_RATE 5
 #define CONFIG_ICMP_BURST 6
-#define CONFIG_CONFIG_VERSION 7
+#define CONFIG_ENABLE_AF_XDP 7
+#define CONFIG_CONFIG_VERSION 8
 
 // BPF-side configuration cache
 static __u64 cached_version = 0;
@@ -231,6 +239,7 @@ static __u32 cached_ct_enabled = 0;
 static __u32 cached_allow_icmp = 0;
 static __u32 cached_allow_return = 0;
 static __u32 cached_default_deny = 0;
+static __u32 cached_af_xdp_enabled = 0;
 static __u64 cached_ct_timeout = 3600000000000ULL;
 static __u64 cached_icmp_rate = 10;   // 10 packets/sec
 static __u64 cached_icmp_burst = 50;  // 50 packets burst
@@ -263,6 +272,9 @@ static __always_inline void refresh_config() {
 
         val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ICMP_BURST});
         if (val) cached_icmp_burst = *val;
+
+        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ENABLE_AF_XDP});
+        if (val) cached_af_xdp_enabled = (__u32)*val;
     }
 }
 
@@ -633,6 +645,11 @@ int xdp_firewall(struct xdp_md *ctx) {
     goto pass_packet;
 
 pass_packet:
+    // Check if AF_XDP is enabled for redirection
+    if (cached_af_xdp_enabled == 1) {
+        return bpf_redirect_map(&xsk_map, ctx->rx_queue_index, 0);
+    }
+
     // Increment global pass counter / 增加全局放行计数
     {
         __u32 key = 0;

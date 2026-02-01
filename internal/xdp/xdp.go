@@ -29,7 +29,8 @@ const (
 	configConntrackTimeout   = 4
 	configICMPRate           = 5
 	configICMPBurst          = 6
-	configVersion            = 7
+	configEnableAFXDP        = 7
+	configVersion            = 8
 )
 
 /**
@@ -452,6 +453,17 @@ func (m *Manager) SetConntrack(enable bool) error {
 		val = 1
 	}
 	return m.updateConfig(configEnableConntrack, val)
+}
+
+/**
+ * SetEnableAFXDP enables or disables the AF_XDP redirection.
+ */
+func (m *Manager) SetEnableAFXDP(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configEnableAFXDP, val)
 }
 
 /**

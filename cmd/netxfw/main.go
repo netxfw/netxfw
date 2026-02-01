@@ -283,6 +283,13 @@ func handleSystemCommand(args []string) {
 		}
 		enable := args[1] == "true"
 		syncDefaultDeny(enable)
+	case "afxdp":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw system afxdp <true|false>")
+			return
+		}
+		enable := args[1] == "true"
+		syncEnableAFXDP(enable)
 	default:
 		fmt.Println("Unknown system subcommand:", args[0])
 	}
@@ -316,6 +323,8 @@ func printUsage() {
 	fmt.Println("  ./netxfw system load               # 加载 XDP 驱动")
 	fmt.Println("  ./netxfw system reload             # 平滑重载 XDP (支持容量调整)")
 	fmt.Println("  ./netxfw system unload             # 卸载 XDP 驱动")
+	fmt.Println("  ./netxfw system set-default-deny <true|false> # 设置默认拦截策略")
+	fmt.Println("  ./netxfw system afxdp <true|false> # 开启/关闭 AF_XDP 重定向")
 	fmt.Println("")
 	fmt.Println("  --- 规则管理 (rule) ---")
 	fmt.Println("  ./netxfw rule add <ip> [allow|deny]      # 封禁或加白 IP")
