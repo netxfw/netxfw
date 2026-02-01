@@ -71,6 +71,10 @@ func main() {
 	case "system":
 		handleSystemCommand(os.Args[2:])
 
+	// --- Web 管理界面 (web) ---
+	case "web":
+		handleWebCommand(os.Args[2:])
+
 	// --- 连接追踪 (conntrack) ---
 	case "conntrack":
 		showConntrack()
@@ -106,7 +110,7 @@ func main() {
 	case "allow-list":
 		handleListCommand([]string{"whitelist"})
 	case "list-rules":
-		showIPPortRules()
+		showIPPortRules(0, "")
 	case "clear":
 		clearBlacklist()
 	case "import":
@@ -220,6 +224,8 @@ func handleListCommand(args []string) {
 	search := ""
 	isWhitelist := false
 
+	isIPPortRules := false
+
 	if len(args) > 0 && (args[0] == "whitelist" || args[0] == "allow") {
 		isWhitelist = true
 		args = args[1:]
@@ -227,8 +233,8 @@ func handleListCommand(args []string) {
 		isWhitelist = false
 		args = args[1:]
 	} else if len(args) > 0 && args[0] == "rules" {
-		showIPPortRules()
-		return
+		isIPPortRules = true
+		args = args[1:]
 	} else if len(args) > 0 && args[0] == "conntrack" {
 		showConntrack()
 		return
@@ -245,11 +251,23 @@ func handleListCommand(args []string) {
 		}
 	}
 
-	if isWhitelist {
+	if isIPPortRules {
+		showIPPortRules(limit, search)
+	} else if isWhitelist {
 		showWhitelist(limit, search)
 	} else {
 		showLockList(limit, search)
 	}
+}
+
+func handleWebCommand(args []string) {
+	port := 11811
+	if len(args) > 0 {
+		if p, err := strconv.Atoi(args[0]); err == nil {
+			port = p
+		}
+	}
+	runWebServer(port)
 }
 
 func handleSystemCommand(args []string) {
@@ -325,6 +343,9 @@ func printUsage() {
 	fmt.Println("  ./netxfw system unload             # 卸载 XDP 驱动")
 	fmt.Println("  ./netxfw system set-default-deny <true|false> # 设置默认拦截策略")
 	fmt.Println("  ./netxfw system afxdp <true|false> # 开启/关闭 AF_XDP 重定向")
+	fmt.Println("")
+	fmt.Println("  --- Web 管理界面 (web) ---")
+	fmt.Println("  ./netxfw web [port]                # 启动 Web 管理界面 (默认 11811)")
 	fmt.Println("")
 	fmt.Println("  --- 规则管理 (rule) ---")
 	fmt.Println("  ./netxfw rule add <ip> [allow|deny]      # 封禁或加白 IP")

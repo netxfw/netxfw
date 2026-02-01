@@ -10,24 +10,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func LoadGlobalConfig(path string) (*types.GlobalConfig, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var cfg types.GlobalConfig
-	err = yaml.Unmarshal(data, &cfg)
-	return &cfg, err
-}
-
-func SaveGlobalConfig(path string, cfg *types.GlobalConfig) error {
-	data, err := yaml.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0644)
-}
-
 func initConfiguration() {
 	configDir := "/etc/netxfw"
 	configPath := configDir + "/config.yaml"
@@ -81,7 +63,7 @@ func testConfiguration() {
 	configPath := "/etc/netxfw/config.yaml"
 	fmt.Printf("🔍 Testing global configuration in %s...\n", configPath)
 
-	cfg, err := LoadGlobalConfig(configPath)
+	cfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
 		log.Fatalf("❌ Error loading config.yaml: %v", err)
 	}

@@ -226,19 +226,19 @@ func showLockList(limit int, search string) {
 /**
  * showIPPortRules reads and prints all IP+Port rules.
  */
-func showIPPortRules() {
+func showIPPortRules(limit int, search string) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
 		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
 	}
 	defer m.Close()
 
-	rules4, err := m.ListIPPortRules(false)
+	rules4, total4, err := m.ListIPPortRules(false, limit, search)
 	if err != nil {
 		log.Fatalf("❌ Failed to list IPv4 IP+Port rules: %v", err)
 	}
 
-	rules6, err := m.ListIPPortRules(true)
+	rules6, total6, err := m.ListIPPortRules(true, limit, search)
 	if err != nil {
 		log.Fatalf("❌ Failed to list IPv6 IP+Port rules: %v", err)
 	}
@@ -258,6 +258,11 @@ func showIPPortRules() {
 		for target, action := range rules6 {
 			fmt.Printf(" - [IPv6] %s -> %s\n", target, action)
 		}
+	}
+
+	total := total4 + total6
+	if limit > 0 && total >= limit {
+		fmt.Printf("\n⚠️  Showing up to %d entries (limit reached).\n", limit)
 	}
 
 	fmt.Println("\n🔓 Globally Allowed Ports:")

@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/livp123/netxfw/internal/api"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
@@ -25,7 +26,7 @@ func installXDP() {
 	}
 
 	// Load global configuration
-	globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
+	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 	if err != nil {
 		log.Fatalf("❌ Failed to load global config: %v", err)
 	}
@@ -63,7 +64,7 @@ func installXDP() {
  */
 func runDaemon() {
 	// Load global configuration
-	globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
+	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 	if err != nil {
 		log.Fatalf("❌ Failed to load global config: %v", err)
 	}
@@ -149,7 +150,7 @@ func removeXDP() {
 	}
 
 	// Load global configuration to get max entries
-	globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
+	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 	if err != nil {
 		log.Printf("⚠️  Failed to load global config, using default map capacity: %v", err)
 		globalCfg = &types.GlobalConfig{}
@@ -186,7 +187,7 @@ func reloadXDP() {
 	}
 
 	// 1. Load global configuration
-	globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
+	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 	if err != nil {
 		log.Fatalf("❌ Failed to load global config: %v", err)
 	}
@@ -222,6 +223,25 @@ func reloadXDP() {
 	}
 
 	log.Println("🚀 XDP program reloaded successfully with updated configuration and capacity.")
+}
+
+/**
+ * runWebServer starts the API and UI server.
+ */
+func runWebServer(port int) {
+	// 1. Try to load manager from pins
+	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Printf("⚠️  Could not load pinned maps (is XDP loaded?): %v", err)
+		log.Fatal("❌ Web server requires netxfw XDP to be loaded. Run 'netxfw system load' first.")
+	}
+	defer manager.Close()
+
+	// 2. Start API server
+	server := api.NewServer(manager, port)
+	if err := server.Start(); err != nil {
+		log.Fatalf("❌ Failed to start web server: %v", err)
+	}
 }
 
 /**

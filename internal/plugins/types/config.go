@@ -1,5 +1,11 @@
 package types
 
+import (
+	"os"
+
+	"gopkg.in/yaml.v3"
+)
+
 type GlobalConfig struct {
 	Base      BaseConfig      `yaml:"base"`
 	Metrics   MetricsConfig   `yaml:"metrics"`
@@ -52,4 +58,22 @@ type IPPortRule struct {
 	IP     string `yaml:"ip"`
 	Port   uint16 `yaml:"port"`
 	Action uint8  `yaml:"action"` // 1: allow, 2: deny
+}
+
+func LoadGlobalConfig(path string) (*GlobalConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var cfg GlobalConfig
+	err = yaml.Unmarshal(data, &cfg)
+	return &cfg, err
+}
+
+func SaveGlobalConfig(path string, cfg *GlobalConfig) error {
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }

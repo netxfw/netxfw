@@ -49,7 +49,7 @@ func syncLockMap(cidrStr string, lock bool) {
 				} else {
 					log.Printf("🔓 Removed %s from whitelist", cidrStr)
 					// Also update config
-					globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
+					globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 					if err == nil {
 						newWhitelist := []string{}
 						for _, ip := range globalCfg.Base.Whitelist {
@@ -58,7 +58,7 @@ func syncLockMap(cidrStr string, lock bool) {
 							}
 						}
 						globalCfg.Base.Whitelist = newWhitelist
-						SaveGlobalConfig("/etc/netxfw/config.yaml", globalCfg)
+						types.SaveGlobalConfig("/etc/netxfw/config.yaml", globalCfg)
 					}
 				}
 			}
@@ -71,7 +71,7 @@ func syncLockMap(cidrStr string, lock bool) {
 		log.Printf("🛡️ Locked: %s", cidrStr)
 
 		// Persist to LockListFile if enabled
-		globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
+		globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 		if err == nil && globalCfg.Base.PersistRules && globalCfg.Base.LockListFile != "" {
 			filePath := globalCfg.Base.LockListFile
 			// Check if already in file
@@ -104,7 +104,7 @@ func syncLockMap(cidrStr string, lock bool) {
 		log.Printf("🔓 Unlocked: %s", cidrStr)
 
 		// Remove from LockListFile if enabled
-		globalCfg, err := LoadGlobalConfig("/etc/netxfw/config.yaml")
+		globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 		if err == nil && globalCfg.Base.PersistRules && globalCfg.Base.LockListFile != "" {
 			filePath := globalCfg.Base.LockListFile
 			if _, err := os.Stat(filePath); err == nil {
@@ -146,7 +146,7 @@ func syncWhitelistMap(cidrStr string, port uint16, allow bool) {
 	defer m.Close()
 
 	configPath := "/etc/netxfw/config.yaml"
-	globalCfg, err := LoadGlobalConfig(configPath)
+	globalCfg, err := types.LoadGlobalConfig(configPath)
 
 	if allow {
 		oppositeMapPath := "/sys/fs/bpf/netxfw/lock_list"
@@ -193,7 +193,7 @@ func syncWhitelistMap(cidrStr string, port uint16, allow bool) {
 			}
 			if !found {
 				globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
-				SaveGlobalConfig(configPath, globalCfg)
+				types.SaveGlobalConfig(configPath, globalCfg)
 			}
 		}
 	} else {
@@ -210,7 +210,7 @@ func syncWhitelistMap(cidrStr string, port uint16, allow bool) {
 				}
 			}
 			globalCfg.Base.Whitelist = newWhitelist
-			SaveGlobalConfig(configPath, globalCfg)
+			types.SaveGlobalConfig(configPath, globalCfg)
 		}
 	}
 }
@@ -227,10 +227,10 @@ func syncDefaultDeny(enable bool) {
 	}
 
 	configPath := "/etc/netxfw/config.yaml"
-	globalCfg, err := LoadGlobalConfig(configPath)
+	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.Base.DefaultDeny = enable
-		SaveGlobalConfig(configPath, globalCfg)
+		types.SaveGlobalConfig(configPath, globalCfg)
 	}
 
 	log.Printf("🛡️ Default deny policy set to: %v", enable)
@@ -248,10 +248,10 @@ func syncEnableAFXDP(enable bool) {
 	}
 
 	configPath := "/etc/netxfw/config.yaml"
-	globalCfg, err := LoadGlobalConfig(configPath)
+	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.Base.EnableAFXDP = enable
-		SaveGlobalConfig(configPath, globalCfg)
+		types.SaveGlobalConfig(configPath, globalCfg)
 	}
 
 	log.Printf("🚀 AF_XDP redirection set to: %v", enable)
@@ -265,7 +265,7 @@ func syncAllowedPort(port uint16, allow bool) {
 	defer m.Close()
 
 	configPath := "/etc/netxfw/config.yaml"
-	globalCfg, err := LoadGlobalConfig(configPath)
+	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
 		log.Fatalf("❌ Failed to load global config: %v", err)
 	}
@@ -301,7 +301,7 @@ func syncAllowedPort(port uint16, allow bool) {
 
 		if !cfgFound {
 			globalCfg.Port.AllowedPorts = append(globalCfg.Port.AllowedPorts, port)
-			SaveGlobalConfig(configPath, globalCfg)
+			types.SaveGlobalConfig(configPath, globalCfg)
 			log.Printf("📄 Added port %d to config", port)
 		}
 
@@ -319,7 +319,7 @@ func syncAllowedPort(port uint16, allow bool) {
 			}
 		}
 		globalCfg.Port.AllowedPorts = newPorts
-		SaveGlobalConfig(configPath, globalCfg)
+		types.SaveGlobalConfig(configPath, globalCfg)
 		log.Printf("🔒 Port removed from global allow list: %d", port)
 	}
 }
@@ -332,7 +332,7 @@ func syncIPPortRule(cidrStr string, port uint16, action uint8, add bool) {
 	defer m.Close()
 
 	configPath := "/etc/netxfw/config.yaml"
-	globalCfg, _ := LoadGlobalConfig(configPath)
+	globalCfg, _ := types.LoadGlobalConfig(configPath)
 	if globalCfg == nil {
 		globalCfg = &types.GlobalConfig{}
 	}
@@ -352,7 +352,7 @@ func syncIPPortRule(cidrStr string, port uint16, action uint8, add bool) {
 
 	if add {
 		isV6 := ipNet.IP.To4() == nil
-		existingRules, _ := m.ListIPPortRules(isV6)
+		existingRules, _, _ := m.ListIPPortRules(isV6, 0, "")
 		targetKey := fmt.Sprintf("%s:%d", cidrStr, port)
 		if !strings.Contains(cidrStr, "/") {
 			if isV6 {
@@ -450,7 +450,7 @@ func syncIPPortRule(cidrStr string, port uint16, action uint8, add bool) {
 						Action: action,
 					})
 				}
-				SaveGlobalConfig(configPath, globalCfg)
+				types.SaveGlobalConfig(configPath, globalCfg)
 				log.Printf("📄 Updated IP+Port rule in config: %s:%d", cidrStr, port)
 			}
 		}
@@ -491,7 +491,7 @@ func syncIPPortRule(cidrStr string, port uint16, action uint8, add bool) {
 					}
 				}
 				globalCfg.Port.IPPortRules = newRules
-				SaveGlobalConfig(configPath, globalCfg)
+				types.SaveGlobalConfig(configPath, globalCfg)
 				log.Printf("🛡️ Rule removed from config: %s:%d", cidrStr, port)
 			}
 		}
@@ -544,7 +544,7 @@ func clearBlacklist() {
 	}
 
 	configPath := "/etc/netxfw/config.yaml"
-	globalCfg, err := LoadGlobalConfig(configPath)
+	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		if globalCfg.Base.LockListFile != "" {
 			os.WriteFile(globalCfg.Base.LockListFile, []byte(""), 0644)
@@ -561,7 +561,7 @@ func clearBlacklist() {
 		}
 		if removedCount > 0 {
 			globalCfg.Port.IPPortRules = newRules
-			SaveGlobalConfig(configPath, globalCfg)
+			types.SaveGlobalConfig(configPath, globalCfg)
 			log.Printf("📄 Removed %d deny rules from config.yaml", removedCount)
 		}
 	}
@@ -582,13 +582,13 @@ func importIPPortRulesFromFile(filePath string) {
 	defer m.Close()
 
 	configPath := "/etc/netxfw/config.yaml"
-	globalCfg, _ := LoadGlobalConfig(configPath)
+	globalCfg, _ := types.LoadGlobalConfig(configPath)
 	if globalCfg == nil {
 		globalCfg = &types.GlobalConfig{}
 	}
 
-	existingRules4, _ := m.ListIPPortRules(false)
-	existingRules6, _ := m.ListIPPortRules(true)
+	existingRules4, _, _ := m.ListIPPortRules(false, 0, "")
+	existingRules6, _, _ := m.ListIPPortRules(true, 0, "")
 
 	scanner := bufio.NewScanner(file)
 	count := 0
@@ -676,7 +676,7 @@ func importIPPortRulesFromFile(filePath string) {
 	}
 
 	if updatedCount > 0 {
-		SaveGlobalConfig(configPath, globalCfg)
+		types.SaveGlobalConfig(configPath, globalCfg)
 	}
 	log.Printf("🚀 Successfully processed %d IP+Port rules (New/Updated: %d).", count, updatedCount)
 }
@@ -755,7 +755,7 @@ func importWhitelistFromFile(filePath string) {
 	defer file.Close()
 
 	configPath := "/etc/netxfw/config.yaml"
-	globalCfg, _ := LoadGlobalConfig(configPath)
+	globalCfg, _ := types.LoadGlobalConfig(configPath)
 	if globalCfg == nil {
 		globalCfg = &types.GlobalConfig{}
 	}
@@ -828,7 +828,7 @@ func importWhitelistFromFile(filePath string) {
 	}
 
 	if updatedConfig {
-		SaveGlobalConfig(configPath, globalCfg)
+		types.SaveGlobalConfig(configPath, globalCfg)
 	}
 	log.Printf("⚪ Imported %d IPs/ranges from %s to whitelist (Skipped %d conflicts, Updated config: %v)", count, filePath, conflictCount, updatedConfig)
 }

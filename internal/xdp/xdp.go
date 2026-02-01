@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -323,6 +324,32 @@ func (m *Manager) Detach(interfaces []string) error {
 		}
 	}
 	return nil
+}
+
+/**
+ * GetStats retrieves the total pass and drop counts from BPF maps.
+ */
+func (m *Manager) GetStats() (uint64, uint64) {
+	var totalPass, totalDrop uint64
+
+	// Pass stats (PERCPU_ARRAY, max_entries 1)
+	var passVals []uint64
+	var key uint32 = 0
+	if err := m.passStats.Lookup(&key, &passVals); err == nil {
+		for _, v := range passVals {
+			totalPass += v
+		}
+	}
+
+	// Drop stats (PERCPU_ARRAY, max_entries 1)
+	var dropVals []uint64
+	if err := m.dropStats.Lookup(&key, &dropVals); err == nil {
+		for _, v := range dropVals {
+			totalDrop += v
+		}
+	}
+
+	return totalPass, totalDrop
 }
 
 // Map getters / Map 获取器
@@ -679,44 +706,72 @@ func (m *Manager) GetConntrackCount() (uint64, error) {
 }
 
 /**
- * ListIPPortRules returns all configured IP+Port rules.
+ * ListIPPortRules returns all configured IP+Port rules with limit and search support.
  */
-func (m *Manager) ListIPPortRules(isIPv6 bool) (map[string]string, error) {
+func (m *Manager) ListIPPortRules(isIPv6 bool, limit int, search string) (map[string]string, int, error) {
 	rules := make(map[string]string)
 	mapToIterate := m.ipPortRules
 	if isIPv6 {
 		mapToIterate = m.ipPortRules6
 	}
 
+	if mapToIterate == nil {
+		return rules, 0, nil
+	}
+
+	count := 0
+	iter := mapToIterate.Iterate()
+
 	if isIPv6 {
 		var key NetXfwLpmIp6PortKey
 		var val NetXfwRuleValue
-		iter := mapToIterate.Iterate()
 		for iter.Next(&key, &val) {
 			prefixLen := key.Prefixlen - 32
 			ip := net.IP(key.Ip.In6U.U6Addr8[:])
+			ipStr := ip.String()
+			fullStr := fmt.Sprintf("%s/%d:%d", ipStr, prefixLen, key.Port)
+
+			if search != "" && !strings.Contains(fullStr, search) {
+				continue
+			}
+
+			count++
+			if limit > 0 && len(rules) >= limit {
+				continue // Keep counting total but stop adding to map
+			}
+
 			action := "allow"
 			if val.Counter == 2 {
 				action = "deny"
 			}
-			rules[fmt.Sprintf("%s/%d:%d", ip.String(), prefixLen, key.Port)] = action
+			rules[fullStr] = action
 		}
-		return rules, iter.Err()
 	} else {
 		var key NetXfwLpmIp4PortKey
 		var val NetXfwRuleValue
-		iter := mapToIterate.Iterate()
 		for iter.Next(&key, &val) {
 			prefixLen := key.Prefixlen - 32
 			ip := intToIP(key.Ip)
+			ipStr := ip.String()
+			fullStr := fmt.Sprintf("%s/%d:%d", ipStr, prefixLen, key.Port)
+
+			if search != "" && !strings.Contains(fullStr, search) {
+				continue
+			}
+
+			count++
+			if limit > 0 && len(rules) >= limit {
+				continue // Keep counting total but stop adding to map
+			}
+
 			action := "allow"
 			if val.Counter == 2 {
 				action = "deny"
 			}
-			rules[fmt.Sprintf("%s/%d:%d", ip.String(), prefixLen, key.Port)] = action
+			rules[fullStr] = action
 		}
-		return rules, iter.Err()
 	}
+	return rules, count, iter.Err()
 }
 
 /**
