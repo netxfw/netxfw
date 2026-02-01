@@ -1,12 +1,15 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/cilium/ebpf"
@@ -29,13 +32,30 @@ func NewServer(manager *xdp.Manager, port int) *Server {
 }
 
 func (s *Server) Start() error {
+	// Auto-generate token if not configured
+	cfg, err := types.LoadGlobalConfig(s.configPath)
+	if err == nil {
+		if cfg.Web.Token == "" {
+			token := generateRandomToken(16)
+			cfg.Web.Token = token
+			cfg.Web.Enabled = true
+			cfg.Web.Port = s.port
+			types.SaveGlobalConfig(s.configPath, cfg)
+			log.Printf("🔑 No Web Token configured. Automatically generated a new one: %s", token)
+			log.Printf("📝 Token has been saved to %s", s.configPath)
+		} else {
+			log.Printf("🔑 Using configured Web Token for authentication")
+		}
+	}
+
 	mux := http.NewServeMux()
 
-	// API Endpoints
-	mux.HandleFunc("/api/stats", s.handleStats)
-	mux.HandleFunc("/api/rules", s.handleRules)
-	mux.HandleFunc("/api/config", s.handleConfig)
-	mux.HandleFunc("/api/sync", s.handleSync)
+	// API Endpoints with Token Auth
+	mux.Handle("/api/stats", s.withAuth(http.HandlerFunc(s.handleStats)))
+	mux.Handle("/api/rules", s.withAuth(http.HandlerFunc(s.handleRules)))
+	mux.Handle("/api/config", s.withAuth(http.HandlerFunc(s.handleConfig)))
+	mux.Handle("/api/sync", s.withAuth(http.HandlerFunc(s.handleSync)))
+	mux.Handle("/api/conntrack", s.withAuth(http.HandlerFunc(s.handleConntrack)))
 
 	// UI (Embedded)
 	mux.HandleFunc("/", s.handleUI)
@@ -43,6 +63,29 @@ func (s *Server) Start() error {
 	addr := fmt.Sprintf(":%d", s.port)
 	log.Printf("🚀 Management API and UI starting on http://localhost%s", addr)
 	return http.ListenAndServe(addr, mux)
+}
+
+func (s *Server) withAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cfg, err := types.LoadGlobalConfig(s.configPath)
+		if err != nil || cfg.Web.Token == "" {
+			// If no token configured, allow all
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		token := r.Header.Get("X-NetXFW-Token")
+		if token == "" {
+			token = r.URL.Query().Get("token")
+		}
+
+		if token != cfg.Web.Token {
+			http.Error(w, "Unauthorized: Invalid or missing Token", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
@@ -234,36 +277,28 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 				}
 			} else if req.Type == "ip_port_rules" {
 				// IP+Port rules persistence
-				parts := strings.Split(req.CIDR, ":")
-				if len(parts) >= 2 {
-					ip := parts[0]
-					portVal := uint16(0)
-					fmt.Sscanf(parts[1], "%d", &portVal)
-					actionVal := uint8(2)
-					if len(parts) >= 3 && parts[2] == "allow" {
-						actionVal = 1
-					}
-
+				ipStr, port, action, parseErr := parseIPPortAction(req.CIDR)
+				if parseErr == nil {
 					if req.Action == "add" {
 						found := false
 						for i, rule := range cfg.Port.IPPortRules {
-							if rule.IP == ip && rule.Port == portVal {
-								cfg.Port.IPPortRules[i].Action = actionVal
+							if rule.IP == ipStr && rule.Port == port {
+								cfg.Port.IPPortRules[i].Action = action
 								found = true
 								break
 							}
 						}
 						if !found {
 							cfg.Port.IPPortRules = append(cfg.Port.IPPortRules, types.IPPortRule{
-								IP:     ip,
-								Port:   portVal,
-								Action: actionVal,
+								IP:     ipStr,
+								Port:   port,
+								Action: action,
 							})
 						}
 					} else {
 						newRules := []types.IPPortRule{}
 						for _, rule := range cfg.Port.IPPortRules {
-							if rule.IP != ip || rule.Port != portVal {
+							if rule.IP != ipStr || rule.Port != port {
 								newRules = append(newRules, rule)
 							}
 						}
@@ -346,6 +381,35 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `{"status":"ok"}`)
 }
 
+func (s *Server) handleConntrack(w http.ResponseWriter, r *http.Request) {
+	entries, err := s.manager.ListConntrackEntries()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Sort by LastSeen descending
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].LastSeen.After(entries[j].LastSeen)
+	})
+
+	total := len(entries)
+	limit := 20
+	if total < limit {
+		limit = total
+	}
+
+	topEntries := entries[:limit]
+
+	res := map[string]interface{}{
+		"total": total,
+		"top":   topEntries,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(res)
+}
+
 func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprint(w, `
@@ -366,14 +430,18 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
 </head>
 <body>
     <nav class="navbar navbar-dark bg-dark mb-4">
-        <div class="container">
+        <div class="container d-flex justify-content-between">
             <a class="navbar-brand" href="#">🛡️ netxfw <small class="text-muted">Management</small></a>
+            <div class="d-flex align-items-center">
+                <input type="password" id="web-token" class="form-control form-control-sm me-2" placeholder="Auth Token" onchange="saveToken(this.value)" style="width: 150px;">
+                <span id="auth-status" class="badge bg-secondary">Unknown Auth</span>
+            </div>
         </div>
     </nav>
 
     <div class="container">
         <div class="row">
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="card text-center text-white bg-primary">
                     <div class="card-body">
                         <h5 class="card-title">Pass Count</h5>
@@ -381,11 +449,19 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="card text-center text-white bg-danger">
                     <div class="card-body">
                         <h5 class="card-title">Drop Count</h5>
                         <p class="stat-value" id="drop-count">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title">Conntrack Total</h5>
+                        <p class="stat-value" id="ct-count">0</p>
                     </div>
                 </div>
             </div>
@@ -466,6 +542,31 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
             </div>
         </div>
 
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Top 20 Active Connections <small class="text-muted">(Last Seen)</small></h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th>Destination</th>
+                                    <th>Protocol</th>
+                                    <th>Last Seen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="conntrack-table">
+                                <!-- Conntrack entries injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
@@ -487,16 +588,67 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
     </div>
 
     <script>
+        function getAuthHeaders() {
+            const token = localStorage.getItem('netxfw_token') || '';
+            return {
+                'Content-Type': 'application/json',
+                'X-NetXFW-Token': token
+            };
+        }
+
+        function saveToken(token) {
+            localStorage.setItem('netxfw_token', token);
+            refreshRules();
+            refreshStats();
+        }
+
+        function updateAuthStatus(ok) {
+            const status = document.getElementById('auth-status');
+            if (ok) {
+                status.innerText = 'Authenticated';
+                status.className = 'badge bg-success';
+            } else {
+                status.innerText = 'Auth Required / Invalid';
+                status.className = 'badge bg-danger';
+            }
+        }
+
         function refreshStats() {
-            fetch('/api/stats').then(r => r.json()).then(data => {
+            fetch('/api/stats', { headers: getAuthHeaders() }).then(r => {
+                updateAuthStatus(r.ok);
+                return r.json();
+            }).then(data => {
                 document.getElementById('pass-count').innerText = data.pass.toLocaleString();
                 document.getElementById('drop-count').innerText = data.drop.toLocaleString();
-            });
+            }).catch(e => console.error('Auth error', e));
+
+            fetch('/api/conntrack', { headers: getAuthHeaders() })
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('ct-count').innerText = data.total.toLocaleString();
+                    const tbody = document.getElementById('conntrack-table');
+                    tbody.innerHTML = '';
+                    if (data.top) {
+                        data.top.forEach(entry => {
+                            const protocol = entry.Protocol === 6 ? 'TCP' : (entry.Protocol === 17 ? 'UDP' : entry.Protocol);
+                            const timeStr = new Date(entry.LastSeen).toLocaleTimeString();
+                            tbody.innerHTML += '<tr>' +
+                                '<td><code>' + entry.SrcIP + ':' + entry.SrcPort + '</code></td>' +
+                                '<td><code>' + entry.DstIP + ':' + entry.DstPort + '</code></td>' +
+                                '<td><span class="badge bg-secondary">' + protocol + '</span></td>' +
+                                '<td>' + timeStr + '</td>' +
+                            '</tr>';
+                        });
+                    }
+                });
         }
 
         function refreshRules() {
             const search = document.getElementById('rule-search').value;
-            fetch('/api/rules?search=' + encodeURIComponent(search)).then(r => r.json()).then(data => {
+            fetch('/api/rules?search=' + encodeURIComponent(search), { headers: getAuthHeaders() }).then(r => {
+                updateAuthStatus(r.ok);
+                return r.json();
+            }).then(data => {
                 const limit = data.limit || 100;
 
                 // Update Blacklist
@@ -538,8 +690,8 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
                         const lastColon = key.lastIndexOf(':');
                         const ip = key.substring(0, lastColon);
                         const port = key.substring(lastColon + 1);
-                        const policy = action == 1 ? "ALLOW" : "DENY";
-                        const badgeClass = action == 1 ? "bg-success" : "bg-danger";
+                        const policy = (action === "allow" || action === 1) ? "ALLOW" : "DENY";
+                        const badgeClass = (action === "allow" || action === 1) ? "bg-success" : "bg-danger";
 
                         ptbody.innerHTML += '<tr>' +
                                 '<td><code>' + ip + '</code></td>' +
@@ -551,7 +703,7 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
                 }
                 document.getElementById('ipport-count').innerText =
                     (data.totalIPPort > limit ? '(Showing ' + limit + ' of ' + data.totalIPPort + ')' : '(' + data.totalIPPort + ')');
-            });
+            }).catch(e => console.error('Auth error', e));
         }
 
         function handleSearch(event) {
@@ -563,7 +715,7 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
         function toggleConfig(key, value) {
             fetch('/api/config', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: getAuthHeaders(),
                 body: JSON.stringify({key, value})
             });
         }
@@ -576,7 +728,7 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
 
             fetch('/api/sync', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: getAuthHeaders(),
                 body: JSON.stringify({direction, mode})
             }).then(r => {
                 if (r.ok) {
@@ -598,7 +750,7 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
 
             fetch('/api/rules', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: getAuthHeaders(),
                 body: JSON.stringify({type, action: 'add', cidr})
             }).then(r => {
                 if (r.ok) refreshRules();
@@ -610,7 +762,7 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
             if (!confirm('Are you sure you want to remove this rule?')) return;
             fetch('/api/rules', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: getAuthHeaders(),
                 body: JSON.stringify({type, action: 'remove', cidr})
             }).then(r => {
                 if (r.ok) refreshRules();
@@ -619,6 +771,7 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
         }
 
         // Init
+        document.getElementById('web-token').value = localStorage.getItem('netxfw_token') || '';
         refreshStats();
         refreshRules();
         setInterval(refreshStats, 3000);
@@ -773,4 +926,12 @@ func parseIPPortAction(input string) (string, uint16, uint8, error) {
 		}
 	}
 	return ip, port, action, nil
+}
+
+func generateRandomToken(length int) string {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "netxfw_default_token_please_change"
+	}
+	return hex.EncodeToString(b)
 }

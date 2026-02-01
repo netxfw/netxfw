@@ -2,6 +2,7 @@
 /netxfw
 /netxfw-linux-amd64
 /netxfw-linux-arm64
+/netxfw_protected
 
 # Local config
 /etc/

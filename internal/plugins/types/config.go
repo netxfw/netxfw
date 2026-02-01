@@ -8,10 +8,17 @@ import (
 
 type GlobalConfig struct {
 	Base      BaseConfig      `yaml:"base"`
+	Web       WebConfig       `yaml:"web"`
 	Metrics   MetricsConfig   `yaml:"metrics"`
 	Port      PortConfig      `yaml:"port"`
 	Conntrack ConntrackConfig `yaml:"conntrack"`
 	Capacity  CapacityConfig  `yaml:"capacity"`
+}
+
+type WebConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Port    int    `yaml:"port"`
+	Token   string `yaml:"token"`
 }
 
 type CapacityConfig struct {
