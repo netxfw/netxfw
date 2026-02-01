@@ -2,12 +2,13 @@
 
 build:
 	go build -o netxfw ./cmd/netxfw
+	go build -o ai-mcp ./cmd/ai-mcp
 
 generate:
 	cd internal/xdp && go generate
 
 clean:
-	rm -f netxfw
+	rm -f netxfw ai-mcp
 	rm -f internal/xdp/*_bpf*.go
 
 run: build

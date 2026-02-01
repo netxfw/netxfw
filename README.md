@@ -1,6 +1,6 @@
 # netxfw — The eXtensible eBPF Firewall
 
-[![License](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/livp123/netxfw)](https://goreportcard.com/report/github.com/livp123/netxfw)
 [![Release](https://img.shields.io/github/v/release/livp123/netxfw)](https://github.com/livp123/netxfw/releases)
 
@@ -20,6 +20,7 @@
 - ⚡ **无损热重载**：支持运行时调整 Map 容量并热重载程序，通过状态迁移确保业务零中断。
 - 🌊 **流量整形**：内置基于令牌桶算法的 ICMP 限速，有效抵御 ICMP Flood 攻击。
 - 📊 **可观测性**：内置 Web 管理界面（默认 11811 端口）与 Prometheus Exporter，实时监控丢包速率与活跃连接。
+- 🤖 **AI 赋能 (MCP)**：支持 Model Context Protocol (MCP)，可通过 Claude/ChatGPT 等 AI 助手以自然语言直接管理防火墙。
 - 🛠️ **一令封网**：极简的 CLI 操作，支持动态加载规则，无需重启服务。
 - 🔒 **安全加固**：支持使用 `garble` 进行混淆编译，保护控制面逻辑。
 
@@ -102,6 +103,14 @@ go install mvdan.cc/garble@latest
 garble -literals -tiny build -ldflags="-s -w" -o netxfw ./cmd/netxfw
 ```
 
+#### 方式 D：AI MCP 服务 (AI 交互)
+如果您希望使用 AI 助手（如 Claude Desktop）来管理防火墙：
+```bash
+make build
+# 编译产物为 ai-mcp
+```
+详细配置请参考 [AI MCP 使用指南](#-ai-mcp-使用指南)。
+
 ### 2. 运行与配置
 
 #### 启动服务
@@ -160,6 +169,30 @@ port:
 | `reload` | 热重载配置并更新 XDP 程序 | `sudo netxfw reload` |
 | `load xdp` | 加载 XDP 程序 | `sudo netxfw load xdp` |
 | `unload xdp` | 卸载 XDP 程序 | `sudo netxfw unload xdp` |
+
+---
+
+## 🤖 AI MCP 使用指南
+
+`netxfw` 支持 **Model Context Protocol (MCP)**，允许 AI 模型安全地访问防火墙状态并执行管理操作。
+
+### 1. 功能支持
+- `get_stats`: 获取实时丢包/通过统计。
+- `list_conntrack`: 查看当前活跃连接。
+- `add_rule`: 以自然语言添加规则（例如：“帮我封禁来自 1.2.3.4 的流量”）。
+
+### 2. 在 Claude Desktop 中配置
+编辑您的 `claude_desktop_config.json`：
+
+```json
+{
+  "mcpServers": {
+    "netxfw": {
+      "command": "/path/to/netxfw/ai-mcp"
+    }
+  }
+}
+```
 
 ---
 

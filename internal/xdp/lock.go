@@ -12,6 +12,17 @@ import (
 )
 
 /**
+ * IsIPv6 checks if a string is a valid IPv6 address or CIDR.
+ */
+func IsIPv6(cidr string) bool {
+	ip, _, err := net.ParseCIDR(cidr)
+	if err != nil {
+		ip = net.ParseIP(cidr)
+	}
+	return ip != nil && ip.To4() == nil
+}
+
+/**
  * CheckConflict checks if a CIDR exists in the opposite map.
  * Returns true if conflict found, and a message describing it.
  */

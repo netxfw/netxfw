@@ -16,6 +16,7 @@
 | `lock` | `<IP>` | 快捷命令：全局封禁指定 IP |
 | `allow` | `<IP> [port]` | 快捷命令：将 IP 加入白名单 |
 | `web` | `start / stop` | 管理 Web 控制台服务 |
+| `ai-mcp` | 无 | 启动 AI MCP 服务 (stdio 模式) |
 
 ---
 
@@ -76,3 +77,11 @@ sudo netxfw unlock 1.2.3.4
 sudo netxfw reload xdp
 ```
 该命令会自动将旧 Map 中的数据迁移到新 Map，确保现有连接不中断。
+
+### 6. AI MCP 服务 (ai-mcp)
+`ai-mcp` 是一个独立的二进制文件，用于支持 Model Context Protocol。它通常由 AI 客户端（如 Claude Desktop）启动。
+
+```bash
+# 手动测试（会进入 stdio 交互模式）
+./ai-mcp
+```
