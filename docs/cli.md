@@ -6,77 +6,73 @@
 
 | 命令 | 参数 | 描述 |
 | :--- | :--- | :--- |
-| `load xdp` | 无 | 启动服务，加载 BPF 程序到网卡 |
-| `lock` | `<IP/CIDR>` | 将指定 IP 或网段加入锁定列表 |
-| `unlock` | `<IP/CIDR>` | 从锁定列表中移除指定 IP 或网段 |
-| `allow` | `<IP/CIDR>` | 将指定 IP 或网段加入白名单 |
-| `unallow` | `<IP/CIDR>` | 从白名单中移除指定 IP 或网段 |
-| `list` | 无 | 查看当前锁定列表中的 IP 及其丢包统计 |
-| `allow-list` | 无 | 查看当前白名单中的 IP 列表 |
-| `import` | `<FILE>` | 从文件批量导入 IP 到锁定列表 |
-| `unload xdp` | 无 | 提示如何卸载程序 |
+| `daemon` | 无 | 启动守护进程，负责指标收集、规则清理和 API 服务 |
+| `load xdp` | 无 | 加载 BPF 程序并挂载到所有物理网卡 |
+| `unload xdp` | 无 | 卸载 BPF 程序并清理固定 Map |
+| `reload xdp` | 无 | 热重载配置并无损更新 BPF 程序 |
+| `conntrack` | 无 | 查看当前内核中的活跃连接追踪表 |
+| `rule add` | `<IP> [port] <allow/deny>` | 添加 IP 或 IP+端口 规则 |
+| `rule list` | `rules / conntrack` | 查看规则列表或连接列表 |
+| `lock` | `<IP>` | 快捷命令：全局封禁指定 IP |
+| `allow` | `<IP> [port]` | 快捷命令：将 IP 加入白名单 |
+| `web` | `start / stop` | 管理 Web 控制台服务 |
 
 ---
 
 ## 详细说明
 
-### 1. 启动服务 (load xdp)
-启动主进程，它会执行以下操作：
-- 加载 eBPF 字节码到内核。
-- 自动识别系统中的所有物理网卡。
-- 将 XDP 程序挂载到这些网卡。
-- 在 `/sys/fs/bpf/netxfw` 固定 Map 以供外部控制。
-- 启动 Prometheus 指标服务 (默认端口 :9100)。
+### 1. 守护进程 (daemon)
+`netxfw` 的核心运行模式。在 `daemon` 模式下，程序会：
+- 监控内核 BPF Map 状态。
+- 自动清理过期的动态规则。
+- 暴露 Prometheus 指标 (默认 :9100)。
+- 启动 Web API 供 CLI 和 Web UI 调用。
 
 ```bash
-sudo ./netxfw load xdp
+sudo netxfw daemon
 ```
 
-### 2. 封禁 IP (lock)
-实时向正在运行的防火墙添加封禁规则。
-- 支持标准 IPv4 地址 (如 `192.168.1.1`)。
-- 支持标准 IPv6 地址 (如 `2001:db8::1`)。
+### 2. 规则管理 (rule)
+支持细粒度的访问控制。
+- **添加规则**：
+  ```bash
+  # 允许来自 1.2.3.4 的所有流量
+  sudo netxfw rule add 1.2.3.4 allow
+  # 拦截来自 5.6.7.8 访问 80 端口的流量
+  sudo netxfw rule add 5.6.7.8 80 deny
+  ```
+- **查看规则**：
+  ```bash
+  sudo netxfw rule list rules
+  ```
+
+### 3. 连接追踪 (conntrack)
+实时查看内核中的有状态连接。这对于排查网络连通性问题非常有用。
 
 ```bash
-sudo ./netxfw lock 1.1.1.1
-sudo ./netxfw lock 2400:3200::1
-```
-
-### 3. 查看列表 (list)
-列出当前内核中生效的所有锁定列表 IP，并显示每个 IP 触发的丢包总数。
-
-```bash
-sudo ./netxfw list
+sudo netxfw conntrack
 ```
 **输出示例：**
 ```text
-🛡️ Currently locked IPs and drop counts:
- - [IPv4] 1.1.1.1: 42 drops
- - [IPv6] 2400:3200::1: 156 drops
+Source          Port  Destination     Port  Protocol
+--------------------------------------------------------------------------------
+192.168.1.100   54321 1.1.1.1         443   TCP
 ```
 
-### 4. 解封 IP (unlock)
-从内核 Map 中删除指定 IP，立即恢复其通信。
+### 4. 快速封禁与解封 (lock/unlock)
+针对紧急情况的快捷命令。
 
 ```bash
-sudo ./netxfw unlock 1.1.1.1
+# 立即封禁
+sudo netxfw lock 1.2.3.4
+# 立即解封
+sudo netxfw unlock 1.2.3.4
 ```
 
-### 5. 白名单操作 (allow/unallow/allow-list)
-管理白名单，白名单中的 IP 将绕过所有封禁规则。
-- `allow`: 添加到白名单。
-- `unallow`: 从白名单移除。
-- `allow-list`: 查看当前白名单。
+### 5. 热重载 (reload)
+当您修改了 `/etc/netxfw/config.yaml`（例如调整了 Map 容量或默认策略）后，可以使用此命令实现无损重载。
 
 ```bash
-sudo ./netxfw allow 192.168.1.0/24
-sudo ./netxfw allow-list
-sudo ./netxfw unallow 192.168.1.0/24
+sudo netxfw reload xdp
 ```
-
-### 6. 批量导入 (import)
-从文本文件中批量读取 IP 或 CIDR 并加入锁定列表。
-
-```bash
-sudo ./netxfw import ips.txt
-```
+该命令会自动将旧 Map 中的数据迁移到新 Map，确保现有连接不中断。

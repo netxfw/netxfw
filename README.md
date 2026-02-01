@@ -19,8 +19,9 @@
 - 🛡️ **细粒度规则**：支持 IP+端口 级别的 Allow/Deny 规则，满足复杂业务需求。
 - ⚡ **无损热重载**：支持运行时调整 Map 容量并热重载程序，通过状态迁移确保业务零中断。
 - 🌊 **流量整形**：内置基于令牌桶算法的 ICMP 限速，有效抵御 ICMP Flood 攻击。
-- 📊 **可观测性**：内置 Prometheus Exporter，实时监控丢包速率与流量趋势。
+- 📊 **可观测性**：内置 Web 管理界面（默认 11811 端口）与 Prometheus Exporter，实时监控丢包速率与活跃连接。
 - 🛠️ **一令封网**：极简的 CLI 操作，支持动态加载规则，无需重启服务。
+- 🔒 **安全加固**：支持使用 `garble` 进行混淆编译，保护控制面逻辑。
 
 ---
 
@@ -30,9 +31,11 @@
 1.  **数据面 (eBPF/XDP/TC)**：
     - **XDP**：在网络驱动层进行极速包过滤（LPM 匹配、连接追踪状态检查）。
     - **TC (Egress)**：在流量出站时更新连接追踪状态。
+    - **优化**：使用 `Per-CPU Map` 存储统计信息，消除多核竞争，提升 PPS 处理上限。
 2.  **控制面 (Go)**：
     - **Manager**：负责 BPF 程序的加载、固定（Pinning）及生命周期管理。
     - **State Migrator**：实现热重载期间的 BPF Map 数据无缝迁移。
+    - **Web UI**：提供极简的可视化管理界面，查看实时统计与 Top 20 活跃连接。
     - **CLI/API**：提供用户交互接口。
     - **Metrics**：暴露 Prometheus 监控指标。
 
@@ -91,17 +94,30 @@ make build
 sudo make install
 ```
 
+#### 方式 C：混淆编译 (保护核心逻辑)
+使用 `garble` 隐藏符号表并加密字符串：
+```bash
+go install mvdan.cc/garble@latest
+# 编译混淆后的版本
+garble -literals -tiny build -ldflags="-s -w" -o netxfw ./cmd/netxfw
+```
+
 ### 2. 运行与配置
 
 #### 启动服务
 ```bash
-# 方式 A：直接运行
-sudo netxfw load xdp
+# 方式 A：直接运行守护进程
+sudo netxfw daemon
 
-# 方式 B：作为 Systemd 服务运行
-sudo systemctl start netxfw
+# 方式 B：作为 Systemd 服务运行 (推荐)
 sudo systemctl enable netxfw
+sudo systemctl start netxfw
 ```
+
+#### Web 管理界面
+启动服务后，访问 `http://<Server_IP>:11811`。
+- **功能**：实时统计、活跃连接 Top 20。
+- **安全**：Token 认证可在 `config.yaml` 中配置。
 
 #### 配置文件示例 (`/etc/netxfw/config.yaml`)
 ```yaml
@@ -160,6 +176,26 @@ port:
 
 ---
 
+## ⚡ 性能压测
+
+您可以参考以下方法测试 `netxfw` 在您环境下的性能上限：
+
+### 1. 吞吐量测试 (PPS)
+使用 `hping3` 模拟 SYN Flood 攻击：
+```bash
+sudo hping3 --flood -S -p 80 <Target_IP>
+```
+观察 CPU 的 `softirq` 占用，`netxfw` 应能在极低 CPU 开销下处理数百万 PPS。
+
+### 2. 连接追踪压测
+模拟海量随机源 IP 连接：
+```bash
+sudo hping3 --rand-source -S -p 80 --flood <Target_IP>
+```
+使用 `sudo netxfw conntrack` 查看活跃连接数是否达到 `config.yaml` 中定义的 `capacity` 上限。
+
+---
+
 ## 🗺️ 路线图 (Roadmap)
 
 - [x] 核心 XDP 过滤引擎 (IPv4/IPv6)
@@ -182,4 +218,4 @@ port:
 
 ## 📄 开源协议
 
-本项目采用 [GPL-3.0](LICENSE) 协议开源。
+本项目采用 [MIT](LICENSE) 协议开源。
