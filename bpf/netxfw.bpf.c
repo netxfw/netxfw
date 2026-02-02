@@ -232,6 +232,7 @@ struct {
 #define CONFIG_ICMP_BURST 6
 #define CONFIG_ENABLE_AF_XDP 7
 #define CONFIG_CONFIG_VERSION 8
+#define CONFIG_STRICT_PROTO 9
 
 // BPF-side configuration cache
 static __u64 cached_version = 0;
@@ -240,6 +241,7 @@ static __u32 cached_allow_icmp = 0;
 static __u32 cached_allow_return = 0;
 static __u32 cached_default_deny = 0;
 static __u32 cached_af_xdp_enabled = 0;
+static __u32 cached_strict_proto = 0;
 static __u64 cached_ct_timeout = 3600000000000ULL;
 static __u64 cached_icmp_rate = 10;   // 10 packets/sec
 static __u64 cached_icmp_burst = 50;  // 50 packets burst
@@ -275,6 +277,9 @@ static __always_inline void refresh_config() {
 
         val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ENABLE_AF_XDP});
         if (val) cached_af_xdp_enabled = (__u32)*val;
+
+        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_STRICT_PROTO});
+        if (val) cached_strict_proto = (__u32)*val;
     }
 }
 
@@ -426,24 +431,39 @@ int xdp_firewall(struct xdp_md *ctx) {
 
     __u16 h_proto = eth->h_proto;
 
-    // Refresh config from map if version changed
-    refresh_config();
-
-    // Use cached values
-    __u32 ct_enabled = cached_ct_enabled;
-    __u32 allow_icmp = cached_allow_icmp;
-    __u32 allow_return = cached_allow_return;
-    __u32 default_deny = cached_default_deny;
-    __u64 ct_timeout = cached_ct_timeout;
-
-    // Handle IPv4 / 处理 IPv4
+    // 1. Early branching and Strict Protocol Check (Cloudflare/Google style)
+    // 早期分支跳转与严格协议检查（仿 Cloudflare/Google 做法）
     if (h_proto == bpf_htons(ETH_P_IP)) {
+        goto handle_ipv4;
+    } else if (h_proto == bpf_htons(ETH_P_IPV6)) {
+        goto handle_ipv6;
+    } else if (h_proto == bpf_htons(ETH_P_ARP)) {
+        goto pass_packet; // ARP is usually essential / ARP 通常是必需的
+    }
+
+    // For other protocols (VLAN, PPPoE, etc.)
+    // 对于其他协议（VLAN, PPPoE 等）
+    refresh_config();
+    if (cached_strict_proto == 1) {
+        goto drop_packet; // Strict mode: drop unknown L2 protocols / 严格模式：丢弃未知二层协议
+    }
+    return XDP_PASS;
+
+handle_ipv4:
+    refresh_config();
+    {
         struct iphdr *ip = data + sizeof(*eth);
         if (data + sizeof(*eth) + sizeof(*ip) > data_end)
             return XDP_PASS;
 
-        // Extract port first to support port-specific whitelist
-        // 首先提取端口，以支持特定端口的白名单校验
+        // Use cached values
+        __u32 ct_enabled = cached_ct_enabled;
+        __u32 allow_icmp = cached_allow_icmp;
+        __u32 allow_return = cached_allow_return;
+        __u32 default_deny = cached_default_deny;
+        __u64 ct_timeout = cached_ct_timeout;
+
+        // Extract port first
         __u16 src_port = 0;
         __u16 dest_port = 0;
         if (ip->protocol == IPPROTO_TCP) {
@@ -540,12 +560,22 @@ int xdp_firewall(struct xdp_md *ctx) {
                 goto drop_packet;
             }
         }
+        goto pass_packet;
     }
-    // Handle IPv6 / 处理 IPv6
-    else if (h_proto == bpf_htons(ETH_P_IPV6)) {
+
+handle_ipv6:
+    refresh_config();
+    {
         struct ipv6hdr *ip6 = data + sizeof(*eth);
         if (data + sizeof(*eth) + sizeof(*ip6) > data_end)
             return XDP_PASS;
+
+        // Use cached values
+        __u32 ct_enabled = cached_ct_enabled;
+        __u32 allow_icmp = cached_allow_icmp;
+        __u32 allow_return = cached_allow_return;
+        __u32 default_deny = cached_default_deny;
+        __u64 ct_timeout = cached_ct_timeout;
 
         // Extract port first
         __u16 src_port = 0;

@@ -48,6 +48,9 @@ func (p *BasePlugin) Start(manager *xdp.Manager) error {
 	if err := manager.SetEnableAFXDP(p.config.EnableAFXDP); err != nil {
 		log.Printf("⚠️  [BasePlugin] Failed to set enable AF_XDP: %v", err)
 	}
+	if err := manager.SetStrictProtocol(p.config.StrictProtocol); err != nil {
+		log.Printf("⚠️  [BasePlugin] Failed to set strict protocol: %v", err)
+	}
 	if p.config.ICMPRate > 0 && p.config.ICMPBurst > 0 {
 		if err := manager.SetICMPRateLimit(p.config.ICMPRate, p.config.ICMPBurst); err != nil {
 			log.Printf("⚠️  [BasePlugin] Failed to set ICMP rate limit: %v", err)
