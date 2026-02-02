@@ -547,7 +547,8 @@ handle_ipv4:
         }
 
         // 3.5 Check for return traffic / 检查回包流量
-        if (allow_return == 1) {
+        // Only allow if conntrack is disabled to prevent bypass / 仅在未开启连接追踪时允许，防止绕过
+        if (allow_return == 1 && ct_enabled == 0) {
             if (ip->protocol == IPPROTO_TCP) {
                 struct tcphdr *tcp = (void *)ip + sizeof(*ip);
                 if ((void *)tcp + sizeof(*tcp) <= data_end) {
@@ -676,7 +677,8 @@ handle_ipv6:
         }
 
         // 3.5 Check for return traffic / 检查回包流量
-        if (allow_return == 1) {
+        // Only allow if conntrack is disabled to prevent bypass / 仅在未开启连接追踪时允许，防止绕过
+        if (allow_return == 1 && ct_enabled == 0) {
             if (ip6->nexthdr == IPPROTO_TCP) {
                 struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
                 if ((void *)tcp + sizeof(*tcp) <= data_end) {
