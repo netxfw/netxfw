@@ -16,6 +16,14 @@ import (
 	"github.com/livp123/netxfw/internal/plugins/types"
 )
 
+// ForceCleanup removes all pinned maps at the specified path.
+func ForceCleanup(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil
+	}
+	return os.RemoveAll(path)
+}
+
 /**
  * NewManager initializes the BPF objects and removes memory limits.
  * Supports dynamic map capacity adjustment.

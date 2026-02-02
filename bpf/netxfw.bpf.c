@@ -463,14 +463,24 @@ handle_ipv4:
         __u32 default_deny = cached_default_deny;
         __u64 ct_timeout = cached_ct_timeout;
 
-        // Extract port first
+        // Extract port and flags first
         __u16 src_port = 0;
         __u16 dest_port = 0;
+        __u8 tcp_flags = 0;
         if (ip->protocol == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip + sizeof(*ip);
             if ((void *)tcp + sizeof(*tcp) <= data_end) {
                 src_port = bpf_ntohs(tcp->source);
                 dest_port = bpf_ntohs(tcp->dest);
+
+                // Security check: TCP flag validation
+                if (tcp->doff >= 5) {
+                    tcp_flags = ((__u8 *)tcp)[13];
+                    if (tcp_flags == 0 || (tcp->syn && tcp->fin) ||
+                        (tcp_flags == 0x29)) { // 0x29 = FIN | PSH | URG
+                        goto drop_packet;
+                    }
+                }
             }
         } else if (ip->protocol == IPPROTO_UDP) {
             struct udphdr *udp = (void *)ip + sizeof(*ip);
@@ -478,6 +488,13 @@ handle_ipv4:
                 src_port = bpf_ntohs(udp->source);
                 dest_port = bpf_ntohs(udp->dest);
             }
+        }
+
+        // 0. Anti-Spoofing & Sanity Checks
+        // 0.1 Drop multicast/broadcast source addresses
+        if ((ip->saddr & bpf_htonl(0xf0000000)) == bpf_htonl(0xe0000000) || // Multicast
+            ip->saddr == bpf_htonl(0xffffffff)) { // Broadcast
+            goto drop_packet;
         }
 
         // 1. Check global whitelist (with port support) / 首先检查全局白名单（支持端口校验）
@@ -577,14 +594,23 @@ handle_ipv6:
         __u32 default_deny = cached_default_deny;
         __u64 ct_timeout = cached_ct_timeout;
 
-        // Extract port first
+        // Extract port and flags first
         __u16 src_port = 0;
         __u16 dest_port = 0;
+        __u8 tcp_flags = 0;
         if (ip6->nexthdr == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
             if ((void *)tcp + sizeof(*tcp) <= data_end) {
                 src_port = bpf_ntohs(tcp->source);
                 dest_port = bpf_ntohs(tcp->dest);
+
+                // Security check: TCP flag validation
+                if (tcp->doff >= 5) {
+                    tcp_flags = ((__u8 *)tcp)[13];
+                    if (tcp_flags == 0 || (tcp->syn && tcp->fin) || (tcp_flags == 0x29)) {
+                        goto drop_packet;
+                    }
+                }
             }
         } else if (ip6->nexthdr == IPPROTO_UDP) {
             struct udphdr *udp = (void *)ip6 + sizeof(*ip6);
@@ -592,6 +618,12 @@ handle_ipv6:
                 src_port = bpf_ntohs(udp->source);
                 dest_port = bpf_ntohs(udp->dest);
             }
+        }
+
+        // 0. Anti-Spoofing & Sanity Checks for IPv6
+        // 0.1 Drop Multicast source addresses (ff00::/8)
+        if (ip6->saddr.s6_addr[0] == 0xff) {
+            goto drop_packet;
         }
 
         // 1. Check global whitelist (with port support)
