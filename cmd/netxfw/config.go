@@ -2,65 +2,85 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
-	"strings"
 
+	"github.com/livp123/netxfw/internal/plugins"
+	"github.com/livp123/netxfw/internal/plugins/types"
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	Rules        []Rule                 `yaml:"rules"`
-	Whitelist    []string               `yaml:"whitelist"`
-	LockListFile string                 `yaml:"lock_list_file"`
-	MetricsPort  int                    `yaml:"metrics_port"`
-	Plugins      []string               `yaml:"plugins"`
-	PluginConfig map[string]interface{} `yaml:",inline"`
-}
+func initConfiguration() {
+	configDir := "/etc/netxfw"
+	configPath := configDir + "/config.yaml"
 
-type Rule struct {
-	Name      string `yaml:"name"`
-	Port      int    `yaml:"port"`
-	Threshold int    `yaml:"threshold"`
-	Duration  string `yaml:"duration"`
-}
-
-func LoadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var cfg Config
-	err = yaml.Unmarshal(data, &cfg)
-	return &cfg, err
-}
-
-func LoadPluginConfig(pluginName string) (interface{}, error) {
-	// Try rules/plugins/<pluginName>.yaml or rules/plugins/<pluginName-without-plugins>.yaml
-	// Example: netxfw-plugins-port -> netxfw-plugin-port.yaml
-	configName := pluginName
-	if strings.HasPrefix(pluginName, "netxfw-plugins-") {
-		configName = "netxfw-plugin-" + strings.TrimPrefix(pluginName, "netxfw-plugins-")
+	if _, err := os.Stat(configDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			log.Fatalf("❌ Failed to create config directory %s: %v", configDir, err)
+		}
+		log.Printf("📂 Created config directory: %s", configDir)
 	}
 
-	path := fmt.Sprintf("rules/plugins/%s.yaml", configName)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		// Try the original plugin name as fallback
-		path = fmt.Sprintf("rules/plugins/%s.yaml", pluginName)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			// Try /etc/netxfw/plugins/
-			path = fmt.Sprintf("/etc/netxfw/plugins/%s.yaml", configName)
-			if _, err := os.Stat(path); os.IsNotExist(err) {
-				return nil, nil // No config file found
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		globalCfg := types.GlobalConfig{}
+		// Get default configs from plugins
+		for _, p := range plugins.GetPlugins() {
+			switch p.Name() {
+			case "base":
+				globalCfg.Base = p.DefaultConfig().(types.BaseConfig)
+			case "port":
+				globalCfg.Port = p.DefaultConfig().(types.PortConfig)
+			case "metrics":
+				globalCfg.Metrics = p.DefaultConfig().(types.MetricsConfig)
+			case "conntrack":
+				globalCfg.Conntrack = p.DefaultConfig().(types.ConntrackConfig)
 			}
 		}
-	}
 
-	data, err := os.ReadFile(path)
+		// Set default capacities
+		globalCfg.Capacity = types.CapacityConfig{
+			Conntrack:    100000,
+			LockList:     2000000,
+			Whitelist:    65536,
+			IPPortRules:  65536,
+			AllowedPorts: 1024,
+		}
+
+		data, _ := yaml.Marshal(globalCfg)
+		if err := os.WriteFile(configPath, data, 0644); err != nil {
+			log.Fatalf("❌ Failed to create config.yaml: %v", err)
+		}
+		log.Printf("📄 Created default global config: %s", configPath)
+	} else {
+		log.Printf("ℹ️  Config file already exists: %s", configPath)
+	}
+}
+
+/**
+ * testConfiguration validates the syntax and values of configuration files.
+ */
+func testConfiguration() {
+	configPath := "/etc/netxfw/config.yaml"
+	fmt.Printf("🔍 Testing global configuration in %s...\n", configPath)
+
+	cfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
-		return nil, err
+		log.Fatalf("❌ Error loading config.yaml: %v", err)
 	}
 
-	var config interface{}
-	err = yaml.Unmarshal(data, &config)
-	return config, err
+	allValid := true
+	for _, p := range plugins.GetPlugins() {
+		if err := p.Validate(cfg); err != nil {
+			fmt.Printf("❌ Validation failed for plugin %s: %v\n", p.Name(), err)
+			allValid = false
+			continue
+		}
+		fmt.Printf("✅ Plugin %s configuration is valid\n", p.Name())
+	}
+
+	if allValid {
+		fmt.Println("🎉 All configurations are valid!")
+	} else {
+		os.Exit(1)
+	}
 }

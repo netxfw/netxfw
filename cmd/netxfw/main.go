@@ -1,23 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"net"
-	"net/http"
 	"os"
-	"os/signal"
+	"strconv"
 	"strings"
-	"syscall"
-	"time"
-
-	"github.com/cilium/ebpf"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"github.com/livp123/netxfw/internal/xdp"
-	"github.com/livp123/netxfw/pkg/plugins"
-	"github.com/livp123/netxfw/pkg/storage"
 )
 
 /**
@@ -32,824 +21,371 @@ func isIPv6(ipStr string) bool {
 	return ip != nil && ip.To4() == nil
 }
 
-func getStore() storage.Store {
-	configPath := "/etc/netxfw/config.yaml"
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		configPath = "rules/default.yaml"
-	}
-
-	// For simplicity, always use the default lock file path
-	lockPath := "/etc/netxfw/lock.yaml"
-
-	return storage.NewYAMLStore(configPath, lockPath)
-}
-
 func main() {
 	if len(os.Args) < 2 {
-		usage()
+		printUsage()
 		return
 	}
 
 	command := os.Args[1]
-
-	// Parse flags and positional arguments / 解析 Flag 和位置参数
-	var posArgs []string
-	flags := make(map[string]string)
-
-	for i := 2; i < len(os.Args); i++ {
-		arg := os.Args[i]
-		if strings.HasPrefix(arg, "--") {
-			if i+1 < len(os.Args) && !strings.HasPrefix(os.Args[i+1], "--") {
-				flags[arg] = os.Args[i+1]
-				i++ // skip next
-			} else {
-				flags[arg] = "true"
-			}
-		} else {
-			posArgs = append(posArgs, arg)
-		}
-	}
-
-	// Helper to get TTL / 获取 TTL 的辅助逻辑
-	var expiresAt *time.Time
-	if ttlStr, ok := flags["--ttl"]; ok {
-		d, err := time.ParseDuration(ttlStr)
-		if err == nil {
-			t := time.Now().Add(d)
-			expiresAt = &t
-		}
-	}
-
 	switch command {
-	case "load":
-		// Load XDP program / 加载 XDP 程序
-		if len(posArgs) < 1 || posArgs[0] != "xdp" {
-			usage()
-			return
-		}
-		installXDP()
+	case "help", "-h", "--help":
+		printUsage()
+	case "init":
+		initConfiguration()
+	case "test":
+		testConfiguration()
+	case "sync":
+		runSync(os.Args[2:])
 	case "daemon":
-		// Start daemon for metrics and sync / 启动常驻进程
 		runDaemon()
-	case "lock":
-		// Block an IP or CIDR / 封禁 IP 或网段
-		if len(posArgs) < 1 {
-			log.Fatal("❌ Missing IP address")
-		}
-		syncLockMap(posArgs[0], true, expiresAt)
-	case "unlock":
-		// Unblock an IP or CIDR / 解封 IP 或网段
-		if len(posArgs) < 1 {
-			log.Fatal("❌ Missing IP address")
-		}
-		syncLockMap(posArgs[0], false, nil)
-	case "allow":
-		// Whitelist an IP or CIDR / 将 IP 或网段加入白名单
-		if len(posArgs) < 1 {
-			log.Fatal("❌ Missing IP address")
-		}
-
-		targetIP := posArgs[0]
-		portStr := flags["--port"]
-
-		// Handle legacy syntax: allow ip <ip> port <port>
-		if targetIP == "ip" || targetIP == "cidr" {
-			if len(posArgs) >= 4 && posArgs[2] == "port" {
-				targetIP = posArgs[1]
-				portStr = posArgs[3]
-			}
-		}
-
-		if portStr != "" {
-			handleIPPortCommand(targetIP, portStr, true, expiresAt)
-		} else {
-			syncWhitelistMap(targetIP, true, expiresAt)
-		}
-	case "unallow":
-		// Remove an IP or CIDR from whitelist / 将 IP 或网段从白名单移除
-		if len(posArgs) < 1 {
-			log.Fatal("❌ Missing IP address")
-		}
-
-		targetIP := posArgs[0]
-		portStr := flags["--port"]
-
-		// Handle legacy syntax: unallow ip <ip> port <port>
-		if targetIP == "ip" || targetIP == "cidr" {
-			if len(posArgs) >= 4 && posArgs[2] == "port" {
-				targetIP = posArgs[1]
-				portStr = posArgs[3]
-			}
-		}
-
-		if portStr != "" {
-			handleIPPortCommand(targetIP, portStr, false, nil)
-		} else {
-			syncWhitelistMap(targetIP, false, nil)
-		}
-	case "list":
-		// List blocked and/or whitelisted ranges
-		if len(os.Args) < 3 {
-			// netxfw list -> Show both
-			showWhitelist()
-			fmt.Println()
-			showLockList()
-		} else {
-			subCommand := os.Args[2]
-			switch subCommand {
-			case "lock":
-				// netxfw list lock
-				showLockList()
-			case "allow":
-				// netxfw list allow
-				showWhitelist()
-			default:
-				usage()
-			}
-		}
-	case "allow-list":
-		// List whitelisted ranges / 查看白名单列表
-		showWhitelist()
-	case "import":
-		// Import list from file / 从文件导入列表
-		if len(os.Args) < 4 {
-			usage()
+	case "load":
+		if len(os.Args) < 3 || os.Args[2] != "xdp" {
+			printUsage()
 			return
 		}
-		subCommand := os.Args[2]
-		filePath := os.Args[3]
-		switch subCommand {
-		case "lock":
-			importLockListFromFile(filePath)
-		case "allow":
-			importWhitelistFromFile(filePath)
-		default:
-			usage()
-		}
-	case "plugin":
-		// Plugin management / 插件管理
-		handlePluginCommand()
-	case "unload":
-		// Unload XDP program / 卸载 XDP 程序
+		initConfiguration()
+		installXDP()
+	case "reload":
 		if len(os.Args) < 3 || os.Args[2] != "xdp" {
-			usage()
+			printUsage()
+			return
+		}
+		reloadXDP()
+	case "unload":
+		if len(os.Args) < 3 || os.Args[2] != "xdp" {
+			printUsage()
 			return
 		}
 		removeXDP()
-	default:
-		usage()
-	}
-}
 
-/**
- * usage prints command line help.
- * usage 打印命令行帮助信息。
- */
-func usage() {
-	fmt.Println("Usage:")
-	fmt.Println("  ./netxfw load xdp              # 安装 XDP 程序到内核")
-	fmt.Println("  ./netxfw daemon                # 启动后台进程 (监控与同步)")
-	fmt.Println("  ./netxfw lock 1.2.3.4          # 封禁 IP/网段")
-	fmt.Println("  ./netxfw lock 1.2.3.4 --ttl 1h # 临时封禁 IP")
-	fmt.Println("  ./netxfw unlock 1.2.3.4        # 解封 IP/网段")
-	fmt.Println("  ./netxfw allow 1.2.3.4         # 加入白名单")
-	fmt.Println("  ./netxfw allow 1.2.3.4 --ttl 1h # 临时白名单")
-	fmt.Println("  ./netxfw allow 10.0.0.5 --port 80/tcp          # 允许访问特定端口")
-	fmt.Println("  ./netxfw allow 10.0.0.5 --port 80/tcp --ttl 1h # 临时允许访问")
-	fmt.Println("  ./netxfw unallow 1.2.3.4       # 从白名单移除")
-	fmt.Println("  ./netxfw list                  # 查看当前规则")
-	fmt.Println("  ./netxfw list lock             # 仅查看封禁列表")
-	fmt.Println("  ./netxfw list allow            # 仅查看白名单")
-	fmt.Println("  ./netxfw import lock file.txt  # 批量导入封禁列表")
-	fmt.Println("  ./netxfw import allow file.txt # 批量导入白名单")
-	fmt.Println("  ./netxfw plugin list           # 列出可用插件")
-	fmt.Println("  ./netxfw plugin start <name>   # 启动插件")
-	fmt.Println("  ./netxfw plugin stop <name>    # 停止插件")
-	fmt.Println("  ./netxfw unload xdp            # 卸载 XDP 程序")
-}
+	// --- 规则管理 (rule) ---
+	case "rule":
+		handleRuleCommand(os.Args[2:])
 
-/**
- * handlePluginCommand handles CLI plugin management.
- */
-func handlePluginCommand() {
-	if len(os.Args) < 3 {
-		fmt.Println("Usage: ./netxfw plugin [list|start|stop] [name]")
-		return
-	}
+	// --- 端口管理 (port) ---
+	case "port":
+		handlePortCommand(os.Args[2:])
 
-	sub := os.Args[2]
-	switch sub {
+	// --- 系统管理 (system) ---
+	case "system":
+		handleSystemCommand(os.Args[2:])
+
+	// --- Web 管理界面 (web) ---
+	case "web":
+		handleWebCommand(os.Args[2:])
+
+	// --- 连接追踪 (conntrack) ---
+	case "conntrack":
+		showConntrack()
+
+	// --- 快捷方式 & 兼容旧命令 ---
+	case "lock":
+		if len(os.Args) < 3 {
+			log.Fatal("❌ Missing IP address")
+		}
+		syncLockMap(os.Args[2], true)
+	case "unlock":
+		if len(os.Args) < 3 {
+			printUsage()
+			return
+		}
+		syncLockMap(os.Args[2], false)
+	case "unallow":
+		if len(os.Args) < 3 {
+			printUsage()
+			return
+		}
+		syncWhitelistMap(os.Args[2], 0, false)
+	case "allow":
+		if len(os.Args) < 3 {
+			printUsage()
+			return
+		}
+		var port uint16
+		if len(os.Args) > 3 {
+			p, _ := strconv.ParseUint(os.Args[3], 10, 16)
+			port = uint16(p)
+		}
+		syncWhitelistMap(os.Args[2], port, true)
 	case "list":
-		fmt.Println("🧩 Available Plugins:")
-		for name, p := range plugins.Registry {
-			fmt.Printf(" - %s: %s\n", name, p.Description())
-		}
-	case "start":
+		handleListCommand(os.Args[2:])
+	case "allow-list":
+		handleListCommand([]string{"whitelist"})
+	case "list-rules":
+		showIPPortRules(0, "")
+	case "clear":
+		clearBlacklist()
+	case "import":
 		if len(os.Args) < 4 {
-			log.Fatal("❌ Missing plugin name")
+			printUsage()
+			return
 		}
-		name := os.Args[3]
-		p, ok := plugins.Registry[name]
-		if !ok {
-			log.Fatalf("❌ Plugin %s not found", name)
-		}
+		handleRuleCommand([]string{"import", os.Args[2], os.Args[3]})
 
-		// For CLI execution, we need a manager that uses pinned maps
-		manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
-		if err != nil {
-			log.Fatalf("❌ Failed to create manager from pins: %v", err)
-		}
-
-		// Note: CLI plugin start uses default config for now
-		if err := p.Init(manager, nil); err != nil {
-			log.Fatalf("❌ Failed to init plugin: %v", err)
-		}
-		if err := p.Start(); err != nil {
-			log.Fatalf("❌ Failed to start plugin: %v", err)
-		}
-	case "stop":
-		if len(os.Args) < 4 {
-			log.Fatal("❌ Missing plugin name")
-		}
-		name := os.Args[3]
-		p, ok := plugins.Registry[name]
-		if !ok {
-			log.Fatalf("❌ Plugin %s not found", name)
-		}
-
-		manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
-		if err != nil {
-			log.Fatalf("❌ Failed to create manager from pins: %v", err)
-		}
-		if err := p.Init(manager, nil); err != nil {
-			log.Fatalf("❌ Failed to init plugin: %v", err)
-		}
-		if err := p.Stop(); err != nil {
-			log.Fatalf("❌ Failed to stop plugin: %v", err)
-		}
 	default:
-		usage()
+		fmt.Printf("Unknown command: %s\n", command)
+		printUsage()
 	}
 }
 
-/**
- * installXDP initializes the XDP manager and mounts the program to interfaces, then exits.
- */
-func installXDP() {
-	interfaces, err := xdp.GetPhysicalInterfaces()
-	if err != nil {
-		log.Fatalf("❌ Failed to get interfaces: %v", err)
-	}
-	if len(interfaces) == 0 {
-		log.Fatal("❌ No physical interfaces found")
+func handleRuleCommand(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: ./netxfw rule [add|remove|list|import|clear]")
+		return
 	}
 
-	manager, err := xdp.NewManager()
-	if err != nil {
-		log.Fatalf("❌ Failed to create XDP manager: %v", err)
-	}
-
-	if err := manager.Pin("/sys/fs/bpf/netxfw"); err != nil {
-		log.Fatalf("❌ Failed to pin maps: %v", err)
-	}
-
-	if err := manager.Attach(interfaces); err != nil {
-		log.Fatalf("❌ Failed to attach XDP: %v", err)
-	}
-
-	log.Println("🚀 XDP program installed successfully and pinned to /sys/fs/bpf/netxfw")
-	log.Println("✨ You can now start the daemon with './netxfw daemon' or use CLI to manage rules.")
-}
-
-/**
- * runDaemon starts the background process for metrics and rule synchronization.
- */
-func runDaemon() {
-	configPath := "/etc/netxfw/config.yaml"
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		configPath = "rules/default.yaml"
-	}
-
-	cfg, err := LoadConfig(configPath)
-	if err != nil {
-		log.Printf("⚠️ Failed to load config from %s: %v, using defaults", configPath, err)
-	}
-
-	metricsAddr := ":9100"
-	if cfg != nil && cfg.MetricsPort > 0 {
-		metricsAddr = fmt.Sprintf(":%d", cfg.MetricsPort)
-	}
-
-	manager, err := xdp.NewManager()
-	if err != nil {
-		log.Fatalf("❌ Failed to create XDP manager: %v", err)
-	}
-	defer manager.Close()
-
-	if err := manager.Pin("/sys/fs/bpf/netxfw"); err != nil {
-		log.Printf("⚠️  Map pinning warning: %v", err)
-	}
-
-	if cfg != nil {
-		// Use Store to load and sync rules / 使用 Store 加载并同步规则
-		store := getStore()
-		whitelist, lockList, ipPortRules, err := store.LoadAll()
-		if err == nil {
-			// Sync Whitelist / 同步白名单
-			for _, rule := range whitelist {
-				ipStr := rule.CIDR
-				var targetMap *ebpf.Map
-				if !isIPv6(ipStr) {
-					targetMap = manager.Whitelist()
-				} else {
-					targetMap = manager.Whitelist6()
-				}
-				if err := xdp.AllowIP(targetMap, ipStr, rule.ExpiresAt); err == nil {
-					log.Printf("⚪ Whitelisted (from store): %s", ipStr)
-				}
-			}
-
-			// Sync Lock List / 同步锁定列表
-			for _, rule := range lockList {
-				ipStr := rule.CIDR
-				var targetMap *ebpf.Map
-				if !isIPv6(ipStr) {
-					targetMap = manager.LockList()
-				} else {
-					targetMap = manager.LockList6()
-				}
-				if err := xdp.LockIP(targetMap, ipStr, rule.ExpiresAt); err == nil {
-					log.Printf("🛡️ Locked (from store): %s", ipStr)
-				}
-			}
-
-			// Sync IP+Port Rules / 同步 IP+端口 规则
-			for _, rule := range ipPortRules {
-				_, ipNet, err := net.ParseCIDR(storage.NormalizeCIDR(rule.CIDR))
-				if err == nil {
-					if err := manager.AddIPPortRule(ipNet, rule.Port, 1, rule.ExpiresAt); err == nil {
-						log.Printf("✅ IP+Port allowed (from store): %s -> %d", rule.CIDR, rule.Port)
-					}
-				}
-			}
-		} else {
-			log.Printf("⚠️ Failed to load rules from store: %v", err)
+	switch args[0] {
+	case "add":
+		// rule add <ip> [port] [allow|deny]
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw rule add <ip> [port] [allow|deny]")
+			return
 		}
-
-		// Handle auto-start plugins from config / 处理配置文件中的自动启动插件
-		for _, pluginName := range cfg.Plugins {
-			if p, ok := plugins.Registry[pluginName]; ok {
-				// 1. Try to load from separate plugin config file / 尝试从独立的插件配置文件加载
-				pluginConfig, err := LoadPluginConfig(pluginName)
-				if err != nil {
-					log.Printf("⚠️  Failed to load separate config for plugin %s: %v", pluginName, err)
-				}
-
-				// 2. If no separate config, fallback to main config / 如果没有独立配置，回退到主配置
-				if pluginConfig == nil {
-					pluginConfig = cfg.PluginConfig[pluginName]
-				}
-
-				if err := p.Init(manager, pluginConfig); err == nil {
-					if err := p.Start(); err != nil {
-						log.Printf("❌ Failed to start plugin %s: %v", pluginName, err)
-					}
-				} else {
-					log.Printf("❌ Failed to init plugin %s: %v", pluginName, err)
-				}
+		ip := args[1]
+		if len(args) == 2 {
+			// 默认封禁
+			syncLockMap(ip, true)
+		} else if len(args) == 3 {
+			// 判断是端口还是动作
+			if args[2] == "allow" {
+				syncWhitelistMap(ip, 0, true)
+			} else if args[2] == "deny" {
+				syncLockMap(ip, true)
 			} else {
-				log.Printf("⚠️  Plugin %s not found in registry", pluginName)
+				// 认为是端口，默认允许
+				port, _ := strconv.Atoi(args[2])
+				syncWhitelistMap(ip, uint16(port), true)
 			}
+		} else if len(args) == 4 {
+			port, _ := strconv.Atoi(args[2])
+			actionStr := args[3]
+			action := uint8(2) // default deny
+			if actionStr == "allow" {
+				action = 1
+			}
+			syncIPPortRule(ip, uint16(port), action, true)
 		}
-	}
 
-	// Cleanup loop for expired rules / 过期规则清理循环
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		store := getStore()
-		for range ticker.C {
-			whitelist, lockList, ipPortRules, err := store.LoadAll()
-			if err != nil {
-				continue
-			}
-
-			now := time.Now()
-
-			// Check Whitelist / 检查白名单
-			for _, rule := range whitelist {
-				if rule.ExpiresAt != nil && rule.ExpiresAt.Before(now) {
-					log.Printf("🕒 Whitelist rule expired: %s", rule.CIDR)
-					var targetMap *ebpf.Map
-					if !isIPv6(rule.CIDR) {
-						targetMap = manager.Whitelist()
-					} else {
-						targetMap = manager.Whitelist6()
-					}
-					xdp.UnlockIP(targetMap, rule.CIDR)
-					store.RemoveIP(storage.RuleTypeWhitelist, rule.CIDR)
-				}
-			}
-
-			// Check Lock List / 检查锁定列表
-			for _, rule := range lockList {
-				if rule.ExpiresAt != nil && rule.ExpiresAt.Before(now) {
-					log.Printf("🕒 Lock rule expired: %s", rule.CIDR)
-					var targetMap *ebpf.Map
-					if !isIPv6(rule.CIDR) {
-						targetMap = manager.LockList()
-					} else {
-						targetMap = manager.LockList6()
-					}
-					xdp.UnlockIP(targetMap, rule.CIDR)
-					store.RemoveIP(storage.RuleTypeLockList, rule.CIDR)
-				}
-			}
-
-			// Check IP+Port Rules / 检查 IP+端口 规则
-			for _, rule := range ipPortRules {
-				if rule.ExpiresAt != nil && rule.ExpiresAt.Before(now) {
-					log.Printf("🕒 IP+Port rule expired: %s -> %d", rule.CIDR, rule.Port)
-					_, ipNet, err := net.ParseCIDR(storage.NormalizeCIDR(rule.CIDR))
-					if err == nil {
-						manager.RemoveIPPortRule(ipNet, rule.Port)
-						store.RemoveIPPortRule(rule.CIDR, rule.Port, rule.Protocol)
-					}
+	case "remove":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw rule remove <ip> [port|allow|deny]")
+			return
+		}
+		ip := args[1]
+		if len(args) == 2 {
+			syncLockMap(ip, false)
+			syncWhitelistMap(ip, 0, false)
+		} else if len(args) == 3 {
+			arg2 := args[2]
+			if arg2 == "allow" {
+				syncWhitelistMap(ip, 0, false)
+			} else if arg2 == "deny" {
+				syncLockMap(ip, false)
+			} else {
+				port, err := strconv.Atoi(arg2)
+				if err == nil {
+					syncIPPortRule(ip, uint16(port), 0, false)
+				} else {
+					fmt.Printf("❌ Invalid port or action: %s\n", arg2)
 				}
 			}
 		}
-	}()
 
-	go func() {
-		http.Handle("/metrics", promhttp.Handler())
-		log.Printf("📊 Metrics server listening on %s", metricsAddr)
+	case "list":
+		handleListCommand(args[1:])
 
-		ticker := time.NewTicker(2 * time.Second)
-		for range ticker.C {
-			count, err := manager.GetDropCount()
-			if err == nil {
-				UpdateMetrics(count)
-			}
+	case "import":
+		if len(args) < 3 {
+			fmt.Println("Usage: ./netxfw rule import <lock|allow|rules> <file>")
+			return
 		}
-		log.Fatal(http.ListenAndServe(metricsAddr, nil))
-	}()
-
-	log.Println("🛡️ Daemon is running. Monitoring metrics and managing rules...")
-
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	<-sig
-	log.Println("👋 Daemon shutting down (XDP program remains in kernel)...")
-}
-
-/**
- * removeXDP detaches the XDP program from all interfaces and unpins everything.
- */
-func removeXDP() {
-	interfaces, err := xdp.GetPhysicalInterfaces()
-	if err != nil {
-		log.Fatalf("❌ Failed to get interfaces: %v", err)
-	}
-
-	manager, err := xdp.NewManager()
-	if err != nil {
-		log.Fatalf("❌ Failed to initialize manager for removal: %v", err)
-	}
-	defer manager.Close()
-
-	if err := manager.Detach(interfaces); err != nil {
-		log.Printf("⚠️  Some interfaces failed to detach: %v", err)
-	}
-
-	if err := manager.Unpin("/sys/fs/bpf/netxfw"); err != nil {
-		log.Printf("⚠️  Unpin warning: %v", err)
-	}
-
-	log.Println("✅ XDP program removed and cleanup completed.")
-}
-
-/**
- * syncLockMap interacts with pinned BPF maps to block/unblock ranges.
- * syncLockMap 通过操作固定的 BPF Map 来封禁或解封网段。
- */
-func syncLockMap(cidrStr string, lock bool, expiresAt *time.Time) {
-	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
-	if err != nil {
-		log.Fatalf("❌ Failed to load pinned maps: %v", err)
-	}
-	defer manager.Close()
-
-	store := getStore()
-
-	var targetMap *ebpf.Map
-	if !isIPv6(cidrStr) {
-		targetMap = manager.LockList()
-	} else {
-		targetMap = manager.LockList6()
-	}
-
-	if lock {
-		if err := xdp.LockIP(targetMap, cidrStr, expiresAt); err != nil {
-			log.Fatalf("❌ Failed to lock %s: %v", cidrStr, err)
+		switch args[1] {
+		case "lock":
+			importLockListFromFile(args[2])
+		case "allow":
+			importWhitelistFromFile(args[2])
+		case "rules":
+			importIPPortRulesFromFile(args[2])
 		}
-		store.AddIP(storage.RuleTypeLockList, cidrStr, expiresAt)
-		log.Printf("🛡️ Locked: %s", cidrStr)
-	} else {
-		if err := xdp.UnlockIP(targetMap, cidrStr); err != nil {
-			log.Fatalf("❌ Failed to unlock %s: %v", cidrStr, err)
-		}
-		store.RemoveIP(storage.RuleTypeLockList, cidrStr)
-		log.Printf("🔓 Unlocked: %s", cidrStr)
+
+	case "clear":
+		clearBlacklist()
+
+	default:
+		fmt.Println("Unknown rule subcommand:", args[0])
 	}
 }
 
-/**
- * syncWhitelistMap interacts with pinned BPF maps to allow/unallow ranges.
- * syncWhitelistMap 通过操作固定的 BPF Map 来允许或移除白名单网段。
- */
-func syncWhitelistMap(cidrStr string, allow bool, expiresAt *time.Time) {
-	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
-	if err != nil {
-		log.Fatalf("❌ Failed to load pinned maps: %v", err)
+func handlePortCommand(args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: ./netxfw port [add|remove] <port>")
+		return
 	}
-	defer manager.Close()
-
-	store := getStore()
-
-	var targetMap *ebpf.Map
-	if !isIPv6(cidrStr) {
-		targetMap = manager.Whitelist()
-	} else {
-		targetMap = manager.Whitelist6()
-	}
-
-	if allow {
-		if err := xdp.AllowIP(targetMap, cidrStr, expiresAt); err != nil {
-			log.Fatalf("❌ Failed to whitelist %s: %v", cidrStr, err)
-		}
-		store.AddIP(storage.RuleTypeWhitelist, cidrStr, expiresAt)
-		log.Printf("⚪ Whitelisted: %s", cidrStr)
-	} else {
-		if err := xdp.UnlockIP(targetMap, cidrStr); err != nil {
-			log.Fatalf("❌ Failed to unwhitelist %s: %v", cidrStr, err)
-		}
-		store.RemoveIP(storage.RuleTypeWhitelist, cidrStr)
-		log.Printf("➖ Removed from whitelist: %s", cidrStr)
+	port, _ := strconv.Atoi(args[1])
+	switch args[0] {
+	case "add":
+		syncAllowedPort(uint16(port), true)
+	case "remove":
+		syncAllowedPort(uint16(port), false)
+	default:
+		fmt.Println("Unknown port subcommand:", args[0])
 	}
 }
 
-/**
- * showWhitelist reads and prints all whitelisted ranges.
- * showWhitelist 读取并打印所有白名单中的网段。
- */
-func showWhitelist() {
-	// List IPv4 whitelist / 列出 IPv4 白名单
-	m4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist", nil)
-	if err != nil {
-		log.Fatalf("❌ Failed to load IPv4 whitelist: %v", err)
-	}
-	defer m4.Close()
+func handleListCommand(args []string) {
+	limit := 100
+	search := ""
+	isWhitelist := false
 
-	ips4, err := xdp.ListWhitelistedIPs(m4, false)
-	if err != nil {
-		log.Fatalf("❌ Failed to list IPv4 whitelisted IPs: %v", err)
-	}
+	isIPPortRules := false
 
-	// List IPv6 whitelist / 列出 IPv6 白名单
-	m6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist6", nil)
-	if err != nil {
-		log.Fatalf("❌ Failed to load IPv6 whitelist: %v", err)
-	}
-	defer m6.Close()
-
-	ips6, err := xdp.ListWhitelistedIPs(m6, true)
-	if err != nil {
-		log.Fatalf("❌ Failed to list IPv6 whitelisted IPs: %v", err)
-	}
-
-	if len(ips4) == 0 && len(ips6) == 0 {
-		fmt.Println("Empty whitelist.")
+	if len(args) > 0 && (args[0] == "whitelist" || args[0] == "allow") {
+		isWhitelist = true
+		args = args[1:]
+	} else if len(args) > 0 && (args[0] == "blacklist" || args[0] == "lock") {
+		isWhitelist = false
+		args = args[1:]
+	} else if len(args) > 0 && args[0] == "rules" {
+		isIPPortRules = true
+		args = args[1:]
+	} else if len(args) > 0 && args[0] == "conntrack" {
+		showConntrack()
 		return
 	}
 
-	fmt.Println("⚪ Currently whitelisted IPs/ranges:")
-	for _, ip := range ips4 {
-		fmt.Printf(" - [IPv4] %s\n", ip)
+	if len(args) > 0 {
+		if l, err := strconv.Atoi(args[0]); err == nil {
+			limit = l
+			if len(args) > 1 {
+				search = args[1]
+			}
+		} else {
+			search = args[0]
+		}
 	}
-	for _, ip := range ips6 {
-		fmt.Printf(" - [IPv6] %s\n", ip)
+
+	if isIPPortRules {
+		showIPPortRules(limit, search)
+	} else if isWhitelist {
+		showWhitelist(limit, search)
+	} else {
+		showLockList(limit, search)
 	}
 }
 
-/**
- * showLockList reads and prints all blocked ranges and their stats.
- * showLockList 读取并打印所有已封禁的网段及其统计信息。
- */
-func showLockList() {
-	// List IPv4 lock list / 列出 IPv4 锁定列表
-	m4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
-	if err != nil {
-		log.Fatalf("❌ Failed to load IPv4 lock list: %v", err)
+func handleWebCommand(args []string) {
+	port := 11811
+	if len(args) > 0 {
+		if p, err := strconv.Atoi(args[0]); err == nil {
+			port = p
+		}
 	}
-	defer m4.Close()
+	runWebServer(port)
+}
 
-	ips4, err := xdp.ListBlockedIPs(m4, false)
-	if err != nil {
-		log.Fatalf("❌ Failed to list IPv4 locked IPs: %v", err)
-	}
-
-	// List IPv6 lock list / 列出 IPv6 锁定列表
-	m6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list6", nil)
-	if err != nil {
-		log.Fatalf("❌ Failed to load IPv6 lock list: %v", err)
-	}
-	defer m6.Close()
-
-	ips6, err := xdp.ListBlockedIPs(m6, true)
-	if err != nil {
-		log.Fatalf("❌ Failed to list IPv6 locked IPs: %v", err)
-	}
-
-	if len(ips4) == 0 && len(ips6) == 0 {
-		fmt.Println("Empty lock list.")
+func handleSystemCommand(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: ./netxfw system [init|test|sync|daemon|load|reload|unload|set-default-deny]")
 		return
 	}
 
-	fmt.Println("🛡️ Currently locked IPs/ranges and drop counts:")
-	for ip, count := range ips4 {
-		fmt.Printf(" - [IPv4] %s: %d drops\n", ip, count)
-	}
-	for ip, count := range ips6 {
-		fmt.Printf(" - [IPv6] %s: %d drops\n", ip, count)
+	switch args[0] {
+	case "status":
+		showStatus()
+	case "init":
+		initConfiguration()
+	case "test":
+		testConfiguration()
+	case "sync":
+		runSync(args[1:])
+	case "daemon":
+		runDaemon()
+	case "load":
+		initConfiguration()
+		installXDP()
+	case "reload":
+		reloadXDP()
+	case "unload":
+		removeXDP()
+	case "set-default-deny":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw system set-default-deny <true|false>")
+			return
+		}
+		enable := args[1] == "true"
+		syncDefaultDeny(enable)
+	case "afxdp":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw system afxdp <true|false>")
+			return
+		}
+		enable := args[1] == "true"
+		syncEnableAFXDP(enable)
+	default:
+		fmt.Println("Unknown system subcommand:", args[0])
 	}
 }
 
 /**
- * unloadXDP provides instructions to unload the program.
- * unloadXDP 提供卸载程序的指令。
+ * askConfirmation asks the user for a y/n confirmation.
  */
-func unloadXDP() {
-	log.Println("👋 Unloading XDP and cleaning up...")
-	// Cleanup is handled by the server process on exit.
-	// 卸载由服务器进程退出时自动处理。
-	fmt.Println("Please stop the running 'load xdp' server (e.g., Ctrl+C) to trigger cleanup.")
+func askConfirmation(prompt string) bool {
+	fmt.Printf("%s [y/N]: ", prompt)
+	var response string
+	_, err := fmt.Scanln(&response)
+	if err != nil {
+		return false
+	}
+	response = strings.ToLower(strings.TrimSpace(response))
+	return response == "y" || response == "yes"
 }
 
 /**
- * importLockListFromFile reads IPs/CIDRs from a file and loads them into pinned BPF maps.
+ * printUsage prints command line help.
+ * printUsage 打印命令行帮助信息。
  */
-func importLockListFromFile(filePath string) {
-	m4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
-	if err != nil {
-		log.Fatalf("❌ Failed to load IPv4 lock list: %v", err)
-	}
-	defer m4.Close()
-
-	m6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list6", nil)
-	if err != nil {
-		log.Fatalf("❌ Failed to load IPv6 lock list: %v", err)
-	}
-	defer m6.Close()
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Fatalf("❌ Failed to open lock list file %s: %v", filePath, err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	count := 0
-	store := getStore()
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		var targetMap *ebpf.Map
-		if !isIPv6(line) {
-			targetMap = m4
-		} else {
-			targetMap = m6
-		}
-
-		if err := xdp.LockIP(targetMap, line, nil); err != nil {
-			log.Printf("❌ Failed to import %s to lock list: %v", line, err)
-		} else {
-			store.AddIP(storage.RuleTypeLockList, line, nil)
-			count++
-		}
-	}
-
-	log.Printf("🛡️ Imported %d IPs/ranges from %s to lock list and store", count, filePath)
-}
-
-/**
- * importWhitelistFromFile reads IPs/CIDRs from a file and loads them into pinned BPF maps.
- */
-func importWhitelistFromFile(filePath string) {
-	m4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist", nil)
-	if err != nil {
-		log.Fatalf("❌ Failed to load IPv4 whitelist: %v", err)
-	}
-	defer m4.Close()
-
-	m6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist6", nil)
-	if err != nil {
-		log.Fatalf("❌ Failed to load IPv6 whitelist: %v", err)
-	}
-	defer m6.Close()
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Fatalf("❌ Failed to open whitelist file %s: %v", filePath, err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	count := 0
-	store := getStore()
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		var targetMap *ebpf.Map
-		if !isIPv6(line) {
-			targetMap = m4
-		} else {
-			targetMap = m6
-		}
-
-		if err := xdp.AllowIP(targetMap, line, nil); err != nil {
-			log.Printf("❌ Failed to import %s to whitelist: %v", line, err)
-		} else {
-			store.AddIP(storage.RuleTypeWhitelist, line, nil)
-			count++
-		}
-	}
-
-	log.Printf("⚪ Imported %d IPs/ranges from %s to whitelist and store", count, filePath)
-}
-
-/**
- * handleIPPortCommand handles the "allow ip ... port ..." style commands.
- */
-func handleIPPortCommand(ipStr string, portProto string, allow bool, expiresAt *time.Time) {
-	// Parse port/proto / 解析 端口/协议
-	parts := strings.Split(portProto, "/")
-	portStr := parts[0]
-	var port uint16
-	_, err := fmt.Sscanf(portStr, "%d", &port)
-	if err != nil {
-		log.Fatalf("❌ Invalid port: %s", portStr)
-	}
-
-	// Prepare CIDR / 准备 CIDR
-	cidr := ipStr
-	if !strings.Contains(cidr, "/") {
-		if !isIPv6(cidr) {
-			cidr += "/32"
-		} else {
-			cidr += "/128"
-		}
-	}
-
-	_, ipNet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		log.Fatalf("❌ Invalid IP/CIDR: %s", cidr)
-	}
-
-	// Load manager from pins / 从固定路径加载管理器
-	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
-	if err != nil {
-		log.Fatalf("❌ Failed to load XDP manager: %v (is the daemon running?)", err)
-	}
-
-	if allow {
-		if err := manager.AddIPPortRule(ipNet, port, 1, expiresAt); err != nil {
-			log.Fatalf("❌ Failed to add rule: %v", err)
-		}
-		// Persist to store / 持久化到存储
-		rule := storage.IPPortRule{
-			CIDR:      cidr,
-			Port:      port,
-			Protocol:  "tcp", // Default to tcp for now
-			Action:    "allow",
-			ExpiresAt: expiresAt,
-		}
-		if err := getStore().AddIPPortRule(rule); err != nil {
-			log.Printf("⚠️ Failed to persist IP+Port rule for %s: %v", cidr, err)
-		}
-		log.Printf("✅ Allowed %s on port %d", cidr, port)
-	} else {
-		if err := manager.RemoveIPPortRule(ipNet, port); err != nil {
-			log.Fatalf("❌ Failed to remove rule: %v", err)
-		}
-		// Persist to store / 持久化到存储
-		if err := getStore().RemoveIPPortRule(cidr, port, "tcp"); err != nil {
-			log.Printf("⚠️ Failed to persist IP+Port rule removal for %s: %v", cidr, err)
-		}
-		log.Printf("❌ Removed allowance for %s on port %d", cidr, port)
-	}
+func printUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  --- 系统命令 (system) ---")
+	fmt.Println("  ./netxfw system status             # 查看运行状态和统计")
+	fmt.Println("  ./netxfw system init               # 初始化配置文件")
+	fmt.Println("  ./netxfw system test               # 测试配置有效性")
+	fmt.Println("  ./netxfw system daemon             # 启动后台进程")
+	fmt.Println("  ./netxfw system load               # 加载 XDP 驱动")
+	fmt.Println("  ./netxfw system sync to-map        # 同步配置到 BPF maps")
+	fmt.Println("  ./netxfw system sync to-config     # 同步 BPF maps 到配置文件")
+	fmt.Println("  ./netxfw system reload             # 平滑重载 XDP (支持容量调整)")
+	fmt.Println("  ./netxfw system unload             # 卸载 XDP 驱动")
+	fmt.Println("  ./netxfw system set-default-deny <true|false> # 设置默认拦截策略")
+	fmt.Println("  ./netxfw system afxdp <true|false> # 开启/关闭 AF_XDP 重定向")
+	fmt.Println("")
+	fmt.Println("  --- Web 管理界面 (web) ---")
+	fmt.Println("  ./netxfw web [port]                # 启动 Web 管理界面 (默认 11811)")
+	fmt.Println("")
+	fmt.Println("  --- 规则管理 (rule) ---")
+	fmt.Println("  ./netxfw rule add <ip> [allow|deny]      # 封禁或加白 IP")
+	fmt.Println("  ./netxfw rule add <ip> <port> <allow|deny> # 精确规则")
+	fmt.Println("  ./netxfw rule remove <ip> [port|allow|deny] # 移除 IP 或 IP+Port 规则")
+	fmt.Println("  ./netxfw rule list [lock|allow|rules]    # 查看规则列表")
+	fmt.Println("  ./netxfw rule import <type> <file>       # 批量导入 (lock/allow/rules)")
+	fmt.Println("  ./netxfw rule clear                      # 清空黑名单")
+	fmt.Println("")
+	fmt.Println("  --- 快捷方式 ---")
+	fmt.Println("  ./netxfw lock <ip>          # 快速封禁 IP")
+	fmt.Println("  ./netxfw unlock <ip>        # 快速解封 IP (从黑名单移除)")
+	fmt.Println("  ./netxfw allow <ip>         # 快速加白 IP")
+	fmt.Println("  ./netxfw unallow <ip>       # 快速取消加白 (从白名单移除)")
+	fmt.Println("  ./netxfw clear              # 快速清空黑名单")
+	fmt.Println("")
+	fmt.Println("  --- 同步管理 (sync) ---")
+	fmt.Println("  ./netxfw sync to-map        # 将配置文件规则同步到内核 map")
+	fmt.Println("  ./netxfw sync to-config     # 将内核 map 规则同步到配置文件")
+	fmt.Println("")
+	fmt.Println("  --- 端口管理 (port) ---")
+	fmt.Println("  ./netxfw port add <port>    # 全局放行端口")
+	fmt.Println("  ./netxfw port remove <port> # 移除全局放行")
+	fmt.Println("")
+	fmt.Println("  --- 连接追踪 (conntrack) ---")
+	fmt.Println("  ./netxfw conntrack          # 查看当前活跃连接")
 }

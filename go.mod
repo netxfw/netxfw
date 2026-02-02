@@ -1,11 +1,12 @@
 module github.com/livp123/netxfw
 
-go 1.22
+go 1.23.0
+
+toolchain go1.24.12
 
 require (
 	github.com/cilium/ebpf v0.13.0
 	github.com/prometheus/client_golang v1.19.0
-	golang.org/x/sys v0.17.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -17,5 +18,6 @@ require (
 	github.com/prometheus/common v0.48.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
+	golang.org/x/sys v0.17.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )

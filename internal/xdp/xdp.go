@@ -4,86 +4,136 @@
 package xdp
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/livp123/netxfw/internal/plugins/types"
 )
 
 // Generate Go bindings for the BPF program / 为 BPF 程序生成 Go 绑定
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang NetXfw ../../bpf/netxfw.bpf.c -- -I../../bpf
+
+const (
+	configDefaultDeny        = 0
+	configAllowReturnTraffic = 1
+	configAllowICMP          = 2
+	configEnableConntrack    = 3
+	configConntrackTimeout   = 4
+	configICMPRate           = 5
+	configICMPBurst          = 6
+	configEnableAFXDP        = 7
+	configVersion            = 8
+)
 
 /**
  * Manager handles the lifecycle of eBPF objects and links.
  * Manager 负责 eBPF 对象和链路的生命周期管理。
  */
 type Manager struct {
-	objs         NetXfwObjects
-	links        []link.Link
-	lockList     *ebpf.Map
-	lockList6    *ebpf.Map
-	whitelist    *ebpf.Map
-	whitelist6   *ebpf.Map
-	allowedPorts *ebpf.Map
-	ipPortRules  *ebpf.Map
-	ipPortRules6 *ebpf.Map
-	globalConfig *ebpf.Map
-	dropStats    *ebpf.Map
+	objs          NetXfwObjects
+	links         []link.Link
+	lockList      *ebpf.Map
+	lockList6     *ebpf.Map
+	whitelist     *ebpf.Map
+	whitelist6    *ebpf.Map
+	allowedPorts  *ebpf.Map
+	ipPortRules   *ebpf.Map
+	ipPortRules6  *ebpf.Map
+	globalConfig  *ebpf.Map
+	dropStats     *ebpf.Map
+	passStats     *ebpf.Map
+	icmpLimitMap  *ebpf.Map
+	conntrackMap  *ebpf.Map
+	conntrackMap6 *ebpf.Map
 }
 
 // LPM Key structures matching BPF definitions / 匹配 BPF 定义的 LPM Key 结构体
-type LPMIP4PortKey struct {
-	PrefixLen uint32
-	Port      uint16
-	Pad       uint16
-	IP        [4]byte
-}
-
-type LPMIP6PortKey struct {
-	PrefixLen uint32
-	Port      uint16
-	Pad       uint16
-	IP        [16]byte
-}
-
-// RuleValue matching BPF definition / 匹配 BPF 定义的 RuleValue 结构体
-type RuleValue struct {
-	Counter   uint64
-	ExpiresAt uint64
-}
-
 /**
  * NewManager initializes the BPF objects and removes memory limits.
- * NewManager 初始化 BPF 对象并移除内存限制。
+ * Supports dynamic map capacity adjustment.
+ * NewManager 初始化 BPF 对象并移除内存限制，支持动态调整 Map 容量。
  */
-func NewManager() (*Manager, error) {
+func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 	// Remove resource limits for BPF / 移除 BPF 资源限制
 	if err := rlimit.RemoveMemlock(); err != nil {
 		return nil, fmt.Errorf("remove memlock: %w", err)
 	}
 
+	// Load BPF collection spec / 加载 BPF 集合规范
+	spec, err := LoadNetXfw()
+	if err != nil {
+		return nil, fmt.Errorf("load netxfw spec: %w", err)
+	}
+
+	// Dynamic capacity adjustment / 动态调整容量
+	if cfg.Conntrack > 0 {
+		if m, ok := spec.Maps["conntrack_map"]; ok {
+			m.MaxEntries = uint32(cfg.Conntrack)
+		}
+		if m, ok := spec.Maps["conntrack_map6"]; ok {
+			m.MaxEntries = uint32(cfg.Conntrack)
+		}
+	}
+	if cfg.LockList > 0 {
+		if m, ok := spec.Maps["lock_list"]; ok {
+			m.MaxEntries = uint32(cfg.LockList)
+		}
+		if m, ok := spec.Maps["lock_list6"]; ok {
+			m.MaxEntries = uint32(cfg.LockList)
+		}
+	}
+	if cfg.Whitelist > 0 {
+		if m, ok := spec.Maps["whitelist"]; ok {
+			m.MaxEntries = uint32(cfg.Whitelist)
+		}
+		if m, ok := spec.Maps["whitelist6"]; ok {
+			m.MaxEntries = uint32(cfg.Whitelist)
+		}
+	}
+	if cfg.IPPortRules > 0 {
+		if m, ok := spec.Maps["ip_port_rules"]; ok {
+			m.MaxEntries = uint32(cfg.IPPortRules)
+		}
+		if m, ok := spec.Maps["ip_port_rules6"]; ok {
+			m.MaxEntries = uint32(cfg.IPPortRules)
+		}
+	}
+	if cfg.AllowedPorts > 0 {
+		if m, ok := spec.Maps["allowed_ports"]; ok {
+			m.MaxEntries = uint32(cfg.AllowedPorts)
+		}
+	}
+
 	// Load BPF objects into the kernel / 将 BPF 对象加载到内核
 	var objs NetXfwObjects
-	if err := LoadNetXfwObjects(&objs, nil); err != nil {
+	if err := spec.LoadAndAssign(&objs, nil); err != nil {
 		return nil, fmt.Errorf("load eBPF objects: %w", err)
 	}
 
 	return &Manager{
-		objs:         objs,
-		lockList:     objs.LockList,
-		lockList6:    objs.LockList6,
-		whitelist:    objs.Whitelist,
-		whitelist6:   objs.Whitelist6,
-		allowedPorts: objs.AllowedPorts,
-		ipPortRules:  objs.IpPortRules,
-		ipPortRules6: objs.IpPortRules6,
-		globalConfig: objs.GlobalConfig,
-		dropStats:    objs.DropStats,
+		objs:          objs,
+		lockList:      objs.LockList,
+		lockList6:     objs.LockList6,
+		whitelist:     objs.Whitelist,
+		whitelist6:    objs.Whitelist6,
+		allowedPorts:  objs.AllowedPorts,
+		ipPortRules:   objs.IpPortRules,
+		ipPortRules6:  objs.IpPortRules6,
+		globalConfig:  objs.GlobalConfig,
+		dropStats:     objs.DropStats,
+		passStats:     objs.PassStats,
+		icmpLimitMap:  objs.IcmpLimitMap,
+		conntrackMap:  objs.ConntrackMap,
+		conntrackMap6: objs.ConntrackMap6,
 	}, nil
 }
 
@@ -92,7 +142,13 @@ func NewManager() (*Manager, error) {
  * This is useful for CLI tools that need to interact with a running XDP program.
  */
 func NewManagerFromPins(path string) (*Manager, error) {
+	// Remove resource limits for BPF / 移除 BPF 资源限制
+	if err := rlimit.RemoveMemlock(); err != nil {
+		return nil, fmt.Errorf("remove memlock: %w", err)
+	}
+
 	// We still need to load objects to get the program, but we will replace maps with pinned ones
+	// 我们仍需加载对象以获取程序，但将使用固定的 Map 替换它们
 	var objs NetXfwObjects
 	if err := LoadNetXfwObjects(&objs, nil); err != nil {
 		return nil, fmt.Errorf("load eBPF objects: %w", err)
@@ -136,6 +192,22 @@ func NewManagerFromPins(path string) (*Manager, error) {
 	if m.dropStats, err = ebpf.LoadPinnedMap(path+"/drop_stats", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned drop_stats: %v", err)
 		m.dropStats = objs.DropStats
+	}
+	if m.passStats, err = ebpf.LoadPinnedMap(path+"/pass_stats", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned pass_stats: %v", err)
+		m.passStats = objs.PassStats
+	}
+	if m.icmpLimitMap, err = ebpf.LoadPinnedMap(path+"/icmp_limit_map", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned icmp_limit_map: %v", err)
+		m.icmpLimitMap = objs.IcmpLimitMap
+	}
+	if m.conntrackMap, err = ebpf.LoadPinnedMap(path+"/conntrack_map", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned conntrack_map: %v", err)
+		m.conntrackMap = objs.ConntrackMap
+	}
+	if m.conntrackMap6, err = ebpf.LoadPinnedMap(path+"/conntrack_map6", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned conntrack_map6: %v", err)
+		m.conntrackMap6 = objs.ConntrackMap6
 	}
 
 	return m, nil
@@ -190,6 +262,29 @@ func (m *Manager) Attach(interfaces []string) error {
 			log.Printf("⚠️  Failed to attach XDP on %s using %s mode: %v", name, mode.name, err)
 		}
 
+		// Attach TC for egress tracking (required for Conntrack)
+		// 1. Ensure clsact qdisc exists
+		_ = exec.Command("tc", "qdisc", "add", "dev", name, "clsact").Run()
+
+		// 2. Attach TC program
+		tcLink, err := link.AttachTCX(link.TCXOptions{
+			Program:   m.objs.TcEgress,
+			Interface: iface.Index,
+			Attach:    ebpf.AttachTCXEgress,
+		})
+		if err == nil {
+			tcLinkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/tc_link_%s", name)
+			_ = os.Remove(tcLinkPath)
+			if err := tcLink.Pin(tcLinkPath); err != nil {
+				log.Printf("⚠️  Failed to pin TC link on %s: %v", name, err)
+				tcLink.Close()
+			} else {
+				log.Printf("✅ Attached TC Egress on %s and pinned link", name)
+			}
+		} else {
+			log.Printf("⚠️  Failed to attach TC Egress on %s: %v (Conntrack will not work for this interface)", name, err)
+		}
+
 		if !attached {
 			log.Printf("❌ Failed to attach XDP on %s with any mode", name)
 		}
@@ -216,8 +311,45 @@ func (m *Manager) Detach(interfaces []string) error {
 			_ = os.Remove(linkPath)
 			log.Printf("✅ Detached XDP from %s", name)
 		}
+
+		// Detach TC link
+		tcLinkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/tc_link_%s", name)
+		if tl, err := link.LoadPinnedLink(tcLinkPath, nil); err == nil {
+			if err := tl.Close(); err != nil {
+				log.Printf("❌ Failed to close TC link for %s: %v", name, err)
+			} else {
+				_ = os.Remove(tcLinkPath)
+				log.Printf("✅ Detached TC Egress from %s", name)
+			}
+		}
 	}
 	return nil
+}
+
+/**
+ * GetStats retrieves the total pass and drop counts from BPF maps.
+ */
+func (m *Manager) GetStats() (uint64, uint64) {
+	var totalPass, totalDrop uint64
+
+	// Pass stats (PERCPU_ARRAY, max_entries 1)
+	var passVals []uint64
+	var key uint32 = 0
+	if err := m.passStats.Lookup(&key, &passVals); err == nil {
+		for _, v := range passVals {
+			totalPass += v
+		}
+	}
+
+	// Drop stats (PERCPU_ARRAY, max_entries 1)
+	var dropVals []uint64
+	if err := m.dropStats.Lookup(&key, &dropVals); err == nil {
+		for _, v := range dropVals {
+			totalDrop += v
+		}
+	}
+
+	return totalPass, totalDrop
 }
 
 // Map getters / Map 获取器
@@ -253,16 +385,112 @@ func (m *Manager) IpPortRules6() *ebpf.Map {
 	return m.ipPortRules6
 }
 
+func (m *Manager) DropStats() *ebpf.Map {
+	return m.dropStats
+}
+
+func (m *Manager) PassStats() *ebpf.Map {
+	return m.passStats
+}
+
+func (m *Manager) IcmpLimitMap() *ebpf.Map {
+	return m.icmpLimitMap
+}
+
+func (m *Manager) ConntrackMap() *ebpf.Map {
+	return m.conntrackMap
+}
+
+func (m *Manager) ConntrackMap6() *ebpf.Map {
+	return m.conntrackMap6
+}
+
+/**
+ * updateConfig updates a global configuration value and increments the config version.
+ */
+func (m *Manager) updateConfig(key uint32, val uint64) error {
+	if err := m.globalConfig.Update(&key, &val, ebpf.UpdateAny); err != nil {
+		return err
+	}
+
+	// Increment version to trigger BPF cache refresh
+	var verKey uint32 = configVersion
+	var currentVer uint64
+	_ = m.globalConfig.Lookup(&verKey, &currentVer)
+	currentVer++
+	return m.globalConfig.Update(&verKey, &currentVer, ebpf.UpdateAny)
+}
+
 /**
  * SetDefaultDeny enables or disables the default deny policy.
  */
 func (m *Manager) SetDefaultDeny(enable bool) error {
-	var key uint32 = 0 // CONFIG_DEFAULT_DENY
-	var val uint32 = 0
+	var val uint64 = 0
 	if enable {
 		val = 1
 	}
-	return m.globalConfig.Update(&key, &val, ebpf.UpdateAny)
+	return m.updateConfig(configDefaultDeny, val)
+}
+
+/**
+ * SetAllowReturnTraffic enables or disables the automatic allowance of return traffic.
+ */
+func (m *Manager) SetAllowReturnTraffic(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configAllowReturnTraffic, val)
+}
+
+/**
+ * SetAllowICMP enables or disables the allowance of ICMP traffic.
+ */
+func (m *Manager) SetAllowICMP(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configAllowICMP, val)
+}
+
+/**
+ * SetICMPRateLimit sets the ICMP rate limit (packets/sec) and burst.
+ */
+func (m *Manager) SetICMPRateLimit(rate, burst uint64) error {
+	if err := m.updateConfig(configICMPRate, rate); err != nil {
+		return err
+	}
+	return m.updateConfig(configICMPBurst, burst)
+}
+
+/**
+ * SetConntrackTimeout sets the connection tracking timeout in the BPF program.
+ */
+func (m *Manager) SetConntrackTimeout(timeout time.Duration) error {
+	return m.updateConfig(configConntrackTimeout, uint64(timeout.Nanoseconds()))
+}
+
+/**
+ * SetConntrack enables or disables the connection tracking.
+ */
+func (m *Manager) SetConntrack(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configEnableConntrack, val)
+}
+
+/**
+ * SetEnableAFXDP enables or disables the AF_XDP redirection.
+ */
+func (m *Manager) SetEnableAFXDP(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configEnableAFXDP, val)
 }
 
 /**
@@ -271,29 +499,29 @@ func (m *Manager) SetDefaultDeny(enable bool) error {
  */
 func (m *Manager) AddIPPortRule(ipNet *net.IPNet, port uint16, action uint8, expiresAt *time.Time) error {
 	ones, _ := ipNet.Mask.Size()
-	val := RuleValue{
+	val := NetXfwRuleValue{
 		Counter:   uint64(action),
 		ExpiresAt: timeToBootNS(expiresAt),
 	}
 	ip := ipNet.IP.To4()
 	if ip != nil {
-		key := LPMIP4PortKey{
-			PrefixLen: uint32(16 + ones),
+		key := NetXfwLpmIp4PortKey{
+			Prefixlen: uint32(32 + ones),
 			Port:      port,
 			Pad:       0,
+			Ip:        binary.LittleEndian.Uint32(ip),
 		}
-		copy(key.IP[:], ip)
 		return m.ipPortRules.Update(&key, &val, ebpf.UpdateAny)
 	}
 
 	ip = ipNet.IP.To16()
 	if ip != nil {
-		key := LPMIP6PortKey{
-			PrefixLen: uint32(16 + ones),
+		key := NetXfwLpmIp6PortKey{
+			Prefixlen: uint32(32 + ones),
 			Port:      port,
 			Pad:       0,
 		}
-		copy(key.IP[:], ip)
+		copy(key.Ip.In6U.U6Addr8[:], ip)
 		return m.ipPortRules6.Update(&key, &val, ebpf.UpdateAny)
 	}
 
@@ -307,23 +535,23 @@ func (m *Manager) RemoveIPPortRule(ipNet *net.IPNet, port uint16) error {
 	ones, _ := ipNet.Mask.Size()
 	ip := ipNet.IP.To4()
 	if ip != nil {
-		key := LPMIP4PortKey{
-			PrefixLen: uint32(16 + ones),
+		key := NetXfwLpmIp4PortKey{
+			Prefixlen: uint32(32 + ones),
 			Port:      port,
 			Pad:       0,
+			Ip:        binary.LittleEndian.Uint32(ip),
 		}
-		copy(key.IP[:], ip)
 		return m.ipPortRules.Delete(&key)
 	}
 
 	ip = ipNet.IP.To16()
 	if ip != nil {
-		key := LPMIP6PortKey{
-			PrefixLen: uint32(16 + ones),
+		key := NetXfwLpmIp6PortKey{
+			Prefixlen: uint32(32 + ones),
 			Port:      port,
 			Pad:       0,
 		}
-		copy(key.IP[:], ip)
+		copy(key.Ip.In6U.U6Addr8[:], ip)
 		return m.ipPortRules6.Delete(&key)
 	}
 
@@ -334,11 +562,21 @@ func (m *Manager) RemoveIPPortRule(ipNet *net.IPNet, port uint16) error {
  * AllowPort adds a port to the allowed ports list.
  */
 func (m *Manager) AllowPort(port uint16, expiresAt *time.Time) error {
-	val := RuleValue{
+	// BPF_MAP_TYPE_PERCPU_HASH requires a slice of values for update if we want to set it for all CPUs
+	numCPU, err := ebpf.PossibleCPU()
+	if err != nil {
+		return fmt.Errorf("get possible CPUs: %w", err)
+	}
+	val := NetXfwRuleValue{
 		Counter:   1,
 		ExpiresAt: timeToBootNS(expiresAt),
 	}
-	return m.allowedPorts.Update(&port, &val, ebpf.UpdateAny)
+	vals := make([]NetXfwRuleValue, numCPU)
+	for i := 0; i < numCPU; i++ {
+		vals[i] = val
+	}
+	// For PERCPU maps, Update expects the slice itself, not a pointer to it
+	return m.allowedPorts.Update(&port, vals, ebpf.UpdateAny)
 }
 
 /**
@@ -348,11 +586,15 @@ func (m *Manager) RemovePort(port uint16) error {
 	return m.allowedPorts.Delete(&port)
 }
 
+
 /**
  * GetDropCount retrieves global drop statistics from the PERCPU map.
  * GetDropCount 从 PERCPU Map 中获取全局拦截统计信息。
  */
 func (m *Manager) GetDropCount() (uint64, error) {
+	if m.dropStats == nil {
+		return 0, nil
+	}
 	var key uint32 = 0
 	var values []uint64
 	if err := m.dropStats.Lookup(&key, &values); err != nil {
@@ -363,6 +605,371 @@ func (m *Manager) GetDropCount() (uint64, error) {
 		total += v
 	}
 	return total, nil
+}
+
+/**
+ * GetPassCount retrieves global pass statistics from the PERCPU map.
+ * GetPassCount 从 PERCPU Map 中获取全局放行统计信息。
+ */
+func (m *Manager) GetPassCount() (uint64, error) {
+	if m.passStats == nil {
+		return 0, nil
+	}
+	var key uint32 = 0
+	var values []uint64
+	if err := m.passStats.Lookup(&key, &values); err != nil {
+		return 0, err
+	}
+	var total uint64
+	for _, v := range values {
+		total += v
+	}
+	return total, nil
+}
+
+/**
+ * GetLockedIPCount returns the total number of entries in the lock list maps.
+ * GetLockedIPCount 返回锁定列表 Map 中的条目总数。
+ */
+func (m *Manager) GetLockedIPCount() (uint64, error) {
+	var count uint64
+
+	// Count IPv4 locked IPs
+	if m.lockList != nil {
+		iter := m.lockList.Iterate()
+		var key NetXfwLpmKey4
+		var val NetXfwRuleValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+
+	// Count IPv6 locked IPs
+	if m.lockList6 != nil {
+		iter := m.lockList6.Iterate()
+		var key NetXfwLpmKey6
+		var val NetXfwRuleValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+
+	return count, nil
+}
+
+/**
+ * GetWhitelistCount returns the total number of entries in the whitelist maps.
+ */
+func (m *Manager) GetWhitelistCount() (uint64, error) {
+	var count uint64
+	if m.whitelist != nil {
+		iter := m.whitelist.Iterate()
+		var key NetXfwLpmKey4
+		var val NetXfwRuleValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+	if m.whitelist6 != nil {
+		iter := m.whitelist6.Iterate()
+		var key NetXfwLpmKey6
+		var val NetXfwRuleValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+/**
+ * GetConntrackCount returns the total number of entries in the conntrack maps.
+ */
+func (m *Manager) GetConntrackCount() (uint64, error) {
+	var count uint64
+	if m.conntrackMap != nil {
+		iter := m.conntrackMap.Iterate()
+		var key NetXfwCtKey
+		var val NetXfwCtValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+	if m.conntrackMap6 != nil {
+		iter := m.conntrackMap6.Iterate()
+		var key NetXfwCtKey6
+		var val NetXfwCtValue
+		for iter.Next(&key, &val) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+/**
+ * ListIPPortRules returns all configured IP+Port rules with limit and search support.
+ */
+func (m *Manager) ListIPPortRules(isIPv6 bool, limit int, search string) (map[string]string, int, error) {
+	rules := make(map[string]string)
+	mapToIterate := m.ipPortRules
+	if isIPv6 {
+		mapToIterate = m.ipPortRules6
+	}
+
+	if mapToIterate == nil {
+		return rules, 0, nil
+	}
+
+	count := 0
+	iter := mapToIterate.Iterate()
+
+	if isIPv6 {
+		var key NetXfwLpmIp6PortKey
+		var val NetXfwRuleValue
+		for iter.Next(&key, &val) {
+			prefixLen := key.Prefixlen - 32
+			ip := net.IP(key.Ip.In6U.U6Addr8[:])
+			ipStr := ip.String()
+			fullStr := fmt.Sprintf("%s/%d:%d", ipStr, prefixLen, key.Port)
+
+			if search != "" && !strings.Contains(fullStr, search) {
+				continue
+			}
+
+			count++
+			if limit > 0 && len(rules) >= limit {
+				continue // Keep counting total but stop adding to map
+			}
+
+			action := "allow"
+			if val.Counter == 2 {
+				action = "deny"
+			}
+			rules[fullStr] = action
+		}
+	} else {
+		var key NetXfwLpmIp4PortKey
+		var val NetXfwRuleValue
+		for iter.Next(&key, &val) {
+			prefixLen := key.Prefixlen - 32
+			ip := intToIP(key.Ip)
+			ipStr := ip.String()
+			fullStr := fmt.Sprintf("%s/%d:%d", ipStr, prefixLen, key.Port)
+
+			if search != "" && !strings.Contains(fullStr, search) {
+				continue
+			}
+
+			count++
+			if limit > 0 && len(rules) >= limit {
+				continue // Keep counting total but stop adding to map
+			}
+
+			action := "allow"
+			if val.Counter == 2 {
+				action = "deny"
+			}
+			rules[fullStr] = action
+		}
+	}
+	return rules, count, iter.Err()
+}
+
+/**
+ * ListAllowedPorts retrieves all globally allowed ports.
+ */
+func (m *Manager) ListAllowedPorts() ([]uint16, error) {
+	var ports []uint16
+	var port uint16
+	// Note: BPF_MAP_TYPE_PERCPU_HASH returns a slice of values, one per CPU
+	numCPU, err := ebpf.PossibleCPU()
+	if err != nil {
+		return nil, fmt.Errorf("get possible CPUs: %w", err)
+	}
+	val := make([]NetXfwRuleValue, numCPU)
+	iter := m.allowedPorts.Iterate()
+	// IMPORTANT: In cilium/ebpf, when iterating over a PERCPU map,
+	// the Next() call expects the value to be a slice.
+	for iter.Next(&port, &val) {
+		ports = append(ports, port)
+	}
+	if err := iter.Err(); err != nil {
+		// If iteration fails, try to just see if map is empty
+		return ports, nil
+	}
+	return ports, nil
+}
+
+/**
+ * ConntrackEntry represents a single connection tracking entry.
+ */
+type ConntrackEntry struct {
+	SrcIP    string
+	DstIP    string
+	SrcPort  uint16
+	DstPort  uint16
+	Protocol uint8
+	LastSeen time.Time
+}
+
+/**
+ * ListConntrackEntries retrieves all active connections from the conntrack maps.
+ */
+func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
+	var entries []ConntrackEntry
+
+	// List IPv4 entries
+	if m.conntrackMap != nil {
+		var key NetXfwCtKey
+		var val NetXfwCtValue
+		iter := m.conntrackMap.Iterate()
+		for iter.Next(&key, &val) {
+			entry := ConntrackEntry{
+				SrcIP:    intToIP(key.SrcIp).String(),
+				DstIP:    intToIP(key.DstIp).String(),
+				SrcPort:  key.SrcPort,
+				DstPort:  key.DstPort,
+				Protocol: key.Protocol,
+				LastSeen: time.Unix(0, int64(val.LastSeen)),
+			}
+			entries = append(entries, entry)
+		}
+		if err := iter.Err(); err != nil {
+			return nil, fmt.Errorf("iterate ipv4 conntrack: %w", err)
+		}
+	}
+
+	// List IPv6 entries
+	if m.conntrackMap6 != nil {
+		var key NetXfwCtKey6
+		var val NetXfwCtValue
+		iter := m.conntrackMap6.Iterate()
+		for iter.Next(&key, &val) {
+			entry := ConntrackEntry{
+				SrcIP:    net.IP(key.SrcIp.In6U.U6Addr8[:]).String(),
+				DstIP:    net.IP(key.DstIp.In6U.U6Addr8[:]).String(),
+				SrcPort:  key.SrcPort,
+				DstPort:  key.DstPort,
+				Protocol: key.Protocol,
+				LastSeen: time.Unix(0, int64(val.LastSeen)),
+			}
+			entries = append(entries, entry)
+		}
+		if err := iter.Err(); err != nil {
+			return nil, fmt.Errorf("iterate ipv6 conntrack: %w", err)
+		}
+	}
+
+	return entries, nil
+}
+
+func intToIP(nn uint32) net.IP {
+	ip := make(net.IP, 4)
+	binary.LittleEndian.PutUint32(ip, nn)
+	return ip
+}
+
+/**
+ * Close releases all BPF resources.
+ * Note: Persistent links are NOT closed here to allow them to stay in kernel.
+ */
+/**
+ * MigrateState copies all entries from an old manager's maps to this manager's maps.
+ * This is used for hot-reloading to preserve conntrack state and rules.
+ * MigrateState 将旧管理器的 Map 条目复制到此管理器的 Map 中，用于热加载以保留状态。
+ */
+func (m *Manager) MigrateState(old *Manager) error {
+	// Migrate Conntrack (IPv4)
+	if old.conntrackMap != nil && m.conntrackMap != nil {
+		var key NetXfwCtKey
+		var val NetXfwCtValue
+		iter := old.conntrackMap.Iterate()
+		for iter.Next(&key, &val) {
+			m.conntrackMap.Put(&key, &val)
+		}
+	}
+
+	// Migrate Conntrack (IPv6)
+	if old.conntrackMap6 != nil && m.conntrackMap6 != nil {
+		var key NetXfwCtKey6
+		var val NetXfwCtValue
+		iter := old.conntrackMap6.Iterate()
+		for iter.Next(&key, &val) {
+			m.conntrackMap6.Put(&key, &val)
+		}
+	}
+
+	// Migrate Lock List (IPv4)
+	if old.lockList != nil && m.lockList != nil {
+		var key NetXfwLpmKey4
+		var val NetXfwRuleValue
+		iter := old.lockList.Iterate()
+		for iter.Next(&key, &val) {
+			m.lockList.Put(&key, &val)
+		}
+	}
+
+	// Migrate Lock List (IPv6)
+	if old.lockList6 != nil && m.lockList6 != nil {
+		var key NetXfwLpmKey6
+		var val NetXfwRuleValue
+		iter := old.lockList6.Iterate()
+		for iter.Next(&key, &val) {
+			m.lockList6.Put(&key, &val)
+		}
+	}
+
+	// Migrate Whitelist (IPv4)
+	if old.whitelist != nil && m.whitelist != nil {
+		var key NetXfwLpmKey4
+		var val NetXfwRuleValue
+		iter := old.whitelist.Iterate()
+		for iter.Next(&key, &val) {
+			m.whitelist.Put(&key, &val)
+		}
+	}
+
+	// Migrate Whitelist (IPv6)
+	if old.whitelist6 != nil && m.whitelist6 != nil {
+		var key NetXfwLpmKey6
+		var val NetXfwRuleValue
+		iter := old.whitelist6.Iterate()
+		for iter.Next(&key, &val) {
+			m.whitelist6.Put(&key, &val)
+		}
+	}
+
+	// Migrate IP+Port Rules (IPv4)
+	if old.ipPortRules != nil && m.ipPortRules != nil {
+		var key NetXfwLpmIp4PortKey
+		var val NetXfwRuleValue
+		iter := old.ipPortRules.Iterate()
+		for iter.Next(&key, &val) {
+			m.ipPortRules.Put(&key, &val)
+		}
+	}
+
+	// Migrate IP+Port Rules (IPv6)
+	if old.ipPortRules6 != nil && m.ipPortRules6 != nil {
+		var key NetXfwLpmIp6PortKey
+		var val NetXfwRuleValue
+		iter := old.ipPortRules6.Iterate()
+		for iter.Next(&key, &val) {
+			m.ipPortRules6.Put(&key, &val)
+		}
+	}
+
+	// Migrate Allowed Ports (PERCPU HASH)
+	if old.allowedPorts != nil && m.allowedPorts != nil {
+		var key uint16
+		numCPU, _ := ebpf.PossibleCPU()
+		val := make([]NetXfwRuleValue, numCPU)
+		iter := old.allowedPorts.Iterate()
+		for iter.Next(&key, &val) {
+			m.allowedPorts.Put(&key, &val)
+		}
+	}
+
+	return nil
 }
 
 /**
@@ -392,13 +999,18 @@ func (m *Manager) Pin(path string) error {
 	_ = m.ipPortRules6.Pin(path + "/ip_port_rules6")
 	_ = m.globalConfig.Pin(path + "/global_config")
 	_ = m.dropStats.Pin(path + "/drop_stats")
+	_ = m.icmpLimitMap.Pin(path + "/icmp_limit_map")
+	_ = m.conntrackMap.Pin(path + "/conntrack_map")
+	if m.conntrackMap6 != nil {
+		_ = m.conntrackMap6.Pin(path + "/conntrack_map6")
+	}
+	if m.passStats != nil {
+		_ = m.passStats.Pin(path + "/pass_stats")
+	}
 	return nil
 }
 
-/**
- * Unpin removes maps from the filesystem.
- * Unpin 从文件系统中移除固定的 Map。
- */
+// Unpin removes maps from the filesystem.
 func (m *Manager) Unpin(path string) error {
 	_ = m.lockList.Unpin()
 	_ = m.lockList6.Unpin()
@@ -409,8 +1021,17 @@ func (m *Manager) Unpin(path string) error {
 	_ = m.ipPortRules6.Unpin()
 	_ = m.globalConfig.Unpin()
 	_ = m.dropStats.Unpin()
+	_ = m.icmpLimitMap.Unpin()
+	_ = m.conntrackMap.Unpin()
+	if m.conntrackMap6 != nil {
+		_ = m.conntrackMap6.Unpin()
+	}
+	if m.passStats != nil {
+		_ = m.passStats.Unpin()
+	}
 	return os.RemoveAll(path)
 }
+
 
 /**
  * timeToBootNS converts a time.Time pointer to boot time nanoseconds.
