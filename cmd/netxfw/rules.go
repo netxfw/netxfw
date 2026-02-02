@@ -99,9 +99,12 @@ func syncLockMap(cidrStr string, lock bool) {
 		}
 	} else {
 		if err := xdp.UnlockIP(m, cidrStr); err != nil {
-			log.Fatalf("❌ Failed to unlock %s: %v", cidrStr, err)
+			if !strings.Contains(err.Error(), "key does not exist") {
+				log.Printf("⚠️  Failed to unlock %s: %v", cidrStr, err)
+			}
+		} else {
+			log.Printf("🔓 Unlocked: %s", cidrStr)
 		}
-		log.Printf("🔓 Unlocked: %s", cidrStr)
 
 		// Remove from LockListFile if enabled
 		globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
@@ -198,19 +201,27 @@ func syncWhitelistMap(cidrStr string, port uint16, allow bool) {
 		}
 	} else {
 		if err := xdp.UnlockIP(m, cidrStr); err != nil {
-			log.Fatalf("❌ Failed to unallow %s: %v", cidrStr, err)
-		}
-		log.Printf("❌ Removed from whitelist: %s", cidrStr)
-
-		if err == nil {
-			newWhitelist := []string{}
-			for _, ip := range globalCfg.Base.Whitelist {
-				if ip != cidrStr && !strings.HasPrefix(ip, cidrStr+":") {
-					newWhitelist = append(newWhitelist, ip)
-				}
+			if !strings.Contains(err.Error(), "key does not exist") {
+				log.Printf("⚠️  Failed to unallow %s: %v", cidrStr, err)
 			}
+		} else {
+			log.Printf("❌ Removed from whitelist: %s", cidrStr)
+		}
+
+		// Always try to remove from config if it exists there
+		newWhitelist := []string{}
+		modified := false
+		for _, ip := range globalCfg.Base.Whitelist {
+			if ip != cidrStr && !strings.HasPrefix(ip, cidrStr+":") {
+				newWhitelist = append(newWhitelist, ip)
+			} else {
+				modified = true
+			}
+		}
+		if modified {
 			globalCfg.Base.Whitelist = newWhitelist
 			types.SaveGlobalConfig(configPath, globalCfg)
+			log.Printf("📄 Updated whitelist in config: removed %s", cidrStr)
 		}
 	}
 }

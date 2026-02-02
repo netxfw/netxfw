@@ -32,14 +32,14 @@ func main() {
 
 	command := os.Args[1]
 	switch command {
-	case "help":
+	case "help", "-h", "--help":
 		printUsage()
 	case "init":
 		initConfiguration()
 	case "test":
 		testConfiguration()
 	case "sync":
-		runSync()
+		runSync(os.Args[2:])
 	case "daemon":
 		runDaemon()
 	case "load":
@@ -94,12 +94,20 @@ func main() {
 		syncLockMap(os.Args[2], true)
 	case "unlock":
 		if len(os.Args) < 3 {
-			log.Fatal("❌ Missing IP address")
+			printUsage()
+			return
 		}
 		syncLockMap(os.Args[2], false)
+	case "unallow":
+		if len(os.Args) < 3 {
+			printUsage()
+			return
+		}
+		syncWhitelistMap(os.Args[2], 0, false)
 	case "allow":
 		if len(os.Args) < 3 {
-			log.Fatal("❌ Missing IP address")
+			printUsage()
+			return
 		}
 		var port uint16
 		if len(os.Args) > 3 {
@@ -107,11 +115,6 @@ func main() {
 			port = uint16(p)
 		}
 		syncWhitelistMap(os.Args[2], port, true)
-	case "unallow":
-		if len(os.Args) < 3 {
-			log.Fatal("❌ Missing IP address")
-		}
-		syncWhitelistMap(os.Args[2], 0, false)
 	case "list":
 		handleListCommand(os.Args[2:])
 	case "allow-list":
@@ -173,16 +176,27 @@ func handleRuleCommand(args []string) {
 
 	case "remove":
 		if len(args) < 2 {
-			fmt.Println("Usage: ./netxfw rule remove <ip> [port]")
+			fmt.Println("Usage: ./netxfw rule remove <ip> [port|allow|deny]")
 			return
 		}
 		ip := args[1]
 		if len(args) == 2 {
 			syncLockMap(ip, false)
 			syncWhitelistMap(ip, 0, false)
-		} else {
-			port, _ := strconv.Atoi(args[2])
-			syncIPPortRule(ip, uint16(port), 0, false)
+		} else if len(args) == 3 {
+			arg2 := args[2]
+			if arg2 == "allow" {
+				syncWhitelistMap(ip, 0, false)
+			} else if arg2 == "deny" {
+				syncLockMap(ip, false)
+			} else {
+				port, err := strconv.Atoi(arg2)
+				if err == nil {
+					syncIPPortRule(ip, uint16(port), 0, false)
+				} else {
+					fmt.Printf("❌ Invalid port or action: %s\n", arg2)
+				}
+			}
 		}
 
 	case "list":
@@ -291,7 +305,7 @@ func handleSystemCommand(args []string) {
 	case "test":
 		testConfiguration()
 	case "sync":
-		runSync()
+		runSync(args[1:])
 	case "daemon":
 		runDaemon()
 	case "load":
@@ -390,6 +404,8 @@ func printUsage() {
 	fmt.Println("  ./netxfw system test               # 测试配置有效性")
 	fmt.Println("  ./netxfw system daemon             # 启动后台进程")
 	fmt.Println("  ./netxfw system load               # 加载 XDP 驱动")
+	fmt.Println("  ./netxfw system sync to-map        # 同步配置到 BPF maps")
+	fmt.Println("  ./netxfw system sync to-config     # 同步 BPF maps 到配置文件")
 	fmt.Println("  ./netxfw system reload             # 平滑重载 XDP (支持容量调整)")
 	fmt.Println("  ./netxfw system unload             # 卸载 XDP 驱动")
 	fmt.Println("  ./netxfw system set-default-deny <true|false> # 设置默认拦截策略")
@@ -401,16 +417,21 @@ func printUsage() {
 	fmt.Println("  --- 规则管理 (rule) ---")
 	fmt.Println("  ./netxfw rule add <ip> [allow|deny]      # 封禁或加白 IP")
 	fmt.Println("  ./netxfw rule add <ip> <port> <allow|deny> # 精确规则")
-	fmt.Println("  ./netxfw rule remove <ip> [port]         # 移除 IP 或 IP+Port 规则")
+	fmt.Println("  ./netxfw rule remove <ip> [port|allow|deny] # 移除 IP 或 IP+Port 规则")
 	fmt.Println("  ./netxfw rule list [lock|allow|rules]    # 查看规则列表")
 	fmt.Println("  ./netxfw rule import <type> <file>       # 批量导入 (lock/allow/rules)")
 	fmt.Println("  ./netxfw rule clear                      # 清空黑名单")
 	fmt.Println("")
 	fmt.Println("  --- 快捷方式 ---")
 	fmt.Println("  ./netxfw lock <ip>          # 快速封禁 IP")
-	fmt.Println("  ./netxfw unlock <ip>        # 快速解封 IP")
+	fmt.Println("  ./netxfw unlock <ip>        # 快速解封 IP (从黑名单移除)")
 	fmt.Println("  ./netxfw allow <ip>         # 快速加白 IP")
+	fmt.Println("  ./netxfw unallow <ip>       # 快速取消加白 (从白名单移除)")
 	fmt.Println("  ./netxfw clear              # 快速清空黑名单")
+	fmt.Println("")
+	fmt.Println("  --- 同步管理 (sync) ---")
+	fmt.Println("  ./netxfw sync to-map        # 将配置文件规则同步到内核 map")
+	fmt.Println("  ./netxfw sync to-config     # 将内核 map 规则同步到配置文件")
 	fmt.Println("")
 	fmt.Println("  --- 端口管理 (port) ---")
 	fmt.Println("  ./netxfw port add <port>    # 全局放行端口")

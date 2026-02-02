@@ -132,7 +132,27 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 4. (Optional) Update binary cache for fast loading on restart
+	// 4. Sync allowed ports from config to maps
+	for _, port := range cfg.Port.AllowedPorts {
+		if err := m.AllowPort(port, nil); err != nil {
+			log.Printf("⚠️  Failed to allow port %d: %v", port, err)
+		}
+	}
+
+	// 5. Sync Global Config from config to maps
+	m.SetDefaultDeny(cfg.Base.DefaultDeny)
+	m.SetAllowReturnTraffic(cfg.Base.AllowReturnTraffic)
+	m.SetAllowICMP(cfg.Base.AllowICMP)
+	m.SetEnableAFXDP(cfg.Base.EnableAFXDP)
+	m.SetICMPRateLimit(cfg.Base.ICMPRate, cfg.Base.ICMPBurst)
+	m.SetConntrack(cfg.Conntrack.Enabled)
+	if cfg.Conntrack.TCPTimeout != "" {
+		if d, err := time.ParseDuration(cfg.Conntrack.TCPTimeout); err == nil {
+			m.SetConntrackTimeout(d)
+		}
+	}
+
+	// 6. (Optional) Update binary cache for fast loading on restart
 	go m.UpdateBinaryCache(cfg, records)
 
 	return nil
@@ -246,6 +266,50 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 			processRules(ipPortRules)
 			processRules(ipPortRules6)
 			cfg.Port.IPPortRules = newIPPortRules
+		}
+	}
+
+	// 4. Sync allowed ports from map to config object
+	if ports, err := m.ListAllowedPorts(); err == nil {
+		cfg.Port.AllowedPorts = ports
+	}
+
+	// 5. Sync Global Config from map to config object
+	if m.globalConfig != nil {
+		var val uint64
+		var key uint32
+
+		key = configDefaultDeny
+		if err := m.globalConfig.Lookup(&key, &val); err == nil {
+			cfg.Base.DefaultDeny = (val == 1)
+		}
+		key = configAllowReturnTraffic
+		if err := m.globalConfig.Lookup(&key, &val); err == nil {
+			cfg.Base.AllowReturnTraffic = (val == 1)
+		}
+		key = configAllowICMP
+		if err := m.globalConfig.Lookup(&key, &val); err == nil {
+			cfg.Base.AllowICMP = (val == 1)
+		}
+		key = configEnableAFXDP
+		if err := m.globalConfig.Lookup(&key, &val); err == nil {
+			cfg.Base.EnableAFXDP = (val == 1)
+		}
+		key = configICMPRate
+		if err := m.globalConfig.Lookup(&key, &val); err == nil {
+			cfg.Base.ICMPRate = val
+		}
+		key = configICMPBurst
+		if err := m.globalConfig.Lookup(&key, &val); err == nil {
+			cfg.Base.ICMPBurst = val
+		}
+		key = configEnableConntrack
+		if err := m.globalConfig.Lookup(&key, &val); err == nil {
+			cfg.Conntrack.Enabled = (val == 1)
+		}
+		key = configConntrackTimeout
+		if err := m.globalConfig.Lookup(&key, &val); err == nil {
+			cfg.Conntrack.TCPTimeout = time.Duration(val).String()
 		}
 	}
 
