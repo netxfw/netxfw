@@ -245,7 +245,7 @@ sudo hping3 --rand-source -S -p 80 --flood <Target_IP>
 
 - **v1.0.4** (2026-02-02)
   - 🛡️ **安全修复**：修复了 BPF 中允许返回流量导致规则绕过的漏洞（IPv4 & IPv6）。
-  - 🤖 **功能增强**：正式集成 AI 自主防御引擎（Standalone），支持 Gemini/Qwen/Ollama。
+
 - **v1.0.3**
   - 🔒 **安全增强**：添加 TCP 标志位合法性校验与 IPv6 源地址防欺骗。
   - 🛠️ **修复**：解决 `ForceCleanup` 编译错误。
