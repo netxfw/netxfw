@@ -16,7 +16,6 @@
 | `lock` | `<IP>` | 快捷命令：全局封禁指定 IP |
 | `allow` | `<IP> [port]` | 快捷命令：将 IP 加入白名单 |
 | `web` | `start / stop` | 管理 Web 控制台服务 |
-| `ai-mcp` | `[mode] [addr]` | 启动 AI MCP 服务 (mode: stdio/sse, default: stdio) |
 
 ---
 
@@ -77,37 +76,3 @@ sudo netxfw unlock 1.2.3.4
 sudo netxfw reload xdp
 ```
 该命令会自动将旧 Map 中的数据迁移到新 Map，确保现有连接不中断。
-
-### 6. AI MCP 服务 (ai-mcp)
-`netxfw` 支持 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)，允许 AI 助手直接与防火墙交互。
-
-#### 模式 A：本地连接 (stdio)
-适用于 Claude Desktop 或本地运行的 Trae。
-- **启动服务**：
-  ```bash
-  sudo netxfw ai-mcp stdio
-  ```
-- **配置示例 (Claude Desktop)**：
-  ```json
-  "mcpServers": {
-    "netxfw": {
-      "command": "sudo",
-      "args": ["/usr/local/bin/netxfw", "ai-mcp", "stdio"]
-    }
-  }
-  ```
-
-#### 模式 B：远程连接 (SSE)
-适用于远程 AI 服务或需要通过网络访问的场景。
-- **启动服务**：
-  ```bash
-  # 监听所有网卡的 8080 端口
-  sudo netxfw ai-mcp sse :8080
-  ```
-- **连接方式**：
-  外部 AI 客户端可以通过访问 `http://<Server_IP>:8080/sse` 来发现和调用工具。
-
-#### 支持的功能：
-- 获取实时流量统计 (`get_stats`)
-- 列出活跃连接 (`list_conntrack`)
-- 添加封禁或允许规则 (`add_rule`)，支持规则持久化。
