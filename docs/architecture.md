@@ -2,6 +2,20 @@
 
 `netxfw` 采用了经典的 "控制面 (Go) + 数据面 (eBPF/XDP)" 架构，并利用 eBPF Map Pinning 实现多进程间的状态共享。
 
+## 版本规划 (Roadmap & Editions)
+
+`netxfw` 规划了以下七个版本，以适应从嵌入式设备到超大规模集群的不同场景：
+
+- **单机版 (Standalone)**: 核心高性能防火墙，支持基础 XDP/eBPF 拦截 and 规则管理。
+- **单机 AI 版 (Standalone AI)**: 在单机版基础上集成 TinyML 引擎，支持实时流量异常检测。
+- **小集群版 (Small Cluster)**: 支持多节点协同，通过 GitOps 同步策略，适用于 10 台以内服务器。
+- **小集群 AI 版 (Small Cluster AI)**: 结合集群管理与 AI 检测能力。
+- **大集群版 (Large Cluster)**: 针对成百上千节点优化，支持更复杂的拓扑、分级策略和高性能状态同步。
+- **大集群 AI 版 (Large Cluster AI)**: 分布式 AI 检测，支持全局威胁情报共享与联动。
+- **嵌入式版 (Embedded)**: 针对 ARM/MIPS 等嵌入式设备优化，极低资源占用，移除 Web UI 等非核心组件。
+
+---
+
 ## 核心组件
 
 ### 1. 数据面 (Data Plane - eBPF/XDP/TC)

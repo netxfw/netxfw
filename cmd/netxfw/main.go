@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/livp123/netxfw/internal/version"
 )
 
 /**
@@ -31,6 +33,8 @@ func main() {
 	switch command {
 	case "help", "-h", "--help":
 		printUsage()
+	case "version", "-v", "--version":
+		showVersion()
 	case "init":
 		initConfiguration()
 	case "test":
@@ -388,4 +392,10 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("  --- 连接追踪 (conntrack) ---")
 	fmt.Println("  ./netxfw conntrack          # 查看当前活跃连接")
+	fmt.Println("  ./netxfw version            # 查看版本和版型信息")
+}
+
+func showVersion() {
+	fmt.Printf("netxfw %s\n", version.Version)
+	showStatus() // showStatus now includes edition info
 }

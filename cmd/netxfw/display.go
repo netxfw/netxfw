@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
+	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
 )
 
@@ -279,6 +280,14 @@ func showIPPortRules(limit int, search string) {
  * showStatus displays the current firewall status and statistics.
  */
 func showStatus() {
+	cfg, _ := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
+	edition := "standalone"
+	if cfg != nil && cfg.Edition != "" {
+		edition = cfg.Edition
+	}
+
+	fmt.Printf("🚀 netxfw Edition: %s\n", edition)
+
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
 		fmt.Println("❌ XDP Program Status: Not Loaded (or maps not pinned)")
@@ -398,4 +407,3 @@ func showStatus() {
 		fmt.Println(" - None (Program is loaded but not attached to any interface)")
 	}
 }
-

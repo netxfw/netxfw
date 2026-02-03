@@ -7,6 +7,7 @@ import (
 )
 
 type GlobalConfig struct {
+	Edition   string          `yaml:"edition"` // standalone, standalone-ai, small-cluster, small-cluster-ai, large-cluster, large-cluster-ai, embedded
 	Base      BaseConfig      `yaml:"base"`
 	Web       WebConfig       `yaml:"web"`
 	Metrics   MetricsConfig   `yaml:"metrics"`
