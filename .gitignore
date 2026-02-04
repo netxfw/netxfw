@@ -4,7 +4,7 @@
 /netxfw-linux-arm64
 /netxfw_protected
 /ai-mcp
-
+/netxfw-controller
 # Local config
 /etc/
 /vendor/
