@@ -51,6 +51,15 @@ func (p *BasePlugin) Start(manager *xdp.Manager) error {
 	if err := manager.SetStrictProtocol(p.config.StrictProtocol); err != nil {
 		log.Printf("⚠️  [BasePlugin] Failed to set strict protocol: %v", err)
 	}
+	if err := manager.SetDropFragments(p.config.DropFragments); err != nil {
+		log.Printf("⚠️  [BasePlugin] Failed to set drop fragments: %v", err)
+	}
+	if err := manager.SetStrictTCP(p.config.StrictTCP); err != nil {
+		log.Printf("⚠️  [BasePlugin] Failed to set strict TCP: %v", err)
+	}
+	if err := manager.SetSYNLimit(p.config.SYNLimit); err != nil {
+		log.Printf("⚠️  [BasePlugin] Failed to set SYN limit: %v", err)
+	}
 	if p.config.ICMPRate > 0 && p.config.ICMPBurst > 0 {
 		if err := manager.SetICMPRateLimit(p.config.ICMPRate, p.config.ICMPBurst); err != nil {
 			log.Printf("⚠️  [BasePlugin] Failed to set ICMP rate limit: %v", err)
@@ -212,6 +221,10 @@ func (p *BasePlugin) DefaultConfig() interface{} {
 		AllowReturnTraffic: true,
 		AllowICMP:          true,
 		EnableAFXDP:        false,
+		StrictProtocol:     false,
+		DropFragments:      false,
+		StrictTCP:          false,
+		SYNLimit:           false,
 		ICMPRate:           10,
 		ICMPBurst:          50,
 		Whitelist:          []string{"127.0.0.1/32"},

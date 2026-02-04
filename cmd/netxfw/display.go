@@ -277,6 +277,35 @@ func showIPPortRules(limit int, search string) {
 }
 
 /**
+ * showRateLimitRules reads and prints all rate limit rules.
+ */
+func showRateLimitRules() {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+	defer m.Close()
+
+	rules, _, err := m.ListRateLimitRules(0, "")
+	if err != nil {
+		log.Fatalf("❌ Failed to list rate limit rules: %v", err)
+	}
+
+	fmt.Println("🚀 Current Rate Limit Rules (Traffic Control):")
+	if len(rules) == 0 {
+		fmt.Println(" - No rate limit rules defined.")
+		return
+	}
+
+	fmt.Printf("%-30s %-15s %-15s\n", "IP/CIDR", "Rate (PPS)", "Burst")
+	fmt.Println(strings.Repeat("-", 60))
+
+	for target, conf := range rules {
+		fmt.Printf("%-30s %-15d %-15d\n", target, conf.Rate, conf.Burst)
+	}
+}
+
+/**
  * showStatus displays the current firewall status and statistics.
  */
 func showStatus() {
@@ -389,6 +418,16 @@ func showStatus() {
 				fmt.Printf("   └─ Idle Timeout: %v\n", time.Duration(timeoutNs))
 			}
 		}
+	}
+
+	// Check global ratelimit
+	key = 10 // CONFIG_ENABLE_RATELIMIT
+	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
+		status := "Disabled"
+		if val == 1 {
+			status = "Enabled"
+		}
+		fmt.Printf("🚀 Global Rate Limiting: %s\n", status)
 	}
 
 	// Check attached interfaces

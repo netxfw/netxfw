@@ -87,7 +87,62 @@ func (m *Manager) SetConntrack(enable bool) error {
 }
 
 /**
- * SetEnableAFXDP enables or disables the AF_XDP redirection.
+ * SetStrictProto enables or disables strict protocol enforcement.
+ */
+func (m *Manager) SetStrictProto(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configStrictProto, val)
+}
+
+/**
+ * SetDropFragments enables or disables dropping of IP fragments.
+ */
+func (m *Manager) SetDropFragments(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configDropFragments, val)
+}
+
+/**
+ * SetStrictTCP enables or disables strict TCP flag validation.
+ */
+func (m *Manager) SetStrictTCP(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configStrictTCP, val)
+}
+
+/**
+ * SetSYNLimit enables or disables SYN-only rate limiting.
+ */
+func (m *Manager) SetSYNLimit(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configSYNLimit, val)
+}
+
+/**
+ * SetEnableRateLimit enables or disables general rate limiting.
+ */
+func (m *Manager) SetEnableRateLimit(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configEnableRateLimit, val)
+}
+
+/**
+ * SetEnableAFXDP enables or disables AF_XDP redirection.
  */
 func (m *Manager) SetEnableAFXDP(enable bool) error {
 	var val uint64 = 0
@@ -107,4 +162,16 @@ func (m *Manager) SetStrictProtocol(enable bool) error {
 		val = 1
 	}
 	return m.updateConfig(configStrictProto, val)
+}
+
+/**
+ * SetBogonFilter enables or disables Bogon IP filtering.
+ * 开启或关闭 Bogon IP 过滤。
+ */
+func (m *Manager) SetBogonFilter(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configBogonFilter, val)
 }

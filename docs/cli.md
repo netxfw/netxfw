@@ -13,6 +13,9 @@
 | `conntrack` | 无 | 查看当前内核中的活跃连接追踪表 |
 | `rule add` | `<IP> [port] <allow/deny>` | 添加 IP 或 IP+端口 规则 |
 | `rule list` | `rules / conntrack` | 查看规则列表或连接列表 |
+| `limit add` | `<IP> <rate> <burst>` | 为指定 IP 设置 PPS 限速 |
+| `limit remove`| `<IP>` | 移除限速规则 |
+| `limit list` | 无 | 查看所有限速规则 |
 | `lock` | `<IP>` | 快捷命令：全局封禁指定 IP |
 | `allow` | `<IP> [port]` | 快捷命令：将 IP 加入白名单 |
 | `web` | `start / stop` | 管理 Web 控制台服务 |
@@ -69,7 +72,34 @@ sudo netxfw lock 1.2.3.4
 sudo netxfw unlock 1.2.3.4
 ```
 
-### 5. 热重载 (reload)
+### 5. 流量控制 (limit)
+在 XDP 层面对指定 IP 或网段进行 PPS（每秒数据包数）限速。支持 IPv4 和 IPv6。
+
+- **开启全局限速功能**：
+  ```bash
+  sudo netxfw system ratelimit true
+  ```
+- **添加限速规则**：
+  ```bash
+  # 限制 1.2.3.4 的流量为每秒 100 个包，最大突发 200 个包
+  sudo netxfw limit add 1.2.3.4 100 200
+
+  # 限制 IPv6 地址 ::1 的流量为每秒 500 个包
+  sudo netxfw limit add ::1 500 1000
+
+  # 限制整个网段 192.168.1.0/24
+  sudo netxfw limit add 192.168.1.0/24 1000 2000
+  ```
+- **查看限速状态**：
+  ```bash
+  sudo netxfw limit list
+  ```
+- **移除限速规则**：
+  ```bash
+  sudo netxfw limit remove 1.2.3.4
+  ```
+
+### 6. 热重载 (reload)
 当您修改了 `/etc/netxfw/config.yaml`（例如调整了 Map 容量或默认策略）后，可以使用此命令实现无损重载。
 
 ```bash

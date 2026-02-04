@@ -75,6 +75,14 @@ func main() {
 	case "system":
 		handleSystemCommand(os.Args[2:])
 
+	// --- 安全管理 (security) ---
+	case "security":
+		handleSecurityCommand(os.Args[2:])
+
+	// --- 限速管理 (limit) ---
+	case "limit":
+		handleLimitCommand(os.Args[2:])
+
 	// --- Web 管理界面 (web) ---
 	case "web":
 		handleWebCommand(os.Args[2:])
@@ -290,7 +298,7 @@ func handleWebCommand(args []string) {
 
 func handleSystemCommand(args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: ./netxfw system [init|test|sync|daemon|load|reload|unload|set-default-deny]")
+		fmt.Println("Usage: ./netxfw system [status|init|test|sync|daemon|load|reload|unload|set-default-deny|ratelimit]")
 		return
 	}
 
@@ -319,6 +327,13 @@ func handleSystemCommand(args []string) {
 		}
 		enable := args[1] == "true"
 		syncDefaultDeny(enable)
+	case "ratelimit":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw system ratelimit <true|false>")
+			return
+		}
+		enable := args[1] == "true"
+		syncEnableRateLimit(enable)
 	case "afxdp":
 		if len(args) < 2 {
 			fmt.Println("Usage: ./netxfw system afxdp <true|false>")
@@ -328,6 +343,75 @@ func handleSystemCommand(args []string) {
 		syncEnableAFXDP(enable)
 	default:
 		fmt.Println("Unknown system subcommand:", args[0])
+	}
+}
+
+func handleLimitCommand(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: ./netxfw limit [add|remove|list]")
+		return
+	}
+
+	switch args[0] {
+	case "add":
+		// limit add <ip> <rate> <burst>
+		if len(args) < 4 {
+			fmt.Println("Usage: ./netxfw limit add <ip> <rate> <burst>")
+			return
+		}
+		ip := args[1]
+		rate, _ := strconv.ParseUint(args[2], 10, 64)
+		burst, _ := strconv.ParseUint(args[3], 10, 64)
+		syncRateLimitRule(ip, rate, burst, true)
+
+	case "remove":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw limit remove <ip>")
+			return
+		}
+		syncRateLimitRule(args[1], 0, 0, false)
+
+	case "list":
+		showRateLimitRules()
+
+	default:
+		fmt.Println("Unknown limit subcommand:", args[0])
+	}
+}
+
+func handleSecurityCommand(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: ./netxfw security [fragments|strict-tcp|syn-limit|bogon] <true|false>")
+		return
+	}
+
+	switch args[0] {
+	case "fragments":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw security fragments <true|false>")
+			return
+		}
+		syncDropFragments(args[1] == "true")
+	case "strict-tcp":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw security strict-tcp <true|false>")
+			return
+		}
+		syncStrictTCP(args[1] == "true")
+	case "syn-limit":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw security syn-limit <true|false>")
+			return
+		}
+		syncSYNLimit(args[1] == "true")
+	case "bogon":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw security bogon <true|false>")
+			return
+		}
+		syncBogonFilter(args[1] == "true")
+	default:
+		fmt.Println("Unknown security subcommand:", args[0])
 	}
 }
 
@@ -362,7 +446,19 @@ func printUsage() {
 	fmt.Println("  ./netxfw system reload             # 平滑重载 XDP (支持容量调整)")
 	fmt.Println("  ./netxfw system unload             # 卸载 XDP 驱动")
 	fmt.Println("  ./netxfw system set-default-deny <true|false> # 设置默认拦截策略")
+	fmt.Println("  ./netxfw system ratelimit <true|false> # 开启/关闭通用限速")
 	fmt.Println("  ./netxfw system afxdp <true|false> # 开启/关闭 AF_XDP 重定向")
+	fmt.Println("")
+	fmt.Println("  --- 安全管理 (security) ---")
+	fmt.Println("  ./netxfw security fragments <true|false> # 丢弃分片包")
+	fmt.Println("  ./netxfw security strict-tcp <true|false> # 严格 TCP 标志位校验")
+	fmt.Println("  ./netxfw security syn-limit <true|false>  # 仅对 SYN 包应用限速")
+	fmt.Println("  ./netxfw security bogon <true|false>     # 开启/关闭 Bogon 过滤")
+	fmt.Println("")
+	fmt.Println("  --- 限速管理 (limit) ---")
+	fmt.Println("  ./netxfw limit add <ip> <rate> <burst> # 设置 IP 限速 (pps)")
+	fmt.Println("  ./netxfw limit remove <ip>             # 移除 IP 限速")
+	fmt.Println("  ./netxfw limit list                    # 查看限速规则")
 	fmt.Println("")
 	fmt.Println("  --- Web 管理界面 (web) ---")
 	fmt.Println("  ./netxfw web [port]                # 启动 Web 管理界面 (默认 11811)")

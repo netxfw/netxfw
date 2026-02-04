@@ -199,3 +199,129 @@ func (m *Manager) ListAllowedPorts() ([]uint16, error) {
 	}
 	return ports, nil
 }
+
+/**
+ * AddRateLimitRule adds a rate limit rule for an IP.
+ */
+func (m *Manager) AddRateLimitRule(ipNet *net.IPNet, rate, burst uint64) error {
+	ones, _ := ipNet.Mask.Size()
+	ip4 := ipNet.IP.To4()
+	if ip4 != nil {
+		key := NetXfwLpmKey4{
+			Prefixlen: uint32(ones),
+			Data:      binary.LittleEndian.Uint32(ip4),
+		}
+		val := NetXfwRatelimitConf{
+			Rate:  rate,
+			Burst: burst,
+		}
+		return m.ratelimitConfig.Update(&key, &val, ebpf.UpdateAny)
+	}
+
+	ip6 := ipNet.IP.To16()
+	if ip6 != nil {
+		key := NetXfwLpmKey6{
+			Prefixlen: uint32(ones),
+		}
+		copy(key.Data.In6U.U6Addr8[:], ip6)
+		val := NetXfwRatelimitConf{
+			Rate:  rate,
+			Burst: burst,
+		}
+		return m.ratelimitConfig6.Update(&key, &val, ebpf.UpdateAny)
+	}
+
+	return fmt.Errorf("invalid IP address")
+}
+
+/**
+ * RemoveRateLimitRule removes a rate limit rule.
+ */
+func (m *Manager) RemoveRateLimitRule(ipNet *net.IPNet) error {
+	ones, _ := ipNet.Mask.Size()
+	ip4 := ipNet.IP.To4()
+	if ip4 != nil {
+		key := NetXfwLpmKey4{
+			Prefixlen: uint32(ones),
+			Data:      binary.LittleEndian.Uint32(ip4),
+		}
+		// Also cleanup the state to free memory
+		_ = m.ratelimitState.Delete(binary.LittleEndian.Uint32(ip4))
+		return m.ratelimitConfig.Delete(&key)
+	}
+
+	ip6 := ipNet.IP.To16()
+	if ip6 != nil {
+		key := NetXfwLpmKey6{
+			Prefixlen: uint32(ones),
+		}
+		copy(key.Data.In6U.U6Addr8[:], ip6)
+		// Also cleanup the state
+		var stateKey NetXfwIn6Addr
+		copy(stateKey.In6U.U6Addr8[:], ip6)
+		_ = m.ratelimitState6.Delete(&stateKey)
+		return m.ratelimitConfig6.Delete(&key)
+	}
+
+	return fmt.Errorf("invalid IP address")
+}
+
+/**
+ * ListRateLimitRules returns all configured rate limit rules.
+ */
+func (m *Manager) ListRateLimitRules(limit int, search string) (map[string]RateLimitConf, int, error) {
+	rules := make(map[string]RateLimitConf)
+	count := 0
+
+	// IPv4
+	if m.ratelimitConfig != nil {
+		iter := m.ratelimitConfig.Iterate()
+		var key NetXfwLpmKey4
+		var val NetXfwRatelimitConf
+		for iter.Next(&key, &val) {
+			ip := intToIP(key.Data)
+			fullStr := fmt.Sprintf("%s/%d", ip.String(), key.Prefixlen)
+
+			if search != "" && !strings.Contains(fullStr, search) {
+				continue
+			}
+
+			count++
+			if limit > 0 && len(rules) >= limit {
+				continue
+			}
+
+			rules[fullStr] = RateLimitConf{
+				Rate:  val.Rate,
+				Burst: val.Burst,
+			}
+		}
+	}
+
+	// IPv6
+	if m.ratelimitConfig6 != nil {
+		iter := m.ratelimitConfig6.Iterate()
+		var key NetXfwLpmKey6
+		var val NetXfwRatelimitConf
+		for iter.Next(&key, &val) {
+			ip := net.IP(key.Data.In6U.U6Addr8[:])
+			fullStr := fmt.Sprintf("%s/%d", ip.String(), key.Prefixlen)
+
+			if search != "" && !strings.Contains(fullStr, search) {
+				continue
+			}
+
+			count++
+			if limit > 0 && len(rules) >= limit {
+				continue
+			}
+
+			rules[fullStr] = RateLimitConf{
+				Rate:  val.Rate,
+				Burst: val.Burst,
+			}
+		}
+	}
+
+	return rules, count, nil
+}

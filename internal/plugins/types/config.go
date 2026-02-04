@@ -13,7 +13,19 @@ type GlobalConfig struct {
 	Metrics   MetricsConfig   `yaml:"metrics"`
 	Port      PortConfig      `yaml:"port"`
 	Conntrack ConntrackConfig `yaml:"conntrack"`
+	RateLimit RateLimitConfig `yaml:"rate_limit"`
 	Capacity  CapacityConfig  `yaml:"capacity"`
+}
+
+type RateLimitConfig struct {
+	Enabled bool            `yaml:"enabled"`
+	Rules   []RateLimitRule `yaml:"rules"`
+}
+
+type RateLimitRule struct {
+	IP    string `yaml:"ip"`
+	Rate  uint64 `yaml:"rate"`
+	Burst uint64 `yaml:"burst"`
 }
 
 type WebConfig struct {
@@ -36,6 +48,10 @@ type BaseConfig struct {
 	AllowICMP          bool     `yaml:"allow_icmp"`
 	EnableAFXDP        bool     `yaml:"enable_af_xdp"`
 	StrictProtocol     bool     `yaml:"strict_protocol"`
+	DropFragments      bool     `yaml:"drop_fragments"`
+	StrictTCP          bool     `yaml:"strict_tcp"`
+	SYNLimit           bool     `yaml:"syn_limit"`
+	BogonFilter        bool     `yaml:"bogon_filter"`
 	ICMPRate           uint64   `yaml:"icmp_rate"`  // packets per second
 	ICMPBurst          uint64   `yaml:"icmp_burst"` // max burst
 	Whitelist          []string `yaml:"whitelist"`
@@ -47,8 +63,8 @@ type BaseConfig struct {
 }
 
 type ConntrackConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	MaxEntries int `yaml:"max_entries"`
+	Enabled    bool   `yaml:"enabled"`
+	MaxEntries int    `yaml:"max_entries"`
 	TCPTimeout string `yaml:"tcp_timeout"`
 	UDPTimeout string `yaml:"udp_timeout"`
 }
@@ -59,7 +75,7 @@ type MetricsConfig struct {
 }
 
 type PortConfig struct {
-	AllowedPorts []uint16      `yaml:"allowed_ports"`
+	AllowedPorts []uint16     `yaml:"allowed_ports"`
 	IPPortRules  []IPPortRule `yaml:"ip_port_rules"`
 }
 

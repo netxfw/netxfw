@@ -87,20 +87,24 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 	}
 
 	return &Manager{
-		objs:          objs,
-		lockList:      objs.LockList,
-		lockList6:     objs.LockList6,
-		whitelist:     objs.Whitelist,
-		whitelist6:    objs.Whitelist6,
-		allowedPorts:  objs.AllowedPorts,
-		ipPortRules:   objs.IpPortRules,
-		ipPortRules6:  objs.IpPortRules6,
-		globalConfig:  objs.GlobalConfig,
-		dropStats:     objs.DropStats,
-		passStats:     objs.PassStats,
-		icmpLimitMap:  objs.IcmpLimitMap,
-		conntrackMap:  objs.ConntrackMap,
-		conntrackMap6: objs.ConntrackMap6,
+		objs:             objs,
+		lockList:         objs.LockList,
+		lockList6:        objs.LockList6,
+		whitelist:        objs.Whitelist,
+		whitelist6:       objs.Whitelist6,
+		allowedPorts:     objs.AllowedPorts,
+		ipPortRules:      objs.IpPortRules,
+		ipPortRules6:     objs.IpPortRules6,
+		globalConfig:     objs.GlobalConfig,
+		dropStats:        objs.DropStats,
+		passStats:        objs.PassStats,
+		icmpLimitMap:     objs.IcmpLimitMap,
+		conntrackMap:     objs.ConntrackMap,
+		conntrackMap6:    objs.ConntrackMap6,
+		ratelimitConfig:  objs.RatelimitConfig,
+		ratelimitConfig6: objs.RatelimitConfig6,
+		ratelimitState:   objs.RatelimitState,
+		ratelimitState6:  objs.RatelimitState6,
 	}, nil
 }
 
@@ -175,6 +179,22 @@ func NewManagerFromPins(path string) (*Manager, error) {
 	if m.conntrackMap6, err = ebpf.LoadPinnedMap(path+"/conntrack_map6", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned conntrack_map6: %v", err)
 		m.conntrackMap6 = objs.ConntrackMap6
+	}
+	if m.ratelimitConfig, err = ebpf.LoadPinnedMap(path+"/ratelimit_config", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned ratelimit_config: %v", err)
+		m.ratelimitConfig = objs.RatelimitConfig
+	}
+	if m.ratelimitConfig6, err = ebpf.LoadPinnedMap(path+"/ratelimit_config6", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned ratelimit_config6: %v", err)
+		m.ratelimitConfig6 = objs.RatelimitConfig6
+	}
+	if m.ratelimitState, err = ebpf.LoadPinnedMap(path+"/ratelimit_state", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned ratelimit_state: %v", err)
+		m.ratelimitState = objs.RatelimitState
+	}
+	if m.ratelimitState6, err = ebpf.LoadPinnedMap(path+"/ratelimit_state6", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned ratelimit_state6: %v", err)
+		m.ratelimitState6 = objs.RatelimitState6
 	}
 
 	return m, nil
@@ -390,6 +410,46 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
+	// Migrate Rate Limit Config (LPM TRIE)
+	if old.ratelimitConfig != nil && m.ratelimitConfig != nil {
+		var key NetXfwLpmKey4
+		var val NetXfwRatelimitConf
+		iter := old.ratelimitConfig.Iterate()
+		for iter.Next(&key, &val) {
+			m.ratelimitConfig.Put(&key, &val)
+		}
+	}
+
+	// Migrate Rate Limit Config (IPv6 LPM TRIE)
+	if old.ratelimitConfig6 != nil && m.ratelimitConfig6 != nil {
+		var key NetXfwLpmKey6
+		var val NetXfwRatelimitConf
+		iter := old.ratelimitConfig6.Iterate()
+		for iter.Next(&key, &val) {
+			m.ratelimitConfig6.Put(&key, &val)
+		}
+	}
+
+	// Migrate Rate Limit State (LRU HASH)
+	if old.ratelimitState != nil && m.ratelimitState != nil {
+		var key uint32
+		var val NetXfwRatelimitStats
+		iter := old.ratelimitState.Iterate()
+		for iter.Next(&key, &val) {
+			m.ratelimitState.Put(&key, &val)
+		}
+	}
+
+	// Migrate Rate Limit State (IPv6 LRU HASH)
+	if old.ratelimitState6 != nil && m.ratelimitState6 != nil {
+		var key NetXfwIn6Addr
+		var val NetXfwRatelimitStats
+		iter := old.ratelimitState6.Iterate()
+		for iter.Next(&key, &val) {
+			m.ratelimitState6.Put(&key, &val)
+		}
+	}
+
 	return nil
 }
 
@@ -428,6 +488,14 @@ func (m *Manager) Pin(path string) error {
 	if m.passStats != nil {
 		_ = m.passStats.Pin(path + "/pass_stats")
 	}
+	_ = m.ratelimitConfig.Pin(path + "/ratelimit_config")
+	if m.ratelimitConfig6 != nil {
+		_ = m.ratelimitConfig6.Pin(path + "/ratelimit_config6")
+	}
+	_ = m.ratelimitState.Pin(path + "/ratelimit_state")
+	if m.ratelimitState6 != nil {
+		_ = m.ratelimitState6.Pin(path + "/ratelimit_state6")
+	}
 	return nil
 }
 
@@ -450,5 +518,9 @@ func (m *Manager) Unpin(path string) error {
 	if m.passStats != nil {
 		_ = m.passStats.Unpin()
 	}
+	_ = m.ratelimitConfig.Unpin()
+	_ = m.ratelimitConfig6.Unpin()
+	_ = m.ratelimitState.Unpin()
+	_ = m.ratelimitState6.Unpin()
 	return os.RemoveAll(path)
 }

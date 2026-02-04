@@ -18,9 +18,15 @@
 - 🧠 **有状态检测 (Conntrack)**：内置高效的连接追踪引擎，自动放行已建立连接的回包。
 - 🛡️ **细粒度规则**：支持 IP+端口 级别的 Allow/Deny 规则，满足复杂业务需求。
 - ⚡ **无损热重载**：支持运行时调整 Map 容量并热重载程序，通过状态迁移确保业务零中断。
-- 🌊 **流量整形**：内置基于令牌桶算法的 ICMP 限速，有效抵御 ICMP Flood 攻击。
+- 🌊 **流量整形**：内置基于令牌桶算法的 IP 级别限速与 ICMP 限速。引入 **O(1) 配置缓存** 机制，避免了每个数据包的复杂查找，极大提升了超大规模规则下的处理性能。
+- 🛡️ **安全加固**：
+    - **Bogon 过滤**：自动识别并丢弃来自保留/私有 IP 地址段的恶意流量。
+    - **严格 TCP 校验**：校验 TCP 标志位组合，有效防御 Null Scan、Xmas Scan 等探测攻击。
+    - **分片保护**：支持配置丢弃所有 IP 分片包，防御分片攻击。
+    - **SYN 洪水防御**：支持仅对 SYN 包应用限速，确保在遭遇 SYN Flood 时正常业务不受影响。
 - 📊 **可观测性**：内置 Web 管理界面（默认 11811 端口）与 Prometheus Exporter，实时监控丢包速率与活跃连接。
 - 🛠️ **一令封网**：极简的 CLI 操作，支持动态加载规则，无需重启服务。
+- ⚡ **高性能配置同步**：通过全局版本号触发 BPF 内部静态变量更新，实现 O(1) 级别的配置读取性能。
 - 🔒 **安全加固**：支持使用 `garble` 进行混淆编译，保护控制面逻辑。
 
 ---
@@ -168,6 +174,10 @@ port:
 | `reload` | 热重载配置并更新 XDP 程序 | `sudo netxfw reload` |
 | `load xdp` | 加载 XDP 程序 | `sudo netxfw load xdp` |
 | `unload xdp` | 卸载 XDP 程序 | `sudo netxfw unload xdp` |
+| `security fragments <true/false>` | 开启/关闭分片包丢弃 | `sudo netxfw security fragments true` |
+| `security strict-tcp <true/false>` | 开启/关闭严格 TCP 校验 | `sudo netxfw security strict-tcp true` |
+| `security syn-limit <true/false>` | 开启/关闭 SYN 限速 | `sudo netxfw security syn-limit true` |
+| `security bogon <true/false>` | 开启/关闭 Bogon 过滤 | `sudo netxfw security bogon true` |
 
 ---
 

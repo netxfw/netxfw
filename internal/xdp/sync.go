@@ -139,12 +139,33 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 5. Sync Global Config from config to maps
+	// 5. Sync rate limit rules from config to maps
+	for _, rule := range cfg.RateLimit.Rules {
+		_, ipNet, err := net.ParseCIDR(rule.IP)
+		if err != nil {
+			ip := net.ParseIP(rule.IP)
+			if ip != nil {
+				mask := net.CIDRMask(32, 32)
+				if ip.To4() == nil {
+					mask = net.CIDRMask(128, 128)
+				}
+				ipNet = &net.IPNet{IP: ip, Mask: mask}
+			}
+		}
+		if ipNet != nil {
+			if err := m.AddRateLimitRule(ipNet, rule.Rate, rule.Burst); err != nil {
+				log.Printf("⚠️  Failed to add rate limit rule %s: %v", rule.IP, err)
+			}
+		}
+	}
+
+	// 6. Sync Global Config from config to maps
 	m.SetDefaultDeny(cfg.Base.DefaultDeny)
 	m.SetAllowReturnTraffic(cfg.Base.AllowReturnTraffic)
 	m.SetAllowICMP(cfg.Base.AllowICMP)
 	m.SetEnableAFXDP(cfg.Base.EnableAFXDP)
 	m.SetICMPRateLimit(cfg.Base.ICMPRate, cfg.Base.ICMPBurst)
+	m.SetEnableRateLimit(cfg.RateLimit.Enabled)
 	m.SetConntrack(cfg.Conntrack.Enabled)
 	if cfg.Conntrack.TCPTimeout != "" {
 		if d, err := time.ParseDuration(cfg.Conntrack.TCPTimeout); err == nil {
@@ -152,7 +173,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 6. (Optional) Update binary cache for fast loading on restart
+	// 7. (Optional) Update binary cache for fast loading on restart
 	go m.UpdateBinaryCache(cfg, records)
 
 	return nil
@@ -274,7 +295,20 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 		cfg.Port.AllowedPorts = ports
 	}
 
-	// 5. Sync Global Config from map to config object
+	// 5. Sync rate limit rules from map to config object
+	if rules, _, err := m.ListRateLimitRules(0, ""); err == nil {
+		var newRateRules []types.RateLimitRule
+		for target, conf := range rules {
+			newRateRules = append(newRateRules, types.RateLimitRule{
+				IP:    target,
+				Rate:  conf.Rate,
+				Burst: conf.Burst,
+			})
+		}
+		cfg.RateLimit.Rules = newRateRules
+	}
+
+	// 6. Sync Global Config from map to config object
 	if m.globalConfig != nil {
 		var val uint64
 		var key uint32
@@ -302,6 +336,10 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 		key = configICMPBurst
 		if err := m.globalConfig.Lookup(&key, &val); err == nil {
 			cfg.Base.ICMPBurst = val
+		}
+		key = configEnableRateLimit
+		if err := m.globalConfig.Lookup(&key, &val); err == nil {
+			cfg.RateLimit.Enabled = (val == 1)
 		}
 		key = configEnableConntrack
 		if err := m.globalConfig.Lookup(&key, &val); err == nil {

@@ -78,6 +78,10 @@ func runDaemon() {
 		if err != nil {
 			log.Fatalf("❌ Failed to create XDP manager: %v", err)
 		}
+		// Pin maps so CLI tools can interact with them
+		if err := manager.Pin("/sys/fs/bpf/netxfw"); err != nil {
+			log.Printf("⚠️  Failed to pin maps: %v", err)
+		}
 	}
 	defer manager.Close()
 

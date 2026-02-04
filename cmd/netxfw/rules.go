@@ -268,6 +268,111 @@ func syncEnableAFXDP(enable bool) {
 	log.Printf("🚀 AF_XDP redirection set to: %v", enable)
 }
 
+func syncEnableRateLimit(enable bool) {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+	defer m.Close()
+
+	if err := m.SetEnableRateLimit(enable); err != nil {
+		log.Fatalf("❌ Failed to set enable ratelimit: %v", err)
+	}
+
+	configPath := "/etc/netxfw/config.yaml"
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err == nil {
+		globalCfg.RateLimit.Enabled = enable
+		types.SaveGlobalConfig(configPath, globalCfg)
+	}
+
+	log.Printf("🚀 Global rate limit set to: %v", enable)
+}
+
+func syncDropFragments(enable bool) {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+	defer m.Close()
+
+	if err := m.SetDropFragments(enable); err != nil {
+		log.Fatalf("❌ Failed to set drop fragments: %v", err)
+	}
+
+	configPath := "/etc/netxfw/config.yaml"
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err == nil {
+		globalCfg.Base.DropFragments = enable
+		types.SaveGlobalConfig(configPath, globalCfg)
+	}
+
+	log.Printf("🛡️ IP Fragment dropping set to: %v", enable)
+}
+
+func syncStrictTCP(enable bool) {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+	defer m.Close()
+
+	if err := m.SetStrictTCP(enable); err != nil {
+		log.Fatalf("❌ Failed to set strict TCP: %v", err)
+	}
+
+	configPath := "/etc/netxfw/config.yaml"
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err == nil {
+		globalCfg.Base.StrictTCP = enable
+		types.SaveGlobalConfig(configPath, globalCfg)
+	}
+
+	log.Printf("🛡️ Strict TCP validation set to: %v", enable)
+}
+
+func syncSYNLimit(enable bool) {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+	defer m.Close()
+
+	if err := m.SetSYNLimit(enable); err != nil {
+		log.Fatalf("❌ Failed to set SYN limit: %v", err)
+	}
+
+	configPath := "/etc/netxfw/config.yaml"
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err == nil {
+		globalCfg.Base.SYNLimit = enable
+		types.SaveGlobalConfig(configPath, globalCfg)
+	}
+
+	log.Printf("🛡️ SYN-only rate limiting set to: %v", enable)
+}
+
+func syncBogonFilter(enable bool) {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+	defer m.Close()
+
+	if err := m.SetBogonFilter(enable); err != nil {
+		log.Fatalf("❌ Failed to set bogon filter: %v", err)
+	}
+
+	configPath := "/etc/netxfw/config.yaml"
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err == nil {
+		globalCfg.Base.BogonFilter = enable
+		types.SaveGlobalConfig(configPath, globalCfg)
+	}
+
+	log.Printf("🛡️ Bogon IP filtering set to: %v", enable)
+}
+
 func syncAllowedPort(port uint16, allow bool) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
@@ -842,4 +947,72 @@ func importWhitelistFromFile(filePath string) {
 		types.SaveGlobalConfig(configPath, globalCfg)
 	}
 	log.Printf("⚪ Imported %d IPs/ranges from %s to whitelist (Skipped %d conflicts, Updated config: %v)", count, filePath, conflictCount, updatedConfig)
+}
+
+func syncRateLimitRule(cidrStr string, rate, burst uint64, add bool) {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+	defer m.Close()
+
+	configPath := "/etc/netxfw/config.yaml"
+	globalCfg, _ := types.LoadGlobalConfig(configPath)
+	if globalCfg == nil {
+		globalCfg = &types.GlobalConfig{}
+	}
+
+	_, ipNet, err := net.ParseCIDR(cidrStr)
+	if err != nil {
+		ip := net.ParseIP(cidrStr)
+		if ip == nil {
+			log.Fatalf("❌ Invalid IP address: %s", cidrStr)
+		}
+		mask := net.CIDRMask(32, 32)
+		if ip.To4() == nil {
+			mask = net.CIDRMask(128, 128)
+		}
+		ipNet = &net.IPNet{IP: ip, Mask: mask}
+	}
+
+	if add {
+		if err := m.AddRateLimitRule(ipNet, rate, burst); err != nil {
+			log.Fatalf("❌ Failed to add rate limit rule: %v", err)
+		}
+
+		// Persist to config
+		found := false
+		for i, r := range globalCfg.RateLimit.Rules {
+			if r.IP == cidrStr {
+				globalCfg.RateLimit.Rules[i].Rate = rate
+				globalCfg.RateLimit.Rules[i].Burst = burst
+				found = true
+				break
+			}
+		}
+		if !found {
+			globalCfg.RateLimit.Rules = append(globalCfg.RateLimit.Rules, types.RateLimitRule{
+				IP:    cidrStr,
+				Rate:  rate,
+				Burst: burst,
+			})
+		}
+		types.SaveGlobalConfig(configPath, globalCfg)
+		log.Printf("🚀 Rate limit rule added/updated: %s -> %d pps (burst: %d)", cidrStr, rate, burst)
+	} else {
+		if err := m.RemoveRateLimitRule(ipNet); err != nil {
+			log.Fatalf("❌ Failed to remove rate limit rule: %v", err)
+		}
+
+		// Remove from config
+		newRules := []types.RateLimitRule{}
+		for _, r := range globalCfg.RateLimit.Rules {
+			if r.IP != cidrStr {
+				newRules = append(newRules, r)
+			}
+		}
+		globalCfg.RateLimit.Rules = newRules
+		types.SaveGlobalConfig(configPath, globalCfg)
+		log.Printf("🛡️ Rate limit rule removed: %s", cidrStr)
+	}
 }
