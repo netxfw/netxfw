@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
@@ -11,6 +12,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus/push"
+	"github.com/prometheus/common/expfmt"
 )
 
 type MetricsPlugin struct {
@@ -52,53 +55,130 @@ func (p *MetricsPlugin) Init(config *types.GlobalConfig) error {
 
 func (p *MetricsPlugin) Start(manager *xdp.Manager) error {
 	if !p.config.Enabled {
-		log.Println("📊 Metrics server is disabled via plugin config.")
+		log.Println("📊 Metrics plugin is disabled via config.")
 		return nil
 	}
 
-	addr := fmt.Sprintf(":%d", p.config.Port)
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
-	p.server = &http.Server{
-		Addr:    addr,
-		Handler: mux,
+	// Default port if not set
+	if p.config.Port == 0 {
+		p.config.Port = 11812
 	}
 
-	go func() {
-		log.Printf("📊 Metrics server listening on %s", addr)
-		if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("❌ Metrics server error: %v", err)
+	// 1. Start HTTP Server if enabled and port is positive
+	if p.config.ServerEnabled && p.config.Port > 0 {
+		addr := fmt.Sprintf(":%d", p.config.Port)
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		p.server = &http.Server{
+			Addr:    addr,
+			Handler: mux,
 		}
-	}()
 
+		go func() {
+			log.Printf("📊 Metrics HTTP server listening on %s", addr)
+			if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Printf("❌ Metrics server error: %v", err)
+			}
+		}()
+	}
+
+	// 2. Metrics Collection and Export Loop
+	p.running = true
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
+		collectionInterval := 2 * time.Second
+		pushInterval := 1 * time.Minute
+		if p.config.PushInterval != "" {
+			if d, err := time.ParseDuration(p.config.PushInterval); err == nil {
+				pushInterval = d
+			}
+		}
+
+		ticker := time.NewTicker(collectionInterval)
+		lastPush := time.Now()
+		defer ticker.Stop()
+
 		for range ticker.C {
 			if !p.running {
 				return
 			}
-			// Update drop count
-			dropCount, err := manager.GetDropCount()
-			if err == nil {
-				xdpDropTotal.WithLabelValues("firewall").Set(float64(dropCount))
+
+			// Update internal metrics from BPF maps
+			p.updateMetrics(manager)
+
+			// 3. Handle Textfile Export (for node_exporter)
+			if p.config.TextfileEnabled && p.config.TextfilePath != "" {
+				p.writeTextFile()
 			}
 
-			// Update pass count
-			passCount, err := manager.GetPassCount()
-			if err == nil {
-				xdpPassTotal.Set(float64(passCount))
-			}
-
-			// Update locked IP count
-			lockedCount, err := manager.GetLockedIPCount()
-			if err == nil {
-				lockedIPsCount.Set(float64(lockedCount))
+			// 4. Handle Active Push (e.g. to PushGateway)
+			if p.config.PushEnabled && time.Since(lastPush) >= pushInterval {
+				p.pushMetrics()
+				lastPush = time.Now()
 			}
 		}
 	}()
 
-	p.running = true
 	return nil
+}
+
+func (p *MetricsPlugin) updateMetrics(manager *xdp.Manager) {
+	// Update drop count
+	dropCount, err := manager.GetDropCount()
+	if err == nil {
+		xdpDropTotal.WithLabelValues("firewall").Set(float64(dropCount))
+	}
+
+	// Update pass count
+	passCount, err := manager.GetPassCount()
+	if err == nil {
+		xdpPassTotal.Set(float64(passCount))
+	}
+
+	// Update locked IP count
+	lockedCount, err := manager.GetLockedIPCount()
+	if err == nil {
+		lockedIPsCount.Set(float64(lockedCount))
+	}
+}
+
+func (p *MetricsPlugin) writeTextFile() {
+	f, err := os.Create(p.config.TextfilePath + ".tmp")
+	if err != nil {
+		log.Printf("❌ Failed to create metrics textfile: %v", err)
+		return
+	}
+
+	enc := expfmt.NewEncoder(f, expfmt.Format(expfmt.TypeTextPlain))
+	mfs, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		log.Printf("❌ Failed to gather metrics for textfile: %v", err)
+		f.Close()
+		return
+	}
+
+	for _, mf := range mfs {
+		enc.Encode(mf)
+	}
+	f.Close()
+
+	// Atomic rename
+	if err := os.Rename(p.config.TextfilePath+".tmp", p.config.TextfilePath); err != nil {
+		log.Printf("❌ Failed to rename metrics textfile: %v", err)
+	}
+}
+
+func (p *MetricsPlugin) pushMetrics() {
+	if p.config.PushGatewayAddr == "" {
+		return
+	}
+
+	log.Printf("📤 Pushing metrics to %s", p.config.PushGatewayAddr)
+	err := push.New(p.config.PushGatewayAddr, "netxfw").
+		Gatherer(prometheus.DefaultGatherer).
+		Push()
+	if err != nil {
+		log.Printf("❌ Could not push to PushGateway: %v", err)
+	}
 }
 
 func (p *MetricsPlugin) Stop() error {
@@ -111,8 +191,14 @@ func (p *MetricsPlugin) Stop() error {
 
 func (p *MetricsPlugin) DefaultConfig() interface{} {
 	return types.MetricsConfig{
-		Enabled: false,
-		Port:    9100,
+		Enabled:         false,
+		ServerEnabled:   true,
+		Port:            11812,
+		PushEnabled:     false,
+		PushGatewayAddr: "",
+		PushInterval:    "1m",
+		TextfileEnabled: false,
+		TextfilePath:    "",
 	}
 }
 

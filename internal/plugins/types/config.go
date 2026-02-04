@@ -70,8 +70,14 @@ type ConntrackConfig struct {
 }
 
 type MetricsConfig struct {
-	Enabled bool `yaml:"enabled"`
-	Port    int  `yaml:"port"`
+	Enabled         bool   `yaml:"enabled"`
+	ServerEnabled   bool   `yaml:"server_enabled"`
+	Port            int    `yaml:"port"`
+	PushEnabled     bool   `yaml:"push_enabled"`
+	PushGatewayAddr string `yaml:"push_gateway_addr"`
+	PushInterval    string `yaml:"push_interval"`
+	TextfileEnabled bool   `yaml:"textfile_enabled"`
+	TextfilePath    string `yaml:"textfile_path"`
 }
 
 type PortConfig struct {
