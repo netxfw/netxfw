@@ -1,0 +1,41 @@
+# netxfw Default Configuration
+# /etc/netxfw/config.yaml
+
+capacity:
+  lock_list: 1024
+  conntrack: 65535
+  dyn_lock_list: 10000
+
+base:
+  default_deny: true
+  bogon_filter: true
+  tcp_flags_check: true
+  drop_fragments: false
+  allow_return_traffic: true
+  allow_icmp: true
+  whitelist:
+    - cidr: "127.0.0.1/32"
+    - cidr: "::1/128"
+
+conntrack:
+  enabled: true
+  max_entries: 100000
+  tcp_timeout: "1h"
+  udp_timeout: "5m"
+
+rate_limit:
+  enabled: true
+  auto_block: true
+  auto_block_expiry: "10m"
+  rules:
+    - ip: "0.0.0.0/0"
+      rate: 2000
+      burst: 4000
+
+port:
+  allowed_ports: []
+  ip_port_rules:
+    - ip: "0.0.0.0/0"
+      port: 22
+      action: 1 # 1: allow, 2: deny
+

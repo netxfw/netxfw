@@ -218,7 +218,7 @@ func (p *BasePlugin) Stop() error {
 func (p *BasePlugin) DefaultConfig() interface{} {
 	return types.BaseConfig{
 		DefaultDeny:        true,
-		AllowReturnTraffic: true,
+		AllowReturnTraffic: false,
 		AllowICMP:          true,
 		EnableAFXDP:        false,
 		StrictProtocol:     false,

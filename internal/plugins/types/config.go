@@ -99,9 +99,44 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	var cfg GlobalConfig
+
+	// Initialize with defaults / 使用默认值初始化
+	cfg := GlobalConfig{
+		Base: BaseConfig{
+			DefaultDeny:        true,
+			AllowReturnTraffic: false,
+			AllowICMP:          true,
+			PersistRules:       true,
+			CleanupInterval:    "1m",
+			ICMPRate:           10,
+			ICMPBurst:          50,
+		},
+		Conntrack: ConntrackConfig{
+			Enabled:    true,
+			MaxEntries: 100000,
+			TCPTimeout: "1h",
+			UDPTimeout: "5m",
+		},
+		RateLimit: RateLimitConfig{
+			Enabled:         true,
+			AutoBlock:       true,
+			AutoBlockExpiry: "10m",
+		},
+		Capacity: CapacityConfig{
+			Conntrack:    100000,
+			LockList:     2000000,
+			Whitelist:    65536,
+			IPPortRules:  65536,
+			AllowedPorts: 1024,
+		},
+	}
+
 	err = yaml.Unmarshal(data, &cfg)
-	return &cfg, err
+	if err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
 }
 
 func SaveGlobalConfig(path string, cfg *GlobalConfig) error {

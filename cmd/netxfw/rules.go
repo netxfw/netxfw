@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/plugins/types"
@@ -682,6 +683,48 @@ func clearBlacklist() {
 		}
 	}
 	log.Println("✅ Blacklist cleared successfully.")
+}
+
+func syncAutoBlock(enable bool) {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+	defer m.Close()
+
+	if err := m.SetAutoBlock(enable); err != nil {
+		log.Fatalf("❌ Failed to set auto-block: %v", err)
+	}
+
+	configPath := "/etc/netxfw/config.yaml"
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err == nil {
+		globalCfg.RateLimit.AutoBlock = enable
+		types.SaveGlobalConfig(configPath, globalCfg)
+	}
+
+	log.Printf("🛡️ Automatic blocking set to: %v", enable)
+}
+
+func syncAutoBlockExpiry(expiry uint32) {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
+	}
+	defer m.Close()
+
+	if err := m.SetAutoBlockExpiry(time.Duration(expiry) * time.Second); err != nil {
+		log.Fatalf("❌ Failed to set auto-block expiry: %v", err)
+	}
+
+	configPath := "/etc/netxfw/config.yaml"
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err == nil {
+		globalCfg.RateLimit.AutoBlockExpiry = fmt.Sprintf("%ds", expiry)
+		types.SaveGlobalConfig(configPath, globalCfg)
+	}
+
+	log.Printf("🛡️ Automatic blocking expiry set to: %d seconds", expiry)
 }
 
 func importIPPortRulesFromFile(filePath string) {

@@ -8,6 +8,7 @@
 #include "../include/config.bpf.h"
 
 // Include necessary modules
+#include "../modules/blacklist.bpf.c"
 #include "../modules/filter.bpf.c"
 #include "../modules/ratelimit.bpf.c"
 #include "../modules/rules.bpf.c"
@@ -60,7 +61,7 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data, void *dat
     if (is_whitelisted6(&ip6->saddr, dest_port)) return XDP_PASS;
 
     // 2. Lock list
-    struct rule_value *cnt = get_lock_stats6(&ip6->saddr);
+    struct rule_value *cnt = get_blacklist_stats6(&ip6->saddr);
     if (cnt) {
         __sync_fetch_and_add(&cnt->counter, 1);
         return XDP_DROP;

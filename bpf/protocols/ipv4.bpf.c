@@ -8,6 +8,7 @@
 #include "../include/config.bpf.h"
 
 // Include necessary modules
+#include "../modules/blacklist.bpf.c"
 #include "../modules/filter.bpf.c"
 #include "../modules/ratelimit.bpf.c"
 #include "../modules/rules.bpf.c"
@@ -74,7 +75,7 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data, void *dat
     }
 
     // 2. Lock list
-    struct rule_value *cnt = get_lock_stats(ip->saddr);
+    struct rule_value *cnt = get_blacklist_stats(ip->saddr);
     if (cnt) {
         __sync_fetch_and_add(&cnt->counter, 1);
         return XDP_DROP;

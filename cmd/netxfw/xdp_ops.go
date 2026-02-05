@@ -260,16 +260,33 @@ func reloadXDP() {
 		log.Println("ℹ️  No existing pinned maps found, starting fresh.")
 	}
 
-	// 4. Atomic swap: Attach new manager to interfaces
+	// 4. Update pins: Pin new maps (this ensures the directory exists for Attach)
+	if err := newManager.Pin("/sys/fs/bpf/netxfw"); err != nil {
+		log.Fatalf("❌ Failed to pin new maps: %v", err)
+	}
+
+	// 5. Detach old programs if they exist to avoid "resource busy" errors
+	if oldManager != nil {
+		log.Println("🔌 Detaching old XDP programs...")
+		oldManager.Detach(interfaces)
+	}
+
+	// 6. Atomic swap (or sequential): Attach new manager to interfaces
 	// This will replace the old program if it was attached
 	if err := newManager.Attach(interfaces); err != nil {
 		log.Fatalf("❌ Failed to attach new XDP program: %v", err)
 	}
 
-	// 5. Update pins: Unpin old and pin new
-	_ = newManager.Unpin("/sys/fs/bpf/netxfw") // Ignore error if not pinned
-	if err := newManager.Pin("/sys/fs/bpf/netxfw"); err != nil {
-		log.Fatalf("❌ Failed to pin new maps: %v", err)
+	// 6. Start all plugins to apply configurations
+	for _, p := range plugins.GetPlugins() {
+		if err := p.Init(globalCfg); err != nil {
+			log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
+			continue
+		}
+		if err := p.Start(newManager); err != nil {
+			log.Printf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
+		}
+		// Note: We don't defer Stop() here because reload is a one-shot command
 	}
 
 	log.Println("🚀 XDP program reloaded successfully with updated configuration and capacity.")

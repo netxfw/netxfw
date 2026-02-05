@@ -24,13 +24,7 @@ static __always_inline int check_ratelimit(__u32 ip) {
                 return 1;
             }
             // Rate limit exceeded: Auto-block if enabled
-            if (cached_auto_block) {
-                struct rule_value block_val = {
-                    .counter = 0,
-                    .expires_at = (cached_auto_block_expiry > 0) ? (now + (cached_auto_block_expiry * 1000000000ULL)) : 0
-                };
-                bpf_map_update_elem(&dyn_lock_list, &ip, &block_val, BPF_ANY);
-            }
+            add_to_blacklist(ip);
             return 0;
         }
 
@@ -45,13 +39,7 @@ static __always_inline int check_ratelimit(__u32 ip) {
         }
 
         // Rate limit exceeded: Auto-block if enabled
-        if (cached_auto_block) {
-            struct rule_value block_val = {
-                .counter = 0,
-                .expires_at = (cached_auto_block_expiry > 0) ? (now + (cached_auto_block_expiry * 1000000000ULL)) : 0
-            };
-            bpf_map_update_elem(&dyn_lock_list, &ip, &block_val, BPF_ANY);
-        }
+        add_to_blacklist(ip);
         return 0;
     }
 
@@ -98,13 +86,7 @@ static __always_inline int check_ratelimit6(struct in6_addr *ip) {
                 return 1;
             }
             // Rate limit exceeded: Auto-block if enabled
-            if (cached_auto_block) {
-                struct rule_value block_val = {
-                    .counter = 0,
-                    .expires_at = (cached_auto_block_expiry > 0) ? (now + (cached_auto_block_expiry * 1000000000ULL)) : 0
-                };
-                bpf_map_update_elem(&dyn_lock_list6, ip, &block_val, BPF_ANY);
-            }
+            add_to_blacklist6(ip);
             return 0;
         }
 
@@ -119,13 +101,7 @@ static __always_inline int check_ratelimit6(struct in6_addr *ip) {
         }
 
         // Rate limit exceeded: Auto-block if enabled
-        if (cached_auto_block) {
-            struct rule_value block_val = {
-                .counter = 0,
-                .expires_at = (cached_auto_block_expiry > 0) ? (now + (cached_auto_block_expiry * 1000000000ULL)) : 0
-            };
-            bpf_map_update_elem(&dyn_lock_list6, ip, &block_val, BPF_ANY);
-        }
+        add_to_blacklist6(ip);
         return 0;
     }
 

@@ -162,7 +162,7 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __uint(max_entries, LOCK_LIST_SIZE);
+    __uint(max_entries, 1000000);
     __type(key, struct in6_addr);
     __type(value, struct rule_value);
 } dyn_lock_list6 SEC(".maps");
@@ -247,5 +247,13 @@ struct {
     __type(key, __u32);
     __type(value, __u64);
 } global_config SEC(".maps");
+
+// Optimization: Packet counter for config refresh sampling
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, __u64);
+} packet_counter SEC(".maps");
 
 #endif // __NETXFW_MAPS_H

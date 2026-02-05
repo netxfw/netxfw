@@ -414,6 +414,19 @@ func handleSecurityCommand(args []string) {
 			return
 		}
 		syncBogonFilter(args[1] == "true")
+	case "auto-block":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw security auto-block <true|false>")
+			return
+		}
+		syncAutoBlock(args[1] == "true")
+	case "auto-block-expiry":
+		if len(args) < 2 {
+			fmt.Println("Usage: ./netxfw security auto-block-expiry <seconds>")
+			return
+		}
+		expiry, _ := strconv.Atoi(args[1])
+		syncAutoBlockExpiry(uint32(expiry))
 	default:
 		fmt.Println("Unknown security subcommand:", args[0])
 	}

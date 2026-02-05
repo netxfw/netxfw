@@ -59,7 +59,7 @@ func (p *ConntrackPlugin) Validate(config *types.GlobalConfig) error {
 
 func (p *ConntrackPlugin) DefaultConfig() interface{} {
 	return types.ConntrackConfig{
-		Enabled:    false,
+		Enabled:    true,
 		MaxEntries: 100000,
 		TCPTimeout: "1h",
 		UDPTimeout: "5m",

@@ -172,6 +172,18 @@ func showLockList(limit int, search string) {
 		}
 		defer m4.Close()
 		ips, total, err := xdp.ListBlockedIPs(m4, false, limit, search)
+
+		// Also check dyn_lock_list
+		md4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/dyn_lock_list", nil)
+		if err == nil {
+			defer md4.Close()
+			dynIps, dynTotal, _ := xdp.ListBlockedIPs(md4, false, limit, search)
+			for k, v := range dynIps {
+				ips[k+" (auto)"] = v
+			}
+			total += dynTotal
+		}
+
 		resChan <- result{ver: 4, ips: ips, total: total, err: err}
 	}()
 
@@ -183,6 +195,18 @@ func showLockList(limit int, search string) {
 		}
 		defer m6.Close()
 		ips, total, err := xdp.ListBlockedIPs(m6, true, limit, search)
+
+		// Also check dyn_lock_list6
+		md6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/dyn_lock_list6", nil)
+		if err == nil {
+			defer md6.Close()
+			dynIps, dynTotal, _ := xdp.ListBlockedIPs(md6, true, limit, search)
+			for k, v := range dynIps {
+				ips[k+" (auto)"] = v
+			}
+			total += dynTotal
+		}
+
 		resChan <- result{ver: 6, ips: ips, total: total, err: err}
 	}()
 

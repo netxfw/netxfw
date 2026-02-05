@@ -28,6 +28,8 @@ __u32 cached_bogon_filter = 0;
 __u32 cached_auto_block = 0;
 __u64 cached_auto_block_expiry = 0;
 
+
+
 // Include functional modules
 #include "modules/stats.bpf.c"
 #include "modules/conntrack.bpf.c"
@@ -40,6 +42,15 @@ __u64 cached_auto_block_expiry = 0;
 
 SEC("xdp/ipv4")
 int xdp_ipv4(struct xdp_md *ctx) {
+    // For individual protocol handlers, use sampled config refresh
+    __u32 key = 0;
+    __u64 *counter_ptr = bpf_map_lookup_elem(&packet_counter, &key);
+    if (counter_ptr) {
+        __u64 current_packet = __atomic_fetch_add(counter_ptr, 1, __ATOMIC_RELAXED);
+        if (current_packet % CONFIG_REFRESH_INTERVAL == 0) {
+            refresh_config();
+        }
+    }
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
     struct ethhdr *eth = data;
@@ -60,6 +71,15 @@ int xdp_ipv4(struct xdp_md *ctx) {
 SEC("xdp/ipv6")
 int xdp_ipv6(struct xdp_md *ctx) {
 #ifdef ENABLE_IPV6
+    // For individual protocol handlers, use sampled config refresh
+    __u32 key = 0;
+    __u64 *counter_ptr = bpf_map_lookup_elem(&packet_counter, &key);
+    if (counter_ptr) {
+        __u64 current_packet = __atomic_fetch_add(counter_ptr, 1, __ATOMIC_RELAXED);
+        if (current_packet % CONFIG_REFRESH_INTERVAL == 0) {
+            refresh_config();
+        }
+    }
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
     struct ethhdr *eth = data;
@@ -86,32 +106,36 @@ int xdp_ipv6(struct xdp_md *ctx) {
  */
 SEC("xdp")
 int xdp_firewall(struct xdp_md *ctx) {
-    void *data = (void *)(long)ctx->data;
-    void *data_end = (void *)(long)ctx->data_end;
-
-    struct ethhdr *eth = data;
-    if (data + sizeof(*eth) > data_end)
-        return XDP_PASS;
-
-    __u16 h_proto = eth->h_proto;
-
-    refresh_config();
+    // Sample-based configuration refresh to reduce overhead
+    __u32 key = 0;
+    __u64 *counter_ptr = bpf_map_lookup_elem(&packet_counter, &key);
+    if (counter_ptr) {
+        __u64 current_packet = __atomic_fetch_add(counter_ptr, 1, __ATOMIC_RELAXED);
+        if (current_packet % CONFIG_REFRESH_INTERVAL == 0) {
+            refresh_config();
+        }
+    }
 
     // Try to call the first plugin slot / 尝试调用第一个插件槽位
     // If a plugin is loaded, it's responsible for tail-calling the next plugin or the core logic
     // 如果加载了插件，它负责尾调用下一个插件或核心逻辑
     bpf_tail_call(ctx, &jmp_table, PROG_IDX_PLUGIN_START);
 
+    void *data = (void *)(long)ctx->data;
+    void *data_end = (void *)(long)ctx->data_end;
+
+    struct ethhdr *eth = data;
+    if (data + sizeof(*eth) > data_end) return XDP_PASS;
+
+    __u16 h_proto = eth->h_proto;
+    int action = XDP_PASS;
+
     if (h_proto == bpf_htons(ETH_P_IP)) {
-        bpf_tail_call(ctx, &jmp_table, PROG_IDX_IPV4);
-        // Fallback if tail call fails
-        return handle_ipv4(ctx, data, data_end, eth);
+        action = handle_ipv4(ctx, data, data_end, eth);
     } 
 #ifdef ENABLE_IPV6
     else if (h_proto == bpf_htons(ETH_P_IPV6)) {
-        bpf_tail_call(ctx, &jmp_table, PROG_IDX_IPV6);
-        // Fallback if tail call fails
-        return handle_ipv6(ctx, data, data_end, eth);
+        action = handle_ipv6(ctx, data, data_end, eth);
     } 
 #endif
     else if (h_proto == bpf_htons(ETH_P_ARP)) {
@@ -124,7 +148,14 @@ int xdp_firewall(struct xdp_md *ctx) {
         return XDP_PASS;
     }
 
-    return XDP_PASS;
+    // Only update stats if action is PASS or DROP
+    if (action == XDP_PASS) {
+        update_pass_stats();
+    } else if (action == XDP_DROP) {
+        update_drop_stats();
+    }
+
+    return action;
 }
 
-char _license[] SEC("license") = "Dual MIT/GPL";
+char _license[] SEC("license") = "GPL";

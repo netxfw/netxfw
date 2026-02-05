@@ -22,6 +22,9 @@
 #define CONFIG_AUTO_BLOCK 15
 #define CONFIG_AUTO_BLOCK_EXPIRY 16
 
+// Configuration refresh optimization constants
+#define CONFIG_REFRESH_INTERVAL 1000  // Refresh every 1000 packets
+
 // Global cached config version (defined in config.bpf.h)
 extern __u64 cached_version;
 
@@ -42,5 +45,22 @@ extern __u32 cached_syn_limit;
 extern __u32 cached_bogon_filter;
 extern __u32 cached_auto_block;
 extern __u64 cached_auto_block_expiry;
+
+// Helper functions for common operations
+static __always_inline int is_valid_eth_frame(void *data, void *data_end, struct ethhdr *eth) {
+    return (data + sizeof(*eth) <= data_end);
+}
+
+static __always_inline int is_ipv4_packet(struct ethhdr *eth) {
+    return (eth->h_proto == bpf_htons(ETH_P_IP));
+}
+
+static __always_inline int is_ipv6_packet(struct ethhdr *eth) {
+    return (eth->h_proto == bpf_htons(ETH_P_IPV6));
+}
+
+static __always_inline int is_arp_packet(struct ethhdr *eth) {
+    return (eth->h_proto == bpf_htons(ETH_P_ARP));
+}
 
 #endif // __NETXFW_HELPERS_H

@@ -354,6 +354,8 @@ func ClearMap(mapPtr *ebpf.Map) (int, error) {
  * ListBlockedIPs 遍历 BPF Map 并返回有限数量的封禁网段及其统计信息。
  */
 func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) (map[string]uint64, int, error) {
+	isLPM := mapPtr.Type() == ebpf.LPMTrie
+
 	// Fast Path: Direct lookup if search is a valid CIDR or IP
 	if search != "" {
 		ip, ipNet, err := net.ParseCIDR(search)
@@ -375,21 +377,39 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) (ma
 			var val NetXfwRuleValue
 			found := false
 			if ip4 := ip.To4(); ip4 != nil && !isIPv6 {
-				key := NetXfwLpmKey4{Prefixlen: uint32(ones), Data: binary.LittleEndian.Uint32(ip4)}
-				if err := mapPtr.Lookup(key, &val); err == nil {
-					found = true
+				if isLPM {
+					key := NetXfwLpmKey4{Prefixlen: uint32(ones), Data: binary.LittleEndian.Uint32(ip4)}
+					if err := mapPtr.Lookup(key, &val); err == nil {
+						found = true
+					}
+				} else {
+					key := binary.LittleEndian.Uint32(ip4)
+					if err := mapPtr.Lookup(key, &val); err == nil {
+						found = true
+					}
 				}
 			} else if ip6 := ip.To16(); ip6 != nil && isIPv6 {
-				var key NetXfwLpmKey6
-				key.Prefixlen = uint32(ones)
-				copy(key.Data.In6U.U6Addr8[:], ip6)
-				if err := mapPtr.Lookup(key, &val); err == nil {
-					found = true
+				if isLPM {
+					var key NetXfwLpmKey6
+					key.Prefixlen = uint32(ones)
+					copy(key.Data.In6U.U6Addr8[:], ip6)
+					if err := mapPtr.Lookup(key, &val); err == nil {
+						found = true
+					}
+				} else {
+					var key [16]byte
+					copy(key[:], ip6)
+					if err := mapPtr.Lookup(key, &val); err == nil {
+						found = true
+					}
 				}
 			}
 
 			if found {
 				fullStr := fmt.Sprintf("%s/%d", ip.String(), ones)
+				if !isLPM {
+					fullStr = ip.String()
+				}
 				return map[string]uint64{fullStr: val.Counter}, 1, nil
 			}
 		}
@@ -400,44 +420,80 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) (ma
 	iter := mapPtr.Iterate()
 
 	if isIPv6 {
-		var key NetXfwLpmKey6
+		var keyLPM NetXfwLpmKey6
+		var keyHash [16]byte
 		var val NetXfwRuleValue
-		for iter.Next(&key, &val) {
-			ip := net.IP(key.Data.In6U.U6Addr8[:])
-			ipStr := ip.String()
 
+		for {
+			var ip net.IP
+			var prefix uint32
+			if isLPM {
+				if !iter.Next(&keyLPM, &val) {
+					break
+				}
+				ip = net.IP(keyLPM.Data.In6U.U6Addr8[:])
+				prefix = keyLPM.Prefixlen
+			} else {
+				if !iter.Next(&keyHash, &val) {
+					break
+				}
+				ip = net.IP(keyHash[:])
+				prefix = 128
+			}
+
+			ipStr := ip.String()
 			if search != "" && !strings.Contains(ipStr, search) {
 				continue
 			}
 
 			count++
-			fullStr := fmt.Sprintf("%s/%d", ipStr, key.Prefixlen)
+			fullStr := fmt.Sprintf("%s/%d", ipStr, prefix)
+			if !isLPM {
+				fullStr = ipStr
+			}
 			ips[fullStr] = val.Counter
 			if limit > 0 && len(ips) >= limit {
 				break
 			}
 		}
 	} else {
-		var key NetXfwLpmKey4
+		var keyLPM NetXfwLpmKey4
+		var keyHash uint32
 		var val NetXfwRuleValue
 		ipBuf := make(net.IP, 4)
-		for iter.Next(&key, &val) {
-			binary.LittleEndian.PutUint32(ipBuf, key.Data)
-			ipStr := ipBuf.String()
 
+		for {
+			var prefix uint32
+			if isLPM {
+				if !iter.Next(&keyLPM, &val) {
+					break
+				}
+				binary.LittleEndian.PutUint32(ipBuf, keyLPM.Data)
+				prefix = keyLPM.Prefixlen
+			} else {
+				if !iter.Next(&keyHash, &val) {
+					break
+				}
+				binary.LittleEndian.PutUint32(ipBuf, keyHash)
+				prefix = 32
+			}
+
+			ipStr := ipBuf.String()
 			if search != "" && !strings.Contains(ipStr, search) {
 				continue
 			}
 
 			count++
-			fullStr := fmt.Sprintf("%s/%d", ipStr, key.Prefixlen)
+			fullStr := fmt.Sprintf("%s/%d", ipStr, prefix)
+			if !isLPM {
+				fullStr = ipStr
+			}
 			ips[fullStr] = val.Counter
 			if limit > 0 && len(ips) >= limit {
 				break
 			}
 		}
 	}
-
 
 	return ips, count, iter.Err()
 }

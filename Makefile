@@ -44,7 +44,9 @@ run: build
 
 install: build
 	sudo mkdir -p /etc/netxfw
-	if [ ! -f /etc/netxfw/config.yaml ]; then sudo cp rules/default.yaml /etc/netxfw/config.yaml; fi
+	if [ -f rules/default.yaml ]; then \
+		if [ ! -f /etc/netxfw/config.yaml ]; then sudo cp rules/default.yaml /etc/netxfw/config.yaml; fi; \
+	fi
 	sudo cp netxfw /usr/local/bin/
 	sudo cp netxfw.service /etc/systemd/system/
 	sudo systemctl daemon-reload

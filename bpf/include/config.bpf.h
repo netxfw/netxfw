@@ -11,53 +11,70 @@ static __always_inline void refresh_config() {
         cached_version = *ver;
 
         __u64 *val;
+        __u32 k;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ENABLE_CONNTRACK});
+        k = CONFIG_ENABLE_CONNTRACK;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_ct_enabled = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ALLOW_ICMP});
+        k = CONFIG_ALLOW_ICMP;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_allow_icmp = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ALLOW_RETURN_TRAFFIC});
+        k = CONFIG_ALLOW_RETURN_TRAFFIC;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_allow_return = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_DEFAULT_DENY});
+        k = CONFIG_DEFAULT_DENY;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_default_deny = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_CONNTRACK_TIMEOUT});
+        k = CONFIG_CONNTRACK_TIMEOUT;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_ct_timeout = *val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ICMP_RATE});
+        k = CONFIG_ICMP_RATE;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_icmp_rate = *val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ICMP_BURST});
+        k = CONFIG_ICMP_BURST;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_icmp_burst = *val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ENABLE_AF_XDP});
+        k = CONFIG_ENABLE_AF_XDP;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_af_xdp_enabled = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_STRICT_PROTO});
+        k = CONFIG_STRICT_PROTO;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_strict_proto = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_ENABLE_RATELIMIT});
+        k = CONFIG_ENABLE_RATELIMIT;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_ratelimit_enabled = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_DROP_FRAGMENTS});
+        k = CONFIG_DROP_FRAGMENTS;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_drop_frags = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_STRICT_TCP});
+        k = CONFIG_STRICT_TCP;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_strict_tcp = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_SYN_LIMIT});
+        k = CONFIG_SYN_LIMIT;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_syn_limit = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_BOGON_FILTER});
+        k = CONFIG_BOGON_FILTER;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_bogon_filter = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_AUTO_BLOCK});
+        k = CONFIG_AUTO_BLOCK;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_auto_block = (__u32)*val;
 
-        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_AUTO_BLOCK_EXPIRY});
+        k = CONFIG_AUTO_BLOCK_EXPIRY;
+        val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_auto_block_expiry = *val;
     }
 }
