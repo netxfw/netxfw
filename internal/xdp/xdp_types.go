@@ -29,6 +29,15 @@ const (
 	configStrictTCP          = 12
 	configSYNLimit           = 13
 	configBogonFilter        = 14
+	configAutoBlock          = 15
+	configAutoBlockExpiry    = 16
+)
+
+const (
+	ProgIdxIPv4        = 0
+	ProgIdxIPv6        = 1
+	ProgIdxPluginStart = 2
+	ProgIdxPluginEnd   = 15
 )
 
 /**
@@ -47,7 +56,9 @@ type Manager struct {
 	objs             NetXfwObjects
 	links            []link.Link
 	lockList         *ebpf.Map
+	dynLockList      *ebpf.Map
 	lockList6        *ebpf.Map
+	dynLockList6     *ebpf.Map
 	whitelist        *ebpf.Map
 	whitelist6       *ebpf.Map
 	allowedPorts     *ebpf.Map
@@ -63,6 +74,7 @@ type Manager struct {
 	ratelimitConfig6 *ebpf.Map
 	ratelimitState   *ebpf.Map
 	ratelimitState6  *ebpf.Map
+	jmpTable         *ebpf.Map
 }
 
 /**
@@ -84,6 +96,14 @@ func (m *Manager) LockList() *ebpf.Map {
 
 func (m *Manager) LockList6() *ebpf.Map {
 	return m.lockList6
+}
+
+func (m *Manager) DynLockList() *ebpf.Map {
+	return m.dynLockList
+}
+
+func (m *Manager) DynLockList6() *ebpf.Map {
+	return m.dynLockList6
 }
 
 func (m *Manager) Whitelist() *ebpf.Map {

@@ -18,8 +18,10 @@ type GlobalConfig struct {
 }
 
 type RateLimitConfig struct {
-	Enabled bool            `yaml:"enabled"`
-	Rules   []RateLimitRule `yaml:"rules"`
+	Enabled         bool            `yaml:"enabled"`
+	AutoBlock       bool            `yaml:"auto_block"`
+	AutoBlockExpiry string          `yaml:"auto_block_expiry"` // e.g., "5m", "1h"
+	Rules           []RateLimitRule `yaml:"rules"`
 }
 
 type RateLimitRule struct {
@@ -37,6 +39,7 @@ type WebConfig struct {
 type CapacityConfig struct {
 	Conntrack    int `yaml:"conntrack"`
 	LockList     int `yaml:"lock_list"`
+	DynLockList  int `yaml:"dyn_lock_list"`
 	Whitelist    int `yaml:"whitelist"`
 	IPPortRules  int `yaml:"ip_port_rules"`
 	AllowedPorts int `yaml:"allowed_ports"`

@@ -10,6 +10,8 @@
 | `load xdp` | 无 | 加载 BPF 程序并挂载到所有物理网卡 |
 | `unload xdp` | 无 | 卸载 BPF 程序并清理固定 Map |
 | `reload xdp` | 无 | 热重载配置并无损更新 BPF 程序 |
+| `plugin load` | `<path> <index>` | 动态加载 BPF 插件到指定索引 (2-15) |
+| `plugin remove`| `<index>` | 移除指定索引位的 BPF 插件 |
 | `conntrack` | 无 | 查看当前内核中的活跃连接追踪表 |
 | `rule add` | `<IP> [port] <allow/deny>` | 添加 IP 或 IP+端口 规则 |
 | `rule list` | `rules / conntrack` | 查看规则列表或连接列表 |
@@ -106,3 +108,16 @@ sudo netxfw unlock 1.2.3.4
 sudo netxfw reload xdp
 ```
 该命令会自动将旧 Map 中的数据迁移到新 Map，确保现有连接不中断。
+
+### 7. 插件管理 (plugin)
+允许在不停止防火墙的情况下，动态扩展数据包处理逻辑。
+- **加载插件**：
+  ```bash
+  # 将编译好的插件加载到索引 2
+  sudo netxfw plugin load ./my_plugin.o 2
+  ```
+- **卸载插件**：
+  ```bash
+  sudo netxfw plugin remove 2
+  ```
+详情请参考 [插件开发指南](plugins.md)。

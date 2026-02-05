@@ -21,4 +21,12 @@
 #define IP_OFFSET 0x1FFF
 #endif
 
+// Jump table indices for dynamic modules
+#define PROG_IDX_IPV4 0
+#define PROG_IDX_IPV6 1
+
+// Plugin indices (2-15)
+#define PROG_IDX_PLUGIN_START 2
+#define PROG_IDX_PLUGIN_END   15
+
 #endif // __NETXFW_PROTOCOL_H

@@ -4,23 +4,6 @@
 
 #include "helpers.bpf.h"
 
-// BPF-side configuration cache
-__u64 cached_version = 0;
-static __u32 cached_ct_enabled = 0;
-static __u32 cached_allow_icmp = 0;
-static __u32 cached_allow_return = 0;
-static __u32 cached_default_deny = 0;
-static __u32 cached_af_xdp_enabled = 0;
-static __u32 cached_strict_proto = 0;
-static __u32 cached_ratelimit_enabled = 0;
-static __u32 cached_drop_frags = 0;
-static __u32 cached_strict_tcp = 0;
-static __u32 cached_syn_limit = 0;
-static __u32 cached_bogon_filter = 1; // Default ON
-static __u64 cached_ct_timeout = 3600000000000ULL;
-static __u64 cached_icmp_rate = 10;   // 10 packets/sec
-static __u64 cached_icmp_burst = 50;  // 50 packets burst
-
 static __always_inline void refresh_config() {
     __u32 key = CONFIG_CONFIG_VERSION;
     __u64 *ver = bpf_map_lookup_elem(&global_config, &key);
@@ -70,6 +53,12 @@ static __always_inline void refresh_config() {
 
         val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_BOGON_FILTER});
         if (val) cached_bogon_filter = (__u32)*val;
+
+        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_AUTO_BLOCK});
+        if (val) cached_auto_block = (__u32)*val;
+
+        val = bpf_map_lookup_elem(&global_config, &(__u32){CONFIG_AUTO_BLOCK_EXPIRY});
+        if (val) cached_auto_block_expiry = *val;
     }
 }
 

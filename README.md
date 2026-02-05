@@ -25,7 +25,9 @@
     - **分片保护**：支持配置丢弃所有 IP 分片包，防御分片攻击。
     - **SYN 洪水防御**：支持仅对 SYN 包应用限速，确保在遭遇 SYN Flood 时正常业务不受影响。
 - 📊 **可观测性**：内置 Web 管理界面（默认 11811 端口）与 Prometheus Exporter，实时监控丢包速率与活跃连接。
-- 🛠️ **一令封网**：极简的 CLI 操作，支持动态加载规则，无需重启服务。
+- 🧩 **插件化架构**：支持通过 eBPF Tail Call 动态加载第三方插件，无需修改核心代码即可扩展防火墙功能。
+- 🏗️ **模块化设计**：BPF 代码采用模块化结构（Filter, Ratelimit, Conntrack, Protocols），逻辑清晰，易于维护。
+- 🛠️ **一令封网**：极简的 CLI 操作，支持动态加载规则，支持插件动态加载，无需重启服务。
 - ⚡ **高性能配置同步**：通过全局版本号触发 BPF 内部静态变量更新，实现 O(1) 级别的配置读取性能。
 - 🔒 **安全加固**：支持使用 `garble` 进行混淆编译，保护控制面逻辑。
 
@@ -95,10 +97,16 @@ sudo mv netxfw /usr/local/bin/
 ```bash
 git clone https://github.com/livp123/netxfw.git
 cd netxfw
-make generate
+# 生成 BPF 特性头文件 (可选 ipv6=no)
+make generate ipv6=yes
 make build
 sudo make install
 ```
+
+#### 方式 C：IPv6 编译控制
+您可以根据需求在编译时开启或关闭 IPv6 支持，以减少内核内存占用：
+- **禁用 IPv6**: `make generate ipv6=no && make build`
+- **启用 IPv6**: `make generate ipv6=yes && make build` (默认)
 
 #### 方式 C：混淆编译 (保护核心逻辑)
 使用 `garble` 隐藏符号表并加密字符串：
@@ -178,6 +186,8 @@ port:
 | `security strict-tcp <true/false>` | 开启/关闭严格 TCP 校验 | `sudo netxfw security strict-tcp true` |
 | `security syn-limit <true/false>` | 开启/关闭 SYN 限速 | `sudo netxfw security syn-limit true` |
 | `security bogon <true/false>` | 开启/关闭 Bogon 过滤 | `sudo netxfw security bogon true` |
+| `plugin load <path> <index>` | 加载 BPF 插件 (index 2-15) | `sudo netxfw plugin load ./my_plugin.o 2` |
+| `plugin remove <index>` | 卸载 BPF 插件 | `sudo netxfw plugin remove 2` |
 
 ---
 

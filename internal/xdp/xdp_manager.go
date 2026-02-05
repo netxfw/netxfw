@@ -16,6 +16,26 @@ import (
 	"github.com/livp123/netxfw/internal/plugins/types"
 )
 
+const (
+	CONFIG_DEFAULT_DENY         = 0
+	CONFIG_ALLOW_RETURN_TRAFFIC = 1
+	CONFIG_ALLOW_ICMP           = 2
+	CONFIG_ENABLE_CONNTRACK     = 3
+	CONFIG_CONNTRACK_TIMEOUT    = 4
+	CONFIG_ICMP_RATE            = 5
+	CONFIG_ICMP_BURST           = 6
+	CONFIG_ENABLE_AF_XDP        = 7
+	CONFIG_CONFIG_VERSION       = 8
+	CONFIG_STRICT_PROTO         = 9
+	CONFIG_ENABLE_RATELIMIT     = 10
+	CONFIG_DROP_FRAGMENTS       = 11
+	CONFIG_STRICT_TCP           = 12
+	CONFIG_SYN_LIMIT            = 13
+	CONFIG_BOGON_FILTER         = 14
+	CONFIG_AUTO_BLOCK           = 15
+	CONFIG_AUTO_BLOCK_EXPIRY    = 16
+)
+
 // ForceCleanup removes all pinned maps at the specified path.
 func ForceCleanup(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -58,6 +78,14 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 			m.MaxEntries = uint32(cfg.LockList)
 		}
 	}
+	if cfg.DynLockList > 0 {
+		if m, ok := spec.Maps["dyn_lock_list"]; ok {
+			m.MaxEntries = uint32(cfg.DynLockList)
+		}
+		if m, ok := spec.Maps["dyn_lock_list6"]; ok {
+			m.MaxEntries = uint32(cfg.DynLockList)
+		}
+	}
 	if cfg.Whitelist > 0 {
 		if m, ok := spec.Maps["whitelist"]; ok {
 			m.MaxEntries = uint32(cfg.Whitelist)
@@ -86,10 +114,12 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 		return nil, fmt.Errorf("load eBPF objects: %w", err)
 	}
 
-	return &Manager{
+	manager := &Manager{
 		objs:             objs,
 		lockList:         objs.LockList,
+		dynLockList:      objs.DynLockList,
 		lockList6:        objs.LockList6,
+		dynLockList6:     objs.DynLockList6,
 		whitelist:        objs.Whitelist,
 		whitelist6:       objs.Whitelist6,
 		allowedPorts:     objs.AllowedPorts,
@@ -105,7 +135,23 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 		ratelimitConfig6: objs.RatelimitConfig6,
 		ratelimitState:   objs.RatelimitState,
 		ratelimitState6:  objs.RatelimitState6,
-	}, nil
+		jmpTable:         objs.JmpTable,
+	}
+
+	// Initialize jump table with default protocol handlers
+	// 初始化跳转表，填充默认的协议处理程序
+	if objs.XdpIpv4 != nil {
+		if err := objs.JmpTable.Update(uint32(ProgIdxIPv4), objs.XdpIpv4, ebpf.UpdateAny); err != nil {
+			return nil, fmt.Errorf("failed to update jmp_table with xdp_ipv4: %w", err)
+		}
+	}
+	if objs.XdpIpv6 != nil {
+		if err := objs.JmpTable.Update(uint32(ProgIdxIPv6), objs.XdpIpv6, ebpf.UpdateAny); err != nil {
+			return nil, fmt.Errorf("failed to update jmp_table with xdp_ipv6: %w", err)
+		}
+	}
+
+	return manager, nil
 }
 
 /**
@@ -135,6 +181,14 @@ func NewManagerFromPins(path string) (*Manager, error) {
 	if m.lockList6, err = ebpf.LoadPinnedMap(path+"/lock_list6", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned lock_list6: %v", err)
 		m.lockList6 = objs.LockList6
+	}
+	if m.dynLockList, err = ebpf.LoadPinnedMap(path+"/dyn_lock_list", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned dyn_lock_list: %v", err)
+		m.dynLockList = objs.DynLockList
+	}
+	if m.dynLockList6, err = ebpf.LoadPinnedMap(path+"/dyn_lock_list6", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned dyn_lock_list6: %v", err)
+		m.dynLockList6 = objs.DynLockList6
 	}
 	if m.whitelist, err = ebpf.LoadPinnedMap(path+"/whitelist", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned whitelist: %v", err)
@@ -450,6 +504,65 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
+	return nil
+}
+
+/**
+ * LoadPlugin loads a BPF program from an ELF file and inserts it into the jump table.
+ * LoadPlugin 从 ELF 文件加载 BPF 程序并将其插入跳转表。
+ */
+func (m *Manager) LoadPlugin(elfPath string, index int) error {
+	if index < ProgIdxPluginStart || index > ProgIdxPluginEnd {
+		return fmt.Errorf("invalid plugin index: %d (must be between %d and %d)",
+			index, ProgIdxPluginStart, ProgIdxPluginEnd)
+	}
+
+	spec, err := ebpf.LoadCollectionSpec(elfPath)
+	if err != nil {
+		return fmt.Errorf("load plugin spec: %w", err)
+	}
+
+	// For simplicity, we assume the first XDP program found is the plugin
+	var progSpec *ebpf.ProgramSpec
+	for _, p := range spec.Programs {
+		if p.Type == ebpf.XDP {
+			progSpec = p
+			break
+		}
+	}
+
+	if progSpec == nil {
+		return fmt.Errorf("no XDP program found in plugin: %s", elfPath)
+	}
+
+	prog, err := ebpf.NewProgram(progSpec)
+	if err != nil {
+		return fmt.Errorf("load plugin program: %w", err)
+	}
+	// Note: We don't close the program here as it needs to stay in the jmpTable
+
+	if err := m.jmpTable.Update(uint32(index), prog, ebpf.UpdateAny); err != nil {
+		prog.Close()
+		return fmt.Errorf("failed to update jmp_table with plugin: %w", err)
+	}
+
+	log.Printf("✅ Plugin loaded: %s at index %d", elfPath, index)
+	return nil
+}
+
+/**
+ * RemovePlugin removes a plugin from the jump table.
+ */
+func (m *Manager) RemovePlugin(index int) error {
+	if index < ProgIdxPluginStart || index > ProgIdxPluginEnd {
+		return fmt.Errorf("invalid plugin index: %d", index)
+	}
+
+	if err := m.jmpTable.Delete(uint32(index)); err != nil {
+		return fmt.Errorf("failed to remove plugin from jmp_table: %w", err)
+	}
+
+	log.Printf("✅ Plugin removed from index %d", index)
 	return nil
 }
 

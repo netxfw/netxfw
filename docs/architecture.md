@@ -19,6 +19,8 @@
 ## 核心组件
 
 ### 1. 数据面 (Data Plane - eBPF/XDP/TC)
+- **模块化设计**：BPF 代码被拆分为核心逻辑 (`modules/`) 和协议处理器 (`protocols/`)，通过 `#include` 组合。
+- **插件系统 (Tail Call)**：引入了 `jmp_table` (Prog Array Map)，允许在主程序执行过程中跳转到第三方插件。
 - **位置**：运行在内核中，网卡驱动层 (XDP) 和流量控制层 (TC)。
 - **职责**：
     - **包过滤**：使用 LPM (Longest Prefix Match) 算法对 IP 和网段进行毫秒级匹配。
@@ -43,6 +45,44 @@
 
 ## 核心流程
 
+### 1. 数据包拦截过滤流程 (Packet Filtering Pipeline)
+
+`netxfw` 的数据面处理遵循严格的分层过滤逻辑，旨在以最快速度剔除恶意流量。
+
+#### 第一阶段：主入口与分发 (Main Entry)
+- **配置刷新**: 读取 BPF 全局配置变量（如版本号、开关状态）。
+- **插件钩子 (Tail Call)**: 执行用户动态加载的第三方插件（索引 2-15）。
+- **协议分发**: 根据以太网协议头跳转至 IPv4 或 IPv6 处理器。
+
+#### 第二阶段：协议级处理 (Protocol Handler)
+以 IPv4 为例，处理流程如下：
+
+1. **基础校验 (Sanity & Security)**
+    - **Bogon 过滤**: 丢弃来自保留或非法地址段的流量。
+    - **分片保护**: 可选丢弃 IP 分片包，防止重组攻击。
+    - **TCP 状态校验**: 验证 TCP 标志位组合（如拦截 Null/Xmas 扫描）。
+    - **源地址防欺骗**: 丢弃多播/广播作为源地址的非法包。
+
+2. **规则匹配 (Rules Matching)**
+    - **白名单 (Whitelist)**: **最高优先级**。匹配成功的流量直接 `XDP_PASS`。
+    - **动态黑名单 (Dynamic Lock List)**: 基于 LRU Hash 的高性能单 IP 匹配，用于快速拦截。
+    - **静态黑名单 (Static Lock List)**: 基于 LPM Trie 的 CIDR 匹配。
+    - **IP 限速 (Rate Limiting)**: 基于令牌桶算法。支持仅对 SYN 包限速以防御 SYN Flood。
+    - **自动拦截 (Auto Blocking)**: **新增功能**。当某个 IP 触发限速阈值时，系统可自动将其加入动态黑名单（`dyn_lock_list`），实现毫秒级的快速拦截。支持配置拦截时长，利用 `LRU_HASH` 的特性自动淘汰过期条目。
+
+3. **状态检查 (Stateful Inspection)**
+    - **Conntrack 查找**: 查找连接追踪表。如果是已知连接的回包或后续包，直接 `XDP_PASS`。
+
+4. **细粒度控制 (Fine-grained Control)**
+    - **IP+Port 规则**: 匹配特定的源 IP 和目标端口组合。
+    - **ICMP 限速**: 针对 Ping 流量进行专项限速。
+
+5. **默认策略 (Default Policy)**
+    - **端口放行**: 如果开启 `default_deny`，则仅放行在 `allowed_ports` 列表中的端口。
+    - **最终动作**: 默认为 `XDP_PASS`。
+
+---
+
 ### 有状态连接追踪 (Conntrack)
 `netxfw` 维护了一个 `ct_map` (LRU Hash Map)，用于存储 `(SrcIP, DstIP, SrcPort, DstPort, Protocol)` 五元组。
 1. **出站**：当主机主动向外发起请求时，TC 挂载点会捕捉到出站包并向 `ct_map` 写入一条状态。
@@ -54,6 +94,12 @@
 2. 通过迭代旧 Map 键值对，将其批量迁移到新 Map。
 3. 原子地替换网卡上的 XDP 程序。
 4. 关闭旧的 BPF 对象，完成无感知更新。
+
+### 插件化执行流 (Tail Call)
+`netxfw` 使用 `bpf_tail_call` 实现了可扩展的执行链：
+1. **主程序入口 (`xdp_firewall`)**：提取数据包基本信息。
+2. **插件跳转**：尝试跳转到 `jmp_table` 的 `PROG_IDX_PLUGIN_START`。如果对应位置有程序，内核将跳转执行。
+3. **协议跳转**：根据 `L3` 协议类型，跳转到 `xdp_ipv4` 或 `xdp_ipv6` 处理器进行具体匹配。
 
 ---
 

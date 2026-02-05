@@ -5,6 +5,7 @@
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 #include <linux/in6.h>
+#include "bpf_features.h"
 
 /**
  * Common structures
@@ -81,6 +82,17 @@ struct icmp_stats {
 /**
  * Map Definitions
  */
+
+#ifdef ENABLE_IPV6
+#define CT_MAP_SIZE 100000
+#define LPM_MAP_SIZE 65536
+#define LOCK_LIST_SIZE 1000000
+#else
+#define CT_MAP_SIZE 1
+#define LPM_MAP_SIZE 1
+#define LOCK_LIST_SIZE 1
+#endif
+
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __uint(max_entries, 100000);
@@ -90,7 +102,7 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __uint(max_entries, 100000);
+    __uint(max_entries, CT_MAP_SIZE);
     __type(key, struct ct_key6);
     __type(value, struct ct_value);
 } conntrack_map6 SEC(".maps");
@@ -105,7 +117,7 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_LPM_TRIE);
-    __uint(max_entries, 65536);
+    __uint(max_entries, LPM_MAP_SIZE);
     __type(key, struct lpm_key6);
     __type(value, struct ratelimit_conf);
     __uint(map_flags, BPF_F_NO_PREALLOC);
@@ -120,7 +132,7 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __uint(max_entries, 100000);
+    __uint(max_entries, CT_MAP_SIZE);
     __type(key, struct in6_addr);
     __type(value, struct ratelimit_stats);
 } ratelimit_state6 SEC(".maps");
@@ -134,12 +146,26 @@ struct {
 } lock_list SEC(".maps");
 
 struct {
-    __uint(type, BPF_MAP_TYPE_LPM_TRIE);
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __uint(max_entries, 1000000);
+    __type(key, __u32);
+    __type(value, struct rule_value);
+} dyn_lock_list SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_LPM_TRIE);
+    __uint(max_entries, LOCK_LIST_SIZE);
     __type(key, struct lpm_key6);
     __type(value, struct rule_value);
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } lock_list6 SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, LOCK_LIST_SIZE);
+    __type(key, struct in6_addr);
+    __type(value, struct rule_value);
+} dyn_lock_list6 SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -172,7 +198,7 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_LPM_TRIE);
-    __uint(max_entries, 65536);
+    __uint(max_entries, LPM_MAP_SIZE);
     __type(key, struct lpm_key6);
     __type(value, struct rule_value);
     __uint(map_flags, BPF_F_NO_PREALLOC);
@@ -195,11 +221,18 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_LPM_TRIE);
-    __uint(max_entries, 65536);
+    __uint(max_entries, LPM_MAP_SIZE);
     __type(key, struct lpm_ip6_port_key);
     __type(value, struct rule_value);
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } ip_port_rules6 SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+    __uint(max_entries, 16);
+    __type(key, __u32);
+    __type(value, __u32);
+} jmp_table SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_XSKMAP);

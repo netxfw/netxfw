@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -138,10 +139,55 @@ func runDaemon() {
 		log.Println("ℹ️  Rule cleanup is disabled in config")
 	}
 
+	// Wait for interrupt
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 	log.Println("👋 Daemon shutting down (XDP program remains in kernel)...")
+}
+
+/**
+ * handlePluginCommand processes plugin-related CLI commands.
+ */
+func handlePluginCommand(args []string) {
+	if len(args) < 1 {
+		log.Println("Usage: netxfw plugin <load|remove> ...")
+		return
+	}
+
+	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		log.Fatalf("❌ Failed to load XDP manager: %v (Is the firewall running?)", err)
+	}
+	defer manager.Close()
+
+	switch args[0] {
+	case "load":
+		if len(args) < 3 {
+			log.Fatal("Usage: netxfw plugin load <path_to_elf> <index (2-15)>")
+		}
+		path := args[1]
+		idx, err := strconv.Atoi(args[2])
+		if err != nil {
+			log.Fatalf("❌ Invalid index: %v", err)
+		}
+		if err := manager.LoadPlugin(path, idx); err != nil {
+			log.Fatalf("❌ Failed to load plugin: %v", err)
+		}
+	case "remove":
+		if len(args) < 2 {
+			log.Fatal("Usage: netxfw plugin remove <index (2-15)>")
+		}
+		idx, err := strconv.Atoi(args[1])
+		if err != nil {
+			log.Fatalf("❌ Invalid index: %v", err)
+		}
+		if err := manager.RemovePlugin(idx); err != nil {
+			log.Fatalf("❌ Failed to remove plugin: %v", err)
+		}
+	default:
+		log.Printf("Unknown plugin command: %s", args[0])
+	}
 }
 
 /**

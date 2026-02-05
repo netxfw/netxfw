@@ -173,6 +173,13 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
+	m.SetAutoBlock(cfg.RateLimit.AutoBlock)
+	if cfg.RateLimit.AutoBlockExpiry != "" {
+		if d, err := time.ParseDuration(cfg.RateLimit.AutoBlockExpiry); err == nil {
+			m.SetAutoBlockExpiry(d)
+		}
+	}
+
 	// 7. (Optional) Update binary cache for fast loading on restart
 	go m.UpdateBinaryCache(cfg, records)
 

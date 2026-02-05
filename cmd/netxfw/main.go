@@ -67,6 +67,10 @@ func main() {
 	case "rule":
 		handleRuleCommand(os.Args[2:])
 
+	// --- 插件管理 (plugin) ---
+	case "plugin":
+		handlePluginCommand(os.Args[2:])
+
 	// --- 端口管理 (port) ---
 	case "port":
 		handlePortCommand(os.Args[2:])
@@ -481,6 +485,10 @@ func printUsage() {
 	fmt.Println("  --- 同步管理 (sync) ---")
 	fmt.Println("  ./netxfw sync to-map        # 将配置文件规则同步到内核 map")
 	fmt.Println("  ./netxfw sync to-config     # 将内核 map 规则同步到配置文件")
+	fmt.Println("")
+	fmt.Println("  --- 插件管理 (plugin) ---")
+	fmt.Println("  ./netxfw plugin load <path> <index>  # 动态加载 BPF 插件 (index: 2-15)")
+	fmt.Println("  ./netxfw plugin remove <index>       # 动态卸载 BPF 插件")
 	fmt.Println("")
 	fmt.Println("  --- 端口管理 (port) ---")
 	fmt.Println("  ./netxfw port add <port>    # 全局放行端口")

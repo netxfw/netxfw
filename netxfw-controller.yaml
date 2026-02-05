@@ -1,0 +1,16 @@
+server:
+  http_port: 11818
+  grpc_port: 11819
+  ca_file: "/etc/netxfw/certs/ca.crt"
+  cert_file: "/etc/netxfw/certs/server.crt"
+  key_file: "/etc/netxfw/certs/server.key"
+
+database:
+  driver: "sqlite"
+  path: "./netxfw.db"
+
+cluster:
+  node_offline_timeout: "2m"
+
+logging:
+  level: "info"

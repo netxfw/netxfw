@@ -7,6 +7,12 @@
 #include "../include/helpers.bpf.h"
 #include "../include/config.bpf.h"
 
+// Include necessary modules
+#include "../modules/filter.bpf.c"
+#include "../modules/ratelimit.bpf.c"
+#include "../modules/rules.bpf.c"
+#include "../modules/icmp.bpf.c"
+
 static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data, void *data_end, struct ethhdr *eth) {
     struct iphdr *ip = data + sizeof(*eth);
     if (data + sizeof(*eth) + sizeof(*ip) > data_end)

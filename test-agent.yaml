@@ -1,0 +1,10 @@
+edition: "small-cluster"
+base:
+    default_deny: false
+cluster:
+    enabled: true
+    controller_addr: "127.0.0.1:11819"
+    node_id: "test-node-01"
+    ca_file: "/etc/netxfw/certs/ca.crt"
+    cert_file: "/etc/netxfw/certs/server.crt"
+    key_file: "/etc/netxfw/certs/server.key"

@@ -175,3 +175,23 @@ func (m *Manager) SetBogonFilter(enable bool) error {
 	}
 	return m.updateConfig(configBogonFilter, val)
 }
+
+/**
+ * SetAutoBlock enables or disables automatic blocking of suspicious IPs.
+ * 开启或关闭自动封禁。
+ */
+func (m *Manager) SetAutoBlock(enable bool) error {
+	var val uint64 = 0
+	if enable {
+		val = 1
+	}
+	return m.updateConfig(configAutoBlock, val)
+}
+
+/**
+ * SetAutoBlockExpiry sets the duration after which an automatically blocked IP is unblocked.
+ * 设置自动封禁的过期时间。
+ */
+func (m *Manager) SetAutoBlockExpiry(expiry time.Duration) error {
+	return m.updateConfig(configAutoBlockExpiry, uint64(expiry.Seconds()))
+}
