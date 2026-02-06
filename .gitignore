@@ -5,6 +5,7 @@
 /netxfw_protected
 /ai-mcp
 /netxfw-controller
+/netxfw-controller.yaml
 # Local config
 /etc/
 /vendor/
