@@ -5,11 +5,14 @@ netxfw 是一个基于 eBPF/XDP 的高性能网络防火墙系统，采用"控�
 
 ## 文档结构
 
+### 单机版文档 (Standalone)
+- [standalone/](./standalone/) - 单机版专用文档
+  - [PACKET_FILTER_FLOW.md](./standalone/PACKET_FILTER_FLOW.md) - BPF过滤流程详解
+  - [SUMMARY_PACKET_FILTER.md](./standalone/SUMMARY_PACKET_FILTER.md) - 过滤流程简明摘要
+
 ### 核心概念
 - [architecture.md](./architecture.md) - 系统架构设计与版本规划
 - [plugins.md](./plugins.md) - 插件开发指南
-- [PACKET_FILTER_FLOW.md](./PACKET_FILTER_FLOW.md) - BPF过滤流程详解
-- [SUMMARY_PACKET_FILTER.md](./SUMMARY_PACKET_FILTER.md) - 过滤流程简明摘要
 
 ### 使用指南
 - [cli.md](./cli.md) - 命令行手册
