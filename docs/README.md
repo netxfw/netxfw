@@ -14,6 +14,17 @@ netxfw 是一个基于 eBPF/XDP 的高性能网络防火墙系统，采用"控�
 - [architecture.md](./architecture.md) - 系统架构设计与版本规划
 - [plugins.md](./plugins.md) - 插件开发指南
 
+### API文档
+- [api/](./api/) - API参考文档
+  - [reference.md](./api/reference.md) - API端点参考
+
+### 插件开发文档
+- [plugins/](./plugins/) - 插件开发
+  - [xdp/](./plugins/xdp/) - XDP插件开发
+    - [development_guide.md](./plugins/xdp/development_guide.md) - XDP插件开发指南
+  - [golang/](./plugins/golang/) - Go插件开发
+    - [development_guide.md](./plugins/golang/development_guide.md) - Go插件开发指南
+
 ### 使用指南
 - [cli.md](./cli.md) - 命令行手册
 
