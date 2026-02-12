@@ -9,6 +9,7 @@ import (
 
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -21,6 +22,8 @@ type StatsProvider interface {
 	GetDropCount() (uint64, error)
 	GetPassCount() (uint64, error)
 	GetLockedIPCount() (uint64, error)
+	GetDropDetails() ([]xdp.DropDetailEntry, error)
+	GetPassDetails() ([]xdp.DropDetailEntry, error)
 }
 
 type MetricsPlugin struct {
@@ -38,11 +41,12 @@ var (
 		},
 		[]string{"reason"},
 	)
-	xdpPassTotal = promauto.NewGauge(
+	xdpPassTotal = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "netxfw_xdp_pass_total",
 			Help: "Total passed packets by the XDP program",
 		},
+		[]string{"reason"},
 	)
 	lockedIPsCount = promauto.NewGauge(
 		prometheus.GaugeOpts{
@@ -146,22 +150,100 @@ func (p *MetricsPlugin) updateMetrics() {
 		return
 	}
 
-	// Update drop count
-	dropCount, err := p.provider.GetDropCount()
-	if err == nil {
-		xdpDropTotal.WithLabelValues("firewall").Set(float64(dropCount))
-	}
-
-	// Update pass count
-	passCount, err := p.provider.GetPassCount()
-	if err == nil {
-		xdpPassTotal.Set(float64(passCount))
-	}
-
 	// Update locked IP count
 	lockedCount, err := p.provider.GetLockedIPCount()
 	if err == nil {
 		lockedIPsCount.Set(float64(lockedCount))
+	}
+
+	// Detailed Drop Stats
+	dropDetails, err := p.provider.GetDropDetails()
+	if err == nil {
+		// Aggregate by reason
+		reasonCounts := make(map[string]float64)
+		for _, d := range dropDetails {
+			rStr := reasonToString(d.Reason)
+			reasonCounts[rStr] += float64(d.Count)
+		}
+		for r, c := range reasonCounts {
+			xdpDropTotal.WithLabelValues(r).Set(c)
+		}
+	} else {
+		// Fallback to global counter if details fail (or not available)
+		dropCount, err := p.provider.GetDropCount()
+		if err == nil {
+			xdpDropTotal.WithLabelValues("total").Set(float64(dropCount))
+		}
+	}
+
+	// Detailed Pass Stats
+	passDetails, err := p.provider.GetPassDetails()
+	if err == nil {
+		// Aggregate by reason
+		reasonCounts := make(map[string]float64)
+		for _, d := range passDetails {
+			rStr := passReasonToString(d.Reason)
+			reasonCounts[rStr] += float64(d.Count)
+		}
+		for r, c := range reasonCounts {
+			xdpPassTotal.WithLabelValues(r).Set(c)
+		}
+	} else {
+		// Fallback
+		passCount, err := p.provider.GetPassCount()
+		if err == nil {
+			xdpPassTotal.WithLabelValues("total").Set(float64(passCount))
+		}
+	}
+}
+
+func reasonToString(code uint32) string {
+	switch code {
+	case 0:
+		return "UNKNOWN"
+	case 1:
+		return "INVALID"
+	case 2:
+		return "PROTOCOL"
+	case 3:
+		return "BLACKLIST"
+	case 4:
+		return "RATELIMIT"
+	case 5:
+		return "STRICT_TCP"
+	case 6:
+		return "DEFAULT"
+	case 7:
+		return "LAND_ATTACK"
+	case 8:
+		return "BOGON"
+	case 9:
+		return "FRAGMENT"
+	case 10:
+		return "BAD_HEADER"
+	case 11:
+		return "TCP_FLAGS"
+	case 12:
+		return "SPOOF"
+	default:
+		return fmt.Sprintf("CODE_%d", code)
+	}
+}
+
+func passReasonToString(code uint32) string {
+	switch code {
+	case 100:
+		return "UNKNOWN"
+	case 101:
+		return "WHITELIST"
+	case 102:
+		return "RETURN"
+	case 103:
+		return "CONNTRACK"
+	case 104:
+		return "DEFAULT"
+	default:
+		return fmt.Sprintf("CODE_%d", code)
 	}
 }
 

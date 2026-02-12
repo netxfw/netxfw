@@ -2,9 +2,10 @@ package agent
 
 import (
 	"fmt"
-	"log"
+	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
 	"github.com/spf13/cobra"
@@ -17,10 +18,15 @@ var RuleCmd = &cobra.Command{
 }
 
 var ruleAddCmd = &cobra.Command{
-	Use:   "add [flags] <ip> [port] [allow|deny]",
+	Use:   "add <ip>[:port] [allow|deny]",
 	Short: "Add a rule",
-	Long:  `Add a rule to allow or deny an IP or IP+Port combination`,
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Add a rule to allow or deny an IP or IP+Port combination.
+Examples:
+  netxfw rule add 1.2.3.4             # Block IP (default)
+  netxfw rule add 1.2.3.4 allow       # Allow IP
+  netxfw rule add 1.2.3.4:80 deny     # Block Port 80 on IP
+  netxfw rule add 1.2.3.4:8080 allow  # Allow Port 8080 on IP`,
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
@@ -40,39 +46,86 @@ var ruleAddCmd = &cobra.Command{
 		}
 
 		common.EnsureStandaloneMode()
-		if len(args) < 1 {
-			log.Fatal("❌ Missing IP address")
+
+		if len(args) == 0 {
+			cmd.PrintErrln("❌ Missing arguments. Usage: netxfw rule add <ip>[:<port>] [allow|deny]")
+			os.Exit(1)
 		}
-		ip := args[0]
-		if len(args) == 1 {
-			// Default to deny
-			common.SyncLockMap(ip, true)
-		} else if len(args) == 2 {
-			// Check if second argument is port or action
-			if args[1] == "allow" || args[1] == "deny" {
-				if args[1] == "allow" {
-					common.SyncWhitelistMap(ip, 0, true)
-				} else {
-					common.SyncLockMap(ip, true)
+
+		input := args[0]
+		var ip string
+		var port int
+		var actionStr string
+
+		// 1. Parse IP and Port from input (e.g., 1.2.3.4:80)
+		if strings.Contains(input, ":") && !strings.Contains(input, "]:") && !strings.HasSuffix(input, ":") {
+			// Handle IPv4:Port or [IPv6]:Port
+			host, portStr, err := net.SplitHostPort(input)
+			if err == nil {
+				ip = host
+				p, err := strconv.Atoi(portStr)
+				if err == nil {
+					port = p
 				}
 			} else {
-				port, err := strconv.ParseUint(args[1], 10, 16)
-				if err != nil {
-					log.Fatalf("❌ Invalid port: %v", err)
+				// Maybe it's just an IPv6 address?
+				ip = input
+			}
+		} else {
+			ip = input
+		}
+
+		// 2. Check remaining arguments
+		remainingArgs := args[1:]
+		if len(remainingArgs) > 0 {
+			// Check if first remaining arg is a port (if we didn't find one yet)
+			if port == 0 {
+				if p, err := strconv.Atoi(remainingArgs[0]); err == nil {
+					port = p
+					remainingArgs = remainingArgs[1:]
 				}
-				common.SyncWhitelistMap(ip, uint16(port), true)
 			}
-		} else if len(args) == 3 {
-			port, err := strconv.ParseUint(args[1], 10, 16)
-			if err != nil {
-				log.Fatalf("❌ Invalid port: %v", err)
+		}
+
+		// 3. Check for action in remaining args
+		if len(remainingArgs) > 0 {
+			actionStr = remainingArgs[0]
+		}
+
+		// 4. Normalize Action
+		isAllow := false
+		if actionStr == "allow" {
+			isAllow = true
+		} else if actionStr == "deny" {
+			isAllow = false
+		} else if actionStr != "" {
+			cmd.PrintErrln("❌ Invalid action. Use 'allow' or 'deny'.")
+			os.Exit(1)
+		} else {
+			// Default action: Deny (Block)
+			isAllow = false
+		}
+
+		// 5. Execute
+		if port > 0 {
+			// IP + Port Rule
+			// Action: 1 = Allow, 2 = Deny
+			var act uint8 = 2
+			if isAllow {
+				act = 1
 			}
-			actionStr := args[2]
-			action := uint8(2) // default deny
-			if actionStr == "allow" {
-				action = 1
+			common.SyncIPPortRule(ip, uint16(port), act, true)
+		} else {
+			// IP Only Rule
+			if isAllow {
+				common.SyncWhitelistMap(ip, 0, true)
+				// Ensure it's not locked
+				common.SyncLockMap(ip, false)
+			} else {
+				common.SyncLockMap(ip, true)
+				// Ensure it's not whitelisted
+				common.SyncWhitelistMap(ip, 0, false)
 			}
-			common.SyncIPPortRule(ip, uint16(port), action, true)
 		}
 	},
 }
@@ -166,23 +219,41 @@ var ruleRemoveCmd = &cobra.Command{
 
 		common.EnsureStandaloneMode()
 
-		ip := args[0]
-		if len(args) == 1 {
+		input := args[0]
+		var ip string
+		var port int
+
+		// 1. Parse IP and Port from input (e.g., 1.2.3.4:80)
+		if strings.Contains(input, ":") && !strings.Contains(input, "]:") && !strings.HasSuffix(input, ":") {
+			// Handle IPv4:Port or [IPv6]:Port
+			host, portStr, err := net.SplitHostPort(input)
+			if err == nil {
+				ip = host
+				p, err := strconv.Atoi(portStr)
+				if err == nil {
+					port = p
+				}
+			} else {
+				// Maybe it's just an IPv6 address?
+				ip = input
+			}
+		} else {
+			ip = input
+		}
+
+		// Check second arg for port if not found yet
+		if len(args) > 1 && port == 0 {
+			if p, err := strconv.Atoi(args[1]); err == nil {
+				port = p
+			}
+		}
+
+		if port > 0 {
+			common.SyncIPPortRule(ip, uint16(port), 0, false)
+		} else {
+			// Try to remove from both if port is not specified
 			common.SyncLockMap(ip, false)
 			common.SyncWhitelistMap(ip, 0, false)
-		} else if len(args) == 2 {
-			arg2 := args[1]
-			if arg2 == "allow" {
-				common.SyncWhitelistMap(ip, 0, false)
-			} else if arg2 == "deny" {
-				common.SyncLockMap(ip, false)
-			} else {
-				port, err := strconv.Atoi(arg2)
-				if err != nil {
-					log.Fatalf("❌ Invalid port: %v", err)
-				}
-				common.SyncIPPortRule(ip, uint16(port), 0, false)
-			}
 		}
 	},
 }

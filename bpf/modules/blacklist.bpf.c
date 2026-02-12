@@ -14,7 +14,8 @@ static __always_inline struct rule_value *get_blacklist_stats(__u32 ip) {
     // 1. Check dynamic blacklist (LRU) first - optimized for frequent changes
     // 优先检查动态黑名单 (LRU)，针对高频变化的攻击 IP 优化
     struct rule_value *val = bpf_map_lookup_elem(&dyn_lock_list, &ip);
-    if (val) return val;
+    // Usually traffic is not blacklisted, so val is NULL most of the time
+    if (unlikely(val)) return val;
 
     // 2. Fallback to static lock list (LPM) - for CIDR or manual blocks
     // 回退到静态黑名单 (LPM)，用于网段封禁或手动配置
@@ -45,7 +46,7 @@ static __always_inline void add_to_blacklist(__u32 ip) {
 static __always_inline struct rule_value *get_blacklist_stats6(struct in6_addr *ip) {
     // 1. Check dynamic blacklist (LRU) first
     struct rule_value *val = bpf_map_lookup_elem(&dyn_lock_list6, ip);
-    if (val) return val;
+    if (unlikely(val)) return val;
 
     // 2. Fallback to static lock list (LPM)
     struct lpm_key6 key = { .prefixlen = 128 };

@@ -6,6 +6,7 @@ import (
 
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/internal/xdp"
 )
 
@@ -25,6 +26,9 @@ func runControlPlane() {
 	if err != nil {
 		log.Fatalf("❌ Failed to load global config from %s: %v", configPath, err)
 	}
+
+	// Initialize Logging
+	logger.Init(globalCfg.Logging)
 
 	if globalCfg.Base.EnablePprof {
 		startPprof(globalCfg.Base.PprofPort)

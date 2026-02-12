@@ -10,6 +10,142 @@ import (
 )
 
 /**
+ * DropDetailEntry represents a single drop event aggregated by reason/IP/port.
+ */
+type DropDetailEntry struct {
+	Reason   uint32
+	Protocol uint32
+	SrcIP    string
+	DstPort  uint16
+	Count    uint64
+}
+
+/**
+ * GetDropDetails retrieves detailed drop statistics from the PERCPU HASH map.
+ */
+func (m *Manager) GetDropDetails() ([]DropDetailEntry, error) {
+	if m.dropReasonStats == nil {
+		return nil, nil
+	}
+
+	var results []DropDetailEntry
+	var key NetXfwDropDetailKey
+	var values []uint64 // PERCPU value is a slice of uint64
+
+	iter := m.dropReasonStats.Iterate()
+	for iter.Next(&key, &values) {
+		var totalCount uint64
+		for _, v := range values {
+			totalCount += v
+		}
+
+		if totalCount > 0 {
+			results = append(results, DropDetailEntry{
+				Reason:   key.Reason,
+				Protocol: key.Protocol,
+				SrcIP:    intToIP(key.SrcIp).String(),
+				DstPort:  key.DstPort,
+				Count:    totalCount,
+			})
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, fmt.Errorf("iterate drop reason stats: %w", err)
+	}
+
+	// IPv6 Stats
+	if m.dropReasonStats6 != nil {
+		var key6 NetXfwDropDetailKey6
+		iter6 := m.dropReasonStats6.Iterate()
+		for iter6.Next(&key6, &values) {
+			var totalCount uint64
+			for _, v := range values {
+				totalCount += v
+			}
+
+			if totalCount > 0 {
+				ip := net.IP(key6.SrcIp.In6U.U6Addr8[:])
+				results = append(results, DropDetailEntry{
+					Reason:   key6.Reason,
+					Protocol: key6.Protocol,
+					SrcIP:    ip.String(),
+					DstPort:  key6.DstPort,
+					Count:    totalCount,
+				})
+			}
+		}
+		if err := iter6.Err(); err != nil {
+			return nil, fmt.Errorf("iterate drop reason stats6: %w", err)
+		}
+	}
+
+	return results, nil
+}
+
+/**
+ * GetPassDetails retrieves detailed pass statistics (whitelist/return traffic).
+ */
+func (m *Manager) GetPassDetails() ([]DropDetailEntry, error) {
+	if m.passReasonStats == nil {
+		return nil, nil
+	}
+
+	var results []DropDetailEntry
+	var key NetXfwDropDetailKey
+	var values []uint64
+
+	// IPv4
+	iter := m.passReasonStats.Iterate()
+	for iter.Next(&key, &values) {
+		var totalCount uint64
+		for _, v := range values {
+			totalCount += v
+		}
+
+		if totalCount > 0 {
+			results = append(results, DropDetailEntry{
+				Reason:   key.Reason,
+				Protocol: key.Protocol,
+				SrcIP:    intToIP(key.SrcIp).String(),
+				DstPort:  key.DstPort,
+				Count:    totalCount,
+			})
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, fmt.Errorf("iterate pass reason stats: %w", err)
+	}
+
+	// IPv6
+	if m.passReasonStats6 != nil {
+		var key6 NetXfwDropDetailKey6
+		iter6 := m.passReasonStats6.Iterate()
+		for iter6.Next(&key6, &values) {
+			var totalCount uint64
+			for _, v := range values {
+				totalCount += v
+			}
+
+			if totalCount > 0 {
+				ip := net.IP(key6.SrcIp.In6U.U6Addr8[:])
+				results = append(results, DropDetailEntry{
+					Reason:   key6.Reason,
+					Protocol: key6.Protocol,
+					SrcIP:    ip.String(),
+					DstPort:  key6.DstPort,
+					Count:    totalCount,
+				})
+			}
+		}
+		if err := iter6.Err(); err != nil {
+			return nil, fmt.Errorf("iterate pass reason stats6: %w", err)
+		}
+	}
+
+	return results, nil
+}
+
+/**
  * GetStats retrieves the total pass and drop counts from BPF maps.
  */
 func (m *Manager) GetStats() (uint64, uint64) {

@@ -282,6 +282,10 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 		ratelimitState:   objs.RatelimitState,
 		ratelimitState6:  objs.RatelimitState6,
 		jmpTable:         objs.JmpTable,
+		dropReasonStats:  objs.DropReasonStats,
+		dropReasonStats6: objs.DropReasonStats6,
+		passReasonStats:  objs.PassReasonStats,
+		passReasonStats6: objs.PassReasonStats6,
 	}
 
 	// Initialize jump table with default protocol handlers
@@ -364,9 +368,25 @@ func NewManagerFromPins(path string) (*Manager, error) {
 		log.Printf("⚠️  Could not load pinned drop_stats: %v", err)
 		m.dropStats = objs.DropStats
 	}
+	if m.dropReasonStats, err = ebpf.LoadPinnedMap(path+"/drop_reason_stats", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned drop_reason_stats: %v", err)
+		m.dropReasonStats = objs.DropReasonStats
+	}
+	if m.dropReasonStats6, err = ebpf.LoadPinnedMap(path+"/drop_reason_stats6", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned drop_reason_stats6: %v", err)
+		m.dropReasonStats6 = objs.DropReasonStats6
+	}
 	if m.passStats, err = ebpf.LoadPinnedMap(path+"/pass_stats", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned pass_stats: %v", err)
 		m.passStats = objs.PassStats
+	}
+	if m.passReasonStats, err = ebpf.LoadPinnedMap(path+"/pass_reason_stats", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned pass_reason_stats: %v", err)
+		m.passReasonStats = objs.PassReasonStats
+	}
+	if m.passReasonStats6, err = ebpf.LoadPinnedMap(path+"/pass_reason_stats6", nil); err != nil {
+		log.Printf("⚠️  Could not load pinned pass_reason_stats6: %v", err)
+		m.passReasonStats6 = objs.PassReasonStats6
 	}
 	if m.icmpLimitMap, err = ebpf.LoadPinnedMap(path+"/icmp_limit_map", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned icmp_limit_map: %v", err)
@@ -827,10 +847,14 @@ func (m *Manager) Pin(path string) error {
 	pinMap(m.ipPortRules6, "ip_port_rules6")
 	pinMap(m.globalConfig, "global_config")
 	pinMap(m.dropStats, "drop_stats")
+	pinMap(m.dropReasonStats, "drop_reason_stats")
+	pinMap(m.dropReasonStats6, "drop_reason_stats6")
 	pinMap(m.icmpLimitMap, "icmp_limit_map")
 	pinMap(m.conntrackMap, "conntrack_map")
 	pinMap(m.conntrackMap6, "conntrack_map6")
 	pinMap(m.passStats, "pass_stats")
+	pinMap(m.passReasonStats, "pass_reason_stats")
+	pinMap(m.passReasonStats6, "pass_reason_stats6")
 	pinMap(m.ratelimitConfig, "ratelimit_config")
 	pinMap(m.ratelimitConfig6, "ratelimit_config6")
 	pinMap(m.ratelimitState, "ratelimit_state")
@@ -856,6 +880,9 @@ func (m *Manager) Unpin(path string) error {
 	_ = m.ipPortRules6.Unpin()
 	_ = m.globalConfig.Unpin()
 	_ = m.dropStats.Unpin()
+	if m.dropReasonStats != nil {
+		_ = m.dropReasonStats.Unpin()
+	}
 	_ = m.icmpLimitMap.Unpin()
 	_ = m.conntrackMap.Unpin()
 	if m.conntrackMap6 != nil {

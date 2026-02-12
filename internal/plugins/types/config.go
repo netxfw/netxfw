@@ -198,6 +198,20 @@ capacity:
   whitelist: 65536
   ip_port_rules: 65536
   allowed_ports: 1024
+
+# Logging Configuration / 日志配置
+logging:
+  enabled: false
+  # Log file path / 日志文件路径
+  path: "/var/log/netxfw/agent.log"
+  # Max size in MB before rotation / 轮转前的最大大小 (MB)
+  max_size: 10
+  # Max number of old files to keep / 保留的旧文件最大数量
+  max_backups: 5
+  # Max number of days to keep old files / 保留旧文件的最大天数
+  max_age: 30
+  # Whether to compress old files / 是否压缩旧文件
+  compress: true
 `
 
 type GlobalConfig struct {
@@ -210,6 +224,16 @@ type GlobalConfig struct {
 	RateLimit RateLimitConfig `yaml:"rate_limit"`
 	LogEngine LogEngineConfig `yaml:"log_engine"`
 	Capacity  CapacityConfig  `yaml:"capacity"`
+	Logging   LoggingConfig   `yaml:"logging"`
+}
+
+type LoggingConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	Path       string `yaml:"path"`        // Log file path
+	MaxSize    int    `yaml:"max_size"`    // Max size in MB before rotation
+	MaxBackups int    `yaml:"max_backups"` // Max number of old files to keep
+	MaxAge     int    `yaml:"max_age"`     // Max number of days to keep old files
+	Compress   bool   `yaml:"compress"`    // Whether to compress old files
 }
 
 type LogEngineConfig struct {
@@ -372,6 +396,14 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 			Whitelist:    65536,
 			IPPortRules:  65536,
 			AllowedPorts: 1024,
+		},
+		Logging: LoggingConfig{
+			Enabled:    false,
+			Path:       "/var/log/netxfw/agent.log",
+			MaxSize:    10, // 10MB
+			MaxBackups: 5,
+			MaxAge:     30, // 30 days
+			Compress:   true,
 		},
 	}
 

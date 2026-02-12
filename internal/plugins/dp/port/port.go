@@ -150,13 +150,13 @@ func (p *PortPlugin) syncIPPortRules(manager *xdp.Manager, isIPv6 bool) error {
 		if _, ok := desiredRulesMap[key]; !ok {
 			// Parse key back to IPNet and Port to remove
 			// key: "IP/Prefix:Port"
-			parts := strings.Split(key, ":")
-			if len(parts) != 2 {
+			lastIdx := strings.LastIndex(key, ":")
+			if lastIdx == -1 {
 				continue
 			}
 
-			ipCIDR := parts[0]
-			portStr := parts[1]
+			ipCIDR := key[:lastIdx]
+			portStr := key[lastIdx+1:]
 
 			_, ipNet, _ := net.ParseCIDR(ipCIDR) // Should be valid as it came from Manager
 			var port uint16
@@ -181,8 +181,12 @@ func (p *PortPlugin) syncIPPortRules(manager *xdp.Manager, isIPv6 bool) error {
 		if !exists || currentActionStr != desiredActionStr {
 			// Add or Update
 			// Re-parse key to get clean IPNet
-			parts := strings.Split(key, ":")
-			_, ipNet, _ := net.ParseCIDR(parts[0])
+			lastIdx := strings.LastIndex(key, ":")
+			if lastIdx == -1 {
+				continue
+			}
+			ipCIDR := key[:lastIdx]
+			_, ipNet, _ := net.ParseCIDR(ipCIDR)
 
 			if err := manager.AddIPPortRule(ipNet, rule.Port, rule.Action, nil); err != nil {
 				log.Printf("⚠️ [PortPlugin] Failed to update rule %s: %v", key, err)
@@ -193,7 +197,6 @@ func (p *PortPlugin) syncIPPortRules(manager *xdp.Manager, isIPv6 bool) error {
 	}
 	return nil
 }
-
 
 func (p *PortPlugin) Stop() error {
 	return nil

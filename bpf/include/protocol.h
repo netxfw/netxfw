@@ -51,4 +51,26 @@ struct vlan_hdr {
 #define PROG_IDX_PLUGIN_START 2
 #define PROG_IDX_PLUGIN_END   15
 
+// Drop Reasons
+#define DROP_REASON_UNKNOWN     0
+#define DROP_REASON_INVALID     1
+#define DROP_REASON_PROTOCOL    2
+#define DROP_REASON_BLACKLIST   3
+#define DROP_REASON_RATELIMIT   4
+#define DROP_REASON_STRICT_TCP  5
+#define DROP_REASON_DEFAULT     6
+#define DROP_REASON_LAND_ATTACK 7
+#define DROP_REASON_BOGON       8
+#define DROP_REASON_FRAGMENT    9
+#define DROP_REASON_BAD_HEADER  10
+#define DROP_REASON_TCP_FLAGS   11
+#define DROP_REASON_SPOOF       12
+
+// Pass Reasons (start from 100 to avoid conflict if mixed)
+#define PASS_REASON_UNKNOWN     100
+#define PASS_REASON_WHITELIST   101
+#define PASS_REASON_RETURN      102
+#define PASS_REASON_CONNTRACK   103
+#define PASS_REASON_DEFAULT     104
+
 #endif // __NETXFW_PROTOCOL_H

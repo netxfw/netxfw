@@ -16,7 +16,7 @@ import (
 /**
  * InstallXDP initializes the XDP manager and mounts the program to interfaces, then exits.
  */
-func InstallXDP() {
+func InstallXDP(cliInterfaces []string) {
 	// Load global configuration first to get interface settings
 	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 	if err != nil {
@@ -24,7 +24,10 @@ func InstallXDP() {
 	}
 
 	var interfaces []string
-	if len(globalCfg.Base.Interfaces) > 0 {
+	if len(cliInterfaces) > 0 {
+		interfaces = cliInterfaces
+		log.Printf("ℹ️  Using CLI provided interfaces: %v", interfaces)
+	} else if len(globalCfg.Base.Interfaces) > 0 {
 		interfaces = globalCfg.Base.Interfaces
 		log.Printf("ℹ️  Using configured interfaces: %v", interfaces)
 	} else {
@@ -147,40 +150,46 @@ func HandlePluginCommand(args []string) {
 /**
  * RemoveXDP detaches the XDP program from all interfaces and unpins everything.
  */
-func RemoveXDP() {
-	// Collect all potential interfaces to detach from
-	uniqueInterfaces := make(map[string]bool)
-
-	// 1. Get physical interfaces
-	if phyInterfaces, err := xdp.GetPhysicalInterfaces(); err == nil {
-		for _, iface := range phyInterfaces {
-			uniqueInterfaces[iface] = true
-		}
-	} else {
-		log.Printf("⚠️  Failed to get physical interfaces: %v", err)
-	}
-
-	// 2. Get configured interfaces
-	// Load global configuration to get max entries and interfaces
+func RemoveXDP(cliInterfaces []string) {
+	// Load global configuration to get max entries (needed for NewManager)
 	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 	if err != nil {
 		log.Printf("⚠️  Failed to load global config, using default map capacity: %v", err)
 		globalCfg = &types.GlobalConfig{}
-	} else {
-		for _, iface := range globalCfg.Base.Interfaces {
-			uniqueInterfaces[iface] = true
-		}
 	}
 
 	var interfaces []string
-	for iface := range uniqueInterfaces {
-		interfaces = append(interfaces, iface)
-	}
+	fullUnload := false
 
-	if len(interfaces) == 0 {
-		log.Println("⚠️  No interfaces found to detach from.")
+	if len(cliInterfaces) > 0 {
+		interfaces = cliInterfaces
+		log.Printf("ℹ️  Detaching from specific interfaces: %v", interfaces)
 	} else {
-		log.Printf("ℹ️  Detaching from interfaces: %v", interfaces)
+		fullUnload = true
+		// Collect all potential interfaces to detach from
+		uniqueInterfaces := make(map[string]bool)
+
+		// 1. Get physical interfaces
+		if phyInterfaces, err := xdp.GetPhysicalInterfaces(); err == nil {
+			for _, iface := range phyInterfaces {
+				uniqueInterfaces[iface] = true
+			}
+		}
+
+		// 2. Get configured interfaces
+		for _, iface := range globalCfg.Base.Interfaces {
+			uniqueInterfaces[iface] = true
+		}
+
+		for iface := range uniqueInterfaces {
+			interfaces = append(interfaces, iface)
+		}
+
+		if len(interfaces) == 0 {
+			log.Println("⚠️  No interfaces found to detach from.")
+		} else {
+			log.Printf("ℹ️  Detaching from all detected interfaces: %v", interfaces)
+		}
 	}
 
 	manager, err := xdp.NewManager(globalCfg.Capacity)
@@ -193,11 +202,14 @@ func RemoveXDP() {
 		log.Printf("⚠️  Some interfaces failed to detach: %v", err)
 	}
 
-	if err := manager.Unpin("/sys/fs/bpf/netxfw"); err != nil {
-		log.Printf("⚠️  Unpin warning: %v", err)
+	if fullUnload {
+		if err := manager.Unpin("/sys/fs/bpf/netxfw"); err != nil {
+			log.Printf("⚠️  Unpin warning: %v", err)
+		}
+		log.Println("✅ XDP program removed and cleanup completed.")
+	} else {
+		log.Println("✅ XDP program detached from specified interfaces.")
 	}
-
-	log.Println("✅ XDP program removed and cleanup completed.")
 }
 
 /**
@@ -205,7 +217,7 @@ func RemoveXDP() {
  * It loads new objects, migrates state from old pinned maps, and swaps the program.
  * ReloadXDP 执行 XDP 程序的平滑重载：加载新对象，从旧的固定 Map 迁移状态，并切换程序。
  */
-func ReloadXDP() {
+func ReloadXDP(cliInterfaces []string) {
 	log.Println("🔄 Starting hot-reload of XDP program...")
 
 	// 1. Load global configuration
@@ -215,7 +227,10 @@ func ReloadXDP() {
 	}
 
 	var interfaces []string
-	if len(globalCfg.Base.Interfaces) > 0 {
+	if len(cliInterfaces) > 0 {
+		interfaces = cliInterfaces
+		log.Printf("ℹ️  Using CLI provided interfaces: %v", interfaces)
+	} else if len(globalCfg.Base.Interfaces) > 0 {
 		interfaces = globalCfg.Base.Interfaces
 		log.Printf("ℹ️  Using configured interfaces: %v", interfaces)
 	} else {

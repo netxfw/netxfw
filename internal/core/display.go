@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
@@ -106,6 +107,81 @@ func ShowWhitelist(limit int, search string) {
 	total := total4 + total6
 	if limit > 0 && total >= limit {
 		fmt.Printf("\n⚠️  Showing up to %d entries (limit reached).\n", limit)
+	}
+}
+
+/**
+ * ShowTopStats displays the top IPs by traffic and drop counts.
+ */
+func ShowTopStats(limit int, sortBy string) {
+	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	if err != nil {
+		fmt.Println("❌ XDP Program Status: Not Loaded (or maps not pinned)")
+		return
+	}
+	defer m.Close()
+
+	// 1. Fetch Stats
+	dropDetails, err := m.GetDropDetails()
+	if err != nil {
+		fmt.Printf("⚠️  Could not retrieve drop details: %v\n", err)
+	}
+	passDetails, err := m.GetPassDetails()
+	if err != nil {
+		fmt.Printf("⚠️  Could not retrieve pass details: %v\n", err)
+	}
+
+	// 2. Aggregate by IP
+	type IpStats struct {
+		IP    string
+		Pass  uint64
+		Drop  uint64
+		Total uint64
+	}
+	statsMap := make(map[string]*IpStats)
+
+	for _, d := range dropDetails {
+		if _, ok := statsMap[d.SrcIP]; !ok {
+			statsMap[d.SrcIP] = &IpStats{IP: d.SrcIP}
+		}
+		statsMap[d.SrcIP].Drop += d.Count
+		statsMap[d.SrcIP].Total += d.Count
+	}
+
+	for _, p := range passDetails {
+		if _, ok := statsMap[p.SrcIP]; !ok {
+			statsMap[p.SrcIP] = &IpStats{IP: p.SrcIP}
+		}
+		statsMap[p.SrcIP].Pass += p.Count
+		statsMap[p.SrcIP].Total += p.Count
+	}
+
+	// 3. Convert to Slice
+	var statsList []*IpStats
+	for _, s := range statsMap {
+		statsList = append(statsList, s)
+	}
+
+	// 4. Sort
+	sort.Slice(statsList, func(i, j int) bool {
+		if sortBy == "drop" {
+			return statsList[i].Drop > statsList[j].Drop
+		}
+		return statsList[i].Total > statsList[j].Total
+	})
+
+	// 5. Display
+	fmt.Printf("📊 Top %d IPs by %s (Total Traffic/Drops)\n", limit, sortBy)
+	fmt.Printf("%-40s %-15s %-15s %-15s\n", "Source IP", "Total Packets", "Pass", "Drop")
+	fmt.Println(strings.Repeat("-", 90))
+
+	count := 0
+	for _, s := range statsList {
+		if count >= limit {
+			break
+		}
+		fmt.Printf("%-40s %-15d %-15d %-15d\n", s.IP, s.Total, s.Pass, s.Drop)
+		count++
 	}
 }
 
@@ -356,12 +432,153 @@ func ShowStatus() {
 		fmt.Printf("⚠️  Could not retrieve drop statistics: %v\n", err)
 	} else {
 		fmt.Printf("📊 Global Drop Count: %d packets\n", drops)
+
+		// Show detailed drop stats
+		details, err := m.GetDropDetails()
+		if err == nil && len(details) > 0 {
+			// Sort by count descending
+			sort.Slice(details, func(i, j int) bool {
+				return details[i].Count > details[j].Count
+			})
+
+			fmt.Println("\n   🚫 Top Drops by Reason & Source:")
+			// Aggregate by reason for summary, or show top N entries
+			// Let's just list them nicely formatted
+			fmt.Printf("   %-20s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
+			fmt.Printf("   %s\n", strings.Repeat("-", 90))
+
+			// Simple map to string
+			reasonStr := func(r uint32) string {
+				switch r {
+				case 0:
+					return "UNKNOWN"
+				case 1:
+					return "INVALID"
+				case 2:
+					return "PROTOCOL"
+				case 3:
+					return "BLACKLIST"
+				case 4:
+					return "RATELIMIT"
+				case 5:
+					return "STRICT_TCP"
+				case 6:
+					return "DEFAULT_DENY"
+				case 7:
+					return "LAND_ATTACK"
+				case 8:
+					return "BOGON"
+				case 9:
+					return "FRAGMENT"
+				case 10:
+					return "BAD_HEADER"
+				case 11:
+					return "TCP_FLAGS"
+				case 12:
+					return "SPOOF"
+				case 13:
+					return "GEOIP"
+				default:
+					return fmt.Sprintf("UNKNOWN(%d)", r)
+				}
+			}
+
+			protoStr := func(p uint32) string {
+				switch p {
+				case 6:
+					return "TCP"
+				case 17:
+					return "UDP"
+				case 1:
+					return "ICMP"
+				default:
+					return fmt.Sprintf("%d", p)
+				}
+			}
+
+			count := 0
+			for _, d := range details {
+				if count >= 10 {
+					fmt.Printf("   ... and more\n")
+					break
+				}
+				fmt.Printf("   %-20s %-8s %-40s %-8d %d\n",
+					reasonStr(d.Reason),
+					protoStr(d.Protocol),
+					d.SrcIP,
+					d.DstPort,
+					d.Count,
+				)
+				count++
+			}
+		}
 	}
 
 	// Get pass stats
 	passes, err := m.GetPassCount()
-	if err == nil {
+	if err != nil {
+		fmt.Printf("⚠️  Could not retrieve pass statistics: %v\n", err)
+	} else {
 		fmt.Printf("📊 Global Pass Count: %d packets\n", passes)
+
+		// Show detailed pass stats
+		details, err := m.GetPassDetails()
+		if err == nil && len(details) > 0 {
+			// Sort by count descending
+			sort.Slice(details, func(i, j int) bool {
+				return details[i].Count > details[j].Count
+			})
+
+			fmt.Println("\n   ✅ Top Allowed by Reason & Source:")
+			fmt.Printf("   %-20s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
+			fmt.Printf("   %s\n", strings.Repeat("-", 90))
+
+			reasonStr := func(r uint32) string {
+				switch r {
+				case 100:
+					return "UNKNOWN"
+				case 101:
+					return "WHITELIST"
+				case 102:
+					return "RETURN"
+				case 103:
+					return "CONNTRACK"
+				case 104:
+					return "DEFAULT_ALLOW"
+				default:
+					return fmt.Sprintf("UNKNOWN(%d)", r)
+				}
+			}
+
+			protoStr := func(p uint32) string {
+				switch p {
+				case 6:
+					return "TCP"
+				case 17:
+					return "UDP"
+				case 1:
+					return "ICMP"
+				default:
+					return fmt.Sprintf("%d", p)
+				}
+			}
+
+			count := 0
+			for _, d := range details {
+				if count >= 10 {
+					fmt.Printf("   ... and more\n")
+					break
+				}
+				fmt.Printf("   %-20s %-8s %-40s %-8d %d\n",
+					reasonStr(d.Reason),
+					protoStr(d.Protocol),
+					d.SrcIP,
+					d.DstPort,
+					d.Count,
+				)
+				count++
+			}
+		}
 	}
 
 	// Get locked IP count

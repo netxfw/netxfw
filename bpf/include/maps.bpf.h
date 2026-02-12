@@ -175,6 +175,14 @@ struct drop_detail_key {
     __u16 pad;
 } __attribute__((packed));
 
+struct drop_detail_key6 {
+    __u32 reason;
+    __u32 protocol;
+    struct in6_addr src_ip;
+    __u16 dst_port;
+    __u16 pad;
+} __attribute__((packed));
+
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(max_entries, 1);
@@ -184,10 +192,17 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-    __uint(max_entries, 1024);
+    __uint(max_entries, 65536);
     __type(key, struct drop_detail_key);
     __type(value, __u64);
 } drop_reason_stats SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(max_entries, 65536);
+    __type(key, struct drop_detail_key6);
+    __type(value, __u64);
+} drop_reason_stats6 SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -195,6 +210,20 @@ struct {
     __type(key, __u32);
     __type(value, __u64);
 } pass_stats SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(max_entries, 65536);
+    __type(key, struct drop_detail_key);
+    __type(value, __u64);
+} pass_reason_stats SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(max_entries, 1024);
+    __type(key, struct drop_detail_key6);
+    __type(value, __u64);
+} pass_reason_stats6 SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -263,9 +292,9 @@ struct {
     __type(value, __u64);
 } global_config SEC(".maps");
 
-// Optimization: Packet counter for config refresh sampling
+// Optimization: Packet counter for config refresh sampling (Per-CPU to avoid contention)
 struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(max_entries, 1);
     __type(key, __u32);
     __type(value, __u64);

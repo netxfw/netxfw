@@ -53,13 +53,39 @@ static __always_inline int is_invalid_tcp_flags(__u8 flags) {
     // 1. Null scan (no flags set)
     if (flags == 0) return 1;
     // 2. Xmas scan (FIN, PSH, URG set)
-    if (flags == 0x29) return 1;
+    if ((flags & 0x29) == 0x29) return 1;
     // 3. SYN and FIN set
-    if ((flags & 0x01) && (flags & 0x02)) return 1;
-    // 4. FIN without ACK (rare but usually malicious)
+    if ((flags & 0x03) == 0x03) return 1;
+    // 4. SYN and RST set
+    if ((flags & 0x06) == 0x06) return 1;
+    // 5. FIN without ACK (rare but usually malicious, except first packet?)
+    // Note: Some stacks might send FIN without ACK? RFC 793 says ACK is almost always set.
+    // However, purely FIN scan is a thing.
     if ((flags & 0x01) && !(flags & 0x10)) return 1;
+    // 6. URG without ACK
+    if ((flags & 0x20) && !(flags & 0x10)) return 1;
+    // 7. PSH without ACK
+    if ((flags & 0x08) && !(flags & 0x10)) return 1;
     
     return 0;
 }
+
+/**
+ * Check for Land Attack (Source IP == Dest IP)
+ */
+static __always_inline int is_land_attack_ipv4(__u32 saddr, __u32 daddr) {
+    return saddr == daddr;
+}
+
+/**
+ * Check for Land Attack IPv6
+ */
+static __always_inline int is_land_attack_ipv6(struct in6_addr *saddr, struct in6_addr *daddr) {
+    return (saddr->s6_addr32[0] == daddr->s6_addr32[0] &&
+            saddr->s6_addr32[1] == daddr->s6_addr32[1] &&
+            saddr->s6_addr32[2] == daddr->s6_addr32[2] &&
+            saddr->s6_addr32[3] == daddr->s6_addr32[3]);
+}
+
 
 #endif // __NETXFW_FILTER_BPF_C

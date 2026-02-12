@@ -67,6 +67,8 @@ var systemDaemonCmd = &cobra.Command{
 	},
 }
 
+var interfaces []string
+
 var systemLoadCmd = &cobra.Command{
 	Use:   "load",
 	Short: "Load XDP driver",
@@ -81,7 +83,7 @@ var systemLoadCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		common.InitConfiguration()
-		common.InstallXDP()
+		common.InstallXDP(interfaces)
 	},
 }
 
@@ -94,7 +96,7 @@ var systemReloadCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.ReloadXDP function not initialized")
 			os.Exit(1)
 		}
-		common.ReloadXDP()
+		common.ReloadXDP(interfaces)
 	},
 }
 
@@ -107,7 +109,7 @@ var systemUnloadCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.RemoveXDP function not initialized")
 			os.Exit(1)
 		}
-		common.RemoveXDP()
+		common.RemoveXDP(interfaces)
 	},
 }
 
@@ -172,8 +174,33 @@ func init() {
 	SystemCmd.AddCommand(systemDaemonCmd)
 	SystemCmd.AddCommand(systemLoadCmd)
 	SystemCmd.AddCommand(systemReloadCmd)
+
+	systemLoadCmd.Flags().StringSliceVarP(&interfaces, "iface", "i", nil, "Interfaces to attach to (e.g., eth0,eth1)")
+	systemReloadCmd.Flags().StringSliceVarP(&interfaces, "iface", "i", nil, "Interfaces to attach to (e.g., eth0,eth1)")
+	systemUnloadCmd.Flags().StringSliceVarP(&interfaces, "iface", "i", nil, "Interfaces to detach from (e.g., eth0,eth1)")
+
 	SystemCmd.AddCommand(systemUnloadCmd)
 	SystemCmd.AddCommand(systemSetDefaultDenyCmd)
 	SystemCmd.AddCommand(systemRateLimitCmd)
 	SystemCmd.AddCommand(systemAFXDPCmd)
+
+	SystemCmd.AddCommand(systemTopCmd)
+	systemTopCmd.Flags().IntVarP(&limit, "limit", "n", 10, "Number of entries to show")
+	systemTopCmd.Flags().StringVarP(&sortBy, "sort", "s", "total", "Sort by: total (traffic) or drop")
+}
+
+var limit int
+var sortBy string
+
+var systemTopCmd = &cobra.Command{
+	Use:   "top",
+	Short: "Show top IPs by traffic or drops",
+	Long:  `Show top source IPs sorted by total traffic or drop count.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if common.ShowTopStats == nil {
+			cmd.PrintErrln("❌ common.ShowTopStats function not initialized")
+			os.Exit(1)
+		}
+		common.ShowTopStats(limit, sortBy)
+	},
 }

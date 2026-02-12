@@ -29,6 +29,7 @@ func initializeCommandFunctions() {
 	// System commands
 	common.InitConfiguration = core.InitConfiguration
 	common.ShowStatus = core.ShowStatus
+	common.ShowTopStats = core.ShowTopStats
 	common.TestConfiguration = core.TestConfiguration
 	common.RunDaemon = core.RunDaemon
 	common.InstallXDP = core.InstallXDP

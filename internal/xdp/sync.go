@@ -392,3 +392,17 @@ func (m *Manager) ClearMaps() {
 	}
 	log.Printf("✅ All BPF maps cleared.")
 }
+
+func ClearMap(mapPtr *ebpf.Map) (int, error) {
+	removed := 0
+	iter := mapPtr.Iterate()
+	// Use []byte for generic iteration
+	var k []byte
+	var v []byte
+	for iter.Next(&k, &v) {
+		if err := mapPtr.Delete(k); err == nil {
+			removed++
+		}
+	}
+	return removed, iter.Err()
+}

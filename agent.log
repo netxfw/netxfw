@@ -1,0 +1,27 @@
+2026/02/12 06:53:55 ℹ️  Config file already exists: /etc/netxfw/config.yaml
+🔍 Testing global configuration in /etc/netxfw/config.yaml...
+✅ Plugin base configuration is valid
+✅ Plugin conntrack configuration is valid
+✅ Plugin log_engine configuration is valid
+✅ Plugin port configuration is valid
+✅ Plugin ratelimit configuration is valid
+✅ Plugin metrics configuration is valid
+🎉 All configurations are valid!
+2026/02/12 06:53:55 🚀 Starting netxfw in Agent (Control Plane) mode
+2026/02/12 06:53:55 🚀 [BasePlugin] Starting...
+2026/02/12 06:53:55 ✅ [BasePlugin] ICMP rate limit set to 10/s (burst: 50)
+2026/02/12 06:53:55 ℹ️  [BasePlugin] Optimized locklist from 0 to 0 rules
+2026/02/12 06:53:55 🛡️  [BasePlugin] Pre-loaded 0 IPs/ranges from /etc/netxfw/rules.deny.txt
+2026/02/12 06:53:55 ✅ [BasePlugin] Applied default_deny=true and 1 whitelist entries
+2026/02/12 06:53:55 🚀 [ConntrackPlugin] Starting...
+2026/02/12 06:53:55 ✅ [ConntrackPlugin] Conntrack timeout set to 1h0m0s
+2026/02/12 06:53:55 ✅ [ConntrackPlugin] Connection tracking (LRU-based) enabled
+2026/02/12 06:53:55 🚀 [PortPlugin] Starting...
+2026/02/12 06:53:55 ✅ [PortPlugin] Sync complete. Active: 3 global ports, 4 IP+Port rules
+2026/02/12 06:53:55 🚀 [RateLimitPlugin] Starting...
+2026/02/12 06:53:55 ✅ [RateLimitPlugin] Sync complete. Active rules: 0
+2026/02/12 06:53:55 🛡️ Agent is running.
+2026/02/12 06:53:55 📊 Metrics HTTP server listening on :11812
+2026/02/12 06:53:55 ℹ️  Rule cleanup is disabled in config
+2026/02/12 06:53:55 🔑 Using configured Web Token for authentication
+2026/02/12 06:53:55 🚀 Management API and UI starting on http://localhost:0

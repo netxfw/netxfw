@@ -75,6 +75,10 @@ type Manager struct {
 	ratelimitState   *ebpf.Map
 	ratelimitState6  *ebpf.Map
 	jmpTable         *ebpf.Map
+	dropReasonStats  *ebpf.Map
+	dropReasonStats6 *ebpf.Map
+	passReasonStats  *ebpf.Map
+	passReasonStats6 *ebpf.Map
 }
 
 /**
@@ -164,4 +168,8 @@ func (m *Manager) RatelimitState() *ebpf.Map {
 
 func (m *Manager) RatelimitState6() *ebpf.Map {
 	return m.ratelimitState6
+}
+
+func (m *Manager) DropReasonStats() *ebpf.Map {
+	return m.dropReasonStats
 }

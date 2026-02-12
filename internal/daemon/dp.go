@@ -5,6 +5,7 @@ import (
 
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/internal/xdp"
 )
 
@@ -24,6 +25,9 @@ func runDataPlane() {
 	if err != nil {
 		log.Fatalf("❌ Failed to load global config from %s: %v", configPath, err)
 	}
+
+	// Initialize Logging
+	logger.Init(globalCfg.Logging)
 
 	// 1. Initialize Manager (Create or Load Pinned)
 	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")

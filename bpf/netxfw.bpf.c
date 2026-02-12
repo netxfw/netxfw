@@ -45,8 +45,9 @@ static __always_inline void check_config_refresh() {
     __u32 key = 0;
     __u64 *counter_ptr = bpf_map_lookup_elem(&packet_counter, &key);
     if (counter_ptr) {
-        __u64 current_packet = __atomic_fetch_add(counter_ptr, 1, __ATOMIC_RELAXED);
-        if (current_packet % CONFIG_REFRESH_INTERVAL == 0) {
+        // Optimization: No atomic needed for PERCPU_ARRAY
+        *counter_ptr += 1;
+        if (unlikely(*counter_ptr % CONFIG_REFRESH_INTERVAL == 0)) {
             refresh_config();
         }
     }
@@ -55,17 +56,17 @@ static __always_inline void check_config_refresh() {
 // Helper to parse Ethernet header and handle VLANs
 static __always_inline int parse_eth_frame(void *data, void *data_end, void **network_header, __u16 *proto) {
     struct ethhdr *eth = data;
-    if (data + sizeof(*eth) > data_end) return -1;
+    if (unlikely(data + sizeof(*eth) > data_end)) return -1;
 
     *network_header = data + sizeof(*eth);
     *proto = eth->h_proto;
 
     // Handle VLANs (802.1Q and 802.1AD)
-    if (*proto == bpf_htons(ETH_P_8021Q) || *proto == bpf_htons(ETH_P_8021AD)) {
+    if (unlikely(*proto == bpf_htons(ETH_P_8021Q) || *proto == bpf_htons(ETH_P_8021AD))) {
         struct vlan_hdr *vhdr;
         #pragma unroll
         for (int i = 0; i < 2; i++) {
-            if (*network_header + sizeof(struct vlan_hdr) > data_end) return -1;
+            if (unlikely(*network_header + sizeof(struct vlan_hdr) > data_end)) return -1;
             vhdr = *network_header;
             *proto = vhdr->h_vlan_encapsulated_proto;
             *network_header += sizeof(struct vlan_hdr);

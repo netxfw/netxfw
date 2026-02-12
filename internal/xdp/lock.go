@@ -330,24 +330,7 @@ func CleanupExpiredRules(mapPtr *ebpf.Map, isIPv6 bool) (int, error) {
 	return removed, iter.Err()
 }
 
-/**
- * ClearMap removes all entries from the specified BPF map.
- * Returns the number of removed entries.
- */
-func ClearMap(mapPtr *ebpf.Map) (int, error) {
-	removed := 0
-	iter := mapPtr.Iterate()
-	// We use a generic approach to iterate and delete
-	// The Iterate() method combined with Next() and Delete() works for most map types
-	var k interface{}
-	var v interface{}
-	for iter.Next(&k, &v) {
-		if err := mapPtr.Delete(k); err == nil {
-			removed++
-		}
-	}
-	return removed, iter.Err()
-}
+
 
 /**
  * ListBlockedIPs iterates over the BPF map and returns limited blocked ranges and stats.

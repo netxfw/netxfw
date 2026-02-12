@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,9 +21,20 @@ import (
 const defaultPidFile = "/var/run/netxfw.pid"
 
 func managePidFile(path string) error {
-	if _, err := os.Stat(path); err == nil {
-		return fmt.Errorf("PID file %s already exists. Is netxfw already running?", path)
+	if content, err := os.ReadFile(path); err == nil {
+		pid, err := strconv.Atoi(strings.TrimSpace(string(content)))
+		if err == nil {
+			if process, err := os.FindProcess(pid); err == nil {
+				if err := process.Signal(syscall.Signal(0)); err == nil {
+					return fmt.Errorf("PID file %s exists and process %d is running", path, pid)
+				}
+			}
+		}
+		// PID file exists but process is dead or invalid, remove it
+		log.Printf("⚠️  Removing stale PID file: %s", path)
+		_ = os.Remove(path)
 	}
+
 	pid := os.Getpid()
 	if err := os.WriteFile(path, []byte(strconv.Itoa(pid)), 0644); err != nil {
 		return fmt.Errorf("failed to write PID file: %v", err)
