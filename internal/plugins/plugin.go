@@ -15,4 +15,6 @@ type Plugin interface {
 	DefaultConfig() interface{}
 	// Validate checks the plugin configuration for errors
 	Validate(config *types.GlobalConfig) error
+	// Reload updates the plugin configuration without restarting
+	Reload(config *types.GlobalConfig, manager *xdp.Manager) error
 }

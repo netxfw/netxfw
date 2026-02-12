@@ -14,9 +14,9 @@
 #include "../modules/rules.bpf.c"
 #include "../modules/icmp.bpf.c"
 
-static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data, void *data_end, struct ethhdr *eth) {
-    struct iphdr *ip = data + sizeof(*eth);
-    if (data + sizeof(*eth) + sizeof(*ip) > data_end)
+static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void *ip_header) {
+    struct iphdr *ip = ip_header;
+    if ((void *)ip + sizeof(*ip) > data_end)
         return XDP_PASS;
 
     __u16 src_port = 0, dest_port = 0;
@@ -36,8 +36,13 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data, void *dat
         }
     }
 
+    // Calculate dynamic IP header length (IHL is in 32-bit words)
+    __u32 ip_len = ip->ihl * 4;
+    // Sanity check for minimum IP header length
+    if (ip_len < sizeof(*ip)) return XDP_DROP;
+
     if (ip->protocol == IPPROTO_TCP) {
-        struct tcphdr *tcp = (void *)ip + sizeof(*ip);
+        struct tcphdr *tcp = (void *)ip + ip_len;
         if ((void *)tcp + sizeof(*tcp) <= data_end) {
             src_port = bpf_ntohs(tcp->source);
             dest_port = bpf_ntohs(tcp->dest);
@@ -57,7 +62,7 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data, void *dat
             }
         }
     } else if (ip->protocol == IPPROTO_UDP) {
-        struct udphdr *udp = (void *)ip + sizeof(*ip);
+        struct udphdr *udp = (void *)ip + ip_len;
         if ((void *)udp + sizeof(*udp) <= data_end) {
             src_port = bpf_ntohs(udp->source);
             dest_port = bpf_ntohs(udp->dest);

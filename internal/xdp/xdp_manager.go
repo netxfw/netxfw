@@ -4,11 +4,15 @@
 package xdp
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
+	"net/netip"
 	"os"
 	"os/exec"
+	"strings"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -35,6 +39,148 @@ const (
 	CONFIG_AUTO_BLOCK           = 15
 	CONFIG_AUTO_BLOCK_EXPIRY    = 16
 )
+
+// BlockStatic adds an IP to the static blocklist (LPM trie) and optionally persists it to a file.
+// It reuses the underlying LockIP helper for BPF map operations.
+func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
+	ip, err := netip.ParseAddr(ipStr)
+	// If parsing fails, it might be a CIDR
+	if err != nil {
+		if _, _, err := net.ParseCIDR(ipStr); err != nil {
+			return fmt.Errorf("invalid IP or CIDR %s: %w", ipStr, err)
+		}
+	}
+
+	cidr := ipStr
+	if err == nil {
+		// It's a single IP, append suffix
+		if ip.Is4() {
+			cidr += "/32"
+		} else {
+			cidr += "/128"
+		}
+	}
+
+	// Use LockList (Static)
+	mapObj := m.LockList()
+	if IsIPv6(cidr) {
+		mapObj = m.LockList6()
+	}
+
+	// Reuse existing LockIP helper
+	if err := LockIP(mapObj, cidr); err != nil {
+		return fmt.Errorf("failed to add to static blacklist %s: %v", cidr, err)
+	}
+
+	// Persist to lock list file if configured
+	if persistFile != "" {
+		// Use O_APPEND to add to the end of the file
+		f, err := os.OpenFile(persistFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Printf("⚠️ Failed to open lock list file for persistence: %v", err)
+		} else {
+			defer f.Close()
+			if _, err := f.WriteString(cidr + "\n"); err != nil {
+				log.Printf("⚠️ Failed to write to lock list file: %v", err)
+			} else {
+				log.Printf("💾 Persisted IP %s to %s", cidr, persistFile)
+			}
+		}
+	}
+
+	log.Printf("🚫 Added IP %s to STATIC blacklist (permanent)", cidr)
+	return nil
+}
+
+// AllowStatic adds an IP/CIDR to the whitelist.
+func (m *Manager) AllowStatic(ipStr string, port uint16) error {
+	// Determine if IPv6
+	isV6 := IsIPv6(ipStr)
+	mapObj := m.Whitelist()
+	if isV6 {
+		mapObj = m.Whitelist6()
+	}
+
+	if err := AllowIP(mapObj, ipStr, port); err != nil {
+		return fmt.Errorf("failed to allow %s: %v", ipStr, err)
+	}
+	return nil
+}
+
+// RemoveAllowStatic removes an IP/CIDR from the whitelist.
+func (m *Manager) RemoveAllowStatic(ipStr string) error {
+	isV6 := IsIPv6(ipStr)
+	mapObj := m.Whitelist()
+	if isV6 {
+		mapObj = m.Whitelist6()
+	}
+
+	if err := UnlockIP(mapObj, ipStr); err != nil {
+		return fmt.Errorf("failed to remove from whitelist %s: %v", ipStr, err)
+	}
+	return nil
+}
+
+// ListWhitelist returns all whitelisted IPs/CIDRs.
+func (m *Manager) ListWhitelist(isIPv6 bool) ([]string, error) {
+	mapObj := m.Whitelist()
+	if isIPv6 {
+		mapObj = m.Whitelist6()
+	}
+	// Use 0 limit to get all
+	ips, _, err := ListWhitelistedIPs(mapObj, isIPv6, 0, "")
+	return ips, err
+}
+
+// BlockDynamic adds an IP to the dynamic blocklist (LRU hash) with a TTL.
+func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
+	ip, err := netip.ParseAddr(ipStr)
+	if err != nil {
+		return fmt.Errorf("invalid IP address %s: %w", ipStr, err)
+	}
+
+	expiry := uint64(0)
+	if ttl > 0 {
+		expiry = uint64(time.Now().Add(ttl).UnixNano())
+	}
+
+	if ip.Is4() {
+		mapObj := m.DynLockList()
+		if mapObj == nil {
+			return fmt.Errorf("IPv4 dyn_lock_list not available")
+		}
+
+		// Key is uint32 (little endian)
+		b := ip.As4()
+		key := binary.LittleEndian.Uint32(b[:])
+
+		val := NetXfwRuleValue{
+			Counter:   2, // Deny
+			ExpiresAt: expiry,
+		}
+		if err := mapObj.Update(key, &val, ebpf.UpdateAny); err != nil {
+			return fmt.Errorf("failed to block IPv4 %s: %v", ip, err)
+		}
+	} else if ip.Is6() {
+		mapObj := m.DynLockList6()
+		if mapObj == nil {
+			return fmt.Errorf("IPv6 dyn_lock_list6 not available")
+		}
+
+		key := ip.As16()
+		val := NetXfwRuleValue{
+			Counter:   2, // Deny
+			ExpiresAt: expiry,
+		}
+
+		if err := mapObj.Update(&key, &val, ebpf.UpdateAny); err != nil {
+			return fmt.Errorf("failed to block IPv6 %s: %v", ip, err)
+		}
+	}
+
+	log.Printf("🚫 Blocked IP %s for %v (expiry: %d)", ip, ttl, expiry)
+	return nil
+}
 
 // ForceCleanup removes all pinned maps at the specified path.
 func ForceCleanup(path string) error {
@@ -267,40 +413,56 @@ func (m *Manager) Attach(interfaces []string) error {
 			continue
 		}
 
-		modes := []struct {
-			name string
-			flag link.XDPAttachFlags
-		}{
-			{"Offload", link.XDPOffloadMode},
-			{"Native", link.XDPDriverMode},
-			{"Generic", link.XDPGenericMode},
+		// Try to atomic update existing XDP link
+		linkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/link_%s", name)
+		var attached bool
+
+		if l, err := link.LoadPinnedLink(linkPath, nil); err == nil {
+			if err := l.Update(m.objs.XdpFirewall); err == nil {
+				log.Printf("✅ Atomic Reload: Updated XDP program on %s", name)
+				l.Close()
+				attached = true
+			} else {
+				log.Printf("⚠️  Atomic Reload failed on %s: %v. Fallback to detach/attach.", name, err)
+				l.Close()
+				_ = os.Remove(linkPath) // Force remove to allow re-attach
+			}
 		}
 
-		var attached bool
-		for _, mode := range modes {
-			// Using Pin-less link or simply not storing the link object if we want it to persist.
-			// However, in cilium/ebpf, if the link object is closed, the program is detached.
-			// To keep it persistent, we need to PIN the link or use Raw attach.
-			l, err := link.AttachXDP(link.XDPOptions{
-				Program:   m.objs.XdpFirewall,
-				Interface: iface.Index,
-				Flags:     mode.flag,
-			})
-
-			if err == nil {
-				// Pin the link to filesystem to make it persistent after process exit
-				linkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/link_%s", name)
-				_ = os.Remove(linkPath) // Remove old link pin if exists
-				if err := l.Pin(linkPath); err != nil {
-					log.Printf("⚠️  Failed to pin link on %s: %v", name, err)
-					l.Close()
-					continue
-				}
-				log.Printf("✅ Attached XDP on %s (Mode: %s) and pinned link", name, mode.name)
-				attached = true
-				break
+		if !attached {
+			modes := []struct {
+				name string
+				flag link.XDPAttachFlags
+			}{
+				{"Offload", link.XDPOffloadMode},
+				{"Native", link.XDPDriverMode},
+				{"Generic", link.XDPGenericMode},
 			}
-			log.Printf("⚠️  Failed to attach XDP on %s using %s mode: %v", name, mode.name, err)
+
+			for _, mode := range modes {
+				// Using Pin-less link or simply not storing the link object if we want it to persist.
+				// However, in cilium/ebpf, if the link object is closed, the program is detached.
+				// To keep it persistent, we need to PIN the link or use Raw attach.
+				l, err := link.AttachXDP(link.XDPOptions{
+					Program:   m.objs.XdpFirewall,
+					Interface: iface.Index,
+					Flags:     mode.flag,
+				})
+
+				if err == nil {
+					// Pin the link to filesystem to make it persistent after process exit
+					_ = os.Remove(linkPath) // Remove old link pin if exists
+					if err := l.Pin(linkPath); err != nil {
+						log.Printf("⚠️  Failed to pin link on %s: %v", name, err)
+						l.Close()
+						continue
+					}
+					log.Printf("✅ Attached XDP on %s (Mode: %s) and pinned link", name, mode.name)
+					attached = true
+					break
+				}
+				log.Printf("⚠️  Failed to attach XDP on %s using %s mode: %v", name, mode.name, err)
+			}
 		}
 
 		// Attach TC for egress tracking (required for Conntrack)
@@ -308,22 +470,38 @@ func (m *Manager) Attach(interfaces []string) error {
 		_ = exec.Command("tc", "qdisc", "add", "dev", name, "clsact").Run()
 
 		// 2. Attach TC program
-		tcLink, err := link.AttachTCX(link.TCXOptions{
-			Program:   m.objs.TcEgress,
-			Interface: iface.Index,
-			Attach:    ebpf.AttachTCXEgress,
-		})
-		if err == nil {
-			tcLinkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/tc_link_%s", name)
-			_ = os.Remove(tcLinkPath)
-			if err := tcLink.Pin(tcLinkPath); err != nil {
-				log.Printf("⚠️  Failed to pin TC link on %s: %v", name, err)
-				tcLink.Close()
+		tcLinkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/tc_link_%s", name)
+		var tcAttached bool
+
+		// Try atomic update for TC
+		if tl, err := link.LoadPinnedLink(tcLinkPath, nil); err == nil {
+			if err := tl.Update(m.objs.TcEgress); err == nil {
+				log.Printf("✅ Atomic Reload: Updated TC Egress on %s", name)
+				tl.Close()
+				tcAttached = true
 			} else {
-				log.Printf("✅ Attached TC Egress on %s and pinned link", name)
+				tl.Close()
+				_ = os.Remove(tcLinkPath)
 			}
-		} else {
-			log.Printf("⚠️  Failed to attach TC Egress on %s: %v (Conntrack will not work for this interface)", name, err)
+		}
+
+		if !tcAttached {
+			tcLink, err := link.AttachTCX(link.TCXOptions{
+				Program:   m.objs.TcEgress,
+				Interface: iface.Index,
+				Attach:    ebpf.AttachTCXEgress,
+			})
+			if err == nil {
+				_ = os.Remove(tcLinkPath)
+				if err := tcLink.Pin(tcLinkPath); err != nil {
+					log.Printf("⚠️  Failed to pin TC link on %s: %v", name, err)
+					tcLink.Close()
+				} else {
+					log.Printf("✅ Attached TC Egress on %s and pinned link", name)
+				}
+			} else {
+				log.Printf("⚠️  Failed to attach TC Egress on %s: %v (Conntrack will not work for this interface)", name, err)
+			}
 		}
 
 		if !attached {
@@ -365,6 +543,29 @@ func (m *Manager) Detach(interfaces []string) error {
 		}
 	}
 	return nil
+}
+
+/**
+ * GetAttachedInterfaces returns a list of interfaces that currently have XDP/TC programs attached
+ * by looking for pinned links in the default pin path.
+ */
+func GetAttachedInterfaces(pinPath string) ([]string, error) {
+	entries, err := os.ReadDir(pinPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var interfaces []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "link_") {
+			iface := strings.TrimPrefix(entry.Name(), "link_")
+			interfaces = append(interfaces, iface)
+		}
+	}
+	return interfaces, nil
 }
 
 /**

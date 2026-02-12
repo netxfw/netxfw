@@ -40,9 +40,8 @@ __u64 cached_auto_block_expiry = 0;
 #include "protocols/ipv6.bpf.c"
 #endif
 
-SEC("xdp/ipv4")
-int xdp_ipv4(struct xdp_md *ctx) {
-    // For individual protocol handlers, use sampled config refresh
+// Helper to check and refresh configuration
+static __always_inline void check_config_refresh() {
     __u32 key = 0;
     __u64 *counter_ptr = bpf_map_lookup_elem(&packet_counter, &key);
     if (counter_ptr) {
@@ -51,12 +50,47 @@ int xdp_ipv4(struct xdp_md *ctx) {
             refresh_config();
         }
     }
+}
+
+// Helper to parse Ethernet header and handle VLANs
+static __always_inline int parse_eth_frame(void *data, void *data_end, void **network_header, __u16 *proto) {
+    struct ethhdr *eth = data;
+    if (data + sizeof(*eth) > data_end) return -1;
+
+    *network_header = data + sizeof(*eth);
+    *proto = eth->h_proto;
+
+    // Handle VLANs (802.1Q and 802.1AD)
+    if (*proto == bpf_htons(ETH_P_8021Q) || *proto == bpf_htons(ETH_P_8021AD)) {
+        struct vlan_hdr *vhdr;
+        #pragma unroll
+        for (int i = 0; i < 2; i++) {
+            if (*network_header + sizeof(struct vlan_hdr) > data_end) return -1;
+            vhdr = *network_header;
+            *proto = vhdr->h_vlan_encapsulated_proto;
+            *network_header += sizeof(struct vlan_hdr);
+            if (*proto != bpf_htons(ETH_P_8021Q) && *proto != bpf_htons(ETH_P_8021AD)) break;
+        }
+    }
+    return 0;
+}
+
+SEC("xdp/ipv4")
+int xdp_ipv4(struct xdp_md *ctx) {
+    // Check and refresh config
+    check_config_refresh();
+
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
-    struct ethhdr *eth = data;
-    if (data + sizeof(*eth) > data_end) return XDP_PASS;
+    
+    void *network_header;
+    __u16 h_proto;
+    if (parse_eth_frame(data, data_end, &network_header, &h_proto) < 0) return XDP_PASS;
 
-    int action = handle_ipv4(ctx, data, data_end, eth);
+    // Ensure it is IPv4
+    if (h_proto != bpf_htons(ETH_P_IP)) return XDP_PASS;
+
+    int action = handle_ipv4(ctx, data_end, network_header);
     if (action == XDP_PASS) {
         if (cached_af_xdp_enabled == 1) return bpf_redirect_map(&xsk_map, ctx->rx_queue_index, 0);
         update_pass_stats();
@@ -71,21 +105,20 @@ int xdp_ipv4(struct xdp_md *ctx) {
 SEC("xdp/ipv6")
 int xdp_ipv6(struct xdp_md *ctx) {
 #ifdef ENABLE_IPV6
-    // For individual protocol handlers, use sampled config refresh
-    __u32 key = 0;
-    __u64 *counter_ptr = bpf_map_lookup_elem(&packet_counter, &key);
-    if (counter_ptr) {
-        __u64 current_packet = __atomic_fetch_add(counter_ptr, 1, __ATOMIC_RELAXED);
-        if (current_packet % CONFIG_REFRESH_INTERVAL == 0) {
-            refresh_config();
-        }
-    }
+    // Check and refresh config
+    check_config_refresh();
+
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
-    struct ethhdr *eth = data;
-    if (data + sizeof(*eth) > data_end) return XDP_PASS;
+    
+    void *network_header;
+    __u16 h_proto;
+    if (parse_eth_frame(data, data_end, &network_header, &h_proto) < 0) return XDP_PASS;
 
-    int action = handle_ipv6(ctx, data, data_end, eth);
+    // Ensure it is IPv6
+    if (h_proto != bpf_htons(ETH_P_IPV6)) return XDP_PASS;
+
+    int action = handle_ipv6(ctx, data_end, network_header);
     if (action == XDP_PASS) {
         if (cached_af_xdp_enabled == 1) return bpf_redirect_map(&xsk_map, ctx->rx_queue_index, 0);
         update_pass_stats();
@@ -107,14 +140,7 @@ int xdp_ipv6(struct xdp_md *ctx) {
 SEC("xdp")
 int xdp_firewall(struct xdp_md *ctx) {
     // Sample-based configuration refresh to reduce overhead
-    __u32 key = 0;
-    __u64 *counter_ptr = bpf_map_lookup_elem(&packet_counter, &key);
-    if (counter_ptr) {
-        __u64 current_packet = __atomic_fetch_add(counter_ptr, 1, __ATOMIC_RELAXED);
-        if (current_packet % CONFIG_REFRESH_INTERVAL == 0) {
-            refresh_config();
-        }
-    }
+    check_config_refresh();
 
     // Try to call the first plugin slot / 尝试调用第一个插件槽位
     // If a plugin is loaded, it's responsible for tail-calling the next plugin or the core logic
@@ -124,18 +150,18 @@ int xdp_firewall(struct xdp_md *ctx) {
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
 
-    struct ethhdr *eth = data;
-    if (data + sizeof(*eth) > data_end) return XDP_PASS;
+    void *network_header;
+    __u16 h_proto;
+    if (parse_eth_frame(data, data_end, &network_header, &h_proto) < 0) return XDP_PASS;
 
-    __u16 h_proto = eth->h_proto;
     int action = XDP_PASS;
 
     if (h_proto == bpf_htons(ETH_P_IP)) {
-        action = handle_ipv4(ctx, data, data_end, eth);
+        action = handle_ipv4(ctx, data_end, network_header);
     } 
 #ifdef ENABLE_IPV6
     else if (h_proto == bpf_htons(ETH_P_IPV6)) {
-        action = handle_ipv6(ctx, data, data_end, eth);
+        action = handle_ipv6(ctx, data_end, network_header);
     } 
 #endif
     else if (h_proto == bpf_htons(ETH_P_ARP)) {
@@ -150,6 +176,7 @@ int xdp_firewall(struct xdp_md *ctx) {
 
     // Only update stats if action is PASS or DROP
     if (action == XDP_PASS) {
+        if (cached_af_xdp_enabled == 1) return bpf_redirect_map(&xsk_map, ctx->rx_queue_index, 0);
         update_pass_stats();
     } else if (action == XDP_DROP) {
         update_drop_stats();

@@ -1,0 +1,59 @@
+# NetXFW Log Engine Configuration Example
+# NetXFW 日志引擎配置示例
+#
+# This file serves as a reference for configuring the Log Engine.
+# 此文件作为配置日志引擎的参考。
+
+log_engine:
+  enabled: true       # Enable the log engine / 启用日志引擎
+  workers: 4          # Number of concurrent workers / 并发工作线程数
+  files:              # Log files to monitor / 监控的日志文件
+    - "/var/log/auth.log"
+    - "/var/log/nginx/access.log"
+  
+  rules:
+    # -------------------------------------------------------------------------
+    # Example 1: SSH Brute Force Protection (Case-insensitive)
+    # 示例 1：SSH 防爆破 (不区分大小写)
+    # -------------------------------------------------------------------------
+    - id: "ssh_brute_force"
+      path: "/var/log/auth.log"
+      action: "block"   # Actions: "log", "block" (dynamic), "static" (permanent)
+      ttl: "10m"        # Block duration / 封禁时长
+      
+      # Expression Syntax / 表达式语法:
+      # log("pattern")  -> Case-insensitive match / 不区分大小写匹配
+      # time(seconds)   -> Count occurrences in last N seconds / 过去 N 秒内的计数
+      expression: 'log("Failed password") && log("root") && time(60) > 5'
+
+    # -------------------------------------------------------------------------
+    # Example 2: Strict Security Check (Case-sensitive)
+    # 示例 2：严格安全检查 (区分大小写)
+    # -------------------------------------------------------------------------
+    - id: "strict_check"
+      path: "/var/log/app.log"
+      action: "log"
+      
+      # logE("pattern") -> Case-sensitive match (Exact) / 区分大小写匹配 (精确)
+      expression: 'logE("CRITICAL") && !logE("DEBUG")'
+
+    # -------------------------------------------------------------------------
+    # Example 3: Nginx 404 Flood (Rate Limiting)
+    # 示例 3：Nginx 404 洪水攻击 (速率限制)
+    # -------------------------------------------------------------------------
+    - id: "nginx_404_flood"
+      path: "/var/log/nginx/access.log"
+      action: "block"
+      ttl: "1h"
+      expression: 'log(" 404 ") && time(10) > 20'
+
+    # -------------------------------------------------------------------------
+    # Example 4: Complex Logic with Message Content
+    # 示例 4：带消息内容的复杂逻辑
+    # -------------------------------------------------------------------------
+    - id: "sql_injection_attempt"
+      path: "/var/log/nginx/error.log"
+      action: "static" # Permanent block / 永久封禁
+      
+      # msg() is an alias for log() / msg() 是 log() 的别名
+      expression: '(msg("UNION SELECT") || msg("OR 1=1")) && time(60) > 0'
