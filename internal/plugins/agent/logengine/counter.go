@@ -8,15 +8,14 @@ import (
 
 const (
 	shardsCount = 64
-	// maxWindowSeconds defines the maximum history we keep.
-	maxWindowSeconds = 300 // 5 minutes
 )
 
 // Counter implements a high-performance sliding window counter.
 type Counter struct {
-	shards    [shardsCount]*counterShard
-	statsPool sync.Pool
-	seed      uint64
+	shards           [shardsCount]*counterShard
+	statsPool        sync.Pool
+	seed             uint64
+	maxWindowSeconds int
 }
 
 type counterShard struct {
@@ -26,13 +25,16 @@ type counterShard struct {
 }
 
 type ipStats struct {
-	buckets      [maxWindowSeconds]uint16 // fixed size array to avoid allocation
-	lastIdx      int                      // current second index in global time
-	lastUnixTime int64                    // unix timestamp of the last update
+	buckets      []uint16 // dynamic size slice
+	lastIdx      int      // current second index in global time
+	lastUnixTime int64    // unix timestamp of the last update
 }
 
 // NewCounter creates a new Counter.
-func NewCounter() *Counter {
+func NewCounter(maxWindow int) *Counter {
+	if maxWindow <= 0 {
+		maxWindow = 3600
+	}
 	c := &Counter{
 		statsPool: sync.Pool{
 			New: func() interface{} {
@@ -40,7 +42,8 @@ func NewCounter() *Counter {
 			},
 		},
 		// Simple seed initialization
-		seed: uint64(time.Now().UnixNano()),
+		seed:             uint64(time.Now().UnixNano()),
+		maxWindowSeconds: maxWindow,
 	}
 	for i := 0; i < shardsCount; i++ {
 		c.shards[i] = &counterShard{
@@ -74,35 +77,54 @@ func (c *Counter) getShard(ip netip.Addr) *counterShard {
 func (c *Counter) Inc(ip netip.Addr) {
 	shard := c.getShard(ip)
 	now := time.Now().Unix()
+	mw := int64(c.maxWindowSeconds)
 
 	shard.Lock()
 	stats, ok := shard.counts[ip]
 	if !ok {
 		stats = c.statsPool.Get().(*ipStats)
-		// Reset stats (reused object)
-		stats.buckets = [maxWindowSeconds]uint16{} // Zero out
+		// Initialize or Reset stats
+		if cap(stats.buckets) < c.maxWindowSeconds {
+			stats.buckets = make([]uint16, c.maxWindowSeconds)
+		} else {
+			stats.buckets = stats.buckets[:c.maxWindowSeconds]
+			for i := range stats.buckets {
+				stats.buckets[i] = 0
+			}
+		}
+
 		stats.lastUnixTime = now
-		stats.lastIdx = int(now % maxWindowSeconds)
+		stats.lastIdx = int(now % mw)
 		shard.counts[ip] = stats
 	}
 
-	idx := int(now % maxWindowSeconds)
+	idx := int(now % mw)
 
 	// If time has moved forward, clear old buckets between last update and now
 	if now > stats.lastUnixTime {
 		diff := now - stats.lastUnixTime
-		if diff >= maxWindowSeconds {
-			// Reset all
-			stats.buckets = [maxWindowSeconds]uint16{}
-		} else {
-			// Clear buckets in the gap
-			for i := int64(1); i <= diff; i++ {
-				clearIdx := (stats.lastIdx + int(i)) % maxWindowSeconds
-				stats.buckets[clearIdx] = 0
+		// Fix: Only clear buckets if diff is positive
+		if diff > 0 {
+			if diff >= mw {
+				// Reset all if gap is larger than window
+				for i := range stats.buckets {
+					stats.buckets[i] = 0
+				}
+			} else {
+				// Clear buckets in the gap
+				// We need to clear from (lastIdx + 1) to (lastIdx + diff)
+				for i := int64(1); i <= diff; i++ {
+					clearIdx := (stats.lastIdx + int(i)) % c.maxWindowSeconds
+					stats.buckets[clearIdx] = 0
+				}
 			}
+			stats.lastUnixTime = now
+			stats.lastIdx = idx
 		}
-		stats.lastUnixTime = now
-		stats.lastIdx = idx
+	} else if now < stats.lastUnixTime {
+		// Clock skew or race condition?
+		// Just update the bucket for 'now' (which is in the past relative to lastUnixTime)
+		// idx calculation above handles this.
 	}
 
 	stats.buckets[idx]++
@@ -111,8 +133,8 @@ func (c *Counter) Inc(ip netip.Addr) {
 
 // Count returns the number of hits for the IP in the last windowSeconds.
 func (c *Counter) Count(ip netip.Addr, windowSeconds int) int {
-	if windowSeconds > maxWindowSeconds {
-		windowSeconds = maxWindowSeconds
+	if windowSeconds > c.maxWindowSeconds {
+		windowSeconds = c.maxWindowSeconds
 	}
 
 	shard := c.getShard(ip)
@@ -125,8 +147,9 @@ func (c *Counter) Count(ip netip.Addr, windowSeconds int) int {
 	}
 
 	now := time.Now().Unix()
+	mw := int64(c.maxWindowSeconds)
 
-	if now-stats.lastUnixTime >= int64(maxWindowSeconds) {
+	if now-stats.lastUnixTime >= mw {
 		return 0
 	}
 
@@ -138,12 +161,12 @@ func (c *Counter) Count(ip netip.Addr, windowSeconds int) int {
 			// Future relative to last update, implies 0
 			continue
 		}
-		if t <= stats.lastUnixTime-int64(maxWindowSeconds) {
+		if t <= stats.lastUnixTime-mw {
 			// Too old
 			continue
 		}
 
-		idx := int(t % maxWindowSeconds)
+		idx := int(t % mw)
 		total += int(stats.buckets[idx])
 	}
 
@@ -153,11 +176,12 @@ func (c *Counter) Count(ip netip.Addr, windowSeconds int) int {
 // Cleanup removes old entries to prevent memory leak.
 func (c *Counter) Cleanup() {
 	now := time.Now().Unix()
+	mw := int64(c.maxWindowSeconds)
 	for i := 0; i < shardsCount; i++ {
 		shard := c.shards[i]
 		shard.Lock()
 		for ip, stats := range shard.counts {
-			if now-stats.lastUnixTime > maxWindowSeconds {
+			if now-stats.lastUnixTime > mw {
 				delete(shard.counts, ip)
 				// Return to pool
 				c.statsPool.Put(stats)

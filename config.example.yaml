@@ -146,6 +146,11 @@ rate_limit:
 # Log Engine Configuration / 日志引擎配置
 log_engine:
   enabled: false
+  # Max Window: Maximum time window (in seconds) for frequency tracking.
+  # Default is 3600 (1 hour). If you use time(N) where N > 3600, increase this value.
+  # 最大窗口：频率跟踪的最大时间窗口（秒）。默认 3600（1 小时）。
+  # 如果您使用的 time(N) 其中 N > 3600，请增加此值。
+  max_window: 3600
   workers: 4
   files: []
   # Example / 示例:

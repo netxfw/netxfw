@@ -211,3 +211,85 @@ func TestPersistenceLogic_Mock(t *testing.T) {
 
 	fmt.Println("✅ Persistence file logic verification passed")
 }
+
+func TestLogEngine_LongWindow(t *testing.T) {
+	// 1. Setup Mock Handler
+	mockHandler := &MockActionHandler{}
+
+	// 2. Create Config with 1 hour window rule
+	cfg := types.LogEngineConfig{
+		Enabled: true,
+		Workers: 1,
+		Rules: []types.LogEngineRule{
+			{
+				ID:         "test_rule_1h",
+				Expression: `log("failed")`,
+				Action:     "2",
+				Threshold:  2,    // > 2
+				Interval:   3600, // 1 hour
+			},
+		},
+	}
+
+	le := New(cfg, mockHandler)
+	ip := netip.MustParseAddr("2.2.2.2")
+	event := LogEvent{Line: "failed login", Source: "auth.log", Timestamp: time.Now()}
+
+	// Hit 1
+	le.counter.Inc(ip)
+	_, _, _, matched := le.ruleEngine.Evaluate(ip, event)
+	if matched {
+		t.Errorf("Should not match on 1st hit")
+	}
+
+	// Hit 2
+	le.counter.Inc(ip)
+	_, _, _, matched = le.ruleEngine.Evaluate(ip, event)
+	if matched {
+		t.Errorf("Should not match on 2nd hit")
+	}
+
+	// Hit 3
+	le.counter.Inc(ip)
+	_, _, _, matched = le.ruleEngine.Evaluate(ip, event)
+	if !matched {
+		t.Errorf("Should match on 3rd hit with 3600s window")
+	}
+
+	fmt.Println("✅ 1-Hour Window configuration accepted and working for immediate hits")
+}
+
+func TestCounter_DynamicConfig(t *testing.T) {
+	// Verify that MaxWindow config is respected
+	cfg := types.LogEngineConfig{
+		Enabled:   true,
+		MaxWindow: 7200, // 2 hours
+		Rules:     []types.LogEngineRule{},
+	}
+
+	mockHandler := &MockActionHandler{}
+	le := New(cfg, mockHandler)
+
+	if le.counter.maxWindowSeconds != 7200 {
+		t.Errorf("Expected maxWindowSeconds to be 7200, got %d", le.counter.maxWindowSeconds)
+	}
+
+	// Check if slices are allocated correctly
+	ip := netip.MustParseAddr("3.3.3.3")
+	le.counter.Inc(ip)
+
+	shard := le.counter.getShard(ip)
+	shard.RLock()
+	stats, ok := shard.counts[ip]
+	shard.RUnlock()
+
+	if !ok {
+		t.Fatal("Stats not found for IP")
+	}
+
+	if len(stats.buckets) != 7200 {
+		t.Errorf("Expected bucket size 7200, got %d", len(stats.buckets))
+	}
+
+	fmt.Println("✅ Dynamic Counter Configuration verified")
+}

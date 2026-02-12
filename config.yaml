@@ -127,6 +127,7 @@ rate_limit:
 # Log Engine Configuration / 日志引擎配置
 log_engine:
   enabled: true
+  max_window: 3600
   workers: 4
   # files: [] # Deprecated: Files are now automatically detected from rules
   # 弃用：文件列表现在根据规则自动检测

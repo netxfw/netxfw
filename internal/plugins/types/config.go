@@ -237,9 +237,10 @@ type LoggingConfig struct {
 }
 
 type LogEngineConfig struct {
-	Enabled bool            `yaml:"enabled"`
-	Workers int             `yaml:"workers"`
-	Rules   []LogEngineRule `yaml:"rules"`
+	Enabled   bool            `yaml:"enabled"`
+	Workers   int             `yaml:"workers"`
+	MaxWindow int             `yaml:"max_window"` // Max history window in seconds (default 3600)
+	Rules     []LogEngineRule `yaml:"rules"`
 }
 
 type LogEngineRule struct {

@@ -329,6 +329,19 @@ func (re *RuleEngine) UpdateRules(configs []types.LogEngineRule) error {
 			if interval <= 0 {
 				interval = 60
 			}
+			// IMPORTANT: We must ensure the counter is incremented IF the content matches.
+			// But Evaluate() is supposed to be read-only (query).
+			// The actual Inc() must happen in the caller (plugin.go).
+			// However, if Inc() happens in caller, it increments for ALL logs, or only matching ones?
+			// If only matching ones, it needs to run regex first.
+			//
+			// If we look at how `Count()` works here: it checks the CURRENT count.
+			// If we want "Trigger if > N", it implies we just incremented it.
+			//
+			// The fix for "Count not increasing" (always 2) was the `maxWindowSeconds` increase.
+			// If events are 7 mins apart and window is 5 mins, the count resets to 1 (current event) or 0 (if pre-increment).
+			// By increasing window to 1h (3600s), it will correctly sum them up.
+
 			src = fmt.Sprintf(`(%s) && Count(%d) > %d`, src, interval, cfg.Threshold)
 		}
 

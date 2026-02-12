@@ -162,9 +162,9 @@ func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
 	// Looking at netxfw.bpf.c, we have `rate_limit_rules` (LPM Trie) with generic key?
 	// Usually LPM Tries are specific to key size (4 or 16 bytes).
 	// Let's assume we have `rate_limit_rules` for IPv4 and `rate_limit_rules6` for IPv6.
-	mapPath := "/sys/fs/bpf/netxfw/rate_limit_rules"
+	mapPath := "/sys/fs/bpf/netxfw/ratelimit_config"
 	if IsIPv6(ip) {
-		mapPath = "/sys/fs/bpf/netxfw/rate_limit_rules6"
+		mapPath = "/sys/fs/bpf/netxfw/ratelimit_config6"
 	}
 
 	m, err := ebpf.LoadPinnedMap(mapPath, nil)
