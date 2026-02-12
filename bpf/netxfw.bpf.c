@@ -96,7 +96,8 @@ int xdp_ipv4(struct xdp_md *ctx) {
         update_pass_stats();
         return XDP_PASS;
     } else if (action == XDP_DROP) {
-        update_drop_stats();
+        // Stats are already updated in handle_ipv4/6 with specific reasons
+        // update_drop_stats(); 
         return XDP_DROP;
     }
     return action;
@@ -124,7 +125,8 @@ int xdp_ipv6(struct xdp_md *ctx) {
         update_pass_stats();
         return XDP_PASS;
     } else if (action == XDP_DROP) {
-        update_drop_stats();
+        // Stats are already updated in handle_ipv4/6 with specific reasons
+        // update_drop_stats();
         return XDP_DROP;
     }
     return action;
@@ -168,7 +170,7 @@ int xdp_firewall(struct xdp_md *ctx) {
         return XDP_PASS;
     } else {
         if (cached_strict_proto == 1) {
-            update_drop_stats();
+            update_drop_stats_with_reason(DROP_REASON_PROTOCOL, h_proto, 0, 0);
             return XDP_DROP;
         }
         return XDP_PASS;
@@ -179,7 +181,7 @@ int xdp_firewall(struct xdp_md *ctx) {
         if (cached_af_xdp_enabled == 1) return bpf_redirect_map(&xsk_map, ctx->rx_queue_index, 0);
         update_pass_stats();
     } else if (action == XDP_DROP) {
-        update_drop_stats();
+        // update_drop_stats();
     }
 
     return action;

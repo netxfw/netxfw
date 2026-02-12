@@ -167,12 +167,27 @@ struct {
     __type(value, struct rule_value);
 } dyn_lock_list6 SEC(".maps");
 
+struct drop_detail_key {
+    __u32 reason;
+    __u32 protocol;
+    __u32 src_ip;
+    __u16 dst_port;
+    __u16 pad;
+} __attribute__((packed));
+
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(max_entries, 1);
     __type(key, __u32);
     __type(value, __u64);
 } drop_stats SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(max_entries, 1024);
+    __type(key, struct drop_detail_key);
+    __type(value, __u64);
+} drop_reason_stats SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
