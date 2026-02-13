@@ -17,7 +17,7 @@ Welcome to the netxfw documentation. This directory contains all the documentati
 - [Architecture Overview](./standalone/architecture.md)
 - [Packet Filtering Flow](./standalone/PACKET_FILTER_FLOW.md)
 - [API Reference](./api/reference.md)
-- [CLI Commands](./cli/cli.md)
+- [CLI Commands (Chinese)](./cli/cli.md) | [CLI Commands (English)](./cli/cli_en.md)
 - [XDP Plugin Development Guide](./plugins/xdp/development_guide.md)
 - [Go Plugin Development Guide](./plugins/golang/development_guide.md)
 - [Testing Procedures](./testing/TESTING.md)

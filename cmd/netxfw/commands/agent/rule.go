@@ -57,22 +57,21 @@ Examples:
 		var port int
 		var actionStr string
 
-		// 1. Parse IP and Port from input (e.g., 1.2.3.4:80)
-		if strings.Contains(input, ":") && !strings.Contains(input, "]:") && !strings.HasSuffix(input, ":") {
-			// Handle IPv4:Port or [IPv6]:Port
-			host, portStr, err := net.SplitHostPort(input)
-			if err == nil {
-				ip = host
-				p, err := strconv.Atoi(portStr)
-				if err == nil {
-					port = p
-				}
-			} else {
-				// Maybe it's just an IPv6 address?
-				ip = input
+		// 1. Parse IP and Port from input (e.g., 1.2.3.4:80 or [2001:db8::1]:80)
+		host, portStr, err := net.SplitHostPort(input)
+		if err == nil {
+			// Successfully split into Host and Port
+			ip = host
+			if p, err := strconv.Atoi(portStr); err == nil {
+				port = p
 			}
 		} else {
+			// Could not split (e.g. plain IPv4, plain IPv6, or invalid)
+			// Assume it's just an IP address
 			ip = input
+			// If input was [IPv6], strip brackets for consistency if SplitHostPort didn't do it
+			ip = strings.TrimPrefix(ip, "[")
+			ip = strings.TrimSuffix(ip, "]")
 		}
 
 		// 2. Check remaining arguments
@@ -223,22 +222,21 @@ var ruleRemoveCmd = &cobra.Command{
 		var ip string
 		var port int
 
-		// 1. Parse IP and Port from input (e.g., 1.2.3.4:80)
-		if strings.Contains(input, ":") && !strings.Contains(input, "]:") && !strings.HasSuffix(input, ":") {
-			// Handle IPv4:Port or [IPv6]:Port
-			host, portStr, err := net.SplitHostPort(input)
-			if err == nil {
-				ip = host
-				p, err := strconv.Atoi(portStr)
-				if err == nil {
-					port = p
-				}
-			} else {
-				// Maybe it's just an IPv6 address?
-				ip = input
+		// 1. Parse IP and Port from input (e.g., 1.2.3.4:80 or [2001:db8::1]:80)
+		host, portStr, err := net.SplitHostPort(input)
+		if err == nil {
+			// Successfully split into Host and Port
+			ip = host
+			if p, err := strconv.Atoi(portStr); err == nil {
+				port = p
 			}
 		} else {
+			// Could not split (e.g. plain IPv4, plain IPv6, or invalid)
+			// Assume it's just an IP address
 			ip = input
+			// If input was [IPv6], strip brackets for consistency if SplitHostPort didn't do it
+			ip = strings.TrimPrefix(ip, "[")
+			ip = strings.TrimSuffix(ip, "]")
 		}
 
 		// Check second arg for port if not found yet
@@ -379,7 +377,7 @@ var ruleListCmd = &cobra.Command{
 				common.ShowWhitelist(limit, search)
 				return
 
-			case "blacklist", "lock":
+			case "blacklist", "lock", "deny", "block":
 				// Handle original behavior - show lock list only
 				limit := 100
 				search := ""

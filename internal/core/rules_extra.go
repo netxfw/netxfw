@@ -19,9 +19,6 @@ import (
 // action: 1 = Allow, 2 = Deny (mapped from CLI)
 func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
 	mapPath := "/sys/fs/bpf/netxfw/ip_port_rules"
-	if IsIPv6(ip) {
-		mapPath = "/sys/fs/bpf/netxfw/ip_port_rules6"
-	}
 
 	m, err := ebpf.LoadPinnedMap(mapPath, nil)
 	if err != nil {
@@ -163,9 +160,6 @@ func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
 	// Usually LPM Tries are specific to key size (4 or 16 bytes).
 	// Let's assume we have `rate_limit_rules` for IPv4 and `rate_limit_rules6` for IPv6.
 	mapPath := "/sys/fs/bpf/netxfw/ratelimit_config"
-	if IsIPv6(ip) {
-		mapPath = "/sys/fs/bpf/netxfw/ratelimit_config6"
-	}
 
 	m, err := ebpf.LoadPinnedMap(mapPath, nil)
 	if err != nil {
@@ -265,30 +259,21 @@ func SyncAutoBlockExpiry(seconds uint32) {
 	}
 }
 
-// ClearBlacklist clears all entries from lock_list and lock_list6.
+// ClearBlacklist clears all entries from lock_list.
 func ClearBlacklist() {
 	log.Println("🧹 Clearing blacklist...")
 
-	// Clear IPv4
-	m4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
+	// Clear Unified Map
+	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
 	if err == nil {
-		if _, err := xdp.ClearMap(m4); err != nil {
-			log.Printf("⚠️  Failed to clear IPv4 blacklist: %v", err)
+		if _, err := xdp.ClearMap(m); err != nil {
+			log.Printf("⚠️  Failed to clear blacklist: %v", err)
 		} else {
 			log.Println("✅ IPv4 Blacklist cleared.")
 		}
-		m4.Close()
-	}
-
-	// Clear IPv6
-	m6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list6", nil)
-	if err == nil {
-		if _, err := xdp.ClearMap(m6); err != nil {
-			log.Printf("⚠️  Failed to clear IPv6 blacklist: %v", err)
-		} else {
-			log.Println("✅ IPv6 Blacklist cleared.")
-		}
-		m6.Close()
+		m.Close()
+	} else {
+		log.Printf("⚠️  Failed to load lock_list: %v", err)
 	}
 
 	// Clear persistence file
@@ -332,13 +317,9 @@ func ImportLockListFromFile(path string) {
 	// 2. Iterate and update Maps directly
 	// 3. Update persistence file once at the end
 
-	m4, _ := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
-	if m4 != nil {
-		defer m4.Close()
-	}
-	m6, _ := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list6", nil)
-	if m6 != nil {
-		defer m6.Close()
+	m, _ := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
+	if m != nil {
+		defer m.Close()
 	}
 
 	// Prepare persistence update
@@ -368,13 +349,6 @@ func ImportLockListFromFile(path string) {
 		}
 
 		// Update BPF
-		var m *ebpf.Map
-		if IsIPv6(cidr) {
-			m = m6
-		} else {
-			m = m4
-		}
-
 		if m != nil {
 			if err := xdp.LockIP(m, cidr); err != nil {
 				log.Printf("⚠️  Failed to lock %s: %v", cidr, err)

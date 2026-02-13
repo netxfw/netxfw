@@ -2,7 +2,6 @@
 package xdp
 
 import (
-	"encoding/binary"
 	"fmt"
 	"net"
 	"strings"
@@ -45,20 +44,25 @@ func CheckConflict(mapPtr *ebpf.Map, cidrStr string, isWhitelistMap bool) (bool,
 
 	var val NetXfwRuleValue
 	found := false
-	if ip4 := ip.To4(); ip4 != nil {
-		key := NetXfwLpmKey4{Prefixlen: uint32(ones), Data: binary.LittleEndian.Uint32(ip4)}
-		if err := mapPtr.Lookup(key, &val); err == nil {
-			found = true
-		}
-	} else {
-		var key NetXfwLpmKey6
-		key.Prefixlen = uint32(ones)
-		copy(key.Data.In6U.U6Addr8[:], ip.To16())
-		if err := mapPtr.Lookup(key, &val); err == nil {
-			found = true
-		}
-	}
 
+	var key NetXfwLpmKey
+	var keyData NetXfwIn6Addr
+
+	if ip4 := ip.To4(); ip4 != nil {
+		// Convert to IPv4-mapped IPv6
+		key.Prefixlen = uint32(96 + ones)
+		keyData.In6U.U6Addr8[10] = 0xff
+		keyData.In6U.U6Addr8[11] = 0xff
+		copy(keyData.In6U.U6Addr8[12:], ip4)
+	} else {
+		key.Prefixlen = uint32(ones)
+		copy(keyData.In6U.U6Addr8[:], ip.To16())
+	}
+	key.Data = keyData
+
+	if err := mapPtr.Lookup(key, &val); err == nil {
+		found = true
+	}
 
 	if found {
 		op := "blacklist"
@@ -93,20 +97,27 @@ func LockIP(mapPtr *ebpf.Map, cidrStr string) error {
 	}
 
 	val := NetXfwRuleValue{Counter: 0, ExpiresAt: 0} // Initial drop count and no expiration
-	if ip4 := ip.To4(); ip4 != nil {
-		// IPv4 LPM key
-		key := NetXfwLpmKey4{
-			Prefixlen: uint32(ones),
-			Data:      binary.LittleEndian.Uint32(ip4),
-		}
-		return mapPtr.Put(key, val)
-	}
 
-	// IPv6 LPM key
-	var key NetXfwLpmKey6
-	key.Prefixlen = uint32(ones)
-	copy(key.Data.In6U.U6Addr8[:], ip.To16())
-	return mapPtr.Put(key, val)
+	var key NetXfwLpmKey
+	var keyData NetXfwIn6Addr
+
+	if ip4 := ip.To4(); ip4 != nil {
+		// IPv4-mapped IPv6 key
+		key.Prefixlen = uint32(96 + ones)
+		keyData.In6U.U6Addr8[10] = 0xff
+		keyData.In6U.U6Addr8[11] = 0xff
+		copy(keyData.In6U.U6Addr8[12:], ip4)
+	} else {
+		// IPv6 key
+		key.Prefixlen = uint32(ones)
+		copy(keyData.In6U.U6Addr8[:], ip.To16())
+	}
+	key.Data = keyData
+
+	if err := mapPtr.Update(key, &val, ebpf.UpdateAny); err != nil {
+		return fmt.Errorf("failed to update map: %v", err)
+	}
+	return nil
 }
 
 /**
@@ -138,24 +149,26 @@ func AllowIP(mapPtr *ebpf.Map, cidrStr string, port uint16) error {
 	}
 
 	val := NetXfwRuleValue{Counter: counter, ExpiresAt: 0} // Store port in Counter if > 0
-	if ip4 := ip.To4(); ip4 != nil {
-		key := NetXfwLpmKey4{
-			Prefixlen: uint32(ones),
-			Data:      binary.LittleEndian.Uint32(ip4),
-		}
-		return mapPtr.Put(key, val)
-	}
 
-	var key NetXfwLpmKey6
-	key.Prefixlen = uint32(ones)
-	copy(key.Data.In6U.U6Addr8[:], ip.To16())
+	var key NetXfwLpmKey
+	var keyData NetXfwIn6Addr
+
+	if ip4 := ip.To4(); ip4 != nil {
+		key.Prefixlen = uint32(96 + ones)
+		keyData.In6U.U6Addr8[10] = 0xff
+		keyData.In6U.U6Addr8[11] = 0xff
+		copy(keyData.In6U.U6Addr8[12:], ip4)
+	} else {
+		key.Prefixlen = uint32(ones)
+		copy(keyData.In6U.U6Addr8[:], ip.To16())
+	}
+	key.Data = keyData
+
 	return mapPtr.Put(key, val)
 }
 
-
 /**
- * UnlockIP removes an IPv4 or IPv6 address or CIDR from the BPF map.
- * UnlockIP 从 BPF Map 中移除 IPv4/IPv6 地址或 CIDR 网段。
+ * UnlockIP removes an IP or CIDR from the BPF lock list.
  */
 func UnlockIP(mapPtr *ebpf.Map, cidrStr string) error {
 	ip, ipNet, err := net.ParseCIDR(cidrStr)
@@ -174,18 +187,28 @@ func UnlockIP(mapPtr *ebpf.Map, cidrStr string) error {
 		ones, _ = ipNet.Mask.Size()
 	}
 
-	if ip4 := ip.To4(); ip4 != nil {
-		key := NetXfwLpmKey4{
-			Prefixlen: uint32(ones),
-			Data:      binary.LittleEndian.Uint32(ip4),
-		}
-		return mapPtr.Delete(key)
-	}
+	var key NetXfwLpmKey
+	var keyData NetXfwIn6Addr
 
-	var key NetXfwLpmKey6
-	key.Prefixlen = uint32(ones)
-	copy(key.Data.In6U.U6Addr8[:], ip.To16())
-	return mapPtr.Delete(key)
+	if ip4 := ip.To4(); ip4 != nil {
+		key.Prefixlen = uint32(96 + ones)
+		keyData.In6U.U6Addr8[10] = 0xff
+		keyData.In6U.U6Addr8[11] = 0xff
+		copy(keyData.In6U.U6Addr8[12:], ip4)
+	} else {
+		key.Prefixlen = uint32(ones)
+		copy(keyData.In6U.U6Addr8[:], ip.To16())
+	}
+	key.Data = keyData
+
+	if err := mapPtr.Delete(key); err != nil {
+		// Ignore if not found
+		if strings.Contains(err.Error(), "key does not exist") {
+			return nil
+		}
+		return fmt.Errorf("failed to delete from map: %v", err)
+	}
+	return nil
 }
 
 /**
@@ -193,8 +216,12 @@ func UnlockIP(mapPtr *ebpf.Map, cidrStr string) error {
  * ListWhitelistedIPs 遍历 BPF 白名单 Map 并返回有限数量的允许网段。
  */
 func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) ([]string, int, error) {
+	// isIPv6 is deprecated but kept for compatibility
+	if mapPtr == nil {
+		return nil, 0, nil
+	}
+
 	// Fast Path: Direct lookup if search is a valid CIDR or IP
-	// 快路径：如果搜索内容是有效的 CIDR 或 IP，直接进行 Map 查找
 	if search != "" {
 		ip, ipNet, err := net.ParseCIDR(search)
 		var ones int
@@ -212,23 +239,26 @@ func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string)
 		}
 
 		if ip != nil {
-			// Perform direct lookup / 执行直接查找
 			var val NetXfwRuleValue
 			found := false
-			if ip4 := ip.To4(); ip4 != nil && !isIPv6 {
-				key := NetXfwLpmKey4{Prefixlen: uint32(ones), Data: binary.LittleEndian.Uint32(ip4)}
-				if err := mapPtr.Lookup(key, &val); err == nil {
-					found = true
-				}
-			} else if ip6 := ip.To16(); ip6 != nil && isIPv6 {
-				var key NetXfwLpmKey6
-				key.Prefixlen = uint32(ones)
-				copy(key.Data.In6U.U6Addr8[:], ip6)
-				if err := mapPtr.Lookup(key, &val); err == nil {
-					found = true
-				}
-			}
 
+			var key NetXfwLpmKey
+			var keyData NetXfwIn6Addr
+
+			if ip4 := ip.To4(); ip4 != nil {
+				key.Prefixlen = uint32(96 + ones)
+				keyData.In6U.U6Addr8[10] = 0xff
+				keyData.In6U.U6Addr8[11] = 0xff
+				copy(keyData.In6U.U6Addr8[12:], ip4)
+			} else {
+				key.Prefixlen = uint32(ones)
+				copy(keyData.In6U.U6Addr8[:], ip.To16())
+			}
+			key.Data = keyData
+
+			if err := mapPtr.Lookup(key, &val); err == nil {
+				found = true
+			}
 
 			if found {
 				fullStr := fmt.Sprintf("%s/%d", ip.String(), ones)
@@ -244,53 +274,57 @@ func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string)
 	count := 0
 	iter := mapPtr.Iterate()
 
-	if isIPv6 {
-		var key NetXfwLpmKey6
-		var val NetXfwRuleValue
-		for iter.Next(&key, &val) {
-			// Avoid expensive string formatting if possible
-			// 尽可能避免昂贵的字符串格式化操作
-			ip := net.IP(key.Data.In6U.U6Addr8[:])
-			ipStr := ip.String()
+	var key NetXfwLpmKey
+	var val NetXfwRuleValue
+	for iter.Next(&key, &val) {
+		// Convert unified key to string representation
+		var ipStr string
+		var prefixLen uint32
 
-			if search != "" && !strings.Contains(ipStr, search) {
-				continue
-			}
-
-			count++
-			fullStr := fmt.Sprintf("%s/%d", ipStr, key.Prefixlen)
-			if val.Counter > 1 {
-				fullStr = fmt.Sprintf("%s (port: %d)", fullStr, val.Counter)
-			}
-			ips = append(ips, fullStr)
-			if limit > 0 && len(ips) >= limit {
+		isIPv4Mapped := true
+		// Check for ::ffff:0:0/96 prefix
+		for i := 0; i < 10; i++ {
+			if key.Data.In6U.U6Addr8[i] != 0 {
+				isIPv4Mapped = false
 				break
 			}
 		}
-	} else {
-		var key NetXfwLpmKey4
-		var val NetXfwRuleValue
-		ipBuf := make(net.IP, 4)
-		for iter.Next(&key, &val) {
-			binary.LittleEndian.PutUint32(ipBuf, key.Data)
-			ipStr := ipBuf.String()
+		if isIPv4Mapped && key.Data.In6U.U6Addr8[10] == 0xff && key.Data.In6U.U6Addr8[11] == 0xff {
+			// It is IPv4-mapped
+			ip := net.IPv4(
+				key.Data.In6U.U6Addr8[12],
+				key.Data.In6U.U6Addr8[13],
+				key.Data.In6U.U6Addr8[14],
+				key.Data.In6U.U6Addr8[15],
+			)
+			ipStr = ip.String()
+			if key.Prefixlen >= 96 {
+				prefixLen = key.Prefixlen - 96
+			} else {
+				// Should not happen for valid IPv4 CIDRs stored this way
+				prefixLen = 0
+			}
+		} else {
+			// IPv6
+			ip := net.IP(key.Data.In6U.U6Addr8[:])
+			ipStr = ip.String()
+			prefixLen = key.Prefixlen
+		}
 
-			if search != "" && !strings.Contains(ipStr, search) {
-				continue
-			}
+		if search != "" && !strings.Contains(ipStr, search) {
+			continue
+		}
 
-			count++
-			fullStr := fmt.Sprintf("%s/%d", ipStr, key.Prefixlen)
-			if val.Counter > 1 {
-				fullStr = fmt.Sprintf("%s (port: %d)", fullStr, val.Counter)
-			}
-			ips = append(ips, fullStr)
-			if limit > 0 && len(ips) >= limit {
-				break
-			}
+		count++
+		fullStr := fmt.Sprintf("%s/%d", ipStr, prefixLen)
+		if val.Counter > 1 {
+			fullStr = fmt.Sprintf("%s (port: %d)", fullStr, val.Counter)
+		}
+		ips = append(ips, fullStr)
+		if limit > 0 && len(ips) >= limit {
+			break
 		}
 	}
-
 
 	return ips, count, iter.Err()
 }
@@ -300,53 +334,43 @@ func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string)
  * Returns the number of removed entries.
  */
 func CleanupExpiredRules(mapPtr *ebpf.Map, isIPv6 bool) (int, error) {
+	// isIPv6 param is now redundant but kept for signature compatibility
+	if mapPtr == nil {
+		return 0, nil
+	}
+
 	now := uint64(time.Now().UnixNano())
 	removed := 0
 	iter := mapPtr.Iterate()
 
-	if isIPv6 {
-		var key NetXfwLpmKey6
-		var val NetXfwRuleValue
-		for iter.Next(&key, &val) {
-			if val.ExpiresAt > 0 && now > val.ExpiresAt {
-				if err := mapPtr.Delete(key); err == nil {
-					removed++
-				}
-			}
-		}
-	} else {
-		var key NetXfwLpmKey4
-		var val NetXfwRuleValue
-		for iter.Next(&key, &val) {
-			if val.ExpiresAt > 0 && now > val.ExpiresAt {
-				if err := mapPtr.Delete(key); err == nil {
-					removed++
-				}
+	var key NetXfwLpmKey
+	var val NetXfwRuleValue
+	for iter.Next(&key, &val) {
+		if val.ExpiresAt > 0 && now > val.ExpiresAt {
+			if err := mapPtr.Delete(key); err == nil {
+				removed++
 			}
 		}
 	}
 
-
 	return removed, iter.Err()
 }
-
-
 
 /**
  * ListBlockedIPs iterates over the BPF map and returns limited blocked ranges and stats.
  * ListBlockedIPs 遍历 BPF Map 并返回有限数量的封禁网段及其统计信息。
  */
-func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) (map[string]uint64, int, error) {
-	isLPM := mapPtr.Type() == ebpf.LPMTrie
+func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) ([]BlockedIP, int, error) {
+	// isIPv6 is deprecated/ignored for unified maps
 
-	// Fast Path: Direct lookup if search is a valid CIDR or IP
 	if search != "" {
+		// If search term looks like an IP/CIDR, try direct lookup
 		ip, ipNet, err := net.ParseCIDR(search)
 		var ones int
 		if err != nil {
 			ip = net.ParseIP(search)
 			if ip != nil {
-				if ip.To4() != nil {
+				if ip4 := ip.To4(); ip4 != nil {
 					ones = 32
 				} else {
 					ones = 128
@@ -359,122 +383,88 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) (ma
 		if ip != nil {
 			var val NetXfwRuleValue
 			found := false
-			if ip4 := ip.To4(); ip4 != nil && !isIPv6 {
-				if isLPM {
-					key := NetXfwLpmKey4{Prefixlen: uint32(ones), Data: binary.LittleEndian.Uint32(ip4)}
-					if err := mapPtr.Lookup(key, &val); err == nil {
-						found = true
-					}
-				} else {
-					key := binary.LittleEndian.Uint32(ip4)
-					if err := mapPtr.Lookup(key, &val); err == nil {
-						found = true
-					}
-				}
-			} else if ip6 := ip.To16(); ip6 != nil && isIPv6 {
-				if isLPM {
-					var key NetXfwLpmKey6
-					key.Prefixlen = uint32(ones)
-					copy(key.Data.In6U.U6Addr8[:], ip6)
-					if err := mapPtr.Lookup(key, &val); err == nil {
-						found = true
-					}
-				} else {
-					var key [16]byte
-					copy(key[:], ip6)
-					if err := mapPtr.Lookup(key, &val); err == nil {
-						found = true
-					}
-				}
+
+			var key NetXfwLpmKey
+			var keyData NetXfwIn6Addr
+
+			if ip4 := ip.To4(); ip4 != nil {
+				key.Prefixlen = uint32(96 + ones)
+				keyData.In6U.U6Addr8[10] = 0xff
+				keyData.In6U.U6Addr8[11] = 0xff
+				copy(keyData.In6U.U6Addr8[12:], ip4)
+			} else {
+				key.Prefixlen = uint32(ones)
+				copy(keyData.In6U.U6Addr8[:], ip.To16())
+			}
+			key.Data = keyData
+
+			if err := mapPtr.Lookup(key, &val); err == nil {
+				found = true
 			}
 
 			if found {
 				fullStr := fmt.Sprintf("%s/%d", ip.String(), ones)
-				if !isLPM {
-					fullStr = ip.String()
+				if val.Counter > 1 {
+					fullStr = fmt.Sprintf("%s (port: %d)", fullStr, val.Counter)
 				}
-				return map[string]uint64{fullStr: val.Counter}, 1, nil
+				return []BlockedIP{{IP: fullStr, ExpiresAt: val.ExpiresAt, RuleValue: val}}, 1, nil
 			}
 		}
 	}
 
-	ips := make(map[string]uint64)
+	var ips []BlockedIP
 	count := 0
 	iter := mapPtr.Iterate()
 
-	if isIPv6 {
-		var keyLPM NetXfwLpmKey6
-		var keyHash [16]byte
-		var val NetXfwRuleValue
+	var key NetXfwLpmKey
+	var val NetXfwRuleValue
+	for iter.Next(&key, &val) {
+		// Convert unified key to string representation
+		var ipStr string
+		var prefixLen uint32
 
-		for {
-			var ip net.IP
-			var prefix uint32
-			if isLPM {
-				if !iter.Next(&keyLPM, &val) {
-					break
-				}
-				ip = net.IP(keyLPM.Data.In6U.U6Addr8[:])
-				prefix = keyLPM.Prefixlen
-			} else {
-				if !iter.Next(&keyHash, &val) {
-					break
-				}
-				ip = net.IP(keyHash[:])
-				prefix = 128
-			}
-
-			ipStr := ip.String()
-			if search != "" && !strings.Contains(ipStr, search) {
-				continue
-			}
-
-			count++
-			fullStr := fmt.Sprintf("%s/%d", ipStr, prefix)
-			if !isLPM {
-				fullStr = ipStr
-			}
-			ips[fullStr] = val.Counter
-			if limit > 0 && len(ips) >= limit {
+		isIPv4Mapped := true
+		// Check for ::ffff:0:0/96 prefix
+		for i := 0; i < 10; i++ {
+			if key.Data.In6U.U6Addr8[i] != 0 {
+				isIPv4Mapped = false
 				break
 			}
 		}
-	} else {
-		var keyLPM NetXfwLpmKey4
-		var keyHash uint32
-		var val NetXfwRuleValue
-		ipBuf := make(net.IP, 4)
-
-		for {
-			var prefix uint32
-			if isLPM {
-				if !iter.Next(&keyLPM, &val) {
-					break
-				}
-				binary.LittleEndian.PutUint32(ipBuf, keyLPM.Data)
-				prefix = keyLPM.Prefixlen
+		if isIPv4Mapped && key.Data.In6U.U6Addr8[10] == 0xff && key.Data.In6U.U6Addr8[11] == 0xff {
+			// It is IPv4-mapped
+			ip := net.IPv4(
+				key.Data.In6U.U6Addr8[12],
+				key.Data.In6U.U6Addr8[13],
+				key.Data.In6U.U6Addr8[14],
+				key.Data.In6U.U6Addr8[15],
+			)
+			ipStr = ip.String()
+			if key.Prefixlen >= 96 {
+				prefixLen = key.Prefixlen - 96
 			} else {
-				if !iter.Next(&keyHash, &val) {
-					break
-				}
-				binary.LittleEndian.PutUint32(ipBuf, keyHash)
-				prefix = 32
+				// Should not happen for valid IPv4 CIDRs stored this way
+				prefixLen = 0
 			}
+		} else {
+			// IPv6
+			ip := net.IP(key.Data.In6U.U6Addr8[:])
+			ipStr = ip.String()
+			prefixLen = key.Prefixlen
+		}
 
-			ipStr := ipBuf.String()
-			if search != "" && !strings.Contains(ipStr, search) {
-				continue
-			}
+		if search != "" && !strings.Contains(ipStr, search) {
+			continue
+		}
 
-			count++
-			fullStr := fmt.Sprintf("%s/%d", ipStr, prefix)
-			if !isLPM {
-				fullStr = ipStr
-			}
-			ips[fullStr] = val.Counter
-			if limit > 0 && len(ips) >= limit {
-				break
-			}
+		count++
+		fullStr := fmt.Sprintf("%s/%d", ipStr, prefixLen)
+		if val.Counter > 1 {
+			fullStr = fmt.Sprintf("%s (port: %d)", fullStr, val.Counter)
+		}
+		ips = append(ips, BlockedIP{IP: fullStr, ExpiresAt: val.ExpiresAt, RuleValue: val})
+		if limit > 0 && len(ips) >= limit {
+			break
 		}
 	}
 

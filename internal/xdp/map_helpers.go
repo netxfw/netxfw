@@ -1,7 +1,6 @@
 package xdp
 
 import (
-	"encoding/binary"
 	"fmt"
 	"net"
 
@@ -34,29 +33,64 @@ func AddIPPortRule(m *ebpf.Map, ipStr string, port uint16, action uint8) error {
 	}
 
 	ones, _ := ipNet.Mask.Size()
-	ip4 := ipNet.IP.To4()
-	if ip4 != nil {
-		key := NetXfwLpmIp4PortKey{
-			Prefixlen: uint32(32 + ones),
-			Port:      port,
-			Pad:       0,
-			Ip:        binary.LittleEndian.Uint32(ip4),
-		}
-		return m.Update(key, val, ebpf.UpdateAny)
+
+	var key NetXfwLpmIpPortKey
+	key.Port = port
+
+	if ip4 := ipNet.IP.To4(); ip4 != nil {
+		key.Prefixlen = uint32(96 + ones)
+		key.Ip.In6U.U6Addr8[10] = 0xff
+		key.Ip.In6U.U6Addr8[11] = 0xff
+		copy(key.Ip.In6U.U6Addr8[12:], ip4)
+	} else {
+		key.Prefixlen = uint32(ones)
+		copy(key.Ip.In6U.U6Addr8[:], ipNet.IP.To16())
 	}
 
-	ip6 := ipNet.IP.To16()
-	if ip6 != nil {
-		key := NetXfwLpmIp6PortKey{
-			Port: port,
-			Pad:  0,
-		}
-		copy(key.Ip.In6U.U6Addr8[:], ip6)
-		key.Prefixlen = uint32(32 + ones)
-		return m.Update(key, val, ebpf.UpdateAny)
-	}
+	return m.Update(&key, &val, ebpf.UpdateAny)
+}
 
-	return fmt.Errorf("invalid IP address")
+// FormatIn6Addr formats the unified IPv6 address to string
+func FormatIn6Addr(in6 *NetXfwIn6Addr) string {
+	// Check for IPv4-mapped
+	isIPv4Mapped := true
+	for i := 0; i < 10; i++ {
+		if in6.In6U.U6Addr8[i] != 0 {
+			isIPv4Mapped = false
+			break
+		}
+	}
+	if isIPv4Mapped && in6.In6U.U6Addr8[10] == 0xff && in6.In6U.U6Addr8[11] == 0xff {
+		ip := net.IPv4(
+			in6.In6U.U6Addr8[12],
+			in6.In6U.U6Addr8[13],
+			in6.In6U.U6Addr8[14],
+			in6.In6U.U6Addr8[15],
+		)
+		return ip.String()
+	}
+	ip := net.IP(in6.In6U.U6Addr8[:])
+	return ip.String()
+}
+
+// FormatLpmKey formats the unified LPM key to CIDR string
+func FormatLpmKey(key *NetXfwLpmKey) string {
+	ipStr := FormatIn6Addr(&key.Data)
+	// Adjust prefix len
+	prefixLen := key.Prefixlen
+	isIPv4Mapped := true
+	for i := 0; i < 10; i++ {
+		if key.Data.In6U.U6Addr8[i] != 0 {
+			isIPv4Mapped = false
+			break
+		}
+	}
+	if isIPv4Mapped && key.Data.In6U.U6Addr8[10] == 0xff && key.Data.In6U.U6Addr8[11] == 0xff {
+		if prefixLen >= 96 {
+			prefixLen -= 96
+		}
+	}
+	return fmt.Sprintf("%s/%d", ipStr, prefixLen)
 }
 
 // RemoveIPPortRule removes a rule for a specific IP and Port combination
@@ -78,29 +112,21 @@ func RemoveIPPortRule(m *ebpf.Map, ipStr string, port uint16) error {
 	}
 
 	ones, _ := ipNet.Mask.Size()
-	ip4 := ipNet.IP.To4()
-	if ip4 != nil {
-		key := NetXfwLpmIp4PortKey{
-			Prefixlen: uint32(32 + ones),
-			Port:      port,
-			Pad:       0,
-			Ip:        binary.LittleEndian.Uint32(ip4),
-		}
-		return m.Delete(key)
+
+	var key NetXfwLpmIpPortKey
+	key.Port = port
+
+	if ip4 := ipNet.IP.To4(); ip4 != nil {
+		key.Prefixlen = uint32(96 + ones)
+		key.Ip.In6U.U6Addr8[10] = 0xff
+		key.Ip.In6U.U6Addr8[11] = 0xff
+		copy(key.Ip.In6U.U6Addr8[12:], ip4)
+	} else {
+		key.Prefixlen = uint32(ones)
+		copy(key.Ip.In6U.U6Addr8[:], ipNet.IP.To16())
 	}
 
-	ip6 := ipNet.IP.To16()
-	if ip6 != nil {
-		key := NetXfwLpmIp6PortKey{
-			Prefixlen: uint32(32 + ones),
-			Port:      port,
-			Pad:       0,
-		}
-		copy(key.Ip.In6U.U6Addr8[:], ip6)
-		return m.Delete(key)
-	}
-
-	return fmt.Errorf("invalid IP address")
+	return m.Delete(&key)
 }
 
 // AllowPort adds a port to the allowed ports list
@@ -149,20 +175,18 @@ func AddRateLimitRule(m *ebpf.Map, cidrStr string, rate, burst uint64) error {
 		Burst: burst,
 	}
 
+	var key NetXfwLpmKey
 	if ip4 := ip.To4(); ip4 != nil {
-		key := NetXfwLpmKey4{
-			Prefixlen: uint32(ones),
-			Data:      binary.LittleEndian.Uint32(ip4),
-		}
-		return m.Update(key, val, ebpf.UpdateAny)
+		key.Prefixlen = uint32(96 + ones)
+		key.Data.In6U.U6Addr8[10] = 0xff
+		key.Data.In6U.U6Addr8[11] = 0xff
+		copy(key.Data.In6U.U6Addr8[12:], ip4)
 	} else {
-		key := NetXfwLpmKey6{
-			Prefixlen: uint32(ones),
-			Data:      NetXfwIn6Addr{},
-		}
+		key.Prefixlen = uint32(ones)
 		copy(key.Data.In6U.U6Addr8[:], ip.To16())
-		return m.Update(key, val, ebpf.UpdateAny)
 	}
+
+	return m.Update(&key, &val, ebpf.UpdateAny)
 }
 
 // RemoveRateLimitRule removes a rate limit rule
@@ -183,18 +207,16 @@ func RemoveRateLimitRule(m *ebpf.Map, cidrStr string) error {
 		ones, _ = ipNet.Mask.Size()
 	}
 
+	var key NetXfwLpmKey
 	if ip4 := ip.To4(); ip4 != nil {
-		key := NetXfwLpmKey4{
-			Prefixlen: uint32(ones),
-			Data:      binary.LittleEndian.Uint32(ip4),
-		}
-		return m.Delete(key)
+		key.Prefixlen = uint32(96 + ones)
+		key.Data.In6U.U6Addr8[10] = 0xff
+		key.Data.In6U.U6Addr8[11] = 0xff
+		copy(key.Data.In6U.U6Addr8[12:], ip4)
 	} else {
-		key := NetXfwLpmKey6{
-			Prefixlen: uint32(ones),
-			Data:      NetXfwIn6Addr{},
-		}
+		key.Prefixlen = uint32(ones)
 		copy(key.Data.In6U.U6Addr8[:], ip.To16())
-		return m.Delete(key)
 	}
+
+	return m.Delete(&key)
 }

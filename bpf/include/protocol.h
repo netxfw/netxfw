@@ -43,6 +43,13 @@ struct vlan_hdr {
     __be16 h_vlan_encapsulated_proto;
 };
 
+struct ipv6_frag_hdr {
+    __u8    nexthdr;
+    __u8    reserved;
+    __be16  frag_off;
+    __be32  identification;
+};
+
 // Jump table indices for dynamic modules
 #define PROG_IDX_IPV4 0
 #define PROG_IDX_IPV6 1

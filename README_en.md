@@ -28,7 +28,7 @@
     - **Fragmentation Protection**: Configurable dropping of IP fragments to prevent fragmentation attacks.
     - **SYN Flood Defense**: Apply rate limits specifically to SYN packets to protect legitimate traffic.
 - 📊 **Observability**: Built-in Web UI (default port 11811) and Prometheus Exporter for real-time monitoring of drop rates and active connections.
-- 🧩 **Plugin Architecture**: Support for dynamic loading of third-party plugins via eBPF Tail Calls.
+- 🧩 **Plugin Architecture**: Support for dynamic loading of third-party plugins via eBPF Tail Calls. See [Plugin Development Guide](docs/plugins/plugins.md) for details.
 - 🏗️ **Modular Design**: Structured BPF code (Filter, Ratelimit, Conntrack, Protocols) for clarity and maintainability.
 - 🛠️ **CLI-Driven Control**: Minimalist CLI for dynamic rule and plugin management without service restarts.
 
@@ -55,7 +55,7 @@ rate_limit:
 
 `netxfw` separates the control plane and data plane:
 1. **Data Plane (eBPF/XDP/TC)**:
-    - **XDP**: High-speed packet filtering (LPM matching, Conntrack checks) at the driver layer.
+    - **XDP**: High-speed packet filtering (Unified IPv4/IPv6 LPM matching, Conntrack checks) at the driver layer.
     - **TC (Egress)**: Updates connection tracking state for outbound traffic.
     - **Optimization**: Uses `Per-CPU Maps` for statistics to eliminate multi-core contention.
 2. **Control Plane (Go)**:

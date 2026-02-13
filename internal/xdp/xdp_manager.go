@@ -4,7 +4,6 @@
 package xdp
 
 import (
-	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
@@ -63,9 +62,6 @@ func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 
 	// Use LockList (Static)
 	mapObj := m.LockList()
-	if IsIPv6(cidr) {
-		mapObj = m.LockList6()
-	}
 
 	// Reuse existing LockIP helper
 	if err := LockIP(mapObj, cidr); err != nil {
@@ -94,12 +90,7 @@ func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 
 // AllowStatic adds an IP/CIDR to the whitelist.
 func (m *Manager) AllowStatic(ipStr string, port uint16) error {
-	// Determine if IPv6
-	isV6 := IsIPv6(ipStr)
 	mapObj := m.Whitelist()
-	if isV6 {
-		mapObj = m.Whitelist6()
-	}
 
 	if err := AllowIP(mapObj, ipStr, port); err != nil {
 		return fmt.Errorf("failed to allow %s: %v", ipStr, err)
@@ -109,11 +100,7 @@ func (m *Manager) AllowStatic(ipStr string, port uint16) error {
 
 // RemoveAllowStatic removes an IP/CIDR from the whitelist.
 func (m *Manager) RemoveAllowStatic(ipStr string) error {
-	isV6 := IsIPv6(ipStr)
 	mapObj := m.Whitelist()
-	if isV6 {
-		mapObj = m.Whitelist6()
-	}
 
 	if err := UnlockIP(mapObj, ipStr); err != nil {
 		return fmt.Errorf("failed to remove from whitelist %s: %v", ipStr, err)
@@ -124,9 +111,6 @@ func (m *Manager) RemoveAllowStatic(ipStr string) error {
 // ListWhitelist returns all whitelisted IPs/CIDRs.
 func (m *Manager) ListWhitelist(isIPv6 bool) ([]string, error) {
 	mapObj := m.Whitelist()
-	if isIPv6 {
-		mapObj = m.Whitelist6()
-	}
 	// Use 0 limit to get all
 	ips, _, err := ListWhitelistedIPs(mapObj, isIPv6, 0, "")
 	return ips, err
@@ -147,27 +131,34 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 	if ip.Is4() {
 		mapObj := m.DynLockList()
 		if mapObj == nil {
-			return fmt.Errorf("IPv4 dyn_lock_list not available")
+			return fmt.Errorf("dyn_lock_list not available")
 		}
 
-		// Key is uint32 (little endian)
+		// Use mapped IPv6 for key
+		key := NetXfwIn6Addr{}
 		b := ip.As4()
-		key := binary.LittleEndian.Uint32(b[:])
+		// ::ffff:a.b.c.d
+		key.In6U.U6Addr8[10] = 0xff
+		key.In6U.U6Addr8[11] = 0xff
+		copy(key.In6U.U6Addr8[12:], b[:])
 
 		val := NetXfwRuleValue{
 			Counter:   2, // Deny
 			ExpiresAt: expiry,
 		}
-		if err := mapObj.Update(key, &val, ebpf.UpdateAny); err != nil {
+		if err := mapObj.Update(&key, &val, ebpf.UpdateAny); err != nil {
 			return fmt.Errorf("failed to block IPv4 %s: %v", ip, err)
 		}
 	} else if ip.Is6() {
-		mapObj := m.DynLockList6()
+		mapObj := m.DynLockList()
 		if mapObj == nil {
-			return fmt.Errorf("IPv6 dyn_lock_list6 not available")
+			return fmt.Errorf("dyn_lock_list not available")
 		}
 
-		key := ip.As16()
+		key := NetXfwIn6Addr{}
+		b := ip.As16()
+		copy(key.In6U.U6Addr8[:], b[:])
+
 		val := NetXfwRuleValue{
 			Counter:   2, // Deny
 			ExpiresAt: expiry,
@@ -212,15 +203,9 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 		if m, ok := spec.Maps["conntrack_map"]; ok {
 			m.MaxEntries = uint32(cfg.Conntrack)
 		}
-		if m, ok := spec.Maps["conntrack_map6"]; ok {
-			m.MaxEntries = uint32(cfg.Conntrack)
-		}
 	}
 	if cfg.LockList > 0 {
 		if m, ok := spec.Maps["lock_list"]; ok {
-			m.MaxEntries = uint32(cfg.LockList)
-		}
-		if m, ok := spec.Maps["lock_list6"]; ok {
 			m.MaxEntries = uint32(cfg.LockList)
 		}
 	}
@@ -228,23 +213,14 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 		if m, ok := spec.Maps["dyn_lock_list"]; ok {
 			m.MaxEntries = uint32(cfg.DynLockList)
 		}
-		if m, ok := spec.Maps["dyn_lock_list6"]; ok {
-			m.MaxEntries = uint32(cfg.DynLockList)
-		}
 	}
 	if cfg.Whitelist > 0 {
 		if m, ok := spec.Maps["whitelist"]; ok {
 			m.MaxEntries = uint32(cfg.Whitelist)
 		}
-		if m, ok := spec.Maps["whitelist6"]; ok {
-			m.MaxEntries = uint32(cfg.Whitelist)
-		}
 	}
 	if cfg.IPPortRules > 0 {
 		if m, ok := spec.Maps["ip_port_rules"]; ok {
-			m.MaxEntries = uint32(cfg.IPPortRules)
-		}
-		if m, ok := spec.Maps["ip_port_rules6"]; ok {
 			m.MaxEntries = uint32(cfg.IPPortRules)
 		}
 	}
@@ -261,31 +237,22 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 	}
 
 	manager := &Manager{
-		objs:             objs,
-		lockList:         objs.LockList,
-		dynLockList:      objs.DynLockList,
-		lockList6:        objs.LockList6,
-		dynLockList6:     objs.DynLockList6,
-		whitelist:        objs.Whitelist,
-		whitelist6:       objs.Whitelist6,
-		allowedPorts:     objs.AllowedPorts,
-		ipPortRules:      objs.IpPortRules,
-		ipPortRules6:     objs.IpPortRules6,
-		globalConfig:     objs.GlobalConfig,
-		dropStats:        objs.DropStats,
-		passStats:        objs.PassStats,
-		icmpLimitMap:     objs.IcmpLimitMap,
-		conntrackMap:     objs.ConntrackMap,
-		conntrackMap6:    objs.ConntrackMap6,
-		ratelimitConfig:  objs.RatelimitConfig,
-		ratelimitConfig6: objs.RatelimitConfig6,
-		ratelimitState:   objs.RatelimitState,
-		ratelimitState6:  objs.RatelimitState6,
-		jmpTable:         objs.JmpTable,
-		dropReasonStats:  objs.DropReasonStats,
-		dropReasonStats6: objs.DropReasonStats6,
-		passReasonStats:  objs.PassReasonStats,
-		passReasonStats6: objs.PassReasonStats6,
+		objs:            objs,
+		lockList:        objs.LockList,
+		dynLockList:     objs.DynLockList,
+		whitelist:       objs.Whitelist,
+		allowedPorts:    objs.AllowedPorts,
+		ipPortRules:     objs.IpPortRules,
+		globalConfig:    objs.GlobalConfig,
+		dropStats:       objs.DropStats,
+		passStats:       objs.PassStats,
+		icmpLimitMap:    objs.IcmpLimitMap,
+		conntrackMap:    objs.ConntrackMap,
+		ratelimitConfig: objs.RatelimitConfig,
+		ratelimitState:  objs.RatelimitState,
+		jmpTable:        objs.JmpTable,
+		dropReasonStats: objs.DropReasonStats,
+		passReasonStats: objs.PassReasonStats,
 	}
 
 	// Initialize jump table with default protocol handlers
@@ -328,25 +295,13 @@ func NewManagerFromPins(path string) (*Manager, error) {
 		log.Printf("⚠️  Could not load pinned lock_list: %v", err)
 		m.lockList = objs.LockList
 	}
-	if m.lockList6, err = ebpf.LoadPinnedMap(path+"/lock_list6", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned lock_list6: %v", err)
-		m.lockList6 = objs.LockList6
-	}
 	if m.dynLockList, err = ebpf.LoadPinnedMap(path+"/dyn_lock_list", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned dyn_lock_list: %v", err)
 		m.dynLockList = objs.DynLockList
 	}
-	if m.dynLockList6, err = ebpf.LoadPinnedMap(path+"/dyn_lock_list6", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned dyn_lock_list6: %v", err)
-		m.dynLockList6 = objs.DynLockList6
-	}
 	if m.whitelist, err = ebpf.LoadPinnedMap(path+"/whitelist", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned whitelist: %v", err)
 		m.whitelist = objs.Whitelist
-	}
-	if m.whitelist6, err = ebpf.LoadPinnedMap(path+"/whitelist6", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned whitelist6: %v", err)
-		m.whitelist6 = objs.Whitelist6
 	}
 	if m.allowedPorts, err = ebpf.LoadPinnedMap(path+"/allowed_ports", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned allowed_ports: %v", err)
@@ -355,10 +310,6 @@ func NewManagerFromPins(path string) (*Manager, error) {
 	if m.ipPortRules, err = ebpf.LoadPinnedMap(path+"/ip_port_rules", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned ip_port_rules: %v", err)
 		m.ipPortRules = objs.IpPortRules
-	}
-	if m.ipPortRules6, err = ebpf.LoadPinnedMap(path+"/ip_port_rules6", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned ip_port_rules6: %v", err)
-		m.ipPortRules6 = objs.IpPortRules6
 	}
 	if m.globalConfig, err = ebpf.LoadPinnedMap(path+"/global_config", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned global_config: %v", err)
@@ -372,10 +323,6 @@ func NewManagerFromPins(path string) (*Manager, error) {
 		log.Printf("⚠️  Could not load pinned drop_reason_stats: %v", err)
 		m.dropReasonStats = objs.DropReasonStats
 	}
-	if m.dropReasonStats6, err = ebpf.LoadPinnedMap(path+"/drop_reason_stats6", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned drop_reason_stats6: %v", err)
-		m.dropReasonStats6 = objs.DropReasonStats6
-	}
 	if m.passStats, err = ebpf.LoadPinnedMap(path+"/pass_stats", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned pass_stats: %v", err)
 		m.passStats = objs.PassStats
@@ -383,10 +330,6 @@ func NewManagerFromPins(path string) (*Manager, error) {
 	if m.passReasonStats, err = ebpf.LoadPinnedMap(path+"/pass_reason_stats", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned pass_reason_stats: %v", err)
 		m.passReasonStats = objs.PassReasonStats
-	}
-	if m.passReasonStats6, err = ebpf.LoadPinnedMap(path+"/pass_reason_stats6", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned pass_reason_stats6: %v", err)
-		m.passReasonStats6 = objs.PassReasonStats6
 	}
 	if m.icmpLimitMap, err = ebpf.LoadPinnedMap(path+"/icmp_limit_map", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned icmp_limit_map: %v", err)
@@ -396,25 +339,13 @@ func NewManagerFromPins(path string) (*Manager, error) {
 		log.Printf("⚠️  Could not load pinned conntrack_map: %v", err)
 		m.conntrackMap = objs.ConntrackMap
 	}
-	if m.conntrackMap6, err = ebpf.LoadPinnedMap(path+"/conntrack_map6", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned conntrack_map6: %v", err)
-		m.conntrackMap6 = objs.ConntrackMap6
-	}
 	if m.ratelimitConfig, err = ebpf.LoadPinnedMap(path+"/ratelimit_config", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned ratelimit_config: %v", err)
 		m.ratelimitConfig = objs.RatelimitConfig
 	}
-	if m.ratelimitConfig6, err = ebpf.LoadPinnedMap(path+"/ratelimit_config6", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned ratelimit_config6: %v", err)
-		m.ratelimitConfig6 = objs.RatelimitConfig6
-	}
 	if m.ratelimitState, err = ebpf.LoadPinnedMap(path+"/ratelimit_state", nil); err != nil {
 		log.Printf("⚠️  Could not load pinned ratelimit_state: %v", err)
 		m.ratelimitState = objs.RatelimitState
-	}
-	if m.ratelimitState6, err = ebpf.LoadPinnedMap(path+"/ratelimit_state6", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned ratelimit_state6: %v", err)
-		m.ratelimitState6 = objs.RatelimitState6
 	}
 
 	return m, nil
@@ -594,7 +525,7 @@ func GetAttachedInterfaces(pinPath string) ([]string, error) {
  * MigrateState 将旧管理器的 Map 条目复制到此管理器的 Map 中，用于热加载以保留状态。
  */
 func (m *Manager) MigrateState(old *Manager) error {
-	// Migrate Conntrack (IPv4)
+	// Migrate Conntrack
 	if old.conntrackMap != nil && m.conntrackMap != nil {
 		var key NetXfwCtKey
 		var val NetXfwCtValue
@@ -604,19 +535,9 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Conntrack (IPv6)
-	if old.conntrackMap6 != nil && m.conntrackMap6 != nil {
-		var key NetXfwCtKey6
-		var val NetXfwCtValue
-		iter := old.conntrackMap6.Iterate()
-		for iter.Next(&key, &val) {
-			m.conntrackMap6.Put(&key, &val)
-		}
-	}
-
-	// Migrate Lock List (IPv4)
+	// Migrate Lock List
 	if old.lockList != nil && m.lockList != nil {
-		var key NetXfwLpmKey4
+		var key NetXfwLpmKey
 		var val NetXfwRuleValue
 		iter := old.lockList.Iterate()
 		for iter.Next(&key, &val) {
@@ -624,19 +545,9 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Lock List (IPv6)
-	if old.lockList6 != nil && m.lockList6 != nil {
-		var key NetXfwLpmKey6
-		var val NetXfwRuleValue
-		iter := old.lockList6.Iterate()
-		for iter.Next(&key, &val) {
-			m.lockList6.Put(&key, &val)
-		}
-	}
-
-	// Migrate Dynamic Lock List (IPv4)
+	// Migrate Dynamic Lock List
 	if old.dynLockList != nil && m.dynLockList != nil {
-		var key uint32
+		var key NetXfwLpmKey
 		var val NetXfwRuleValue
 		iter := old.dynLockList.Iterate()
 		for iter.Next(&key, &val) {
@@ -644,19 +555,9 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Dynamic Lock List (IPv6)
-	if old.dynLockList6 != nil && m.dynLockList6 != nil {
-		var key [16]byte
-		var val NetXfwRuleValue
-		iter := old.dynLockList6.Iterate()
-		for iter.Next(&key, &val) {
-			m.dynLockList6.Put(&key, &val)
-		}
-	}
-
-	// Migrate Whitelist (IPv4)
+	// Migrate Whitelist
 	if old.whitelist != nil && m.whitelist != nil {
-		var key NetXfwLpmKey4
+		var key NetXfwLpmKey
 		var val NetXfwRuleValue
 		iter := old.whitelist.Iterate()
 		for iter.Next(&key, &val) {
@@ -664,33 +565,13 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Whitelist (IPv6)
-	if old.whitelist6 != nil && m.whitelist6 != nil {
-		var key NetXfwLpmKey6
-		var val NetXfwRuleValue
-		iter := old.whitelist6.Iterate()
-		for iter.Next(&key, &val) {
-			m.whitelist6.Put(&key, &val)
-		}
-	}
-
-	// Migrate IP+Port Rules (IPv4)
+	// Migrate IP+Port Rules
 	if old.ipPortRules != nil && m.ipPortRules != nil {
-		var key NetXfwLpmIp4PortKey
+		var key NetXfwLpmIpPortKey
 		var val NetXfwRuleValue
 		iter := old.ipPortRules.Iterate()
 		for iter.Next(&key, &val) {
 			m.ipPortRules.Put(&key, &val)
-		}
-	}
-
-	// Migrate IP+Port Rules (IPv6)
-	if old.ipPortRules6 != nil && m.ipPortRules6 != nil {
-		var key NetXfwLpmIp6PortKey
-		var val NetXfwRuleValue
-		iter := old.ipPortRules6.Iterate()
-		for iter.Next(&key, &val) {
-			m.ipPortRules6.Put(&key, &val)
 		}
 	}
 
@@ -707,7 +588,7 @@ func (m *Manager) MigrateState(old *Manager) error {
 
 	// Migrate Rate Limit Config (LPM TRIE)
 	if old.ratelimitConfig != nil && m.ratelimitConfig != nil {
-		var key NetXfwLpmKey4
+		var key NetXfwLpmKey
 		var val NetXfwRatelimitConf
 		iter := old.ratelimitConfig.Iterate()
 		for iter.Next(&key, &val) {
@@ -715,33 +596,13 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Rate Limit Config (IPv6 LPM TRIE)
-	if old.ratelimitConfig6 != nil && m.ratelimitConfig6 != nil {
-		var key NetXfwLpmKey6
-		var val NetXfwRatelimitConf
-		iter := old.ratelimitConfig6.Iterate()
-		for iter.Next(&key, &val) {
-			m.ratelimitConfig6.Put(&key, &val)
-		}
-	}
-
 	// Migrate Rate Limit State (LRU HASH)
 	if old.ratelimitState != nil && m.ratelimitState != nil {
-		var key uint32
+		var key NetXfwIn6Addr
 		var val NetXfwRatelimitStats
 		iter := old.ratelimitState.Iterate()
 		for iter.Next(&key, &val) {
 			m.ratelimitState.Put(&key, &val)
-		}
-	}
-
-	// Migrate Rate Limit State (IPv6 LRU HASH)
-	if old.ratelimitState6 != nil && m.ratelimitState6 != nil {
-		var key NetXfwIn6Addr
-		var val NetXfwRatelimitStats
-		iter := old.ratelimitState6.Iterate()
-		for iter.Next(&key, &val) {
-			m.ratelimitState6.Put(&key, &val)
 		}
 	}
 
@@ -837,28 +698,19 @@ func (m *Manager) Pin(path string) error {
 	}
 
 	pinMap(m.lockList, "lock_list")
-	pinMap(m.lockList6, "lock_list6")
 	pinMap(m.dynLockList, "dyn_lock_list")
-	pinMap(m.dynLockList6, "dyn_lock_list6")
 	pinMap(m.whitelist, "whitelist")
-	pinMap(m.whitelist6, "whitelist6")
 	pinMap(m.allowedPorts, "allowed_ports")
 	pinMap(m.ipPortRules, "ip_port_rules")
-	pinMap(m.ipPortRules6, "ip_port_rules6")
 	pinMap(m.globalConfig, "global_config")
 	pinMap(m.dropStats, "drop_stats")
 	pinMap(m.dropReasonStats, "drop_reason_stats")
-	pinMap(m.dropReasonStats6, "drop_reason_stats6")
 	pinMap(m.icmpLimitMap, "icmp_limit_map")
 	pinMap(m.conntrackMap, "conntrack_map")
-	pinMap(m.conntrackMap6, "conntrack_map6")
 	pinMap(m.passStats, "pass_stats")
 	pinMap(m.passReasonStats, "pass_reason_stats")
-	pinMap(m.passReasonStats6, "pass_reason_stats6")
 	pinMap(m.ratelimitConfig, "ratelimit_config")
-	pinMap(m.ratelimitConfig6, "ratelimit_config6")
 	pinMap(m.ratelimitState, "ratelimit_state")
-	pinMap(m.ratelimitState6, "ratelimit_state6")
 
 	return nil
 }
@@ -866,18 +718,12 @@ func (m *Manager) Pin(path string) error {
 // Unpin removes maps from the filesystem.
 func (m *Manager) Unpin(path string) error {
 	_ = m.lockList.Unpin()
-	_ = m.lockList6.Unpin()
 	if m.dynLockList != nil {
 		_ = m.dynLockList.Unpin()
 	}
-	if m.dynLockList6 != nil {
-		_ = m.dynLockList6.Unpin()
-	}
 	_ = m.whitelist.Unpin()
-	_ = m.whitelist6.Unpin()
 	_ = m.allowedPorts.Unpin()
 	_ = m.ipPortRules.Unpin()
-	_ = m.ipPortRules6.Unpin()
 	_ = m.globalConfig.Unpin()
 	_ = m.dropStats.Unpin()
 	if m.dropReasonStats != nil {
@@ -885,15 +731,10 @@ func (m *Manager) Unpin(path string) error {
 	}
 	_ = m.icmpLimitMap.Unpin()
 	_ = m.conntrackMap.Unpin()
-	if m.conntrackMap6 != nil {
-		_ = m.conntrackMap6.Unpin()
-	}
 	if m.passStats != nil {
 		_ = m.passStats.Unpin()
 	}
 	_ = m.ratelimitConfig.Unpin()
-	_ = m.ratelimitConfig6.Unpin()
 	_ = m.ratelimitState.Unpin()
-	_ = m.ratelimitState6.Unpin()
 	return os.RemoveAll(path)
 }

@@ -10,6 +10,8 @@ var (
 	InstallXDP          func(interfaces []string)
 	ReloadXDP           func(interfaces []string)
 	RemoveXDP           func(interfaces []string)
+	SyncToConfig        func()
+	SyncToMap           func()
 	SyncDefaultDeny     func(enable bool)
 	SyncEnableRateLimit func(enable bool)
 	SyncEnableAFXDP     func(enable bool)

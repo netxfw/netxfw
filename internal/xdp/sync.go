@@ -42,11 +42,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 
 		var targetMap *ebpf.Map
-		if strings.Contains(cidr, ":") {
-			targetMap = m.whitelist6
-		} else {
-			targetMap = m.whitelist
-		}
+		targetMap = m.whitelist
 
 		if targetMap != nil {
 			if err := AllowIP(targetMap, cidr, port); err != nil {
@@ -97,11 +93,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	// 2. Update BPF Maps
 	for _, r := range records {
 		var targetMap *ebpf.Map
-		if r.IsIPv6 {
-			targetMap = m.lockList6
-		} else {
-			targetMap = m.lockList
-		}
+		targetMap = m.lockList
 
 		if targetMap == nil {
 			continue
@@ -228,25 +220,15 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 	// 1. Sync Whitelist from maps to config object
 	wl, _, err := ListBlockedIPs(m.whitelist, false, 0, "")
 	if err == nil {
-		wl6, _, err := ListBlockedIPs(m.whitelist6, true, 0, "")
-		if err == nil {
-			newWhitelist := []string{}
-			for cidr, port := range wl {
-				if port > 1 {
-					newWhitelist = append(newWhitelist, fmt.Sprintf("%s:%d", cidr, port))
-				} else {
-					newWhitelist = append(newWhitelist, cidr)
-				}
+		newWhitelist := []string{}
+		for _, entry := range wl {
+			if entry.RuleValue.Counter > 1 {
+				newWhitelist = append(newWhitelist, fmt.Sprintf("%s:%d", entry.IP, entry.RuleValue.Counter))
+			} else {
+				newWhitelist = append(newWhitelist, entry.IP)
 			}
-			for cidr, port := range wl6 {
-				if port > 1 {
-					newWhitelist = append(newWhitelist, fmt.Sprintf("[%s]:%d", cidr, port))
-				} else {
-					newWhitelist = append(newWhitelist, cidr)
-				}
-			}
-			cfg.Base.Whitelist = newWhitelist
 		}
+		cfg.Base.Whitelist = newWhitelist
 	}
 
 	// 2. List all blocked IPs
@@ -254,47 +236,39 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 	if err != nil {
 		return err
 	}
-	ips6, _, err := ListBlockedIPs(m.lockList6, true, 0, "")
-	if err != nil {
-		return err
-	}
 
 	// 3. Sync IP+Port rules from maps to config object
 	ipPortRules, _, err := m.ListIPPortRules(false, 0, "")
 	if err == nil {
-		ipPortRules6, _, err := m.ListIPPortRules(true, 0, "")
-		if err == nil {
-			var newIPPortRules []types.IPPortRule
+		var newIPPortRules []types.IPPortRule
 
-			// Helper to parse the map back to struct
-			processRules := func(rules map[string]string) {
-				for key, actionStr := range rules {
-					// Key is "IP/PrefixLen:Port"
-					lastColon := strings.LastIndex(key, ":")
-					if lastColon != -1 {
-						ipCIDR := key[:lastColon]
-						portStr := key[lastColon+1:]
-						port := uint16(0)
-						fmt.Sscanf(portStr, "%d", &port)
+		// Helper to parse the map back to struct
+		processRules := func(rules map[string]string) {
+			for key, actionStr := range rules {
+				// Key is "IP/PrefixLen:Port"
+				lastColon := strings.LastIndex(key, ":")
+				if lastColon != -1 {
+					ipCIDR := key[:lastColon]
+					portStr := key[lastColon+1:]
+					port := uint16(0)
+					fmt.Sscanf(portStr, "%d", &port)
 
-						action := uint8(2) // deny
-						if actionStr == "allow" {
-							action = 1
-						}
-
-						newIPPortRules = append(newIPPortRules, types.IPPortRule{
-							IP:     ipCIDR,
-							Port:   port,
-							Action: action,
-						})
+					action := uint8(2) // deny
+					if actionStr == "allow" {
+						action = 1
 					}
+
+					newIPPortRules = append(newIPPortRules, types.IPPortRule{
+						IP:     ipCIDR,
+						Port:   port,
+						Action: action,
+					})
 				}
 			}
-
-			processRules(ipPortRules)
-			processRules(ipPortRules6)
-			cfg.Port.IPPortRules = newIPPortRules
 		}
+
+		processRules(ipPortRules)
+		cfg.Port.IPPortRules = newIPPortRules
 	}
 
 	// 4. Sync allowed ports from map to config object
@@ -358,28 +332,31 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 		}
 	}
 
+	// 7. Write lock_list to file
 	file, err := os.Create(cfg.Base.LockListFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create lock list file: %w", err)
 	}
 	defer file.Close()
 
 	writer := bufio.NewWriter(file)
-	writer.WriteString("# netxfw rules - exported at " + time.Now().Format(time.RFC3339) + "\n")
-
-	for cidr := range ips {
-		writer.WriteString(cidr + "\n")
+	for _, entry := range ips {
+		// Only write if it's a simple block (counter == 0) and not a dynamic rule (check expiresAt?)
+		// Actually, lock_list contains static blocks. dyn_lock_list is separate.
+		// So we just dump everything from lock_list.
+		if _, err := writer.WriteString(entry.IP + "\n"); err != nil {
+			return err
+		}
 	}
-	for cidr := range ips6 {
-		writer.WriteString(cidr + "\n")
+	if err := writer.Flush(); err != nil {
+		return err
 	}
-
-	return writer.Flush()
+	return nil
 }
 
 // ClearMaps clears all rules from blacklist and whitelist maps.
 func (m *Manager) ClearMaps() {
-	maps := []*ebpf.Map{m.lockList, m.lockList6, m.whitelist, m.whitelist6, m.ipPortRules, m.ipPortRules6}
+	maps := []*ebpf.Map{m.lockList, m.whitelist, m.ipPortRules}
 	for _, emap := range maps {
 		if emap == nil {
 			continue

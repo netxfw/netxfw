@@ -40,10 +40,18 @@ func (m *Manager) GetDropDetails() ([]DropDetailEntry, error) {
 		}
 
 		if totalCount > 0 {
+			var srcIP string
+			isMappedIPv4 := key.SrcIp.In6U.U6Addr8[10] == 0xff && key.SrcIp.In6U.U6Addr8[11] == 0xff
+			if isMappedIPv4 {
+				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[12:]).String()
+			} else {
+				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[:]).String()
+			}
+
 			results = append(results, DropDetailEntry{
 				Reason:   key.Reason,
 				Protocol: key.Protocol,
-				SrcIP:    intToIP(key.SrcIp).String(),
+				SrcIP:    srcIP,
 				DstPort:  key.DstPort,
 				Count:    totalCount,
 			})
@@ -51,32 +59,6 @@ func (m *Manager) GetDropDetails() ([]DropDetailEntry, error) {
 	}
 	if err := iter.Err(); err != nil {
 		return nil, fmt.Errorf("iterate drop reason stats: %w", err)
-	}
-
-	// IPv6 Stats
-	if m.dropReasonStats6 != nil {
-		var key6 NetXfwDropDetailKey6
-		iter6 := m.dropReasonStats6.Iterate()
-		for iter6.Next(&key6, &values) {
-			var totalCount uint64
-			for _, v := range values {
-				totalCount += v
-			}
-
-			if totalCount > 0 {
-				ip := net.IP(key6.SrcIp.In6U.U6Addr8[:])
-				results = append(results, DropDetailEntry{
-					Reason:   key6.Reason,
-					Protocol: key6.Protocol,
-					SrcIP:    ip.String(),
-					DstPort:  key6.DstPort,
-					Count:    totalCount,
-				})
-			}
-		}
-		if err := iter6.Err(); err != nil {
-			return nil, fmt.Errorf("iterate drop reason stats6: %w", err)
-		}
 	}
 
 	return results, nil
@@ -94,7 +76,6 @@ func (m *Manager) GetPassDetails() ([]DropDetailEntry, error) {
 	var key NetXfwDropDetailKey
 	var values []uint64
 
-	// IPv4
 	iter := m.passReasonStats.Iterate()
 	for iter.Next(&key, &values) {
 		var totalCount uint64
@@ -103,10 +84,18 @@ func (m *Manager) GetPassDetails() ([]DropDetailEntry, error) {
 		}
 
 		if totalCount > 0 {
+			var srcIP string
+			isMappedIPv4 := key.SrcIp.In6U.U6Addr8[10] == 0xff && key.SrcIp.In6U.U6Addr8[11] == 0xff
+			if isMappedIPv4 {
+				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[12:]).String()
+			} else {
+				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[:]).String()
+			}
+
 			results = append(results, DropDetailEntry{
 				Reason:   key.Reason,
 				Protocol: key.Protocol,
-				SrcIP:    intToIP(key.SrcIp).String(),
+				SrcIP:    srcIP,
 				DstPort:  key.DstPort,
 				Count:    totalCount,
 			})
@@ -114,32 +103,6 @@ func (m *Manager) GetPassDetails() ([]DropDetailEntry, error) {
 	}
 	if err := iter.Err(); err != nil {
 		return nil, fmt.Errorf("iterate pass reason stats: %w", err)
-	}
-
-	// IPv6
-	if m.passReasonStats6 != nil {
-		var key6 NetXfwDropDetailKey6
-		iter6 := m.passReasonStats6.Iterate()
-		for iter6.Next(&key6, &values) {
-			var totalCount uint64
-			for _, v := range values {
-				totalCount += v
-			}
-
-			if totalCount > 0 {
-				ip := net.IP(key6.SrcIp.In6U.U6Addr8[:])
-				results = append(results, DropDetailEntry{
-					Reason:   key6.Reason,
-					Protocol: key6.Protocol,
-					SrcIP:    ip.String(),
-					DstPort:  key6.DstPort,
-					Count:    totalCount,
-				})
-			}
-		}
-		if err := iter6.Err(); err != nil {
-			return nil, fmt.Errorf("iterate pass reason stats6: %w", err)
-		}
 	}
 
 	return results, nil
@@ -218,20 +181,10 @@ func (m *Manager) GetPassCount() (uint64, error) {
 func (m *Manager) GetLockedIPCount() (uint64, error) {
 	var count uint64
 
-	// Count IPv4 locked IPs
+	// Count unified locked IPs
 	if m.lockList != nil {
 		iter := m.lockList.Iterate()
-		var key NetXfwLpmKey4
-		var val NetXfwRuleValue
-		for iter.Next(&key, &val) {
-			count++
-		}
-	}
-
-	// Count IPv6 locked IPs
-	if m.lockList6 != nil {
-		iter := m.lockList6.Iterate()
-		var key NetXfwLpmKey6
+		var key NetXfwLpmKey
 		var val NetXfwRuleValue
 		for iter.Next(&key, &val) {
 			count++
@@ -248,15 +201,7 @@ func (m *Manager) GetWhitelistCount() (uint64, error) {
 	var count uint64
 	if m.whitelist != nil {
 		iter := m.whitelist.Iterate()
-		var key NetXfwLpmKey4
-		var val NetXfwRuleValue
-		for iter.Next(&key, &val) {
-			count++
-		}
-	}
-	if m.whitelist6 != nil {
-		iter := m.whitelist6.Iterate()
-		var key NetXfwLpmKey6
+		var key NetXfwLpmKey
 		var val NetXfwRuleValue
 		for iter.Next(&key, &val) {
 			count++
@@ -278,14 +223,6 @@ func (m *Manager) GetConntrackCount() (uint64, error) {
 			count++
 		}
 	}
-	if m.conntrackMap6 != nil {
-		iter := m.conntrackMap6.Iterate()
-		var key NetXfwCtKey6
-		var val NetXfwCtValue
-		for iter.Next(&key, &val) {
-			count++
-		}
-	}
 	return count, nil
 }
 
@@ -295,36 +232,30 @@ func (m *Manager) GetConntrackCount() (uint64, error) {
 func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
 	var entries []ConntrackEntry
 
-	// List IPv4 entries
+	// List unified entries
 	if m.conntrackMap != nil {
 		var key NetXfwCtKey
 		var val NetXfwCtValue
 		iter := m.conntrackMap.Iterate()
 		for iter.Next(&key, &val) {
-			entry := ConntrackEntry{
-				SrcIP:    intToIP(key.SrcIp).String(),
-				DstIP:    intToIP(key.DstIp).String(),
-				SrcPort:  key.SrcPort,
-				DstPort:  key.DstPort,
-				Protocol: key.Protocol,
-				LastSeen: time.Unix(0, int64(val.LastSeen)),
-			}
-			entries = append(entries, entry)
-		}
-		if err := iter.Err(); err != nil {
-			return nil, fmt.Errorf("iterate ipv4 conntrack: %w", err)
-		}
-	}
+			var srcIP, dstIP string
 
-	// List IPv6 entries
-	if m.conntrackMap6 != nil {
-		var key NetXfwCtKey6
-		var val NetXfwCtValue
-		iter := m.conntrackMap6.Iterate()
-		for iter.Next(&key, &val) {
+			// Check for IPv4-mapped IPv6
+			if key.SrcIp.In6U.U6Addr8[10] == 0xff && key.SrcIp.In6U.U6Addr8[11] == 0xff {
+				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[12:]).String()
+			} else {
+				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[:]).String()
+			}
+
+			if key.DstIp.In6U.U6Addr8[10] == 0xff && key.DstIp.In6U.U6Addr8[11] == 0xff {
+				dstIP = net.IP(key.DstIp.In6U.U6Addr8[12:]).String()
+			} else {
+				dstIP = net.IP(key.DstIp.In6U.U6Addr8[:]).String()
+			}
+
 			entry := ConntrackEntry{
-				SrcIP:    net.IP(key.SrcIp.In6U.U6Addr8[:]).String(),
-				DstIP:    net.IP(key.DstIp.In6U.U6Addr8[:]).String(),
+				SrcIP:    srcIP,
+				DstIP:    dstIP,
 				SrcPort:  key.SrcPort,
 				DstPort:  key.DstPort,
 				Protocol: key.Protocol,
@@ -333,7 +264,7 @@ func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
 			entries = append(entries, entry)
 		}
 		if err := iter.Err(); err != nil {
-			return nil, fmt.Errorf("iterate ipv6 conntrack: %w", err)
+			return nil, fmt.Errorf("iterate conntrack: %w", err)
 		}
 	}
 

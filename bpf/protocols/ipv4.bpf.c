@@ -21,11 +21,16 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
 
     __u16 src_port = 0, dest_port = 0;
     __u8 tcp_flags = 0;
+
+    // Convert to IPv6-mapped address for unified processing
+    struct in6_addr src_ip6 = {};
+    ipv4_to_ipv6_mapped(ip->saddr, &src_ip6);
     
     // 0. Sanity Checks & Bogon Filtering
     if (unlikely(cached_bogon_filter == 1)) {
+        // Use IPv4 specific check for original address
         if (unlikely(is_bogon_ipv4(ip->saddr))) {
-            update_drop_stats_with_reason(DROP_REASON_BOGON, ip->protocol, ip->saddr, dest_port);
+            update_drop_stats_with_reason(DROP_REASON_BOGON, ip->protocol, &src_ip6, dest_port);
             return XDP_DROP;
         }
     }
@@ -33,7 +38,7 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
     // Fragmentation check
     if (unlikely(cached_drop_frags == 1)) {
         if (unlikely(bpf_ntohs(ip->frag_off) & (IP_MF | IP_OFFSET))) {
-            update_drop_stats_with_reason(DROP_REASON_FRAGMENT, ip->protocol, ip->saddr, dest_port);
+            update_drop_stats_with_reason(DROP_REASON_FRAGMENT, ip->protocol, &src_ip6, dest_port);
             return XDP_DROP;
         }
     }
@@ -42,7 +47,7 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
     __u32 ip_len = ip->ihl * 4;
     // Sanity check for minimum IP header length
     if (unlikely(ip_len < sizeof(*ip))) {
-        update_drop_stats_with_reason(DROP_REASON_BAD_HEADER, ip->protocol, ip->saddr, dest_port);
+        update_drop_stats_with_reason(DROP_REASON_BAD_HEADER, ip->protocol, &src_ip6, dest_port);
         return XDP_DROP;
     }
 
@@ -56,13 +61,13 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
                 // Strict TCP validation
                 if (unlikely(cached_strict_tcp == 1)) {
                     if (unlikely(is_invalid_tcp_flags(tcp_flags))) {
-                        update_drop_stats_with_reason(DROP_REASON_STRICT_TCP, ip->protocol, ip->saddr, dest_port);
+                        update_drop_stats_with_reason(DROP_REASON_STRICT_TCP, ip->protocol, &src_ip6, dest_port);
                         return XDP_DROP;
                     }
                 } else {
                     // Basic sanity even if strict mode is off
                     if (unlikely(tcp_flags == 0 || (tcp->syn && tcp->fin))) {
-                        update_drop_stats_with_reason(DROP_REASON_TCP_FLAGS, ip->protocol, ip->saddr, dest_port);
+                        update_drop_stats_with_reason(DROP_REASON_TCP_FLAGS, ip->protocol, &src_ip6, dest_port);
                         return XDP_DROP;
                     }
                 }
@@ -78,25 +83,25 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
 
     // 0. Anti-Spoofing & Land Attack
     if (unlikely((ip->saddr & bpf_htonl(0xf0000000)) == bpf_htonl(0xe0000000) || ip->saddr == bpf_htonl(0xffffffff))) {
-        update_drop_stats_with_reason(DROP_REASON_SPOOF, ip->protocol, ip->saddr, dest_port);
+        update_drop_stats_with_reason(DROP_REASON_SPOOF, ip->protocol, &src_ip6, dest_port);
         return XDP_DROP;
     }
     if (unlikely(is_land_attack_ipv4(ip->saddr, ip->daddr))) {
-        update_drop_stats_with_reason(DROP_REASON_LAND_ATTACK, ip->protocol, ip->saddr, dest_port);
+        update_drop_stats_with_reason(DROP_REASON_LAND_ATTACK, ip->protocol, &src_ip6, dest_port);
         return XDP_DROP;
     }
 
     // 1. Whitelist
-    if (unlikely(is_whitelisted(ip->saddr, dest_port))) {
-        update_pass_stats_with_reason(PASS_REASON_WHITELIST, ip->protocol, ip->saddr, dest_port);
+    if (unlikely(is_whitelisted(&src_ip6, dest_port))) {
+        update_pass_stats_with_reason(PASS_REASON_WHITELIST, ip->protocol, &src_ip6, dest_port);
         return XDP_PASS;
     }
 
-    // 2. Lock list
-    struct rule_value *cnt = get_blacklist_stats(ip->saddr);
+    // 2. Lock list (Blacklist)
+    struct rule_value *cnt = get_blacklist_stats(&src_ip6);
     if (unlikely(cnt)) {
         __sync_fetch_and_add(&cnt->counter, 1);
-        update_drop_stats_with_reason(DROP_REASON_BLACKLIST, ip->protocol, ip->saddr, dest_port);
+        update_drop_stats_with_reason(DROP_REASON_BLACKLIST, ip->protocol, &src_ip6, dest_port);
         return XDP_DROP;
     }
 
@@ -107,8 +112,8 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
         int is_syn = (ip->protocol == IPPROTO_TCP && (tcp_flags & 0x02));
         
         if (likely(cached_syn_limit == 0 || is_syn)) {
-            if (unlikely(!check_ratelimit(ip->saddr))) {
-                update_drop_stats_with_reason(DROP_REASON_RATELIMIT, ip->protocol, ip->saddr, dest_port);
+            if (unlikely(!check_ratelimit(&src_ip6))) {
+                update_drop_stats_with_reason(DROP_REASON_RATELIMIT, ip->protocol, &src_ip6, dest_port);
                 return XDP_DROP;
             }
         }
@@ -116,27 +121,34 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
 
     // 3. Conntrack
     if (likely(cached_ct_enabled == 1)) {
+        struct in6_addr dst_ip6 = {};
+        ipv4_to_ipv6_mapped(ip->daddr, &dst_ip6);
+        
         struct ct_key look_key = {
-            .src_ip = ip->daddr, .dst_ip = ip->saddr,
-            .src_port = dest_port, .dst_port = src_port,
+            // Using mapped addresses for unified lookup
+            // Original: src=daddr, dst=saddr (reverse flow check)
+            .src_ip = dst_ip6, 
+            .dst_ip = src_ip6,
+            .src_port = dest_port, 
+            .dst_port = src_port,
             .protocol = ip->protocol,
         };
         struct ct_value *ct_val = bpf_map_lookup_elem(&conntrack_map, &look_key);
         if (likely(ct_val && (bpf_ktime_get_ns() - ct_val->last_seen < cached_ct_timeout))) {
-            update_pass_stats_with_reason(PASS_REASON_CONNTRACK, ip->protocol, ip->saddr, dest_port);
+            update_pass_stats_with_reason(PASS_REASON_CONNTRACK, ip->protocol, &src_ip6, dest_port);
             return XDP_PASS;
         }
     }
 
     // 4. IP+Port rules
     if (dest_port > 0) {
-        int rule_action = check_ip_port_rule(ip->saddr, dest_port);
+        int rule_action = check_ip_port_rule(&src_ip6, dest_port);
         if (unlikely(rule_action == 1)) {
-            update_pass_stats_with_reason(PASS_REASON_WHITELIST, ip->protocol, ip->saddr, dest_port);
+            update_pass_stats_with_reason(PASS_REASON_WHITELIST, ip->protocol, &src_ip6, dest_port);
             return XDP_PASS;
         }
         if (unlikely(rule_action == 2)) {
-            update_drop_stats_with_reason(DROP_REASON_BLACKLIST, ip->protocol, ip->saddr, dest_port);
+            update_drop_stats_with_reason(DROP_REASON_BLACKLIST, ip->protocol, &src_ip6, dest_port);
             return XDP_DROP;
         }
     }
@@ -144,10 +156,10 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
     // 5. ICMP
     if (unlikely(ip->protocol == IPPROTO_ICMP && cached_allow_icmp == 1)) {
         if (likely(check_icmp_limit(cached_icmp_rate, cached_icmp_burst))) {
-            update_pass_stats_with_reason(PASS_REASON_WHITELIST, ip->protocol, ip->saddr, dest_port);
+            update_pass_stats_with_reason(PASS_REASON_WHITELIST, ip->protocol, &src_ip6, dest_port);
             return XDP_PASS;
         }
-        update_drop_stats_with_reason(DROP_REASON_RATELIMIT, ip->protocol, ip->saddr, dest_port);
+        update_drop_stats_with_reason(DROP_REASON_RATELIMIT, ip->protocol, &src_ip6, dest_port);
         return XDP_DROP;
     }
 
@@ -156,11 +168,11 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
         if (ip->protocol == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip + sizeof(*ip);
             if ((void *)tcp + sizeof(*tcp) <= data_end && tcp->ack && dest_port >= 32768) {
-                update_pass_stats_with_reason(PASS_REASON_RETURN, ip->protocol, ip->saddr, dest_port);
+                update_pass_stats_with_reason(PASS_REASON_RETURN, ip->protocol, &src_ip6, dest_port);
                 return XDP_PASS;
             }
         } else if (ip->protocol == IPPROTO_UDP && dest_port >= 32768) {
-            update_pass_stats_with_reason(PASS_REASON_RETURN, ip->protocol, ip->saddr, dest_port);
+            update_pass_stats_with_reason(PASS_REASON_RETURN, ip->protocol, &src_ip6, dest_port);
             return XDP_PASS;
         }
     }
@@ -168,14 +180,14 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
     // 7. Default Deny / Port Whitelist
     if (likely(dest_port > 0 && cached_default_deny == 1)) {
         if (likely(bpf_map_lookup_elem(&allowed_ports, &dest_port))) {
-            update_pass_stats_with_reason(PASS_REASON_WHITELIST, ip->protocol, ip->saddr, dest_port);
+            update_pass_stats_with_reason(PASS_REASON_WHITELIST, ip->protocol, &src_ip6, dest_port);
             return XDP_PASS;
         }
-        update_drop_stats_with_reason(DROP_REASON_DEFAULT, ip->protocol, ip->saddr, dest_port);
+        update_drop_stats_with_reason(DROP_REASON_DEFAULT, ip->protocol, &src_ip6, dest_port);
         return XDP_DROP;
     }
 
-    update_pass_stats_with_reason(PASS_REASON_DEFAULT, ip->protocol, ip->saddr, dest_port);
+    update_pass_stats_with_reason(PASS_REASON_DEFAULT, ip->protocol, &src_ip6, dest_port);
     return XDP_PASS;
 }
 

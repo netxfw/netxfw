@@ -165,13 +165,10 @@ func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
 			}
 			// Cleanup all maps that support expiration
 			removed, _ := xdp.CleanupExpiredRules(m.LockList(), false)
-			removed6, _ := xdp.CleanupExpiredRules(m.LockList6(), true)
 			removedW, _ := xdp.CleanupExpiredRules(m.Whitelist(), false)
-			removedW6, _ := xdp.CleanupExpiredRules(m.Whitelist6(), true)
 			removedP, _ := xdp.CleanupExpiredRules(m.IpPortRules(), false)
-			removedP6, _ := xdp.CleanupExpiredRules(m.IpPortRules6(), true)
 
-			total := removed + removed6 + removedW + removedW6 + removedP + removedP6
+			total := removed + removedW + removedP
 			if total > 0 {
 				log.Printf("🧹 Cleanup: removed %d expired rules from BPF maps", total)
 			}

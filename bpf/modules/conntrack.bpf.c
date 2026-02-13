@@ -70,7 +70,15 @@ int tc_egress(struct __sk_buff *skb) {
             }
         }
         if (unlikely(src_port == 0 || dst_port == 0)) return TC_ACT_OK;
-        struct ct_key ct_key = { .src_ip = ip->saddr, .dst_ip = ip->daddr, .src_port = src_port, .dst_port = dst_port, .protocol = protocol };
+
+        struct ct_key ct_key = { 
+            .src_port = src_port, 
+            .dst_port = dst_port, 
+            .protocol = protocol 
+        };
+        ipv4_to_ipv6_mapped(ip->saddr, &ct_key.src_ip);
+        ipv4_to_ipv6_mapped(ip->daddr, &ct_key.dst_ip);
+
         if (likely(protocol == IPPROTO_TCP)) {
             if (tcp_flags & 1) {
                 struct ct_value ct_val = { .last_seen = bpf_ktime_get_ns() };
@@ -158,7 +166,7 @@ int tc_egress(struct __sk_buff *skb) {
         
         if (unlikely(src_port == 0 || dst_port == 0)) return TC_ACT_OK;
         
-        struct ct_key6 ct_key = { 
+        struct ct_key ct_key = { 
             .src_ip = ip6->saddr, .dst_ip = ip6->daddr, 
             .src_port = src_port, .dst_port = dst_port, 
             .protocol = protocol 
@@ -167,9 +175,9 @@ int tc_egress(struct __sk_buff *skb) {
         if (likely(protocol == IPPROTO_TCP)) {
             if (tcp_flags & 1) {
                  struct ct_value ct_val = { .last_seen = bpf_ktime_get_ns() };
-                 bpf_map_update_elem(&conntrack_map6, &ct_key, &ct_val, BPF_ANY);
+                 bpf_map_update_elem(&conntrack_map, &ct_key, &ct_val, BPF_ANY);
             } else {
-                 struct ct_value *exists = bpf_map_lookup_elem(&conntrack_map6, &ct_key);
+                 struct ct_value *exists = bpf_map_lookup_elem(&conntrack_map, &ct_key);
                  if (likely(exists)) {
                      __u64 now = bpf_ktime_get_ns();
                      if (now - exists->last_seen > 1000000000) {
@@ -178,7 +186,7 @@ int tc_egress(struct __sk_buff *skb) {
                  }
             }
         } else {
-             struct ct_value *exists = bpf_map_lookup_elem(&conntrack_map6, &ct_key);
+             struct ct_value *exists = bpf_map_lookup_elem(&conntrack_map, &ct_key);
              __u64 now = bpf_ktime_get_ns();
              if (exists) {
                  if (now - exists->last_seen > 1000000000) {
@@ -186,7 +194,7 @@ int tc_egress(struct __sk_buff *skb) {
                  }
              } else {
                  struct ct_value ct_val = { .last_seen = now };
-                 bpf_map_update_elem(&conntrack_map6, &ct_key, &ct_val, BPF_ANY);
+                 bpf_map_update_elem(&conntrack_map, &ct_key, &ct_val, BPF_ANY);
              }
         }
 #endif

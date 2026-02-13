@@ -17,9 +17,6 @@ import (
  */
 func SyncLockMap(cidrStr string, lock bool) {
 	mapPath := "/sys/fs/bpf/netxfw/lock_list"
-	if IsIPv6(cidrStr) {
-		mapPath = "/sys/fs/bpf/netxfw/lock_list6"
-	}
 
 	m, err := ebpf.LoadPinnedMap(mapPath, nil)
 	if err != nil {
@@ -30,9 +27,6 @@ func SyncLockMap(cidrStr string, lock bool) {
 	if lock {
 		// Check for conflict in whitelist
 		oppositeMapPath := "/sys/fs/bpf/netxfw/whitelist"
-		if IsIPv6(cidrStr) {
-			oppositeMapPath = "/sys/fs/bpf/netxfw/whitelist6"
-		}
 		if opM, err := ebpf.LoadPinnedMap(oppositeMapPath, nil); err == nil {
 			if conflict, msg := xdp.CheckConflict(opM, cidrStr, true); conflict {
 				fmt.Printf("⚠️  [Conflict] %s (Already in whitelist).\n", msg)
@@ -88,7 +82,7 @@ func SyncLockMap(cidrStr string, lock bool) {
 				}
 			}
 
-			// Add new CIDR if not exists (normalization might happen in MergeCIDRs, 
+			// Add new CIDR if not exists (normalization might happen in MergeCIDRs,
 			// but this prevents exact string duplicates from even reaching the merge step)
 			if !existingMap[cidrStr] {
 				lines = append(lines, cidrStr)
@@ -254,9 +248,6 @@ func OptimizeIPPortRulesConfig(cfg *types.GlobalConfig) {
  */
 func SyncWhitelistMap(cidrStr string, port uint16, allow bool) {
 	mapPath := "/sys/fs/bpf/netxfw/whitelist"
-	if IsIPv6(cidrStr) {
-		mapPath = "/sys/fs/bpf/netxfw/whitelist6"
-	}
 
 	m, err := ebpf.LoadPinnedMap(mapPath, nil)
 	if err != nil {
@@ -269,9 +260,6 @@ func SyncWhitelistMap(cidrStr string, port uint16, allow bool) {
 
 	if allow {
 		oppositeMapPath := "/sys/fs/bpf/netxfw/lock_list"
-		if IsIPv6(cidrStr) {
-			oppositeMapPath = "/sys/fs/bpf/netxfw/lock_list6"
-		}
 		if opM, err := ebpf.LoadPinnedMap(oppositeMapPath, nil); err == nil {
 			if conflict, msg := xdp.CheckConflict(opM, cidrStr, false); conflict {
 				fmt.Printf("⚠️  [Conflict] %s (Already in blacklist).\n", msg)
@@ -605,4 +593,42 @@ func ensureCIDR(s string) string {
 		return s + "/128"
 	}
 	return s + "/32"
+}
+
+func ShowLockList(limit int, search string) {
+	log.Println("📋 Blacklist Rules (Lock List):")
+
+	// Try to load unified lock_list
+	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
+	if err != nil {
+		log.Printf("⚠️  Failed to load lock_list map: %v", err)
+		return
+	}
+	defer m.Close()
+
+	// Use false for isIPv6 since we have unified map
+	ips, count, err := xdp.ListBlockedIPs(m, false, limit, search)
+	if err != nil {
+		log.Printf("⚠️  Failed to list blocked IPs: %v", err)
+	}
+
+	for _, entry := range ips {
+		fmt.Printf(" - %s (ExpiresAt: %d)\n", entry.IP, entry.ExpiresAt)
+	}
+
+	// Also check dynamic lock list
+	md, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/dyn_lock_list", nil)
+	if err == nil {
+		defer md.Close()
+		dynIps, dynCount, _ := xdp.ListBlockedIPs(md, false, limit, search)
+		if dynCount > 0 {
+			fmt.Println("\n📋 Dynamic Blacklist Rules:")
+			for _, entry := range dynIps {
+				fmt.Printf(" - %s (ExpiresAt: %d)\n", entry.IP, entry.ExpiresAt)
+			}
+			count += dynCount
+		}
+	}
+
+	fmt.Printf("\nTotal blocked entries found: %d\n", count)
 }

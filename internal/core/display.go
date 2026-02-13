@@ -42,51 +42,18 @@ func getXDPMode(iface string) string {
  * ShowWhitelist reads and prints all whitelisted ranges.
  */
 func ShowWhitelist(limit int, search string) {
-	type result struct {
-		ver   int
-		ips   []string
-		total int
-		err   error
+	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist", nil)
+	if err != nil {
+		log.Fatalf("❌ Failed to load whitelist map: %v", err)
 	}
-	resChan := make(chan result, 2)
+	defer m.Close()
 
-	go func() {
-		m4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist", nil)
-		if err != nil {
-			resChan <- result{ver: 4, err: err}
-			return
-		}
-		defer m4.Close()
-		ips, total, err := xdp.ListWhitelistedIPs(m4, false, limit, search)
-		resChan <- result{ver: 4, ips: ips, total: total, err: err}
-	}()
-
-	go func() {
-		m6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist6", nil)
-		if err != nil {
-			resChan <- result{ver: 6, err: err}
-			return
-		}
-		defer m6.Close()
-		ips, total, err := xdp.ListWhitelistedIPs(m6, true, limit, search)
-		resChan <- result{ver: 6, ips: ips, total: total, err: err}
-	}()
-
-	var ips4, ips6 []string
-	var total4, total6 int
-	for i := 0; i < 2; i++ {
-		res := <-resChan
-		if res.err != nil {
-			log.Fatalf("❌ Failed to list IPv%d whitelisted IPs: %v", res.ver, res.err)
-		}
-		if res.ver == 4 {
-			ips4, total4 = res.ips, res.total
-		} else {
-			ips6, total6 = res.ips, res.total
-		}
+	ips, total, err := xdp.ListWhitelistedIPs(m, false, limit, search)
+	if err != nil {
+		log.Fatalf("❌ Failed to list whitelisted IPs: %v", err)
 	}
 
-	if len(ips4) == 0 && len(ips6) == 0 {
+	if len(ips) == 0 {
 		fmt.Println("Empty whitelist.")
 		return
 	}
@@ -97,14 +64,10 @@ func ShowWhitelist(limit int, search string) {
 	}
 	fmt.Printf("%s:\n", header)
 
-	for _, ip := range ips4 {
-		fmt.Printf(" - [IPv4] %s\n", ip)
-	}
-	for _, ip := range ips6 {
-		fmt.Printf(" - [IPv6] %s\n", ip)
+	for _, ip := range ips {
+		fmt.Printf(" - %s\n", ip)
 	}
 
-	total := total4 + total6
 	if limit > 0 && total >= limit {
 		fmt.Printf("\n⚠️  Showing up to %d entries (limit reached).\n", limit)
 	}
@@ -229,102 +192,6 @@ func ShowConntrack() {
 }
 
 /**
- * ShowLockList reads and prints all blocked ranges and their stats.
- */
-func ShowLockList(limit int, search string) {
-	type result struct {
-		ver   int
-		ips   map[string]uint64
-		total int
-		err   error
-	}
-	resChan := make(chan result, 2)
-
-	go func() {
-		m4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
-		if err != nil {
-			resChan <- result{ver: 4, err: err}
-			return
-		}
-		defer m4.Close()
-		ips, total, err := xdp.ListBlockedIPs(m4, false, limit, search)
-
-		// Also check dyn_lock_list
-		md4, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/dyn_lock_list", nil)
-		if err == nil {
-			defer md4.Close()
-			dynIps, dynTotal, _ := xdp.ListBlockedIPs(md4, false, limit, search)
-			for k, v := range dynIps {
-				ips[k+" (auto)"] = v
-			}
-			total += dynTotal
-		}
-
-		resChan <- result{ver: 4, ips: ips, total: total, err: err}
-	}()
-
-	go func() {
-		m6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list6", nil)
-		if err != nil {
-			resChan <- result{ver: 6, err: err}
-			return
-		}
-		defer m6.Close()
-		ips, total, err := xdp.ListBlockedIPs(m6, true, limit, search)
-
-		// Also check dyn_lock_list6
-		md6, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/dyn_lock_list6", nil)
-		if err == nil {
-			defer md6.Close()
-			dynIps, dynTotal, _ := xdp.ListBlockedIPs(md6, true, limit, search)
-			for k, v := range dynIps {
-				ips[k+" (auto)"] = v
-			}
-			total += dynTotal
-		}
-
-		resChan <- result{ver: 6, ips: ips, total: total, err: err}
-	}()
-
-	var ips4, ips6 map[string]uint64
-	var total4, total6 int
-	for i := 0; i < 2; i++ {
-		res := <-resChan
-		if res.err != nil {
-			log.Fatalf("❌ Failed to list IPv%d locked IPs: %v", res.ver, res.err)
-		}
-		if res.ver == 4 {
-			ips4, total4 = res.ips, res.total
-		} else {
-			ips6, total6 = res.ips, res.total
-		}
-	}
-
-	if len(ips4) == 0 && len(ips6) == 0 {
-		fmt.Println("Empty lock list.")
-		return
-	}
-
-	header := "🛡️ Currently locked IPs/ranges and drop counts"
-	if search != "" {
-		header += fmt.Sprintf(" (searching for: %s)", search)
-	}
-	fmt.Printf("%s:\n", header)
-
-	for ip, count := range ips4 {
-		fmt.Printf(" - [IPv4] %s: %d drops\n", ip, count)
-	}
-	for ip, count := range ips6 {
-		fmt.Printf(" - [IPv6] %s: %d drops\n", ip, count)
-	}
-
-	total := total4 + total6
-	if limit > 0 && total >= limit {
-		fmt.Printf("\n⚠️  Showing up to %d entries (limit reached).\n", limit)
-	}
-}
-
-/**
  * ShowIPPortRules reads and prints all IP+Port rules.
  */
 func ShowIPPortRules(limit int, search string) {
@@ -334,14 +201,9 @@ func ShowIPPortRules(limit int, search string) {
 	}
 	defer m.Close()
 
-	rules4, total4, err := m.ListIPPortRules(false, limit, search)
+	rules, total, err := m.ListIPPortRules(false, limit, search)
 	if err != nil {
-		log.Fatalf("❌ Failed to list IPv4 IP+Port rules: %v", err)
-	}
-
-	rules6, total6, err := m.ListIPPortRules(true, limit, search)
-	if err != nil {
-		log.Fatalf("❌ Failed to list IPv6 IP+Port rules: %v", err)
+		log.Fatalf("❌ Failed to list IP+Port rules: %v", err)
 	}
 
 	ports, err := m.ListAllowedPorts()
@@ -350,18 +212,14 @@ func ShowIPPortRules(limit int, search string) {
 	}
 
 	fmt.Println("🛡️ Current IP+Port Rules:")
-	if len(rules4) == 0 && len(rules6) == 0 {
+	if len(rules) == 0 {
 		fmt.Println(" - No IP+Port rules.")
 	} else {
-		for target, action := range rules4 {
-			fmt.Printf(" - [IPv4] %s -> %s\n", target, action)
-		}
-		for target, action := range rules6 {
-			fmt.Printf(" - [IPv6] %s -> %s\n", target, action)
+		for target, action := range rules {
+			fmt.Printf(" - %s -> %s\n", target, action)
 		}
 	}
 
-	total := total4 + total6
 	if limit > 0 && total >= limit {
 		fmt.Printf("\n⚠️  Showing up to %d entries (limit reached).\n", limit)
 	}

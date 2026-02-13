@@ -53,32 +53,23 @@ type RateLimitConf struct {
  * Manager 负责 eBPF 对象和链路的生命周期管理。
  */
 type Manager struct {
-	objs             NetXfwObjects
-	links            []link.Link
-	lockList         *ebpf.Map
-	dynLockList      *ebpf.Map
-	lockList6        *ebpf.Map
-	dynLockList6     *ebpf.Map
-	whitelist        *ebpf.Map
-	whitelist6       *ebpf.Map
-	allowedPorts     *ebpf.Map
-	ipPortRules      *ebpf.Map
-	ipPortRules6     *ebpf.Map
-	globalConfig     *ebpf.Map
-	dropStats        *ebpf.Map
-	passStats        *ebpf.Map
-	icmpLimitMap     *ebpf.Map
-	conntrackMap     *ebpf.Map
-	conntrackMap6    *ebpf.Map
-	ratelimitConfig  *ebpf.Map
-	ratelimitConfig6 *ebpf.Map
-	ratelimitState   *ebpf.Map
-	ratelimitState6  *ebpf.Map
-	jmpTable         *ebpf.Map
-	dropReasonStats  *ebpf.Map
-	dropReasonStats6 *ebpf.Map
-	passReasonStats  *ebpf.Map
-	passReasonStats6 *ebpf.Map
+	objs            NetXfwObjects
+	links           []link.Link
+	lockList        *ebpf.Map
+	dynLockList     *ebpf.Map
+	whitelist       *ebpf.Map
+	allowedPorts    *ebpf.Map
+	ipPortRules     *ebpf.Map
+	globalConfig    *ebpf.Map
+	dropStats       *ebpf.Map
+	passStats       *ebpf.Map
+	icmpLimitMap    *ebpf.Map
+	conntrackMap    *ebpf.Map
+	ratelimitConfig *ebpf.Map
+	ratelimitState  *ebpf.Map
+	jmpTable        *ebpf.Map
+	dropReasonStats *ebpf.Map
+	passReasonStats *ebpf.Map
 }
 
 /**
@@ -93,29 +84,23 @@ type ConntrackEntry struct {
 	LastSeen time.Time
 }
 
+type BlockedIP struct {
+	IP        string
+	ExpiresAt uint64
+	RuleValue NetXfwRuleValue
+}
+
 // Map getters / Map 获取器
 func (m *Manager) LockList() *ebpf.Map {
 	return m.lockList
-}
-
-func (m *Manager) LockList6() *ebpf.Map {
-	return m.lockList6
 }
 
 func (m *Manager) DynLockList() *ebpf.Map {
 	return m.dynLockList
 }
 
-func (m *Manager) DynLockList6() *ebpf.Map {
-	return m.dynLockList6
-}
-
 func (m *Manager) Whitelist() *ebpf.Map {
 	return m.whitelist
-}
-
-func (m *Manager) Whitelist6() *ebpf.Map {
-	return m.whitelist6
 }
 
 func (m *Manager) AllowedPorts() *ebpf.Map {
@@ -128,10 +113,6 @@ func (m *Manager) GlobalConfig() *ebpf.Map {
 
 func (m *Manager) IpPortRules() *ebpf.Map {
 	return m.ipPortRules
-}
-
-func (m *Manager) IpPortRules6() *ebpf.Map {
-	return m.ipPortRules6
 }
 
 func (m *Manager) DropStats() *ebpf.Map {
@@ -150,24 +131,12 @@ func (m *Manager) ConntrackMap() *ebpf.Map {
 	return m.conntrackMap
 }
 
-func (m *Manager) ConntrackMap6() *ebpf.Map {
-	return m.conntrackMap6
-}
-
 func (m *Manager) RatelimitConfig() *ebpf.Map {
 	return m.ratelimitConfig
 }
 
-func (m *Manager) RatelimitConfig6() *ebpf.Map {
-	return m.ratelimitConfig6
-}
-
 func (m *Manager) RatelimitState() *ebpf.Map {
 	return m.ratelimitState
-}
-
-func (m *Manager) RatelimitState6() *ebpf.Map {
-	return m.ratelimitState6
 }
 
 func (m *Manager) DropReasonStats() *ebpf.Map {

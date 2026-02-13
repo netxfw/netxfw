@@ -35,6 +35,8 @@ func initializeCommandFunctions() {
 	common.InstallXDP = core.InstallXDP
 	common.ReloadXDP = core.ReloadXDP
 	common.RemoveXDP = core.RemoveXDP
+	common.SyncToConfig = core.SyncToConfig
+	common.SyncToMap = core.SyncToMap
 	common.SyncDefaultDeny = core.SyncDefaultDeny
 	common.SyncEnableRateLimit = core.SyncEnableRateLimit
 	common.SyncEnableAFXDP = core.SyncEnableAFXDP

@@ -20,6 +20,8 @@
 | `limit list` | 无 | 查看所有限速规则 |
 | `lock` | `<IP>` | 快捷命令：全局封禁指定 IP |
 | `allow` | `<IP> [port]` | 快捷命令：将 IP 加入白名单 |
+| `system sync` | `to-config / to-map` | 同步内存规则到配置文件，或从配置文件加载到内存 |
+| `rule import` | `deny <file>` | 批量导入 IP 黑名单文件 |
 | `web` | `start / stop` | 管理 Web 控制台服务 |
 
 ---
@@ -109,7 +111,37 @@ sudo netxfw reload xdp
 ```
 该命令会自动将旧 Map 中的数据迁移到新 Map，确保现有连接不中断。
 
-### 7. 插件管理 (plugin)
+### 7. 配置同步 (sync)
+支持内存状态（BPF Maps）与配置文件（config.yaml）之间的双向同步，确保运维一致性。
+
+- **同步到配置文件**（Memory -> Disk）：
+  将当前 BPF Map 中的动态规则（黑名单、限速规则等）写入 `config.yaml`，实现持久化。
+  ```bash
+  sudo netxfw system sync to-config
+  ```
+
+- **同步到内存**（Disk -> Memory）：
+  将 `config.yaml` 中的规则重新加载到 BPF Map 中（类似于热重载，但不重启 BPF 程序）。
+  ```bash
+  sudo netxfw system sync to-map
+  ```
+
+### 8. 批量导入 (import)
+支持从文本文件批量导入 IP 黑名单规则。支持 IPv4 和 IPv6，会自动识别并处理 CIDR 网段。
+
+```bash
+# 从 blacklist.txt 导入黑名单
+sudo netxfw rule import deny blacklist.txt
+```
+**文件格式示例**：
+```text
+# 每行一个 IP 或网段
+1.2.3.4
+192.168.0.0/24
+2001:db8::1
+```
+
+### 9. 插件管理 (plugin)
 允许在不停止防火墙的情况下，动态扩展数据包处理逻辑。
 - **加载插件**：
   ```bash

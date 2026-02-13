@@ -18,8 +18,8 @@ import (
 )
 
 type Server struct {
-	manager *xdp.Manager
-	port    int
+	manager    *xdp.Manager
+	port       int
 	configPath string
 }
 
@@ -105,22 +105,19 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		limit := 100
 
 		locked, totalLocked, _ := xdp.ListBlockedIPs(s.manager.LockList(), false, limit, search)
-		locked6, totalLocked6, _ := xdp.ListBlockedIPs(s.manager.LockList6(), true, limit, search)
 		whitelist, totalWhitelist, _ := xdp.ListBlockedIPs(s.manager.Whitelist(), false, limit, search)
-		whitelist6, totalWhitelist6, _ := xdp.ListBlockedIPs(s.manager.Whitelist6(), true, limit, search)
 
 		// Get IP+Port rules (action 1=allow, 2=deny)
 		ipPortRules, totalIPPort, _ := s.manager.ListIPPortRules(false, limit, search)
-		ipPortRules6, totalIPPort6, _ := s.manager.ListIPPortRules(true, limit, search)
 
 		res := map[string]interface{}{
-			"blacklist":     appendMap(locked, locked6),
-			"totalBlacklist": totalLocked + totalLocked6,
-			"whitelist":     appendMap(whitelist, whitelist6),
-			"totalWhitelist": totalWhitelist + totalWhitelist6,
-			"ipPortRules":   mergeIPPortMaps(ipPortRules, ipPortRules6),
-			"totalIPPort":   totalIPPort + totalIPPort6,
-			"limit":         limit,
+			"blacklist":      locked,
+			"totalBlacklist": totalLocked,
+			"whitelist":      whitelist,
+			"totalWhitelist": totalWhitelist,
+			"ipPortRules":    ipPortRules,
+			"totalIPPort":    totalIPPort,
+			"limit":          limit,
 		}
 		json.NewEncoder(w).Encode(res)
 
@@ -139,11 +136,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		var m *ebpf.Map
 		if req.Action == "add" {
 			if req.Type == "blacklist" {
-				if isIPv6(req.CIDR) {
-					m = s.manager.LockList6()
-				} else {
-					m = s.manager.LockList()
-				}
+				m = s.manager.LockList()
 				err = xdp.LockIP(m, req.CIDR)
 			} else if req.Type == "whitelist" {
 				// For whitelist, we check if it's an IP+Port rule (e.g. 1.2.3.4:80)
@@ -157,11 +150,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					fmt.Sscanf(parts[1], "%d", &port)
 				}
 
-				if isIPv6(cidr) {
-					m = s.manager.Whitelist6()
-				} else {
-					m = s.manager.Whitelist()
-				}
+				m = s.manager.Whitelist()
 				err = xdp.AllowIP(m, cidr, port)
 			} else if req.Type == "ip_port_rules" {
 				// Parse IP:Port and action
@@ -169,11 +158,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 				if parseErr != nil {
 					err = parseErr
 				} else {
-					if isIPv6(ipStr) {
-						m = s.manager.IpPortRules6()
-					} else {
-						m = s.manager.IpPortRules()
-					}
+					m = s.manager.IpPortRules()
 
 					_, ipNet, err2 := net.ParseCIDR(ipStr)
 					if err2 != nil {
@@ -220,18 +205,10 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			} else {
-				if isIPv6(req.CIDR) {
-					if req.Type == "blacklist" {
-						m = s.manager.LockList6()
-					} else {
-						m = s.manager.Whitelist6()
-					}
+				if req.Type == "blacklist" {
+					m = s.manager.LockList()
 				} else {
-					if req.Type == "blacklist" {
-						m = s.manager.LockList()
-					} else {
-						m = s.manager.Whitelist()
-					}
+					m = s.manager.Whitelist()
 				}
 				err = xdp.UnlockIP(m, req.CIDR)
 			}

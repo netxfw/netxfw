@@ -71,4 +71,16 @@ static __always_inline int is_arp_packet(struct ethhdr *eth) {
     return (eth->h_proto == bpf_htons(ETH_P_ARP));
 }
 
+/**
+ * Convert IPv4 address to IPv4-mapped IPv6 address (::ffff:a.b.c.d)
+ * ip4: IPv4 address in network byte order
+ * ip6: Pointer to struct in6_addr to store the result
+ */
+static __always_inline void ipv4_to_ipv6_mapped(__u32 ip4, struct in6_addr *ip6) {
+    ip6->in6_u.u6_addr32[0] = 0;
+    ip6->in6_u.u6_addr32[1] = 0;
+    ip6->in6_u.u6_addr32[2] = bpf_htonl(0x0000ffff);
+    ip6->in6_u.u6_addr32[3] = ip4;
+}
+
 #endif // __NETXFW_HELPERS_H
