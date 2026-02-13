@@ -23,6 +23,8 @@ func init() {
 
 func showVersion() {
 	fmt.Printf("netxfw %s\n", version.Version)
+	// Show additional status info if available
+	// 如果可用，显示额外的状态信息
 	if common.ShowStatus != nil {
 		common.ShowStatus()
 	}

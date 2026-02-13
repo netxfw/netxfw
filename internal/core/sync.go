@@ -14,6 +14,8 @@ import (
 
 // SyncToConfig dumps current BPF map states to configuration files.
 // This is useful if the config files were lost or if changes were made directly to maps.
+// SyncToConfig 将当前 BPF Map 状态转储到配置文件。
+// 如果配置文件丢失或直接对 Map 进行了更改，此功能非常有用。
 func SyncToConfig() {
 	log.Println("🔄 Syncing BPF Maps to Configuration Files...")
 	configPath := "/etc/netxfw/config.yaml"
@@ -22,22 +24,22 @@ func SyncToConfig() {
 		log.Fatalf("❌ Failed to load config: %v", err)
 	}
 
-	// 1. Sync Blacklist (lock_list) -> rules.deny.txt (or configured file)
+	// 1. Sync Blacklist (lock_list) -> rules.deny.txt (or configured file) / 同步黑名单
 	syncBlacklistToConfig(globalCfg)
 
-	// 2. Sync Whitelist (whitelist) -> config.yaml
+	// 2. Sync Whitelist (whitelist) -> config.yaml / 同步白名单
 	syncWhitelistToConfig(globalCfg)
 
-	// 3. Sync IP Port Rules -> config.yaml
+	// 3. Sync IP Port Rules -> config.yaml / 同步 IP 端口规则
 	syncIPPortRulesToConfig(globalCfg)
 
-	// 4. Sync Allowed Ports -> config.yaml
+	// 4. Sync Allowed Ports -> config.yaml / 同步允许的端口
 	syncAllowedPortsToConfig(globalCfg)
 
-	// 5. Sync Rate Limits -> config.yaml
+	// 5. Sync Rate Limits -> config.yaml / 同步速率限制
 	syncRateLimitsToConfig(globalCfg)
 
-	// Save final config
+	// Save final config / 保存最终配置
 	if err := types.SaveGlobalConfig(configPath, globalCfg); err != nil {
 		log.Fatalf("❌ Failed to save config: %v", err)
 	}
@@ -46,6 +48,8 @@ func SyncToConfig() {
 
 // SyncToMap applies the current configuration files to the BPF maps.
 // This overwrites the runtime state with what is in the files.
+// SyncToMap 将当前配置文件应用到 BPF Map。
+// 这会用文件中的内容覆盖运行时状态。
 func SyncToMap() {
 	log.Println("🔄 Syncing Configuration Files to BPF Maps...")
 	configPath := "/etc/netxfw/config.yaml"
@@ -54,24 +58,13 @@ func SyncToMap() {
 		log.Fatalf("❌ Failed to load config: %v", err)
 	}
 
-	// 1. Sync Blacklist
-	// We use ImportLockListFromFile which merges with existing map, but for "SyncToMap"
-	// we arguably should clear and reload, or just ensure everything in file is in map.
-	// Users usually expect "apply this config".
+	// 1. Sync Blacklist / 同步黑名单
 	if globalCfg.Base.LockListFile != "" {
 		log.Printf("📥 Importing Blacklist from %s...", globalCfg.Base.LockListFile)
 		ImportLockListFromFile(globalCfg.Base.LockListFile)
 	}
 
-	// 2. Sync Whitelist
-	// We need to ensure everything in config is in map.
-	// Ideally we should also remove things NOT in config?
-	// "SyncToMap" usually implies "Make Map match Config".
-	// So we should probably clear maps first or carefully diff.
-	// For safety, let's add missing entries first.
-	// If strict sync is needed (remove extras), we need to clear map.
-	// Let's go with "Clear and Load" for true sync.
-
+	// 2. Sync Whitelist / 同步白名单
 	log.Println("🧹 Clearing and reloading Whitelist...")
 	mWhitelist, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist", nil)
 	if err == nil {
@@ -79,11 +72,9 @@ func SyncToMap() {
 		mWhitelist.Close()
 	}
 	for _, ip := range globalCfg.Base.Whitelist {
-		// Handle port logic if embedded in string
-		// Reusing ImportWhitelistFromFile logic or calling SyncWhitelistMap
 		var port uint16
 		cidr := ip
-		// Simple parsing (same as in rules.go)
+		// Simple parsing / 简单解析
 		if strings.HasPrefix(ip, "[") && strings.Contains(ip, "]:") {
 			endBracket := strings.LastIndex(ip, "]")
 			portStr := ip[endBracket+2:]
@@ -106,7 +97,7 @@ func SyncToMap() {
 		SyncWhitelistMap(cidr, port, true)
 	}
 
-	// 3. Sync IP Port Rules
+	// 3. Sync IP Port Rules / 同步 IP 端口规则
 	log.Println("🧹 Clearing and reloading IP Port Rules...")
 	mIPPort, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/ip_port_rules", nil)
 	if err == nil {
@@ -117,7 +108,7 @@ func SyncToMap() {
 		SyncIPPortRule(r.IP, r.Port, r.Action, true)
 	}
 
-	// 4. Sync Allowed Ports
+	// 4. Sync Allowed Ports / 同步允许的端口
 	log.Println("🧹 Clearing and reloading Allowed Ports...")
 	mPorts, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/allowed_ports", nil)
 	if err == nil {
@@ -125,8 +116,6 @@ func SyncToMap() {
 		mPorts.Close()
 	}
 	for _, p := range globalCfg.Port.AllowedPorts {
-		// Re-implement simplified version of SyncAllowedPort to avoid config write-back loop
-		// or just use xdp directly
 		mp, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/allowed_ports", nil)
 		if err == nil {
 			xdp.AllowPort(mp, p)
@@ -134,7 +123,7 @@ func SyncToMap() {
 		}
 	}
 
-	// 5. Sync Rate Limits
+	// 5. Sync Rate Limits / 同步速率限制
 	log.Println("🧹 Clearing and reloading Rate Limits...")
 	mRate, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/ratelimit_config", nil)
 	if err == nil {
@@ -148,7 +137,7 @@ func SyncToMap() {
 	log.Println("✅ BPF Maps synced from configuration.")
 }
 
-// Helpers
+// Helpers / 辅助函数
 
 func syncBlacklistToConfig(cfg *types.GlobalConfig) {
 	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
@@ -164,7 +153,7 @@ func syncBlacklistToConfig(cfg *types.GlobalConfig) {
 		return
 	}
 
-	// Also get dynamic lock list if exists
+	// Also get dynamic lock list if exists / 如果存在，也获取动态锁定列表
 	md, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/dyn_lock_list", nil)
 	if err == nil {
 		defer md.Close()
@@ -174,7 +163,7 @@ func syncBlacklistToConfig(cfg *types.GlobalConfig) {
 		}
 	}
 
-	// Extract just the IP strings from the first list too
+	// Extract just the IP strings / 仅提取 IP 字符串
 	var ipStrings []string
 	for _, ip := range ips {
 		ipStrings = append(ipStrings, ip.IP)
@@ -200,19 +189,6 @@ func syncWhitelistToConfig(cfg *types.GlobalConfig) {
 	}
 	defer m.Close()
 
-	// Need to implement ListWhitelistIPs similar to ListBlockedIPs but handling port value
-	// For now, we reuse xdp.ListBlockedIPs which handles the key iteration.
-	// But the value in whitelist map is port (uint16), while ListBlockedIPs expects NetXfwRuleValue.
-	// Wait, whitelist map is LPM key -> uint32 value (port).
-	// xdp.ListBlockedIPs might fail if value size is different?
-	// Let's check maps.bpf.h
-	// struct { __uint(type, BPF_MAP_TYPE_LPM_TRIE); ... __type(value, __u32); } whitelist;
-	// struct { __uint(type, BPF_MAP_TYPE_LPM_TRIE); ... __type(value, struct rule_value); } lock_list;
-	// rule_value is { u64 counter, u64 expires_at } (16 bytes).
-	// whitelist value is u32 (4 bytes).
-	// So ListBlockedIPs will fail on value unmarshal.
-
-	// We need a specific lister for whitelist.
 	ips, err := listWhitelistEntries(m)
 	if err != nil {
 		log.Printf("⚠️  Failed to list whitelist IPs: %v", err)
@@ -227,11 +203,11 @@ func listWhitelistEntries(m *ebpf.Map) ([]string, error) {
 	var ips []string
 	iter := m.Iterate()
 	var key xdp.NetXfwLpmKey
-	var val xdp.NetXfwRuleValue // Correct value type
+	var val xdp.NetXfwRuleValue
 
 	for iter.Next(&key, &val) {
 		ipStr := xdp.FormatLpmKey(&key)
-		// val.Counter holds the port number if > 1 (0 or 1 means all ports/wildcard)
+		// val.Counter holds the port number / val.Counter 保存端口号
 		if val.Counter > 1 {
 			if strings.Contains(ipStr, ":") && !strings.Contains(ipStr, ".") {
 				// IPv6
@@ -258,12 +234,11 @@ func syncIPPortRulesToConfig(cfg *types.GlobalConfig) {
 	var val xdp.NetXfwRuleValue
 
 	for iter.Next(&key, &val) {
-		// Convert IP
 		ip := xdp.FormatIn6Addr(&key.Ip)
 		rules = append(rules, types.IPPortRule{
 			IP:     ip,
 			Port:   key.Port,
-			Action: uint8(val.Counter), // 1=Allow, 2=Deny
+			Action: uint8(val.Counter), // 1=Allow, 2=Deny / 1=允许, 2=拒绝
 		})
 	}
 	cfg.Port.IPPortRules = rules
@@ -280,7 +255,7 @@ func syncAllowedPortsToConfig(cfg *types.GlobalConfig) {
 	var ports []uint16
 	iter := m.Iterate()
 	var port uint16
-	var val uint8 // 1
+	var val uint8
 
 	for iter.Next(&port, &val) {
 		ports = append(ports, port)

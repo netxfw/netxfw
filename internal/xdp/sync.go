@@ -17,6 +17,8 @@ import (
 
 // SyncFromFiles reads rules from text files and updates BPF maps.
 // If overwrite is true, it clears existing rules in the maps first.
+// SyncFromFiles 从文本文件读取规则并更新 BPF Map。
+// 如果 overwrite 为 true，则先清除 Map 中的现有规则。
 func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	if cfg.Base.LockListFile == "" || cfg.Base.LockListBinary == "" {
 		return fmt.Errorf("lock_list_file and lock_list_binary must be configured for sync")
@@ -29,7 +31,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 
 	log.Printf("🔄 Syncing rules from %s and config to BPF maps...", cfg.Base.LockListFile)
 
-	// 1. Sync Whitelist from config to maps
+	// 1. Sync Whitelist from config to maps / 从配置同步白名单到 Map
 	for _, rule := range cfg.Base.Whitelist {
 		cidr := rule
 		port := uint16(0)
@@ -51,7 +53,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 2. Read and parse rules.deny.txt
+	// 2. Read and parse rules.deny.txt / 读取并解析 rules.deny.txt
 	file, err := os.Open(cfg.Base.LockListFile)
 	if err != nil {
 		return fmt.Errorf("failed to open lock list file: %w", err)
@@ -90,7 +92,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		})
 	}
 
-	// 2. Update BPF Maps
+	// 2. Update BPF Maps / 更新 BPF Map
 	for _, r := range records {
 		var targetMap *ebpf.Map
 		targetMap = m.lockList
@@ -104,7 +106,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 3. Sync IP+Port rules from config to maps
+	// 3. Sync IP+Port rules from config to maps / 从配置同步 IP+端口规则到 Map
 	for _, rule := range cfg.Port.IPPortRules {
 		_, ipNet, err := net.ParseCIDR(rule.IP)
 		if err != nil {
@@ -124,14 +126,14 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 4. Sync allowed ports from config to maps
+	// 4. Sync allowed ports from config to maps / 从配置同步允许端口到 Map
 	for _, port := range cfg.Port.AllowedPorts {
 		if err := m.AllowPort(port, nil); err != nil {
 			log.Printf("⚠️  Failed to allow port %d: %v", port, err)
 		}
 	}
 
-	// 5. Sync rate limit rules from config to maps
+	// 5. Sync rate limit rules from config to maps / 从配置同步速率限制规则到 Map
 	for _, rule := range cfg.RateLimit.Rules {
 		_, ipNet, err := net.ParseCIDR(rule.IP)
 		if err != nil {
@@ -151,7 +153,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 6. Sync Global Config from config to maps
+	// 6. Sync Global Config from config to maps / 从配置同步全局设置到 Map
 	m.SetDefaultDeny(cfg.Base.DefaultDeny)
 	m.SetAllowReturnTraffic(cfg.Base.AllowReturnTraffic)
 	m.SetAllowICMP(cfg.Base.AllowICMP)
@@ -173,12 +175,14 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	}
 
 	// 7. (Optional) Update binary cache for fast loading on restart
+	// 7. （可选）更新二进制缓存以便在重启时快速加载
 	go m.UpdateBinaryCache(cfg, records)
 
 	return nil
 }
 
 // UpdateBinaryCache encodes records to binary format and compresses them.
+// UpdateBinaryCache 将记录编码为二进制格式并进行压缩。
 func (m *Manager) UpdateBinaryCache(cfg *types.GlobalConfig, records []binary.Record) {
 	if cfg.Base.LockListBinary == "" {
 		return
@@ -210,6 +214,7 @@ func (m *Manager) UpdateBinaryCache(cfg *types.GlobalConfig, records []binary.Re
 }
 
 // SyncToFiles dumps current BPF map rules back to text files.
+// SyncToFiles 将当前 BPF Map 规则转储回文本文件。
 func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 	if cfg.Base.LockListFile == "" {
 		return fmt.Errorf("lock_list_file must be configured")
@@ -217,7 +222,7 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 
 	log.Printf("💾 Syncing BPF maps to %s and config object...", cfg.Base.LockListFile)
 
-	// 1. Sync Whitelist from maps to config object
+	// 1. Sync Whitelist from maps to config object / 从 Map 同步白名单到配置对象
 	wl, _, err := ListBlockedIPs(m.whitelist, false, 0, "")
 	if err == nil {
 		newWhitelist := []string{}
@@ -231,21 +236,21 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 		cfg.Base.Whitelist = newWhitelist
 	}
 
-	// 2. List all blocked IPs
+	// 2. List all blocked IPs / 列出所有封禁的 IP
 	ips, _, err := ListBlockedIPs(m.lockList, false, 0, "")
 	if err != nil {
 		return err
 	}
 
-	// 3. Sync IP+Port rules from maps to config object
+	// 3. Sync IP+Port rules from maps to config object / 从 Map 同步 IP+端口规则到配置对象
 	ipPortRules, _, err := m.ListIPPortRules(false, 0, "")
 	if err == nil {
 		var newIPPortRules []types.IPPortRule
 
-		// Helper to parse the map back to struct
+		// Helper to parse the map back to struct / 将 Map 解析回结构体的辅助函数
 		processRules := func(rules map[string]string) {
 			for key, actionStr := range rules {
-				// Key is "IP/PrefixLen:Port"
+				// Key is "IP/PrefixLen:Port" / 键格式为 "IP/PrefixLen:Port"
 				lastColon := strings.LastIndex(key, ":")
 				if lastColon != -1 {
 					ipCIDR := key[:lastColon]
@@ -271,12 +276,12 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 		cfg.Port.IPPortRules = newIPPortRules
 	}
 
-	// 4. Sync allowed ports from map to config object
+	// 4. Sync allowed ports from map to config object / 从 Map 同步允许端口到配置对象
 	if ports, err := m.ListAllowedPorts(); err == nil {
 		cfg.Port.AllowedPorts = ports
 	}
 
-	// 5. Sync rate limit rules from map to config object
+	// 5. Sync rate limit rules from map to config object / 从 Map 同步速率限制规则到配置对象
 	if rules, _, err := m.ListRateLimitRules(0, ""); err == nil {
 		var newRateRules []types.RateLimitRule
 		for target, conf := range rules {
@@ -289,7 +294,7 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 		cfg.RateLimit.Rules = newRateRules
 	}
 
-	// 6. Sync Global Config from map to config object
+	// 6. Sync Global Config from map to config object / 从 Map 同步全局配置到配置对象
 	if m.globalConfig != nil {
 		var val uint64
 		var key uint32
@@ -332,7 +337,7 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 		}
 	}
 
-	// 7. Write lock_list to file
+	// 7. Write lock_list to file / 将锁定列表写入文件
 	file, err := os.Create(cfg.Base.LockListFile)
 	if err != nil {
 		return fmt.Errorf("failed to create lock list file: %w", err)
@@ -355,6 +360,7 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 }
 
 // ClearMaps clears all rules from blacklist and whitelist maps.
+// ClearMaps 清除黑名单和白名单 Map 中的所有规则。
 func (m *Manager) ClearMaps() {
 	maps := []*ebpf.Map{m.lockList, m.whitelist, m.ipPortRules}
 	for _, emap := range maps {
@@ -370,10 +376,12 @@ func (m *Manager) ClearMaps() {
 	log.Printf("✅ All BPF maps cleared.")
 }
 
+// ClearMap clears all rules from a specific BPF map.
+// ClearMap 清除特定 BPF Map 中的所有规则。
 func ClearMap(mapPtr *ebpf.Map) (int, error) {
 	removed := 0
 	iter := mapPtr.Iterate()
-	// Use []byte for generic iteration
+	// Use []byte for generic iteration / 使用 []byte 进行通用遍历
 	var k []byte
 	var v []byte
 	for iter.Next(&k, &v) {

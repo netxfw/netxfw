@@ -58,9 +58,11 @@ Examples:
 		var actionStr string
 
 		// 1. Parse IP and Port from input (e.g., 1.2.3.4:80 or [2001:db8::1]:80)
+		// 1. 从输入中解析 IP 和端口 (例如：1.2.3.4:80 或 [2001:db8::1]:80)
 		host, portStr, err := net.SplitHostPort(input)
 		if err == nil {
 			// Successfully split into Host and Port
+			// 成功拆分出主机和端口
 			ip = host
 			if p, err := strconv.Atoi(portStr); err == nil {
 				port = p
@@ -68,16 +70,20 @@ Examples:
 		} else {
 			// Could not split (e.g. plain IPv4, plain IPv6, or invalid)
 			// Assume it's just an IP address
+			// 无法拆分 (例如纯 IPv4, 纯 IPv6 或无效输入)，假设它只是一个 IP 地址
 			ip = input
 			// If input was [IPv6], strip brackets for consistency if SplitHostPort didn't do it
+			// 如果输入包含 [IPv6]，去掉方括号
 			ip = strings.TrimPrefix(ip, "[")
 			ip = strings.TrimSuffix(ip, "]")
 		}
 
 		// 2. Check remaining arguments
+		// 2. 检查剩余参数
 		remainingArgs := args[1:]
 		if len(remainingArgs) > 0 {
 			// Check if first remaining arg is a port (if we didn't find one yet)
+			// 如果还没有找到端口，检查剩余参数的第一个是否为端口
 			if port == 0 {
 				if p, err := strconv.Atoi(remainingArgs[0]); err == nil {
 					port = p
@@ -87,11 +93,13 @@ Examples:
 		}
 
 		// 3. Check for action in remaining args
+		// 3. 检查剩余参数中的动作
 		if len(remainingArgs) > 0 {
 			actionStr = remainingArgs[0]
 		}
 
 		// 4. Normalize Action
+		// 4. 规范化动作
 		isAllow := false
 		if actionStr == "allow" {
 			isAllow = true
@@ -106,9 +114,12 @@ Examples:
 		}
 
 		// 5. Execute
+		// 5. 执行
 		if port > 0 {
 			// IP + Port Rule
 			// Action: 1 = Allow, 2 = Deny
+			// IP + 端口规则
+			// 动作：1 = 允许，2 = 拒绝
 			var act uint8 = 2
 			if isAllow {
 				act = 1
@@ -116,13 +127,16 @@ Examples:
 			common.SyncIPPortRule(ip, uint16(port), act, true)
 		} else {
 			// IP Only Rule
+			// 仅 IP 规则
 			if isAllow {
 				common.SyncWhitelistMap(ip, 0, true)
 				// Ensure it's not locked
+				// 确保未被锁定
 				common.SyncLockMap(ip, false)
 			} else {
 				common.SyncLockMap(ip, true)
 				// Ensure it's not whitelisted
+				// 确保未在白名单中
 				common.SyncWhitelistMap(ip, 0, false)
 			}
 		}
@@ -223,9 +237,11 @@ var ruleRemoveCmd = &cobra.Command{
 		var port int
 
 		// 1. Parse IP and Port from input (e.g., 1.2.3.4:80 or [2001:db8::1]:80)
+		// 1. 从输入中解析 IP 和端口 (例如：1.2.3.4:80 或 [2001:db8::1]:80)
 		host, portStr, err := net.SplitHostPort(input)
 		if err == nil {
 			// Successfully split into Host and Port
+			// 成功拆分出主机和端口
 			ip = host
 			if p, err := strconv.Atoi(portStr); err == nil {
 				port = p
@@ -233,13 +249,16 @@ var ruleRemoveCmd = &cobra.Command{
 		} else {
 			// Could not split (e.g. plain IPv4, plain IPv6, or invalid)
 			// Assume it's just an IP address
+			// 无法拆分 (例如纯 IPv4, 纯 IPv6 或无效输入)，假设它只是一个 IP 地址
 			ip = input
 			// If input was [IPv6], strip brackets for consistency if SplitHostPort didn't do it
+			// 如果输入包含 [IPv6]，去掉方括号
 			ip = strings.TrimPrefix(ip, "[")
 			ip = strings.TrimSuffix(ip, "]")
 		}
 
 		// Check second arg for port if not found yet
+		// 如果还没有找到端口，检查第二个参数是否为端口
 		if len(args) > 1 && port == 0 {
 			if p, err := strconv.Atoi(args[1]); err == nil {
 				port = p
@@ -250,6 +269,7 @@ var ruleRemoveCmd = &cobra.Command{
 			common.SyncIPPortRule(ip, uint16(port), 0, false)
 		} else {
 			// Try to remove from both if port is not specified
+			// 如果未指定端口，尝试从两者中移除
 			common.SyncLockMap(ip, false)
 			common.SyncWhitelistMap(ip, 0, false)
 		}
@@ -279,6 +299,7 @@ var ruleListCmd = &cobra.Command{
 		}
 
 		// Handle the new command structure
+		// 处理新的命令结构
 		if len(args) > 0 {
 			firstArg := args[0]
 			args = args[1:] // consume the argument
@@ -286,6 +307,7 @@ var ruleListCmd = &cobra.Command{
 			switch firstArg {
 			case "ip":
 				// Handle rule list ip [allow|white|deny|block|lock]
+				// 处理 rule list ip [allow|white|deny|block|lock]
 				limit := 100
 				search := ""
 
@@ -316,6 +338,7 @@ var ruleListCmd = &cobra.Command{
 				}
 
 				// Default to showing both IP whitelist and blacklist
+				// 默认显示 IP 白名单和黑名单
 				fmt.Println("=== Whitelist (IP Rules) ===")
 				common.ShowWhitelist(limit, search)
 				fmt.Println("\n=== Blacklist (IP Rules) ===")
@@ -324,6 +347,7 @@ var ruleListCmd = &cobra.Command{
 
 			case "port":
 				// Handle rule list port [allow|white|deny|block|lock]
+				// 处理 rule list port [allow|white|deny|block|lock]
 				limit := 100
 				search := ""
 
@@ -354,12 +378,14 @@ var ruleListCmd = &cobra.Command{
 				}
 
 				// Default to showing all IP+Port rules
+				// 默认显示所有 IP+Port 规则
 				fmt.Println("=== IP+Port Rules ===")
 				common.ShowIPPortRules(limit, search)
 				return
 
 			case "whitelist", "allow":
 				// Handle original behavior - show whitelist only
+				// 处理原始行为 - 仅显示白名单
 				limit := 100
 				search := ""
 
@@ -379,6 +405,7 @@ var ruleListCmd = &cobra.Command{
 
 			case "blacklist", "lock", "deny", "block":
 				// Handle original behavior - show lock list only
+				// 处理原始行为 - 仅显示锁定列表
 				limit := 100
 				search := ""
 
@@ -398,6 +425,7 @@ var ruleListCmd = &cobra.Command{
 
 			case "rules":
 				// Handle original behavior - show IP+Port rules
+				// 处理原始行为 - 显示 IP+Port 规则
 				limit := 100
 				search := ""
 
@@ -422,6 +450,7 @@ var ruleListCmd = &cobra.Command{
 		}
 
 		// Default behavior: show all rules (IP whitelist, IP blacklist, and IP+Port rules)
+		// 默认行为：显示所有规则（IP 白名单，IP 黑名单和 IP+Port 规则）
 		fmt.Println("=== Whitelist (IP Rules) ===")
 		common.ShowWhitelist(100, "")
 		fmt.Println("\n=== Blacklist (IP Rules) ===")
@@ -459,14 +488,14 @@ var ruleImportCmd = &cobra.Command{
 		filePath := args[1]
 
 		switch ruleType {
-		case "lock":
+		case "lock", "deny":
 			common.ImportLockListFromFile(filePath)
 		case "allow":
 			common.ImportWhitelistFromFile(filePath)
 		case "rules":
 			common.ImportIPPortRulesFromFile(filePath)
 		default:
-			fmt.Println("❌ Unknown rule type. Use: lock, allow, or rules")
+			fmt.Println("❌ Unknown rule type. Use: lock (or deny), allow, or rules")
 		}
 	},
 }

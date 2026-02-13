@@ -12,6 +12,7 @@ import (
 
 /**
  * IsIPv6 checks if a string is a valid IPv6 address or CIDR.
+ * IsIPv6 检查字符串是否为有效的 IPv6 地址或 CIDR。
  */
 func IsIPv6(cidr string) bool {
 	ip, _, err := net.ParseCIDR(cidr)
@@ -24,6 +25,8 @@ func IsIPv6(cidr string) bool {
 /**
  * CheckConflict checks if a CIDR exists in the opposite map.
  * Returns true if conflict found, and a message describing it.
+ * CheckConflict 检查 CIDR 是否存在于相反的 Map 中。
+ * 如果发现冲突则返回 true，以及描述冲突的消息。
  */
 func CheckConflict(mapPtr *ebpf.Map, cidrStr string, isWhitelistMap bool) (bool, string) {
 	ip, ipNet, err := net.ParseCIDR(cidrStr)
@@ -49,12 +52,13 @@ func CheckConflict(mapPtr *ebpf.Map, cidrStr string, isWhitelistMap bool) (bool,
 	var keyData NetXfwIn6Addr
 
 	if ip4 := ip.To4(); ip4 != nil {
-		// Convert to IPv4-mapped IPv6
+		// Convert to IPv4-mapped IPv6 / 转换为 IPv4 映射的 IPv6
 		key.Prefixlen = uint32(96 + ones)
 		keyData.In6U.U6Addr8[10] = 0xff
 		keyData.In6U.U6Addr8[11] = 0xff
 		copy(keyData.In6U.U6Addr8[12:], ip4)
 	} else {
+		// IPv6 key / IPv6 键
 		key.Prefixlen = uint32(ones)
 		copy(keyData.In6U.U6Addr8[:], ip.To16())
 	}
@@ -169,6 +173,7 @@ func AllowIP(mapPtr *ebpf.Map, cidrStr string, port uint16) error {
 
 /**
  * UnlockIP removes an IP or CIDR from the BPF lock list.
+ * UnlockIP 从 BPF 锁定列表中移除 IP 或 CIDR。
  */
 func UnlockIP(mapPtr *ebpf.Map, cidrStr string) error {
 	ip, ipNet, err := net.ParseCIDR(cidrStr)
@@ -191,18 +196,20 @@ func UnlockIP(mapPtr *ebpf.Map, cidrStr string) error {
 	var keyData NetXfwIn6Addr
 
 	if ip4 := ip.To4(); ip4 != nil {
+		// IPv4-mapped IPv6 key / IPv4 映射的 IPv6 键
 		key.Prefixlen = uint32(96 + ones)
 		keyData.In6U.U6Addr8[10] = 0xff
 		keyData.In6U.U6Addr8[11] = 0xff
 		copy(keyData.In6U.U6Addr8[12:], ip4)
 	} else {
+		// IPv6 key / IPv6 键
 		key.Prefixlen = uint32(ones)
 		copy(keyData.In6U.U6Addr8[:], ip.To16())
 	}
 	key.Data = keyData
 
 	if err := mapPtr.Delete(key); err != nil {
-		// Ignore if not found
+		// Ignore if not found / 如果未找到则忽略
 		if strings.Contains(err.Error(), "key does not exist") {
 			return nil
 		}
@@ -332,9 +339,12 @@ func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string)
 /**
  * CleanupExpiredRules iterates over the maps and removes expired entries.
  * Returns the number of removed entries.
+ * CleanupExpiredRules 遍历 Map 并移除过期条目。
+ * 返回移除的条目数量。
  */
 func CleanupExpiredRules(mapPtr *ebpf.Map, isIPv6 bool) (int, error) {
 	// isIPv6 param is now redundant but kept for signature compatibility
+	// isIPv6 参数现在是多余的，但保留以保持签名兼容性
 	if mapPtr == nil {
 		return 0, nil
 	}

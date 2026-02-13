@@ -13,6 +13,8 @@ static __always_inline void refresh_config() {
         __u64 *val;
         __u32 k;
 
+        // Update all cached configurations
+        // 更新所有缓存的配置
         k = CONFIG_ENABLE_CONNTRACK;
         val = bpf_map_lookup_elem(&global_config, &k);
         if (val) cached_ct_enabled = (__u32)*val;

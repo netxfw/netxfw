@@ -28,6 +28,9 @@ static __always_inline void netxfw_plugin_continue(struct xdp_md *ctx) {
     // Currently, we don't support chaining plugins automatically via this helper 
     // without more complex logic. 
     // Simple approach: Jump to the core firewall logic entry point
+    // 目前，我们直接跳转到协议处理程序
+    // 当前，如果不使用更复杂的逻辑，我们不支持通过此辅助函数自动链接插件。
+    // 简单方法：跳转到核心防火墙逻辑入口点
     struct ethhdr *eth = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
     if ((void *)(eth + 1) > data_end) return;

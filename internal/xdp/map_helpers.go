@@ -8,8 +8,10 @@ import (
 )
 
 // Helper functions for updating maps directly (for one-shot tools)
+// 用于直接更新 Map 的辅助函数（适用于一次性工具）
 
 // AddIPPortRule adds a rule for a specific IP and Port combination to a given map
+// AddIPPortRule 向给定 Map 添加特定 IP 和端口组合的规则
 func AddIPPortRule(m *ebpf.Map, ipStr string, port uint16, action uint8) error {
 	ip := net.ParseIP(ipStr)
 	var ipNet *net.IPNet
@@ -38,11 +40,13 @@ func AddIPPortRule(m *ebpf.Map, ipStr string, port uint16, action uint8) error {
 	key.Port = port
 
 	if ip4 := ipNet.IP.To4(); ip4 != nil {
+		// IPv4-mapped IPv6 / IPv4 映射的 IPv6
 		key.Prefixlen = uint32(96 + ones)
 		key.Ip.In6U.U6Addr8[10] = 0xff
 		key.Ip.In6U.U6Addr8[11] = 0xff
 		copy(key.Ip.In6U.U6Addr8[12:], ip4)
 	} else {
+		// Native IPv6 / 原生 IPv6
 		key.Prefixlen = uint32(ones)
 		copy(key.Ip.In6U.U6Addr8[:], ipNet.IP.To16())
 	}
@@ -51,8 +55,9 @@ func AddIPPortRule(m *ebpf.Map, ipStr string, port uint16, action uint8) error {
 }
 
 // FormatIn6Addr formats the unified IPv6 address to string
+// FormatIn6Addr 将统一的 IPv6 地址格式化为字符串
 func FormatIn6Addr(in6 *NetXfwIn6Addr) string {
-	// Check for IPv4-mapped
+	// Check for IPv4-mapped / 检查是否为 IPv4 映射
 	isIPv4Mapped := true
 	for i := 0; i < 10; i++ {
 		if in6.In6U.U6Addr8[i] != 0 {
@@ -74,9 +79,10 @@ func FormatIn6Addr(in6 *NetXfwIn6Addr) string {
 }
 
 // FormatLpmKey formats the unified LPM key to CIDR string
+// FormatLpmKey 将统一的 LPM 键格式化为 CIDR 字符串
 func FormatLpmKey(key *NetXfwLpmKey) string {
 	ipStr := FormatIn6Addr(&key.Data)
-	// Adjust prefix len
+	// Adjust prefix len / 调整前缀长度
 	prefixLen := key.Prefixlen
 	isIPv4Mapped := true
 	for i := 0; i < 10; i++ {
@@ -94,6 +100,7 @@ func FormatLpmKey(key *NetXfwLpmKey) string {
 }
 
 // RemoveIPPortRule removes a rule for a specific IP and Port combination
+// RemoveIPPortRule 移除特定 IP 和端口组合的规则
 func RemoveIPPortRule(m *ebpf.Map, ipStr string, port uint16) error {
 	ip := net.ParseIP(ipStr)
 	var ipNet *net.IPNet
@@ -117,11 +124,13 @@ func RemoveIPPortRule(m *ebpf.Map, ipStr string, port uint16) error {
 	key.Port = port
 
 	if ip4 := ipNet.IP.To4(); ip4 != nil {
+		// IPv4-mapped IPv6 / IPv4 映射的 IPv6
 		key.Prefixlen = uint32(96 + ones)
 		key.Ip.In6U.U6Addr8[10] = 0xff
 		key.Ip.In6U.U6Addr8[11] = 0xff
 		copy(key.Ip.In6U.U6Addr8[12:], ip4)
 	} else {
+		// Native IPv6 / 原生 IPv6
 		key.Prefixlen = uint32(ones)
 		copy(key.Ip.In6U.U6Addr8[:], ipNet.IP.To16())
 	}
@@ -130,8 +139,10 @@ func RemoveIPPortRule(m *ebpf.Map, ipStr string, port uint16) error {
 }
 
 // AllowPort adds a port to the allowed ports list
+// AllowPort 向允许端口列表添加一个端口
 func AllowPort(m *ebpf.Map, port uint16) error {
 	// BPF_MAP_TYPE_PERCPU_HASH requires a slice of values
+	// BPF_MAP_TYPE_PERCPU_HASH 需要一个值切片
 	numCPU, err := ebpf.PossibleCPU()
 	if err != nil {
 		return fmt.Errorf("get possible CPUs: %w", err)
@@ -148,11 +159,13 @@ func AllowPort(m *ebpf.Map, port uint16) error {
 }
 
 // RemoveAllowedPort removes a port from the allowed ports list
+// RemoveAllowedPort 从允许端口列表中移除一个端口
 func RemoveAllowedPort(m *ebpf.Map, port uint16) error {
 	return m.Delete(&port)
 }
 
 // AddRateLimitRule adds a rate limit rule
+// AddRateLimitRule 添加一条速率限制规则
 func AddRateLimitRule(m *ebpf.Map, cidrStr string, rate, burst uint64) error {
 	ip, ipNet, err := net.ParseCIDR(cidrStr)
 	var ones int
@@ -177,11 +190,13 @@ func AddRateLimitRule(m *ebpf.Map, cidrStr string, rate, burst uint64) error {
 
 	var key NetXfwLpmKey
 	if ip4 := ip.To4(); ip4 != nil {
+		// IPv4-mapped IPv6 / IPv4 映射的 IPv6
 		key.Prefixlen = uint32(96 + ones)
 		key.Data.In6U.U6Addr8[10] = 0xff
 		key.Data.In6U.U6Addr8[11] = 0xff
 		copy(key.Data.In6U.U6Addr8[12:], ip4)
 	} else {
+		// Native IPv6 / 原生 IPv6
 		key.Prefixlen = uint32(ones)
 		copy(key.Data.In6U.U6Addr8[:], ip.To16())
 	}
@@ -190,6 +205,7 @@ func AddRateLimitRule(m *ebpf.Map, cidrStr string, rate, burst uint64) error {
 }
 
 // RemoveRateLimitRule removes a rate limit rule
+// RemoveRateLimitRule 移除一条速率限制规则
 func RemoveRateLimitRule(m *ebpf.Map, cidrStr string) error {
 	ip, ipNet, err := net.ParseCIDR(cidrStr)
 	var ones int
@@ -209,11 +225,13 @@ func RemoveRateLimitRule(m *ebpf.Map, cidrStr string) error {
 
 	var key NetXfwLpmKey
 	if ip4 := ip.To4(); ip4 != nil {
+		// IPv4-mapped IPv6 / IPv4 映射的 IPv6
 		key.Prefixlen = uint32(96 + ones)
 		key.Data.In6U.U6Addr8[10] = 0xff
 		key.Data.In6U.U6Addr8[11] = 0xff
 		copy(key.Data.In6U.U6Addr8[12:], ip4)
 	} else {
+		// Native IPv6 / 原生 IPv6
 		key.Prefixlen = uint32(ones)
 		copy(key.Data.In6U.U6Addr8[:], ip.To16())
 	}

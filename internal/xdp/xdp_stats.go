@@ -11,6 +11,7 @@ import (
 
 /**
  * DropDetailEntry represents a single drop event aggregated by reason/IP/port.
+ * DropDetailEntry 表示按原因/IP/端口聚合的单个拦截事件。
  */
 type DropDetailEntry struct {
 	Reason   uint32
@@ -22,6 +23,7 @@ type DropDetailEntry struct {
 
 /**
  * GetDropDetails retrieves detailed drop statistics from the PERCPU HASH map.
+ * GetDropDetails 从 PERCPU HASH Map 中获取详细的拦截统计信息。
  */
 func (m *Manager) GetDropDetails() ([]DropDetailEntry, error) {
 	if m.dropReasonStats == nil {
@@ -30,7 +32,7 @@ func (m *Manager) GetDropDetails() ([]DropDetailEntry, error) {
 
 	var results []DropDetailEntry
 	var key NetXfwDropDetailKey
-	var values []uint64 // PERCPU value is a slice of uint64
+	var values []uint64 // PERCPU value is a slice of uint64 / PERCPU 值是 uint64 切片
 
 	iter := m.dropReasonStats.Iterate()
 	for iter.Next(&key, &values) {
@@ -66,6 +68,7 @@ func (m *Manager) GetDropDetails() ([]DropDetailEntry, error) {
 
 /**
  * GetPassDetails retrieves detailed pass statistics (whitelist/return traffic).
+ * GetPassDetails 获取详细的放行统计信息（白名单/回程流量）。
  */
 func (m *Manager) GetPassDetails() ([]DropDetailEntry, error) {
 	if m.passReasonStats == nil {
@@ -110,11 +113,12 @@ func (m *Manager) GetPassDetails() ([]DropDetailEntry, error) {
 
 /**
  * GetStats retrieves the total pass and drop counts from BPF maps.
+ * GetStats 从 BPF Map 中获取总的放行和拦截计数。
  */
 func (m *Manager) GetStats() (uint64, uint64) {
 	var totalPass, totalDrop uint64
 
-	// Pass stats (PERCPU_ARRAY, max_entries 1)
+	// Pass stats (PERCPU_ARRAY, max_entries 1) / 放行统计
 	var passVals []uint64
 	var key uint32 = 0
 	if err := m.passStats.Lookup(&key, &passVals); err == nil {
@@ -123,7 +127,7 @@ func (m *Manager) GetStats() (uint64, uint64) {
 		}
 	}
 
-	// Drop stats (PERCPU_ARRAY, max_entries 1)
+	// Drop stats (PERCPU_ARRAY, max_entries 1) / 拦截统计
 	var dropVals []uint64
 	if err := m.dropStats.Lookup(&key, &dropVals); err == nil {
 		for _, v := range dropVals {
@@ -181,7 +185,7 @@ func (m *Manager) GetPassCount() (uint64, error) {
 func (m *Manager) GetLockedIPCount() (uint64, error) {
 	var count uint64
 
-	// Count unified locked IPs
+	// Count unified locked IPs / 统计统一锁定 IP
 	if m.lockList != nil {
 		iter := m.lockList.Iterate()
 		var key NetXfwLpmKey
@@ -196,6 +200,7 @@ func (m *Manager) GetLockedIPCount() (uint64, error) {
 
 /**
  * GetWhitelistCount returns the total number of entries in the whitelist maps.
+ * GetWhitelistCount 返回白名单 Map 中的条目总数。
  */
 func (m *Manager) GetWhitelistCount() (uint64, error) {
 	var count uint64
@@ -212,6 +217,7 @@ func (m *Manager) GetWhitelistCount() (uint64, error) {
 
 /**
  * GetConntrackCount returns the total number of entries in the conntrack maps.
+ * GetConntrackCount 返回连接跟踪 Map 中的条目总数。
  */
 func (m *Manager) GetConntrackCount() (uint64, error) {
 	var count uint64
@@ -228,11 +234,12 @@ func (m *Manager) GetConntrackCount() (uint64, error) {
 
 /**
  * ListConntrackEntries retrieves all active connections from the conntrack maps.
+ * ListConntrackEntries 从连接跟踪 Map 中获取所有活动连接。
  */
 func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
 	var entries []ConntrackEntry
 
-	// List unified entries
+	// List unified entries / 列出统一条目
 	if m.conntrackMap != nil {
 		var key NetXfwCtKey
 		var val NetXfwCtValue
@@ -240,7 +247,7 @@ func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
 		for iter.Next(&key, &val) {
 			var srcIP, dstIP string
 
-			// Check for IPv4-mapped IPv6
+			// Check for IPv4-mapped IPv6 / 检查 IPv4 映射的 IPv6
 			if key.SrcIp.In6U.U6Addr8[10] == 0xff && key.SrcIp.In6U.U6Addr8[11] == 0xff {
 				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[12:]).String()
 			} else {

@@ -13,12 +13,15 @@ func main() {
 	log.Printf("Starting netxfw-agent %s (Control Plane Daemon)...", version.Version)
 
 	// Set runtime mode
+	// 设置运行模式
 	runtime.Mode = "agent"
 
 	// Initialize configuration
+	// 初始化配置
 	core.InitConfiguration()
 	core.TestConfiguration()
 
 	// Run the daemon logic directly
+	// 直接运行守护进程逻辑
 	daemon.Run(runtime.Mode)
 }

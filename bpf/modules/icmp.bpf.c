@@ -14,6 +14,7 @@ static __always_inline int check_icmp_limit(__u64 rate, __u64 burst) {
     __u64 elapsed = now - stats->last_time;
     
     // Fast path: < 1ms, skip math
+    // 快速路径：< 1ms，跳过数学运算
     if (elapsed < 1000000ULL) {
         if (stats->tokens >= 1) {
             stats->tokens -= 1;

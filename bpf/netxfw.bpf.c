@@ -10,6 +10,7 @@
 #include "include/bpf_features.h"
 
 // Global cached config variables (referenced by extern in helpers.bpf.h)
+// 全局缓存的配置变量（在 helpers.bpf.h 中通过 extern 引用）
 __u64 cached_version = 0;
 __u32 cached_default_deny = 0;
 __u32 cached_allow_return = 0;
@@ -31,21 +32,25 @@ __u64 cached_auto_block_expiry = 0;
 
 
 // Include functional modules
+// 包含功能模块
 #include "modules/stats.bpf.c"
 #include "modules/conntrack.bpf.c"
 
 // Include protocol handlers
+// 包含协议处理器
 #include "protocols/ipv4.bpf.c"
 #ifdef ENABLE_IPV6
 #include "protocols/ipv6.bpf.c"
 #endif
 
 // Helper to check and refresh configuration
+// 检查并刷新配置的辅助函数
 static __always_inline void check_config_refresh() {
     __u32 key = 0;
     __u64 *counter_ptr = bpf_map_lookup_elem(&packet_counter, &key);
     if (counter_ptr) {
         // Optimization: No atomic needed for PERCPU_ARRAY
+        // 优化：PERCPU_ARRAY 不需要原子操作
         *counter_ptr += 1;
         if (unlikely(*counter_ptr % CONFIG_REFRESH_INTERVAL == 0)) {
             refresh_config();
@@ -54,6 +59,7 @@ static __always_inline void check_config_refresh() {
 }
 
 // Helper to parse Ethernet header and handle VLANs
+// 解析以太网头并处理 VLAN 的辅助函数
 static __always_inline int parse_eth_frame(void *data, void *data_end, void **network_header, __u16 *proto) {
     struct ethhdr *eth = data;
     if (unlikely(data + sizeof(*eth) > data_end)) return -1;
@@ -62,6 +68,7 @@ static __always_inline int parse_eth_frame(void *data, void *data_end, void **ne
     *proto = eth->h_proto;
 
     // Handle VLANs (802.1Q and 802.1AD)
+    // 处理 VLAN (802.1Q 和 802.1AD)
     if (unlikely(*proto == bpf_htons(ETH_P_8021Q) || *proto == bpf_htons(ETH_P_8021AD))) {
         struct vlan_hdr *vhdr;
         #pragma unroll
@@ -79,6 +86,7 @@ static __always_inline int parse_eth_frame(void *data, void *data_end, void **ne
 SEC("xdp/ipv4")
 int xdp_ipv4(struct xdp_md *ctx) {
     // Check and refresh config
+    // 检查并刷新配置
     check_config_refresh();
 
     void *data = (void *)(long)ctx->data;
@@ -89,6 +97,7 @@ int xdp_ipv4(struct xdp_md *ctx) {
     if (parse_eth_frame(data, data_end, &network_header, &h_proto) < 0) return XDP_PASS;
 
     // Ensure it is IPv4
+    // 确保是 IPv4
     if (h_proto != bpf_htons(ETH_P_IP)) return XDP_PASS;
 
     int action = handle_ipv4(ctx, data_end, network_header);
@@ -98,6 +107,8 @@ int xdp_ipv4(struct xdp_md *ctx) {
         return XDP_PASS;
     } else if (action == XDP_DROP) {
         // Stats are already updated in handle_ipv4/6 with specific reasons
+        // 统计信息已在 handle_ipv4/6 中更新了具体原因
+
         // update_drop_stats(); 
         return XDP_DROP;
     }
@@ -143,9 +154,11 @@ int xdp_ipv6(struct xdp_md *ctx) {
 SEC("xdp")
 int xdp_firewall(struct xdp_md *ctx) {
     // Sample-based configuration refresh to reduce overhead
+    // 基于采样的配置刷新以减少开销
     check_config_refresh();
 
-    // Try to call the first plugin slot / 尝试调用第一个插件槽位
+    // Try to call the first plugin slot
+    // 尝试调用第一个插件槽位
     // If a plugin is loaded, it's responsible for tail-calling the next plugin or the core logic
     // 如果加载了插件，它负责尾调用下一个插件或核心逻辑
     bpf_tail_call(ctx, &jmp_table, PROG_IDX_PLUGIN_START);
@@ -178,6 +191,7 @@ int xdp_firewall(struct xdp_md *ctx) {
     }
 
     // Only update stats if action is PASS or DROP
+    // 仅当动作为 PASS 或 DROP 时更新统计信息
     if (action == XDP_PASS) {
         if (cached_af_xdp_enabled == 1) return bpf_redirect_map(&xsk_map, ctx->rx_queue_index, 0);
         update_pass_stats();

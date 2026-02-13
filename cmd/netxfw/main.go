@@ -19,14 +19,17 @@ import (
 
 func main() {
 	// Initialize command functions
+	// 初始化命令函数
 	initializeCommandFunctions()
 
 	// Execute Cobra commands
+	// 执行 Cobra 命令
 	commands.Execute()
 }
 
 func initializeCommandFunctions() {
 	// System commands
+	// 系统命令
 	common.InitConfiguration = core.InitConfiguration
 	common.ShowStatus = core.ShowStatus
 	common.ShowTopStats = core.ShowTopStats
@@ -42,6 +45,7 @@ func initializeCommandFunctions() {
 	common.SyncEnableAFXDP = core.SyncEnableAFXDP
 
 	// Rule commands
+	// 规则命令
 	common.EnsureStandaloneMode = ensureStandaloneMode
 	common.SyncLockMap = core.SyncLockMap
 	common.SyncWhitelistMap = core.SyncWhitelistMap
@@ -55,6 +59,7 @@ func initializeCommandFunctions() {
 	common.ClearBlacklist = core.ClearBlacklist
 
 	// Security commands
+	// 安全命令
 	common.SyncDropFragments = core.SyncDropFragments
 	common.SyncStrictTCP = core.SyncStrictTCP
 	common.SyncSYNLimit = core.SyncSYNLimit
@@ -63,24 +68,30 @@ func initializeCommandFunctions() {
 	common.SyncAutoBlockExpiry = core.SyncAutoBlockExpiry
 
 	// Limit commands
+	// 限速命令
 	common.SyncRateLimitRule = core.SyncRateLimitRule
 	common.ShowRateLimitRules = core.ShowRateLimitRules
 
 	// Port commands
+	// 端口命令
 	common.SyncAllowedPort = core.SyncAllowedPort
 
 	// Web commands
+	// Web 命令
 	common.RunWebServer = core.RunWebServer
 
 	// Conntrack commands
+	// 连接跟踪命令
 	common.ShowConntrack = core.ShowConntrack
 
 	// Quick commands
+	// 快捷命令
 	common.AskConfirmation = core.AskConfirmation
 }
 
 /**
  * askConfirmation asks the user for a y/n confirmation.
+ * askConfirmation 询问用户 y/n 确认。
  */
 func askConfirmation(prompt string) bool {
 	return core.AskConfirmation(prompt)
@@ -118,4 +129,7 @@ func ensureStandaloneMode() {
 	// Check if we're running in standalone mode (not as daemon)
 	// For standalone mode, we just ensure that we can access the BPF maps
 	// This function can be expanded based on specific requirements
+	// 检查是否在独立模式下运行（非守护进程）
+	// 对于独立模式，我们只需确保可以访问 BPF 映射
+	// 此函数可根据具体需求进行扩展
 }

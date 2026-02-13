@@ -50,3 +50,8 @@ When adding new tests, place them in the appropriate subdirectory:
 - Unit tests for individual functions → `unit/`
 - Multi-component workflow tests → `integration/`
 - Load/stress tests → `performance/`
+### CLI Integration Tests
+- CLI Functionality (`integration/cli/`)
+  - Verifies basic command operations (add, list, remove)
+  - Tests bulk import functionality (`rule import`)
+  - Tests configuration synchronization (`system sync`)

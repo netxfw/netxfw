@@ -24,6 +24,8 @@ var systemInitCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.InitConfiguration function not initialized")
 			os.Exit(1)
 		}
+		// Initialize configuration
+		// 初始化配置
 		common.InitConfiguration()
 	},
 }
@@ -37,6 +39,8 @@ var systemStatusCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.ShowStatus function not initialized")
 			os.Exit(1)
 		}
+		// Show system status
+		// 显示系统状态
 		common.ShowStatus()
 	},
 }
@@ -50,6 +54,8 @@ var systemTestCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.TestConfiguration function not initialized")
 			os.Exit(1)
 		}
+		// Test configuration
+		// 测试配置
 		common.TestConfiguration()
 	},
 }
@@ -63,6 +69,8 @@ var systemDaemonCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.RunDaemon function not initialized")
 			os.Exit(1)
 		}
+		// Run as daemon
+		// 以守护进程方式运行
 		common.RunDaemon()
 	},
 }
@@ -83,6 +91,8 @@ var systemLoadCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		common.InitConfiguration()
+		// Install XDP program
+		// 安装 XDP 程序
 		common.InstallXDP(interfaces)
 	},
 }
@@ -96,6 +106,8 @@ var systemReloadCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.ReloadXDP function not initialized")
 			os.Exit(1)
 		}
+		// Reload XDP program
+		// 重载 XDP 程序
 		common.ReloadXDP(interfaces)
 	},
 }
@@ -109,6 +121,8 @@ var systemUnloadCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.RemoveXDP function not initialized")
 			os.Exit(1)
 		}
+		// Remove XDP program
+		// 移除 XDP 程序
 		common.RemoveXDP(interfaces)
 	},
 }
@@ -127,6 +141,8 @@ var systemSetDefaultDenyCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("❌ Invalid boolean value: %v", err)
 		}
+		// Set default deny policy
+		// 设置默认拒绝策略
 		common.SyncDefaultDeny(enable)
 	},
 }
@@ -145,6 +161,8 @@ var systemRateLimitCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("❌ Invalid boolean value: %v", err)
 		}
+		// Toggle global rate limit
+		// 切换全局速率限制
 		common.SyncEnableRateLimit(enable)
 	},
 }
@@ -163,6 +181,8 @@ var systemAFXDPCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("❌ Invalid boolean value: %v", err)
 		}
+		// Toggle AF_XDP
+		// 切换 AF_XDP
 		common.SyncEnableAFXDP(enable)
 	},
 }

@@ -37,6 +37,8 @@ var portAddCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("❌ Invalid port: %v", err)
 		}
+		// Add allowed port
+		// 添加允许的端口
 		common.SyncAllowedPort(uint16(port), true)
 	},
 }
@@ -61,6 +63,8 @@ var portRemoveCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("❌ Invalid port: %v", err)
 		}
+		// Remove allowed port
+		// 移除允许的端口
 		common.SyncAllowedPort(uint16(port), false)
 	},
 }

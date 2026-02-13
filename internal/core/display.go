@@ -16,6 +16,7 @@ import (
 
 /**
  * getXDPMode returns the XDP attachment mode for a given interface.
+ * getXDPMode 返回给定接口的 XDP 附加模式。
  */
 func getXDPMode(iface string) string {
 	cmd := exec.Command("ip", "link", "show", iface)
@@ -40,6 +41,7 @@ func getXDPMode(iface string) string {
 
 /**
  * ShowWhitelist reads and prints all whitelisted ranges.
+ * ShowWhitelist 读取并打印所有白名单范围。
  */
 func ShowWhitelist(limit int, search string) {
 	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist", nil)
@@ -75,6 +77,7 @@ func ShowWhitelist(limit int, search string) {
 
 /**
  * ShowTopStats displays the top IPs by traffic and drop counts.
+ * ShowTopStats 显示按流量和丢弃计数排序的前几名 IP。
  */
 func ShowTopStats(limit int, sortBy string) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
@@ -84,7 +87,7 @@ func ShowTopStats(limit int, sortBy string) {
 	}
 	defer m.Close()
 
-	// 1. Fetch Stats
+	// 1. Fetch Stats / 获取统计信息
 	dropDetails, err := m.GetDropDetails()
 	if err != nil {
 		fmt.Printf("⚠️  Could not retrieve drop details: %v\n", err)
@@ -94,7 +97,7 @@ func ShowTopStats(limit int, sortBy string) {
 		fmt.Printf("⚠️  Could not retrieve pass details: %v\n", err)
 	}
 
-	// 2. Aggregate by IP
+	// 2. Aggregate by IP / 按 IP 聚合
 	type IpStats struct {
 		IP    string
 		Pass  uint64
@@ -119,13 +122,13 @@ func ShowTopStats(limit int, sortBy string) {
 		statsMap[p.SrcIP].Total += p.Count
 	}
 
-	// 3. Convert to Slice
+	// 3. Convert to Slice / 转换为切片
 	var statsList []*IpStats
 	for _, s := range statsMap {
 		statsList = append(statsList, s)
 	}
 
-	// 4. Sort
+	// 4. Sort / 排序
 	sort.Slice(statsList, func(i, j int) bool {
 		if sortBy == "drop" {
 			return statsList[i].Drop > statsList[j].Drop
@@ -133,7 +136,7 @@ func ShowTopStats(limit int, sortBy string) {
 		return statsList[i].Total > statsList[j].Total
 	})
 
-	// 5. Display
+	// 5. Display / 显示
 	fmt.Printf("📊 Top %d IPs by %s (Total Traffic/Drops)\n", limit, sortBy)
 	fmt.Printf("%-40s %-15s %-15s %-15s\n", "Source IP", "Total Packets", "Pass", "Drop")
 	fmt.Println(strings.Repeat("-", 90))
@@ -150,6 +153,7 @@ func ShowTopStats(limit int, sortBy string) {
 
 /**
  * ShowConntrack reads and prints all active connections.
+ * ShowConntrack 读取并打印所有活动连接。
  */
 func ShowConntrack() {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
@@ -173,7 +177,7 @@ func ShowConntrack() {
 	fmt.Printf("%-40s %-5s %-40s %-5s %-8s\n", "Source", "Port", "Destination", "Port", "Protocol")
 	fmt.Println(strings.Repeat("-", 110))
 
-	// Sort entries for better display
+	// Sort entries for better display / 排序条目以获得更好的显示效果
 	// In a real scenario, we might want to group by src/dst
 	for _, e := range entries {
 		proto := fmt.Sprintf("%d", e.Protocol)
@@ -193,6 +197,7 @@ func ShowConntrack() {
 
 /**
  * ShowIPPortRules reads and prints all IP+Port rules.
+ * ShowIPPortRules 读取并打印所有 IP+端口规则。
  */
 func ShowIPPortRules(limit int, search string) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
@@ -236,6 +241,7 @@ func ShowIPPortRules(limit int, search string) {
 
 /**
  * ShowRateLimitRules reads and prints all rate limit rules.
+ * ShowRateLimitRules 读取并打印所有速率限制规则。
  */
 func ShowRateLimitRules() {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
@@ -265,6 +271,7 @@ func ShowRateLimitRules() {
 
 /**
  * ShowStatus displays the current firewall status and statistics.
+ * ShowStatus 显示当前的防火墙状态和统计信息。
  */
 func ShowStatus() {
 	cfg, _ := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
@@ -284,17 +291,17 @@ func ShowStatus() {
 
 	fmt.Println("✅ XDP Program Status: Loaded and Running")
 
-	// Get drop stats
+	// Get drop stats / 获取丢弃统计
 	drops, err := m.GetDropCount()
 	if err != nil {
 		fmt.Printf("⚠️  Could not retrieve drop statistics: %v\n", err)
 	} else {
 		fmt.Printf("📊 Global Drop Count: %d packets\n", drops)
 
-		// Show detailed drop stats
+		// Show detailed drop stats / 显示详细的丢弃统计
 		details, err := m.GetDropDetails()
 		if err == nil && len(details) > 0 {
-			// Sort by count descending
+			// Sort by count descending / 按计数降序排序
 			sort.Slice(details, func(i, j int) bool {
 				return details[i].Count > details[j].Count
 			})
@@ -305,7 +312,7 @@ func ShowStatus() {
 			fmt.Printf("   %-20s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
 			fmt.Printf("   %s\n", strings.Repeat("-", 90))
 
-			// Simple map to string
+			// Simple map to string / 简单的原因映射
 			reasonStr := func(r uint32) string {
 				switch r {
 				case 0:
@@ -372,17 +379,17 @@ func ShowStatus() {
 		}
 	}
 
-	// Get pass stats
+	// Get pass stats / 获取通过统计
 	passes, err := m.GetPassCount()
 	if err != nil {
 		fmt.Printf("⚠️  Could not retrieve pass statistics: %v\n", err)
 	} else {
 		fmt.Printf("📊 Global Pass Count: %d packets\n", passes)
 
-		// Show detailed pass stats
+		// Show detailed pass stats / 显示详细的通过统计
 		details, err := m.GetPassDetails()
 		if err == nil && len(details) > 0 {
-			// Sort by count descending
+			// Sort by count descending / 按计数降序排序
 			sort.Slice(details, func(i, j int) bool {
 				return details[i].Count > details[j].Count
 			})
@@ -439,25 +446,25 @@ func ShowStatus() {
 		}
 	}
 
-	// Get locked IP count
+	// Get locked IP count / 获取锁定 IP 计数
 	lockedCount, err := m.GetLockedIPCount()
 	if err == nil {
 		fmt.Printf("🔒 Locked IP Count: %d addresses\n", lockedCount)
 	}
 
-	// Get whitelist count
+	// Get whitelist count / 获取白名单计数
 	whitelistCount, err := m.GetWhitelistCount()
 	if err == nil {
 		fmt.Printf("⚪ Whitelist Count: %d addresses\n", whitelistCount)
 	}
 
-	// Get conntrack count
+	// Get conntrack count / 获取连接跟踪计数
 	ctCount, err := m.GetConntrackCount()
 	if err == nil {
 		fmt.Printf("🕵️  Active Connections: %d\n", ctCount)
 	}
 
-	// Check default deny policy
+	// Check default deny policy / 检查默认拒绝策略
 	var key uint32 = 0 // CONFIG_DEFAULT_DENY
 	var val uint64
 	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
@@ -468,7 +475,7 @@ func ShowStatus() {
 		fmt.Printf("🛡️  Default Deny Policy: %s\n", status)
 	}
 
-	// Check allow return traffic
+	// Check allow return traffic / 检查允许返回流量
 	key = 1 // CONFIG_ALLOW_RETURN_TRAFFIC
 	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
 		status := "Disabled"
@@ -478,7 +485,7 @@ func ShowStatus() {
 		fmt.Printf("🔄 Allow Return Traffic: %s\n", status)
 	}
 
-	// Check allow ICMP
+	// Check allow ICMP / 检查允许 ICMP
 	key = 2 // CONFIG_ALLOW_ICMP
 	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
 		status := "Disabled"
@@ -488,7 +495,7 @@ func ShowStatus() {
 		fmt.Printf("🏓 Allow ICMP (Ping): %s\n", status)
 
 		if val == 1 {
-			// Check rate limits
+			// Check rate limits / 检查速率限制
 			var rate, burst uint64
 			kRate := uint32(5)  // CONFIG_ICMP_RATE
 			kBurst := uint32(6) // CONFIG_ICMP_BURST
@@ -501,7 +508,7 @@ func ShowStatus() {
 		}
 	}
 
-	// Check conntrack
+	// Check conntrack / 检查连接跟踪
 	key = 3 // CONFIG_ENABLE_CONNTRACK
 	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
 		status := "Disabled"
@@ -519,7 +526,7 @@ func ShowStatus() {
 		}
 	}
 
-	// Check global ratelimit
+	// Check global ratelimit / 检查全局速率限制
 	key = 10 // CONFIG_ENABLE_RATELIMIT
 	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
 		status := "Disabled"
@@ -529,7 +536,7 @@ func ShowStatus() {
 		fmt.Printf("🚀 Global Rate Limiting: %s\n", status)
 	}
 
-	// Check attached interfaces
+	// Check attached interfaces / 检查附加接口
 	fmt.Println("\n🔗 Attached Interfaces:")
 	files, _ := os.ReadDir("/sys/fs/bpf/netxfw")
 	attachedCount := 0

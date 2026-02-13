@@ -13,9 +13,11 @@ static __always_inline void update_pass_stats() {
 
 static __always_inline void update_pass_stats_with_reason(__u32 reason, __u32 protocol, struct in6_addr *src_ip, __u16 dst_port) {
     // Update global pass counter
+    // 更新全局通过计数器
     update_pass_stats();
 
     // Update detailed pass stats
+    // 更新详细通过统计信息
     struct drop_detail_key dkey = {};
     dkey.reason = reason;
     dkey.protocol = protocol;
@@ -35,6 +37,7 @@ static __always_inline void update_pass_stats_with_reason(__u32 reason, __u32 pr
 
 static __always_inline void update_drop_stats_with_reason(__u32 reason, __u32 protocol, struct in6_addr *src_ip, __u16 dst_port) {
     // Update global drop counter
+    // 更新全局丢弃计数器
     __u32 key = 0;
     __u64 *count = bpf_map_lookup_elem(&drop_stats, &key);
     if (count) {
@@ -42,6 +45,7 @@ static __always_inline void update_drop_stats_with_reason(__u32 reason, __u32 pr
     }
 
     // Update detailed drop stats
+    // 更新详细丢弃统计信息
     struct drop_detail_key dkey = {};
     dkey.reason = reason;
     dkey.protocol = protocol;
@@ -61,6 +65,7 @@ static __always_inline void update_drop_stats_with_reason(__u32 reason, __u32 pr
 
 static __always_inline void update_drop_stats() {
     // For unknown drop, we use zero address
+    // 对于未知丢弃，我们使用零地址
     struct in6_addr zero_ip = {};
     update_drop_stats_with_reason(DROP_REASON_UNKNOWN, 0, &zero_ip, 0);
 }

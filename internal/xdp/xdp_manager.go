@@ -41,9 +41,12 @@ const (
 
 // BlockStatic adds an IP to the static blocklist (LPM trie) and optionally persists it to a file.
 // It reuses the underlying LockIP helper for BPF map operations.
+// BlockStatic 将 IP 添加到静态黑名单（LPM Trie）并可选择将其持久化到文件。
+// 它复用底层的 LockIP 辅助函数进行 BPF Map 操作。
 func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 	ip, err := netip.ParseAddr(ipStr)
 	// If parsing fails, it might be a CIDR
+	// 如果解析失败，它可能是一个 CIDR
 	if err != nil {
 		if _, _, err := net.ParseCIDR(ipStr); err != nil {
 			return fmt.Errorf("invalid IP or CIDR %s: %w", ipStr, err)
@@ -53,6 +56,7 @@ func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 	cidr := ipStr
 	if err == nil {
 		// It's a single IP, append suffix
+		// 这是一个单个 IP，添加后缀
 		if ip.Is4() {
 			cidr += "/32"
 		} else {
@@ -61,16 +65,20 @@ func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 	}
 
 	// Use LockList (Static)
+	// 使用 LockList（静态）
 	mapObj := m.LockList()
 
 	// Reuse existing LockIP helper
+	// 复用现有的 LockIP 辅助函数
 	if err := LockIP(mapObj, cidr); err != nil {
 		return fmt.Errorf("failed to add to static blacklist %s: %v", cidr, err)
 	}
 
 	// Persist to lock list file if configured
+	// 如果配置了，持久化到锁定列表文件
 	if persistFile != "" {
 		// Use O_APPEND to add to the end of the file
+		// 使用 O_APPEND 添加到文件末尾
 		f, err := os.OpenFile(persistFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Printf("⚠️ Failed to open lock list file for persistence: %v", err)
@@ -89,6 +97,7 @@ func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 }
 
 // AllowStatic adds an IP/CIDR to the whitelist.
+// AllowStatic 将 IP/CIDR 添加到白名单。
 func (m *Manager) AllowStatic(ipStr string, port uint16) error {
 	mapObj := m.Whitelist()
 
@@ -99,6 +108,7 @@ func (m *Manager) AllowStatic(ipStr string, port uint16) error {
 }
 
 // RemoveAllowStatic removes an IP/CIDR from the whitelist.
+// RemoveAllowStatic 从白名单中移除 IP/CIDR。
 func (m *Manager) RemoveAllowStatic(ipStr string) error {
 	mapObj := m.Whitelist()
 
@@ -109,14 +119,17 @@ func (m *Manager) RemoveAllowStatic(ipStr string) error {
 }
 
 // ListWhitelist returns all whitelisted IPs/CIDRs.
+// ListWhitelist 返回所有白名单中的 IP/CIDR。
 func (m *Manager) ListWhitelist(isIPv6 bool) ([]string, error) {
 	mapObj := m.Whitelist()
 	// Use 0 limit to get all
+	// 使用 0 限制以获取全部
 	ips, _, err := ListWhitelistedIPs(mapObj, isIPv6, 0, "")
 	return ips, err
 }
 
 // BlockDynamic adds an IP to the dynamic blocklist (LRU hash) with a TTL.
+// BlockDynamic 将 IP 添加到带有 TTL 的动态黑名单（LRU Hash）中。
 func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 	ip, err := netip.ParseAddr(ipStr)
 	if err != nil {
@@ -135,6 +148,7 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 		}
 
 		// Use mapped IPv6 for key
+		// 使用映射的 IPv6 作为键
 		key := NetXfwIn6Addr{}
 		b := ip.As4()
 		// ::ffff:a.b.c.d
@@ -143,7 +157,7 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 		copy(key.In6U.U6Addr8[12:], b[:])
 
 		val := NetXfwRuleValue{
-			Counter:   2, // Deny
+			Counter:   2, // Deny / 拒绝
 			ExpiresAt: expiry,
 		}
 		if err := mapObj.Update(&key, &val, ebpf.UpdateAny); err != nil {
@@ -160,7 +174,7 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 		copy(key.In6U.U6Addr8[:], b[:])
 
 		val := NetXfwRuleValue{
-			Counter:   2, // Deny
+			Counter:   2, // Deny / 拒绝
 			ExpiresAt: expiry,
 		}
 
@@ -174,6 +188,7 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 }
 
 // ForceCleanup removes all pinned maps at the specified path.
+// ForceCleanup 删除指定路径下的所有固定 Map。
 func ForceCleanup(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil
@@ -274,6 +289,8 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 /**
  * NewManagerFromPins loads a manager using maps already pinned to the filesystem.
  * This is useful for CLI tools that need to interact with a running XDP program.
+ * NewManagerFromPins 使用已固定到文件系统的 Map 加载管理器。
+ * 这对于需要与正在运行的 XDP 程序交互的 CLI 工具非常有用。
  */
 func NewManagerFromPins(path string) (*Manager, error) {
 	// Remove resource limits for BPF / 移除 BPF 资源限制
@@ -355,6 +372,9 @@ func NewManagerFromPins(path string) (*Manager, error) {
  * Attach mounts the XDP program to the specified network interfaces.
  * It tries Offload mode, then Native mode, and finally Generic mode as fallbacks.
  * The XDP program is attached using link.XDP_FLAGS_REPLACE or similar to ensure it stays in kernel.
+ * Attach 将 XDP 程序挂载到指定的网络接口。
+ * 它尝试 Offload 模式，然后是 Native 模式，最后是 Generic 模式作为备选方案。
+ * XDP 程序使用 link.XDP_FLAGS_REPLACE 或类似方式挂载，以确保其留在内核中。
  */
 func (m *Manager) Attach(interfaces []string) error {
 	for _, name := range interfaces {
@@ -365,6 +385,7 @@ func (m *Manager) Attach(interfaces []string) error {
 		}
 
 		// Try to atomic update existing XDP link
+		// 尝试原子更新现有的 XDP 链接
 		linkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/link_%s", name)
 		var attached bool
 
@@ -376,7 +397,7 @@ func (m *Manager) Attach(interfaces []string) error {
 			} else {
 				log.Printf("⚠️  Atomic Reload failed on %s: %v. Fallback to detach/attach.", name, err)
 				l.Close()
-				_ = os.Remove(linkPath) // Force remove to allow re-attach
+				_ = os.Remove(linkPath) // Force remove to allow re-attach / 强制删除以允许重新挂载
 			}
 		}
 
@@ -394,6 +415,9 @@ func (m *Manager) Attach(interfaces []string) error {
 				// Using Pin-less link or simply not storing the link object if we want it to persist.
 				// However, in cilium/ebpf, if the link object is closed, the program is detached.
 				// To keep it persistent, we need to PIN the link or use Raw attach.
+				// 使用不带固定点的链接，或者如果我们希望它持久化，则根本不存储链接对象。
+				// 然而，在 cilium/ebpf 中，如果链接对象被关闭，程序将被卸载。
+				// 为了保持持久性，我们需要固定（PIN）链接或使用原始挂载。
 				l, err := link.AttachXDP(link.XDPOptions{
 					Program:   m.objs.XdpFirewall,
 					Interface: iface.Index,
@@ -402,7 +426,8 @@ func (m *Manager) Attach(interfaces []string) error {
 
 				if err == nil {
 					// Pin the link to filesystem to make it persistent after process exit
-					_ = os.Remove(linkPath) // Remove old link pin if exists
+					// 将链接固定到文件系统，使其在进程退出后保持持久
+					_ = os.Remove(linkPath) // Remove old link pin if exists / 如果存在旧的链接固定点，则将其删除
 					if err := l.Pin(linkPath); err != nil {
 						log.Printf("⚠️  Failed to pin link on %s: %v", name, err)
 						l.Close()
@@ -417,14 +442,15 @@ func (m *Manager) Attach(interfaces []string) error {
 		}
 
 		// Attach TC for egress tracking (required for Conntrack)
-		// 1. Ensure clsact qdisc exists
+		// 附加 TC 用于出口追踪（连接跟踪 Conntrack 所需）
+		// 1. Ensure clsact qdisc exists / 确保 clsact qdisc 存在
 		_ = exec.Command("tc", "qdisc", "add", "dev", name, "clsact").Run()
 
-		// 2. Attach TC program
+		// 2. Attach TC program / 挂载 TC 程序
 		tcLinkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/tc_link_%s", name)
 		var tcAttached bool
 
-		// Try atomic update for TC
+		// Try atomic update for TC / 尝试原子更新 TC
 		if tl, err := link.LoadPinnedLink(tcLinkPath, nil); err == nil {
 			if err := tl.Update(m.objs.TcEgress); err == nil {
 				log.Printf("✅ Atomic Reload: Updated TC Egress on %s", name)
@@ -464,6 +490,7 @@ func (m *Manager) Attach(interfaces []string) error {
 
 /**
  * Detach removes the XDP program from the specified network interfaces by unpinning and closing links.
+ * Detach 通过取消固定和关闭链接，从指定的网络接口移除 XDP 程序。
  */
 func (m *Manager) Detach(interfaces []string) error {
 	for _, name := range interfaces {
@@ -473,6 +500,7 @@ func (m *Manager) Detach(interfaces []string) error {
 			log.Printf("⚠️  No pinned link found for %s, trying manual detach...", name)
 			// Fallback: try to detach using interface index if possible,
 			// but usually unpinning the persistent link is enough.
+			// 备选方案：如果可能，尝试使用接口索引进行分离，但通常取消固定持久链接就足够了。
 			continue
 		}
 		if err := l.Close(); err != nil {
@@ -482,7 +510,7 @@ func (m *Manager) Detach(interfaces []string) error {
 			log.Printf("✅ Detached XDP from %s", name)
 		}
 
-		// Detach TC link
+		// Detach TC link / 分离 TC 链接
 		tcLinkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/tc_link_%s", name)
 		if tl, err := link.LoadPinnedLink(tcLinkPath, nil); err == nil {
 			if err := tl.Close(); err != nil {
@@ -499,6 +527,7 @@ func (m *Manager) Detach(interfaces []string) error {
 /**
  * GetAttachedInterfaces returns a list of interfaces that currently have XDP/TC programs attached
  * by looking for pinned links in the default pin path.
+ * GetAttachedInterfaces 通过在默认固定路径中查找固定链接，返回当前挂载了 XDP/TC 程序的接口列表。
  */
 func GetAttachedInterfaces(pinPath string) ([]string, error) {
 	entries, err := os.ReadDir(pinPath)
@@ -525,7 +554,7 @@ func GetAttachedInterfaces(pinPath string) ([]string, error) {
  * MigrateState 将旧管理器的 Map 条目复制到此管理器的 Map 中，用于热加载以保留状态。
  */
 func (m *Manager) MigrateState(old *Manager) error {
-	// Migrate Conntrack
+	// Migrate Conntrack / 迁移连接跟踪 (Conntrack)
 	if old.conntrackMap != nil && m.conntrackMap != nil {
 		var key NetXfwCtKey
 		var val NetXfwCtValue
@@ -535,7 +564,7 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Lock List
+	// Migrate Lock List / 迁移锁定列表 (Lock List)
 	if old.lockList != nil && m.lockList != nil {
 		var key NetXfwLpmKey
 		var val NetXfwRuleValue
@@ -545,7 +574,7 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Dynamic Lock List
+	// Migrate Dynamic Lock List / 迁移动态锁定列表 (Dynamic Lock List)
 	if old.dynLockList != nil && m.dynLockList != nil {
 		var key NetXfwLpmKey
 		var val NetXfwRuleValue
@@ -555,7 +584,7 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Whitelist
+	// Migrate Whitelist / 迁移白名单 (Whitelist)
 	if old.whitelist != nil && m.whitelist != nil {
 		var key NetXfwLpmKey
 		var val NetXfwRuleValue
@@ -565,7 +594,7 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate IP+Port Rules
+	// Migrate IP+Port Rules / 迁移 IP+端口规则 (IP+Port Rules)
 	if old.ipPortRules != nil && m.ipPortRules != nil {
 		var key NetXfwLpmIpPortKey
 		var val NetXfwRuleValue
@@ -575,7 +604,7 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Allowed Ports (PERCPU HASH)
+	// Migrate Allowed Ports (PERCPU HASH) / 迁移允许端口 (Allowed Ports)
 	if old.allowedPorts != nil && m.allowedPorts != nil {
 		var key uint16
 		numCPU, _ := ebpf.PossibleCPU()
@@ -586,7 +615,7 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Rate Limit Config (LPM TRIE)
+	// Migrate Rate Limit Config (LPM TRIE) / 迁移速率限制配置 (Rate Limit Config)
 	if old.ratelimitConfig != nil && m.ratelimitConfig != nil {
 		var key NetXfwLpmKey
 		var val NetXfwRatelimitConf
@@ -596,7 +625,7 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Rate Limit State (LRU HASH)
+	// Migrate Rate Limit State (LRU HASH) / 迁移速率限制状态 (Rate Limit State)
 	if old.ratelimitState != nil && m.ratelimitState != nil {
 		var key NetXfwIn6Addr
 		var val NetXfwRatelimitStats
@@ -625,6 +654,7 @@ func (m *Manager) LoadPlugin(elfPath string, index int) error {
 	}
 
 	// For simplicity, we assume the first XDP program found is the plugin
+	// 为了简单起见，我们假设找到的第一个 XDP 程序就是插件
 	var progSpec *ebpf.ProgramSpec
 	for _, p := range spec.Programs {
 		if p.Type == ebpf.XDP {
@@ -642,6 +672,7 @@ func (m *Manager) LoadPlugin(elfPath string, index int) error {
 		return fmt.Errorf("load plugin program: %w", err)
 	}
 	// Note: We don't close the program here as it needs to stay in the jmpTable
+	// 注意：我们在这里不关闭程序，因为它需要留在 jmpTable 中
 
 	if err := m.jmpTable.Update(uint32(index), prog, ebpf.UpdateAny); err != nil {
 		prog.Close()
@@ -654,6 +685,7 @@ func (m *Manager) LoadPlugin(elfPath string, index int) error {
 
 /**
  * RemovePlugin removes a plugin from the jump table.
+ * RemovePlugin 从跳转表中移除插件。
  */
 func (m *Manager) RemovePlugin(index int) error {
 	if index < ProgIdxPluginStart || index > ProgIdxPluginEnd {
@@ -671,15 +703,20 @@ func (m *Manager) RemovePlugin(index int) error {
 /**
  * Close releases all BPF resources.
  * Note: Persistent links are NOT closed here to allow them to stay in kernel.
+ * Close 释放所有 BPF 资源。
+ * 注意：此处不关闭持久链接，以允许它们保留在内核中。
  */
 func (m *Manager) Close() {
 	m.objs.Close()
 	// We no longer automatically close links here to keep them persistent.
 	// Links are now pinned and should be managed via Detach or manually.
+	// 我们不再在此处自动关闭链接，以保持其持久性。
+	// 链接现在已被固定，应通过 Detach 或手动管理。
 }
 
 /**
  * Pin saves maps to the filesystem for persistence and external access.
+ * Pin 将 Map 保存到文件系统以进行持久化和外部访问。
  */
 func (m *Manager) Pin(path string) error {
 	if err := os.MkdirAll(path, 0755); err != nil {
@@ -691,7 +728,7 @@ func (m *Manager) Pin(path string) error {
 			return
 		}
 		p := path + "/" + name
-		_ = os.Remove(p) // Ensure old pin is removed
+		_ = os.Remove(p) // Ensure old pin is removed / 确保旧的固定点被移除
 		if err := ebpfMap.Pin(p); err != nil {
 			log.Printf("⚠️  Failed to pin %s: %v", name, err)
 		}
@@ -716,6 +753,7 @@ func (m *Manager) Pin(path string) error {
 }
 
 // Unpin removes maps from the filesystem.
+// Unpin 从文件系统中移除 Map。
 func (m *Manager) Unpin(path string) error {
 	_ = m.lockList.Unpin()
 	if m.dynLockList != nil {

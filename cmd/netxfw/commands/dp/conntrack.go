@@ -21,6 +21,8 @@ var ConntrackCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		common.EnsureStandaloneMode()
+		// Show conntrack table
+		// 显示连接跟踪表
 		common.ShowConntrack()
 	},
 }

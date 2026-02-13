@@ -15,9 +15,10 @@ import (
 
 /**
  * InstallXDP initializes the XDP manager and mounts the program to interfaces, then exits.
+ * InstallXDP 初始化 XDP 管理器并将程序挂载到接口，然后退出。
  */
 func InstallXDP(cliInterfaces []string) {
-	// Load global configuration first to get interface settings
+	// Load global configuration first to get interface settings / 首先加载全局配置以获取接口设置
 	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 	if err != nil {
 		log.Fatalf("❌ Failed to load global config: %v", err)
@@ -31,7 +32,7 @@ func InstallXDP(cliInterfaces []string) {
 		interfaces = globalCfg.Base.Interfaces
 		log.Printf("ℹ️  Using configured interfaces: %v", interfaces)
 	} else {
-		// Auto-detect if no interfaces configured
+		// Auto-detect if no interfaces configured / 如果未配置接口，则自动检测
 		interfaces, err = xdp.GetPhysicalInterfaces()
 		if err != nil {
 			log.Fatalf("❌ Failed to get interfaces: %v", err)
@@ -79,7 +80,7 @@ func InstallXDP(cliInterfaces []string) {
 		}
 	}
 
-	// Start all plugins to apply configurations
+	// Start all plugins to apply configurations / 启动所有插件以应用配置
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(globalCfg); err != nil {
 			log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
@@ -96,6 +97,7 @@ func InstallXDP(cliInterfaces []string) {
 
 /**
  * RunDaemon starts the background process for metrics and rule synchronization.
+ * RunDaemon 启动用于指标和规则同步的后台进程。
  */
 func RunDaemon() {
 	InitConfiguration()
@@ -105,6 +107,7 @@ func RunDaemon() {
 
 /**
  * HandlePluginCommand processes plugin-related CLI commands.
+ * HandlePluginCommand 处理与插件相关的 CLI 命令。
  */
 func HandlePluginCommand(args []string) {
 	if len(args) < 1 {
@@ -149,9 +152,11 @@ func HandlePluginCommand(args []string) {
 
 /**
  * RemoveXDP detaches the XDP program from all interfaces and unpins everything.
+ * RemoveXDP 从所有接口分离 XDP 程序并取消所有固定。
  */
 func RemoveXDP(cliInterfaces []string) {
 	// Load global configuration to get max entries (needed for NewManager)
+	// 加载全局配置以获取最大条目数（NewManager 需要）
 	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 	if err != nil {
 		log.Printf("⚠️  Failed to load global config, using default map capacity: %v", err)
@@ -166,17 +171,17 @@ func RemoveXDP(cliInterfaces []string) {
 		log.Printf("ℹ️  Detaching from specific interfaces: %v", interfaces)
 	} else {
 		fullUnload = true
-		// Collect all potential interfaces to detach from
+		// Collect all potential interfaces to detach from / 收集所有可能的分离接口
 		uniqueInterfaces := make(map[string]bool)
 
-		// 1. Get physical interfaces
+		// 1. Get physical interfaces / 获取物理接口
 		if phyInterfaces, err := xdp.GetPhysicalInterfaces(); err == nil {
 			for _, iface := range phyInterfaces {
 				uniqueInterfaces[iface] = true
 			}
 		}
 
-		// 2. Get configured interfaces
+		// 2. Get configured interfaces / 获取已配置的接口
 		for _, iface := range globalCfg.Base.Interfaces {
 			uniqueInterfaces[iface] = true
 		}
@@ -216,11 +221,12 @@ func RemoveXDP(cliInterfaces []string) {
  * ReloadXDP performs a hot-reload of the XDP program.
  * It loads new objects, migrates state from old pinned maps, and swaps the program.
  * ReloadXDP 执行 XDP 程序的平滑重载：加载新对象，从旧的固定 Map 迁移状态，并切换程序。
- */
+ **/
+
 func ReloadXDP(cliInterfaces []string) {
 	log.Println("🔄 Starting hot-reload of XDP program...")
 
-	// 1. Load global configuration
+	// 1. Load global configuration / 加载全局配置
 	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 	if err != nil {
 		log.Fatalf("❌ Failed to load global config: %v", err)
@@ -241,13 +247,13 @@ func ReloadXDP(cliInterfaces []string) {
 		log.Printf("ℹ️  Auto-detected interfaces: %v", interfaces)
 	}
 
-	// 2. Initialize new manager with new capacities
+	// 2. Initialize new manager with new capacities / 使用新容量初始化新管理器
 	newManager, err := xdp.NewManager(globalCfg.Capacity)
 	if err != nil {
 		log.Fatalf("❌ Failed to create new XDP manager: %v", err)
 	}
 
-	// 3. Try to load old manager from pins to migrate state
+	// 3. Try to load old manager from pins to migrate state / 尝试从固定点加载旧管理器以迁移状态
 	oldManager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err == nil {
 		log.Println("📦 Migrating state from old BPF maps...")
@@ -260,12 +266,14 @@ func ReloadXDP(cliInterfaces []string) {
 	}
 
 	// 4. Update pins: Pin new maps (this ensures the directory exists for Attach)
+	// 更新固定：固定新 Map（这确保了 Attach 的目录存在）
 	if err := newManager.Pin("/sys/fs/bpf/netxfw"); err != nil {
 		log.Fatalf("❌ Failed to pin new maps: %v", err)
 	}
 
 	// 5. Atomic swap: Attach new manager to interfaces
 	// This will atomically replace the program if a pinned link exists
+	// 原子交换：将新管理器附加到接口。如果存在固定的 link，这将原子地替换程序。
 	if err := newManager.Attach(interfaces); err != nil {
 		log.Fatalf("❌ Failed to attach new XDP program: %v", err)
 	}
@@ -294,7 +302,7 @@ func ReloadXDP(cliInterfaces []string) {
 		}
 	}
 
-	// 6. Start all plugins to apply configurations
+	// 6. Start all plugins to apply configurations / 启动所有插件以应用配置
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(globalCfg); err != nil {
 			log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
@@ -311,9 +319,10 @@ func ReloadXDP(cliInterfaces []string) {
 
 /**
  * RunWebServer starts the API and UI server.
+ * RunWebServer 启动 API 和 UI 服务器。
  */
 func RunWebServer(port int) {
-	// 1. Try to load manager from pins
+	// 1. Try to load manager from pins / 尝试从固定点加载管理器
 	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
 		log.Printf("⚠️  Could not load pinned maps (is XDP loaded?): %v", err)
@@ -321,7 +330,7 @@ func RunWebServer(port int) {
 	}
 	defer manager.Close()
 
-	// 2. Start API server
+	// 2. Start API server / 启动 API 服务器
 	server := api.NewServer(manager, port)
 	if err := server.Start(); err != nil {
 		log.Fatalf("❌ Failed to start web server: %v", err)
@@ -330,6 +339,7 @@ func RunWebServer(port int) {
 
 /**
  * UnloadXDP provides instructions to unload the program.
+ * UnloadXDP 提供卸载程序的指令。
  */
 func UnloadXDP() {
 	log.Println("👋 Unloading XDP and cleaning up...")

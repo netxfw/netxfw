@@ -118,5 +118,15 @@ sudo ./netxfw system load
 
 ---
 
+## 📚 相关文档
+
+- [架构设计](docs/architecture_zh.md)
+- [命令行手册](docs/cli/cli.md)
+- [插件开发指南](docs/plugins/plugins.md)
+- [贡献指南](CONTRIBUTING_zh.md)
+- [安全策略](SECURITY_zh.md)
+- [行为准则](CODE_OF_CONDUCT_zh.md)
+- [变更日志](CHANGELOG_zh.md)
+
 ## 📄 开源协议
 本项目采用 [MIT License](LICENSE) 协议。

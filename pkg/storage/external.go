@@ -5,6 +5,7 @@ import "errors"
 var ErrNotImplemented = errors.New("storage method not implemented")
 
 // RedisStore - Future implementation
+// RedisStore - 未来实现
 type RedisStore struct {
 	Addr     string
 	Password string
@@ -18,6 +19,7 @@ func (s *RedisStore) RemoveIPPortRule(cidr string, port uint16, proto string) er
 func (s *RedisStore) LoadAll() ([]string, []string, []IPPortRule, error)      { return nil, nil, nil, ErrNotImplemented }
 
 // SQLiteStore - Future implementation
+// SQLiteStore - 未来实现
 type SQLiteStore struct {
 	Path string
 }
@@ -29,6 +31,7 @@ func (s *SQLiteStore) RemoveIPPortRule(cidr string, port uint16, proto string) e
 func (s *SQLiteStore) LoadAll() ([]string, []string, []IPPortRule, error)      { return nil, nil, nil, ErrNotImplemented }
 
 // PGStore - Future implementation (PostgreSQL)
+// PGStore - 未来实现 (PostgreSQL)
 type PGStore struct {
 	ConnStr string
 }

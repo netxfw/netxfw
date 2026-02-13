@@ -24,6 +24,8 @@ var QuickBlockCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		common.EnsureStandaloneMode()
+		// Block IP
+		// 封锁 IP
 		common.SyncLockMap(args[0], true)
 	},
 }
@@ -43,6 +45,8 @@ var QuickUnlockCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		common.EnsureStandaloneMode()
+		// Unblock IP
+		// 解封 IP
 		common.SyncLockMap(args[0], false)
 	},
 }
@@ -70,6 +74,8 @@ var QuickAllowCmd = &cobra.Command{
 			}
 			port = uint16(p)
 		}
+		// Allow IP
+		// 允许 IP
 		common.SyncWhitelistMap(args[0], port, true)
 	},
 }
@@ -97,6 +103,8 @@ var QuickUnallowCmd = &cobra.Command{
 			}
 			port = uint16(p)
 		}
+		// Unallow IP
+		// 取消允许 IP
 		common.SyncWhitelistMap(args[0], port, false)
 	},
 }
@@ -119,6 +127,8 @@ var QuickClearCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		common.EnsureStandaloneMode()
+		// Confirm and clear blacklist
+		// 确认并清空黑名单
 		if common.AskConfirmation("Are you sure you want to clear all entries from the blacklist?") {
 			common.ClearBlacklist()
 		}

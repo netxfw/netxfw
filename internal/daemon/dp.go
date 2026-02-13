@@ -10,6 +10,7 @@ import (
 )
 
 // runDataPlane handles XDP mounting, BPF map initialization, and core packet processing plugins.
+// runDataPlane 处理 XDP 挂载、BPF Map 初始化以及核心数据包处理插件。
 func runDataPlane() {
 	const configPath = "/etc/netxfw/config-dp.yaml"
 	const pidPath = "/var/run/netxfw-dp.pid"
@@ -26,10 +27,10 @@ func runDataPlane() {
 		log.Fatalf("❌ Failed to load global config from %s: %v", configPath, err)
 	}
 
-	// Initialize Logging
+	// Initialize Logging / 初始化日志
 	logger.Init(globalCfg.Logging)
 
-	// 1. Initialize Manager (Create or Load Pinned)
+	// 1. Initialize Manager (Create or Load Pinned) / 初始化管理器（创建或加载固定内容）
 	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
 		log.Printf("ℹ️  Creating new XDP manager...")
@@ -43,7 +44,7 @@ func runDataPlane() {
 	}
 	defer manager.Close()
 
-	// 2. Attach to Interfaces
+	// 2. Attach to Interfaces / 附加到接口
 	var interfaces []string
 	if len(globalCfg.Base.Interfaces) > 0 {
 		interfaces = globalCfg.Base.Interfaces
@@ -64,8 +65,8 @@ func runDataPlane() {
 		log.Println("⚠️  No interfaces configured for XDP attachment")
 	}
 
-	// 3. Load DP-Specific Plugins
-	// DP only runs plugins that configure BPF maps or globals.
+	// 3. Load DP-Specific Plugins / 加载 DP 特定的插件
+	// DP only runs plugins that configure BPF maps or globals. / DP 仅运行配置 BPF Map 或全局变量的插件。
 	dpPlugins := []string{"base", "conntrack", "ratelimit", "port"}
 	for _, p := range plugins.GetPlugins() {
 		isDpPlugin := false

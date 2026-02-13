@@ -1,6 +1,7 @@
 package common
 
 // System commands
+// 系统命令
 var (
 	InitConfiguration   func()
 	ShowStatus          func()
@@ -18,6 +19,7 @@ var (
 )
 
 // Rule commands
+// 规则命令
 var (
 	EnsureStandaloneMode      func()
 	SyncLockMap               func(ip string, lock bool)
@@ -33,6 +35,7 @@ var (
 )
 
 // Security commands
+// 安全命令
 var (
 	SyncDropFragments   func(enable bool)
 	SyncStrictTCP       func(enable bool)
@@ -43,27 +46,32 @@ var (
 )
 
 // Limit commands
+// 限速命令
 var (
 	SyncRateLimitRule  func(ip string, rate uint64, burst uint64, add bool)
 	ShowRateLimitRules func()
 )
 
 // Port commands
+// 端口命令
 var (
 	SyncAllowedPort func(port uint16, add bool)
 )
 
 // Web commands
+// Web 命令
 var (
 	RunWebServer func(port int)
 )
 
 // Conntrack commands
+// 连接跟踪命令
 var (
 	ShowConntrack func()
 )
 
 // Quick commands
+// 快速命令
 var (
 	AskConfirmation func(prompt string) bool
 )

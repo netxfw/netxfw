@@ -13,6 +13,7 @@ const (
 )
 
 // Record represents a single IP/CIDR record in binary format
+// Record 表示二进制格式的单个 IP/CIDR 记录。
 type Record struct {
 	IP        net.IP
 	PrefixLen uint8
@@ -20,18 +21,19 @@ type Record struct {
 }
 
 // Encode records to a writer
+// Encode 将记录编码到写入器。
 func Encode(w io.Writer, records []Record) error {
-	// Write Magic
+	// Write Magic / 写入魔数
 	if _, err := w.Write([]byte(Magic)); err != nil {
 		return err
 	}
 
-	// Write Version
+	// Write Version / 写入版本
 	if _, err := w.Write([]byte{Version}); err != nil {
 		return err
 	}
 
-	// Reserved 3 bytes
+	// Reserved 3 bytes / 预留 3 字节
 	if _, err := w.Write([]byte{0, 0, 0}); err != nil {
 		return err
 	}
@@ -47,17 +49,17 @@ func Encode(w io.Writer, records []Record) error {
 		}
 	}
 
-	// Write IPv4 Count
+	// Write IPv4 Count / 写入 IPv4 计数
 	if err := binary.Write(w, binary.LittleEndian, uint32(len(ipv4Records))); err != nil {
 		return err
 	}
 
-	// Write IPv6 Count
+	// Write IPv6 Count / 写入 IPv6 计数
 	if err := binary.Write(w, binary.LittleEndian, uint32(len(ipv6Records))); err != nil {
 		return err
 	}
 
-	// Write IPv4 Data: [4 bytes IP][1 byte Prefix]
+	// Write IPv4 Data: [4 bytes IP][1 byte Prefix] / 写入 IPv4 数据：[4 字节 IP][1 字节前缀]
 	for _, r := range ipv4Records {
 		if _, err := w.Write(r.IP.To4()); err != nil {
 			return err
@@ -67,7 +69,7 @@ func Encode(w io.Writer, records []Record) error {
 		}
 	}
 
-	// Write IPv6 Data: [16 bytes IP][1 byte Prefix]
+	// Write IPv6 Data: [16 bytes IP][1 byte Prefix] / 写入 IPv6 数据：[16 字节 IP][1 字节前缀]
 	for _, r := range ipv6Records {
 		if _, err := w.Write(r.IP.To16()); err != nil {
 			return err
@@ -81,6 +83,7 @@ func Encode(w io.Writer, records []Record) error {
 }
 
 // Decode records from a reader
+// Decode 从读取器解码记录。
 func Decode(r io.Reader) ([]Record, error) {
 	magic := make([]byte, 4)
 	if _, err := io.ReadFull(r, magic); err != nil {
@@ -98,7 +101,7 @@ func Decode(r io.Reader) ([]Record, error) {
 		return nil, fmt.Errorf("unsupported version: %d", version[0])
 	}
 
-	// Skip reserved 3 bytes
+	// Skip reserved 3 bytes / 跳过预留 3 字节
 	reserved := make([]byte, 3)
 	if _, err := io.ReadFull(r, reserved); err != nil {
 		return nil, err
@@ -116,7 +119,7 @@ func Decode(r io.Reader) ([]Record, error) {
 
 	records := make([]Record, 0, ipv4Count+ipv6Count)
 
-	// Read IPv4 Data
+	// Read IPv4 Data / 读取 IPv4 数据
 	for i := uint32(0); i < ipv4Count; i++ {
 		ip := make([]byte, 4)
 		if _, err := io.ReadFull(r, ip); err != nil {
@@ -133,7 +136,7 @@ func Decode(r io.Reader) ([]Record, error) {
 		})
 	}
 
-	// Read IPv6 Data
+	// Read IPv6 Data / 读取 IPv6 数据
 	for i := uint32(0); i < ipv6Count; i++ {
 		ip := make([]byte, 16)
 		if _, err := io.ReadFull(r, ip); err != nil {

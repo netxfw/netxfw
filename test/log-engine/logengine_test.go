@@ -43,6 +43,7 @@ func TestCounter(t *testing.T) {
 	ip := netip.MustParseAddr("192.168.1.1")
 
 	// Inc 10 times
+	// 增加 10 次
 	for i := 0; i < 10; i++ {
 		c.Inc(ip)
 	}
@@ -52,8 +53,8 @@ func TestCounter(t *testing.T) {
 		t.Errorf("Count = %d, want 10", count)
 	}
 
-	// Test window (mocking time would be better, but for now we trust the logic or sleep)
-	// We won't sleep in unit test to save time, but we can check if 0 returns 0
+	// Test window
+	// 测试窗口
 	if c.Count(ip, 0) != 0 {
 		t.Errorf("Count(0) should be 0")
 	}
@@ -78,6 +79,7 @@ func TestRuleEngine(t *testing.T) {
 	ip := netip.MustParseAddr("1.2.3.4")
 
 	// Not enough counts
+	// 次数不足
 	c.Inc(ip)
 	action, _, id, matched := re.Evaluate(ip, logengine.LogEvent{Line: "dummy", Source: "test"})
 	if matched {
@@ -85,10 +87,12 @@ func TestRuleEngine(t *testing.T) {
 	}
 
 	// Add more counts
+	// 增加更多次数
 	for i := 0; i < 5; i++ {
 		c.Inc(ip)
 	}
 	// Total 6
+	// 总共 6 次
 
 	action, _, id, matched = re.Evaluate(ip, logengine.LogEvent{Line: "dummy", Source: "test"})
 	if !matched {
@@ -104,6 +108,7 @@ func TestRuleEngine(t *testing.T) {
 
 func TestIPv6Support(t *testing.T) {
 	// 1. Test Extraction
+	// 1. 测试提取
 	extractor := logengine.NewIPExtractor()
 	line := "Failed password for root from 2001:db8::1 port 22 ssh2"
 	ips := extractor.ExtractIPs(line)
@@ -119,8 +124,10 @@ func TestIPv6Support(t *testing.T) {
 	}
 
 	// 2. Test logengine.Counter
+	// 2. 测试 logengine.Counter
 	counter := logengine.NewCounter()
 	// Increment 5 times
+	// 增加 5 次
 	for i := 0; i < 5; i++ {
 		counter.Inc(ipv6)
 	}
@@ -130,6 +137,7 @@ func TestIPv6Support(t *testing.T) {
 	}
 
 	// 3. Test Rule Engine
+	// 3. 测试规则引擎
 	re := logengine.NewRuleEngine(counter)
 	rules := []types.LogEngineRule{
 		{
@@ -143,6 +151,7 @@ func TestIPv6Support(t *testing.T) {
 	}
 
 	// Evaluate
+	// 评估
 	action, _, id, matched := re.Evaluate(ipv6, logengine.LogEvent{
 		Line:   "Failed password for root from 2001:db8::1 port 22 ssh2",
 		Source: "/var/log/auth.log",

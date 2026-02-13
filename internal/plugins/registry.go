@@ -10,6 +10,8 @@ import (
 )
 
 var (
+	// registry contains all registered plugins
+	// registry 包含所有已注册的插件。
 	registry = []Plugin{
 		&base.BasePlugin{},
 		&conntrack.ConntrackPlugin{},
@@ -20,6 +22,8 @@ var (
 	}
 )
 
+// GetPlugins returns the list of all available plugins.
+// GetPlugins 返回所有可用插件的列表。
 func GetPlugins() []Plugin {
 	return registry
 }

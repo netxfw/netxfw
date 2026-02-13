@@ -14,13 +14,18 @@ var RootCmd = &cobra.Command{
 	Use:   "netxfw",
 	Short: "A high-performance eBPF/XDP based firewall",
 	Long: `netxfw is a high-performance firewall built on eBPF/XDP technology.
-It provides stateful packet filtering, connection tracking, and rate limiting.`,
+It provides stateful packet filtering, connection tracking, and rate limiting.
+netxfw 是一个基于 eBPF/XDP 技术构建的高性能防火墙。
+它提供有状态包过滤、连接跟踪和速率限制。`,
 }
 
 func init() {
+	// Operation mode: dp (Data Plane) or agent (Control Plane)
+	// 运行模式：dp（数据平面）或 agent（控制平面）
 	RootCmd.PersistentFlags().StringVar(&runtime.Mode, "mode", "", "Operation mode: dp (Data Plane) or agent (Control Plane)")
 
 	// Register Agent commands
+	// 注册 Agent 命令
 	RootCmd.AddCommand(agent.RuleCmd)
 	RootCmd.AddCommand(agent.LimitCmd)
 	RootCmd.AddCommand(agent.SecurityCmd)
@@ -35,6 +40,7 @@ func init() {
 	RootCmd.AddCommand(agent.VersionCmd)
 
 	// Register DP commands
+	// 注册 DP 命令
 	RootCmd.AddCommand(dp.ConntrackCmd)
 }
 

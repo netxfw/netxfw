@@ -20,6 +20,7 @@ func IsIPv6(ipStr string) bool {
 
 /**
  * AskConfirmation asks the user for a y/n confirmation.
+ * AskConfirmation 询问用户是否确认 (y/n)。
  */
 func AskConfirmation(prompt string) bool {
 	fmt.Printf("%s [y/N]: ", prompt)

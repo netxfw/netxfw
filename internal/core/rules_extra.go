@@ -17,6 +17,8 @@ import (
 
 // SyncIPPortRule updates the ip_port_rules map and config.
 // action: 1 = Allow, 2 = Deny (mapped from CLI)
+// SyncIPPortRule 更新 ip_port_rules Map 和配置。
+// action: 1 = 允许, 2 = 拒绝 (从 CLI 映射)
 func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
 	mapPath := "/sys/fs/bpf/netxfw/ip_port_rules"
 
@@ -41,7 +43,7 @@ func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
 		}
 	}
 
-	// Update Config
+	// Update Config / 更新配置
 	configPath := "/etc/netxfw/config.yaml"
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
@@ -50,18 +52,18 @@ func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
 		targetCIDR := ensureCIDR(ip)
 
 		for _, r := range globalCfg.Port.IPPortRules {
-			// Normalize existing rule IP
+			// Normalize existing rule IP / 标准化现有规则 IP
 			ruleCIDR := ensureCIDR(r.IP)
 			if ruleCIDR == targetCIDR && r.Port == port {
 				if add {
-					// Update existing if action changed
+					// Update existing if action changed / 如果动作改变，则更新现有规则
 					if r.Action != action {
 						r.Action = action
 						modified = true
 					}
-					newRules = append(newRules, r) // Keep it (updated or same)
+					newRules = append(newRules, r) // Keep it (updated or same) / 保留它（已更新或未变）
 				} else {
-					modified = true // Remove it (skip append)
+					modified = true // Remove it (skip append) / 移除它（跳过追加）
 				}
 			} else {
 				newRules = append(newRules, r)
@@ -69,9 +71,7 @@ func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
 		}
 
 		if add && !modified {
-			// Check if we found it in the loop (if add=true and not modified, it means we didn't find it to update, so append new)
-			// Actually the logic above: if found, we append it. If not found, we haven't appended it.
-			// Let's rewrite:
+			// Check if we found it in the loop / 检查是否在循环中找到了它
 			found := false
 			for i, r := range newRules {
 				if ensureCIDR(r.IP) == targetCIDR && r.Port == port {
@@ -85,7 +85,7 @@ func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
 			}
 			if !found {
 				newRules = append(newRules, types.IPPortRule{
-					IP:     ip, // Use original input string for config readability if possible, or cidr
+					IP:     ip,
 					Port:   port,
 					Action: action,
 				})
@@ -102,6 +102,7 @@ func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
 }
 
 // SyncAllowedPort updates the allowed_ports map and config.
+// SyncAllowedPort 更新 allowed_ports Map 和配置。
 func SyncAllowedPort(port uint16, add bool) {
 	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/allowed_ports", nil)
 	if err != nil {
@@ -122,7 +123,7 @@ func SyncAllowedPort(port uint16, add bool) {
 		}
 	}
 
-	// Update Config
+	// Update Config / 更新配置
 	configPath := "/etc/netxfw/config.yaml"
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
@@ -133,7 +134,7 @@ func SyncAllowedPort(port uint16, add bool) {
 			if p == port {
 				found = true
 				if !add {
-					modified = true // Remove
+					modified = true // Remove / 移除
 					continue
 				}
 			}
@@ -153,12 +154,8 @@ func SyncAllowedPort(port uint16, add bool) {
 }
 
 // SyncRateLimitRule updates the rate_limit_rules map and config.
+// SyncRateLimitRule 更新 rate_limit_rules Map 和配置。
 func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
-	// Rate limit rules map handles both v4 and v6 keys if using LPM, but usually we separate them.
-	// Let's check xdp_manager.go or netxfw.bpf.c.
-	// Looking at netxfw.bpf.c, we have `rate_limit_rules` (LPM Trie) with generic key?
-	// Usually LPM Tries are specific to key size (4 or 16 bytes).
-	// Let's assume we have `rate_limit_rules` for IPv4 and `rate_limit_rules6` for IPv6.
 	mapPath := "/sys/fs/bpf/netxfw/ratelimit_config"
 
 	m, err := ebpf.LoadPinnedMap(mapPath, nil)
@@ -182,7 +179,7 @@ func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
 		}
 	}
 
-	// Update Config
+	// Update Config / 更新配置
 	configPath := "/etc/netxfw/config.yaml"
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
@@ -193,7 +190,7 @@ func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
 		for _, r := range globalCfg.RateLimit.Rules {
 			if ensureCIDR(r.IP) == targetCIDR {
 				if add {
-					// Update
+					// Update / 更新
 					if r.Rate != rate || r.Burst != burst {
 						r.Rate = rate
 						r.Burst = burst
@@ -201,7 +198,7 @@ func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
 					}
 					newRules = append(newRules, r)
 				} else {
-					modified = true // Remove
+					modified = true // Remove / 移除
 				}
 			} else {
 				newRules = append(newRules, r)
@@ -234,6 +231,7 @@ func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
 }
 
 // SyncAutoBlock updates the auto-block setting in config.
+// SyncAutoBlock 更新配置中的自动封禁设置。
 func SyncAutoBlock(enable bool) {
 	configPath := "/etc/netxfw/config.yaml"
 	globalCfg, err := types.LoadGlobalConfig(configPath)
@@ -247,6 +245,7 @@ func SyncAutoBlock(enable bool) {
 }
 
 // SyncAutoBlockExpiry updates the auto-block expiry time in config.
+// SyncAutoBlockExpiry 更新配置中的自动封禁过期时间。
 func SyncAutoBlockExpiry(seconds uint32) {
 	configPath := "/etc/netxfw/config.yaml"
 	globalCfg, err := types.LoadGlobalConfig(configPath)
@@ -260,10 +259,11 @@ func SyncAutoBlockExpiry(seconds uint32) {
 }
 
 // ClearBlacklist clears all entries from lock_list.
+// ClearBlacklist 清除 lock_list 中的所有条目。
 func ClearBlacklist() {
 	log.Println("🧹 Clearing blacklist...")
 
-	// Clear Unified Map
+	// Clear Unified Map / 清除统一 Map
 	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
 	if err == nil {
 		if _, err := xdp.ClearMap(m); err != nil {
@@ -276,7 +276,7 @@ func ClearBlacklist() {
 		log.Printf("⚠️  Failed to load lock_list: %v", err)
 	}
 
-	// Clear persistence file
+	// Clear persistence file / 清除持久化文件
 	configPath := "/etc/netxfw/config.yaml"
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil && globalCfg.Base.LockListFile != "" {
@@ -289,6 +289,7 @@ func ClearBlacklist() {
 }
 
 // ImportLockListFromFile imports IPs from a file to the blacklist.
+// ImportLockListFromFile 从文件导入 IP 到黑名单。
 func ImportLockListFromFile(path string) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -300,7 +301,7 @@ func ImportLockListFromFile(path string) {
 	scanner := bufio.NewScanner(file)
 	count := 0
 
-	// Use batch loading by reading all valid lines first
+	// Use batch loading by reading all valid lines first / 首先读取所有有效行，使用批量加载
 	var cidrs []string
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -309,25 +310,17 @@ func ImportLockListFromFile(path string) {
 		}
 	}
 
-	// We reuse SyncLockMap for simplicity, but for performance with huge lists,
-	// we should batch update. SyncLockMap handles conflict checks and persistence.
-	// Since SyncLockMap writes to file every time, calling it in a loop is slow for persistence.
-	// Better approach:
-	// 1. Load Maps
-	// 2. Iterate and update Maps directly
-	// 3. Update persistence file once at the end
-
 	m, _ := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
 	if m != nil {
 		defer m.Close()
 	}
 
-	// Prepare persistence update
+	// Prepare persistence update / 准备持久化更新
 	configPath := "/etc/netxfw/config.yaml"
 	globalCfg, _ := types.LoadGlobalConfig(configPath)
 	var persistentLines []string
 	if globalCfg != nil && globalCfg.Base.LockListFile != "" {
-		// Read existing
+		// Read existing / 读取现有内容
 		if content, err := os.ReadFile(globalCfg.Base.LockListFile); err == nil {
 			lines := strings.Split(string(content), "\n")
 			for _, l := range lines {
@@ -339,7 +332,7 @@ func ImportLockListFromFile(path string) {
 	}
 
 	for _, cidr := range cidrs {
-		// Check valid CIDR/IP
+		// Check valid CIDR/IP / 检查有效的 CIDR/IP
 		if !strings.Contains(cidr, "/") {
 			if IsIPv6(cidr) {
 				cidr += "/128"
@@ -348,7 +341,7 @@ func ImportLockListFromFile(path string) {
 			}
 		}
 
-		// Update BPF
+		// Update BPF / 更新 BPF
 		if m != nil {
 			if err := xdp.LockIP(m, cidr); err != nil {
 				log.Printf("⚠️  Failed to lock %s: %v", cidr, err)
@@ -357,15 +350,15 @@ func ImportLockListFromFile(path string) {
 			}
 		}
 
-		// Update persistent list
+		// Update persistent list / 更新持久化列表
 		if globalCfg != nil && globalCfg.Base.PersistRules {
 			persistentLines = append(persistentLines, cidr)
 		}
 	}
 
-	// Save persistence
+	// Save persistence / 保存持久化
 	if globalCfg != nil && globalCfg.Base.PersistRules && globalCfg.Base.LockListFile != "" {
-		// Merge/Deduplicate
+		// Merge/Deduplicate / 合并/去重
 		merged, err := ipmerge.MergeCIDRsWithThreshold(persistentLines, globalCfg.Base.LockListMergeThreshold, globalCfg.Base.LockListV4Mask, globalCfg.Base.LockListV6Mask)
 		if err != nil {
 			merged = persistentLines
@@ -378,6 +371,7 @@ func ImportLockListFromFile(path string) {
 }
 
 // ImportWhitelistFromFile imports IPs from a file to the whitelist.
+// ImportWhitelistFromFile 从文件导入 IP 到白名单。
 func ImportWhitelistFromFile(path string) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -392,11 +386,11 @@ func ImportWhitelistFromFile(path string) {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
-			// Format: IP or IP:Port
+			// Format: IP or IP:Port / 格式：IP 或 IP:端口
 			var ip string
 			var port uint16
 
-			// Handle IPv6 [IP]:Port
+			// Handle IPv6 [IP]:Port / 处理 IPv6 [IP]:端口
 			if strings.HasPrefix(line, "[") {
 				end := strings.LastIndex(line, "]")
 				if end != -1 {
@@ -406,11 +400,7 @@ func ImportWhitelistFromFile(path string) {
 					}
 				}
 			} else {
-				// IPv4 or IPv6 without brackets (if no port)
-				// If contains slash (CIDR), assume no port unless :port is after CIDR
-				// Actually SyncWhitelistMap expects "IP" or "CIDR" string and port uint16.
-
-				// Try to parse as IP:Port
+				// Try to parse as IP:Port / 尝试解析为 IP:端口
 				host, portStr, err := net.SplitHostPort(line)
 				if err == nil {
 					ip = host
@@ -429,7 +419,8 @@ func ImportWhitelistFromFile(path string) {
 	log.Printf("✅ Imported %d whitelist rules.", count)
 }
 
-// ImportIPPortRulesFromFile imports IP+Port rules.
+// ImportIPPortRulesFromFile imports IP+Port rules from a file.
+// ImportIPPortRulesFromFile 从文件导入 IP+端口规则。
 func ImportIPPortRulesFromFile(path string) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -444,7 +435,7 @@ func ImportIPPortRulesFromFile(path string) {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
-			// Format: IP Port Action (allow/deny)
+			// Format: IP Port Action (allow/deny) / 格式：IP 端口 动作 (allow/deny)
 			parts := strings.Fields(line)
 			if len(parts) >= 3 {
 				ip := parts[0]

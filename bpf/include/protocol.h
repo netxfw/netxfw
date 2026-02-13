@@ -50,15 +50,23 @@ struct ipv6_frag_hdr {
     __be32  identification;
 };
 
+/**
+ * Plugin return codes
+ * 插件返回值
+ */
+
 // Jump table indices for dynamic modules
+// 动态模块的跳转表索引
 #define PROG_IDX_IPV4 0
 #define PROG_IDX_IPV6 1
 
 // Plugin indices (2-15)
+// 插件索引 (2-15)
 #define PROG_IDX_PLUGIN_START 2
 #define PROG_IDX_PLUGIN_END   15
 
 // Drop Reasons
+// 丢弃原因
 #define DROP_REASON_UNKNOWN     0
 #define DROP_REASON_INVALID     1
 #define DROP_REASON_PROTOCOL    2
@@ -74,6 +82,7 @@ struct ipv6_frag_hdr {
 #define DROP_REASON_SPOOF       12
 
 // Pass Reasons (start from 100 to avoid conflict if mixed)
+// 通过原因（从 100 开始，以避免混合时冲突）
 #define PASS_REASON_UNKNOWN     100
 #define PASS_REASON_WHITELIST   101
 #define PASS_REASON_RETURN      102

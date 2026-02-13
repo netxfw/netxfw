@@ -14,6 +14,7 @@ import (
 
 /**
  * SyncLockMap interacts with pinned BPF maps to block/unblock ranges.
+ * SyncLockMap 与固定的 BPF Map 交互以阻止或解封网段。
  */
 func SyncLockMap(cidrStr string, lock bool) {
 	mapPath := "/sys/fs/bpf/netxfw/lock_list"
@@ -25,7 +26,7 @@ func SyncLockMap(cidrStr string, lock bool) {
 	defer m.Close()
 
 	if lock {
-		// Check for conflict in whitelist
+		// Check for conflict in whitelist / 检查白名单中是否存在冲突
 		oppositeMapPath := "/sys/fs/bpf/netxfw/whitelist"
 		if opM, err := ebpf.LoadPinnedMap(oppositeMapPath, nil); err == nil {
 			if conflict, msg := xdp.CheckConflict(opM, cidrStr, true); conflict {
@@ -35,12 +36,12 @@ func SyncLockMap(cidrStr string, lock bool) {
 					opM.Close()
 					return
 				}
-				// Remove from whitelist
+				// Remove from whitelist / 从白名单移除
 				if err := xdp.UnlockIP(opM, cidrStr); err != nil {
 					log.Printf("⚠️  Failed to remove from whitelist: %v", err)
 				} else {
 					log.Printf("🔓 Removed %s from whitelist", cidrStr)
-					// Also update config
+					// Also update config / 同时更新配置
 					globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 					if err == nil {
 						newWhitelist := []string{}
@@ -62,12 +63,12 @@ func SyncLockMap(cidrStr string, lock bool) {
 		}
 		log.Printf("🛡️ Locked: %s", cidrStr)
 
-		// Persist to LockListFile if enabled
+		// Persist to LockListFile if enabled / 如果启用了持久化，则保存到 LockListFile
 		globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 		if err == nil && globalCfg.Base.PersistRules && globalCfg.Base.LockListFile != "" {
 			filePath := globalCfg.Base.LockListFile
 
-			// Read existing lines
+			// Read existing lines / 读取现有行
 			var lines []string
 			existingMap := make(map[string]bool)
 			if content, err := os.ReadFile(filePath); err == nil {
@@ -82,37 +83,37 @@ func SyncLockMap(cidrStr string, lock bool) {
 				}
 			}
 
-			// Add new CIDR if not exists (normalization might happen in MergeCIDRs,
-			// but this prevents exact string duplicates from even reaching the merge step)
+			// Add new CIDR if not exists / 如果不存在则添加新的 CIDR
 			if !existingMap[cidrStr] {
 				lines = append(lines, cidrStr)
 			}
 
-			// Merge
+			// Merge / 合并网段
 			merged, err := ipmerge.MergeCIDRsWithThreshold(lines, globalCfg.Base.LockListMergeThreshold, globalCfg.Base.LockListV4Mask, globalCfg.Base.LockListV6Mask)
 			if err != nil {
 				log.Printf("⚠️  Failed to merge IPs for persistence: %v", err)
 				merged = lines
 			}
 
-			// Write back
+			// Write back / 写回文件
 			if err := os.WriteFile(filePath, []byte(strings.Join(merged, "\n")+"\n"), 0644); err == nil {
 				log.Printf("📄 Persisted %s to %s (Optimized to %d rules)", cidrStr, filePath, len(merged))
 
 				// Runtime Optimization: Sync BPF with merged list if rules were reduced
+				// 运行时优化：如果规则减少，则同步 BPF 与合并列表
 				if len(merged) < len(lines) {
 					log.Println("🔄 Optimizing runtime BPF map...")
-					// 1. Add all merged rules (ensure broad subnets are added)
+					// 1. Add all merged rules (ensure broad subnets are added) / 添加所有合并规则（确保添加了宽泛的子网）
 					for _, cidr := range merged {
 						xdp.LockIP(m, cidr)
 					}
-					// 2. Remove obsolete rules (redundant small IPs)
+					// 2. Remove obsolete rules (redundant small IPs) / 移除过时规则（冗余的小 IP）
 					mergedSet := make(map[string]bool)
 					for _, c := range merged {
 						mergedSet[c] = true
 					}
 					for _, line := range lines {
-						// Normalize line to CIDR format for comparison
+						// Normalize line to CIDR format for comparison / 将行标准化为 CIDR 格式进行比较
 						checkLine := line
 						if !strings.Contains(line, "/") {
 							if IsIPv6(line) {
@@ -139,19 +140,19 @@ func SyncLockMap(cidrStr string, lock bool) {
 			log.Printf("🔓 Unlocked: %s", cidrStr)
 		}
 
-		// Remove from LockListFile if enabled
+		// Remove from LockListFile if enabled / 如果启用了，从 LockListFile 中移除
 		globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 		if err == nil && globalCfg.Base.PersistRules && globalCfg.Base.LockListFile != "" {
 			filePath := globalCfg.Base.LockListFile
 			if _, err := os.Stat(filePath); err == nil {
-				// Read all lines except the one to remove
+				// Read all lines except the one to remove / 读取除要删除的行以外的所有行
 				input, _ := os.ReadFile(filePath)
 				lines := strings.Split(string(input), "\n")
 				var newLines []string
 				modified := false
 				for _, line := range lines {
 					trimmed := strings.TrimSpace(line)
-					// Normalize for comparison
+					// Normalize for comparison / 标准化以进行比较
 					trimmedCIDR := ensureCIDR(trimmed)
 					targetCIDR := ensureCIDR(cidrStr)
 
@@ -170,6 +171,8 @@ func SyncLockMap(cidrStr string, lock bool) {
 	}
 }
 
+// OptimizeWhitelistConfig optimizes the whitelist in the configuration.
+// OptimizeWhitelistConfig 优化配置中的白名单。
 func OptimizeWhitelistConfig(cfg *types.GlobalConfig) {
 	rulesByPort := make(map[uint16][]string)
 	for _, line := range cfg.Base.Whitelist {
@@ -214,6 +217,8 @@ func OptimizeWhitelistConfig(cfg *types.GlobalConfig) {
 	cfg.Base.Whitelist = newWhitelist
 }
 
+// OptimizeIPPortRulesConfig optimizes IP+Port rules in the configuration.
+// OptimizeIPPortRulesConfig 优化配置中的 IP+端口规则。
 func OptimizeIPPortRulesConfig(cfg *types.GlobalConfig) {
 	type ruleKey struct {
 		port   uint16
@@ -245,6 +250,7 @@ func OptimizeIPPortRulesConfig(cfg *types.GlobalConfig) {
 
 /**
  * SyncWhitelistMap interacts with pinned BPF maps to allow/unallow ranges.
+ * SyncWhitelistMap 与固定的 BPF Map 交互以允许或禁止网段。
  */
 func SyncWhitelistMap(cidrStr string, port uint16, allow bool) {
 	mapPath := "/sys/fs/bpf/netxfw/whitelist"
@@ -299,7 +305,7 @@ func SyncWhitelistMap(cidrStr string, port uint16, allow bool) {
 				}
 			}
 			if !found {
-				// Backup list before optimization to track changes
+				// Backup list before optimization to track changes / 优化前备份列表以跟踪更改
 				oldWhitelist := make([]string, len(globalCfg.Base.Whitelist))
 				copy(oldWhitelist, globalCfg.Base.Whitelist)
 
@@ -308,6 +314,7 @@ func SyncWhitelistMap(cidrStr string, port uint16, allow bool) {
 				types.SaveGlobalConfig(configPath, globalCfg)
 
 				// Cleanup BPF: Remove rules that were merged into larger subnets
+				// 清理 BPF：删除已合并到较大子网中的规则
 				newSet := make(map[string]bool)
 				for _, ip := range globalCfg.Base.Whitelist {
 					newSet[ip] = true
@@ -315,8 +322,7 @@ func SyncWhitelistMap(cidrStr string, port uint16, allow bool) {
 
 				for _, oldEntry := range oldWhitelist {
 					if !newSet[oldEntry] {
-						// This entry was merged. Remove it from BPF.
-						// Parse CIDR from entry (handling port if present)
+						// This entry was merged. Remove it from BPF. / 此条目已合并。从 BPF 中删除。
 						cidrToRemove := oldEntry
 						if strings.HasPrefix(oldEntry, "[") && strings.Contains(oldEntry, "]:") {
 							endBracket := strings.LastIndex(oldEntry, "]")
@@ -334,14 +340,14 @@ func SyncWhitelistMap(cidrStr string, port uint16, allow bool) {
 						}
 
 						if err := xdp.UnlockIP(m, cidrToRemove); err != nil {
-							// Ignore if already gone
+							// Ignore if already gone / 如果已删除则忽略
 						} else {
 							log.Printf("🧹 Optimized runtime: Removed subsumed whitelist rule %s", cidrToRemove)
 						}
 					}
 				}
 
-				// Ensure merged rules are in BPF (in case a NEW merged rule was created)
+				// Ensure merged rules are in BPF / 确保合并后的规则在 BPF 中
 				for _, newEntry := range globalCfg.Base.Whitelist {
 					cidrToAdd := newEntry
 					var portToAdd uint16
@@ -381,13 +387,13 @@ func SyncWhitelistMap(cidrStr string, port uint16, allow bool) {
 			log.Printf("❌ Removed from whitelist: %s", cidrStr)
 		}
 
-		// Always try to remove from config if it exists there
+		// Always try to remove from config if it exists there / 总是尝试从配置中删除（如果存在）
 		newWhitelist := []string{}
 		modified := false
 		targetCIDR := ensureCIDR(cidrStr)
 
 		for _, ip := range globalCfg.Base.Whitelist {
-			// Extract IP part and check if port is present
+			// Extract IP part and check if port is present / 提取 IP 部分并检查是否存在端口
 			entryIP := ip
 			hasPort := false
 			if strings.Contains(ip, "]:") { // [IPv6]:Port
@@ -400,19 +406,20 @@ func SyncWhitelistMap(cidrStr string, port uint16, allow bool) {
 				hasPort = true
 			}
 
-			// Normalize entry IP
+			// Normalize entry IP / 标准化条目 IP
 			entryCIDR := ensureCIDR(entryIP)
 
 			match := false
 			// Only match if no port is present in config entry (since we are removing allow rule which is global)
+			// 仅当配置条目中没有端口时才匹配（因为我们要删除的是全局允许规则）
 			if port == 0 {
 				if !hasPort && entryCIDR == targetCIDR {
 					match = true
 				}
 			} else {
-				// If port specified, match both IP and Port
+				// If port specified, match both IP and Port / 如果指定了端口，则同时匹配 IP 和端口
 				if hasPort && entryCIDR == targetCIDR {
-					// Check port suffix
+					// Check port suffix / 检查端口后缀
 					suffix := fmt.Sprintf(":%d", port)
 					if strings.HasSuffix(ip, suffix) {
 						match = true
@@ -434,6 +441,8 @@ func SyncWhitelistMap(cidrStr string, port uint16, allow bool) {
 	}
 }
 
+// SyncDefaultDeny sets the default deny policy and syncs with configuration.
+// SyncDefaultDeny 设置默认拒绝策略并与配置同步。
 func SyncDefaultDeny(enable bool) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
@@ -455,6 +464,8 @@ func SyncDefaultDeny(enable bool) {
 	log.Printf("🛡️ Default deny policy set to: %v", enable)
 }
 
+// SyncEnableAFXDP enables or disables AF_XDP redirection and syncs with configuration.
+// SyncEnableAFXDP 启用或禁用 AF_XDP 重定向并与配置同步。
 func SyncEnableAFXDP(enable bool) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
@@ -476,6 +487,8 @@ func SyncEnableAFXDP(enable bool) {
 	log.Printf("🚀 AF_XDP redirection set to: %v", enable)
 }
 
+// SyncEnableRateLimit enables or disables global rate limiting and syncs with configuration.
+// SyncEnableRateLimit 启用或禁用全局速率限制并与配置同步。
 func SyncEnableRateLimit(enable bool) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
@@ -497,6 +510,8 @@ func SyncEnableRateLimit(enable bool) {
 	log.Printf("🚀 Global rate limit set to: %v", enable)
 }
 
+// SyncDropFragments enables or disables dropping of IP fragments and syncs with configuration.
+// SyncDropFragments 启用或禁用丢弃 IP 分片并与配置同步。
 func SyncDropFragments(enable bool) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
@@ -518,6 +533,8 @@ func SyncDropFragments(enable bool) {
 	log.Printf("🛡️ IP Fragment dropping set to: %v", enable)
 }
 
+// SyncStrictTCP enables or disables strict TCP validation and syncs with configuration.
+// SyncStrictTCP 启用或禁用严格的 TCP 验证并与配置同步。
 func SyncStrictTCP(enable bool) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
@@ -539,6 +556,8 @@ func SyncStrictTCP(enable bool) {
 	log.Printf("🛡️ Strict TCP validation set to: %v", enable)
 }
 
+// SyncSYNLimit enables or disables SYN rate limiting and syncs with configuration.
+// SyncSYNLimit 启用或禁用 SYN 速率限制并与配置同步。
 func SyncSYNLimit(enable bool) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
@@ -560,6 +579,8 @@ func SyncSYNLimit(enable bool) {
 	log.Printf("🛡️ SYN Rate Limit set to: %v", enable)
 }
 
+// SyncBogonFilter enables or disables bogon filtering and syncs with configuration.
+// SyncBogonFilter 启用或禁用 bogon 过滤并与配置同步。
 func SyncBogonFilter(enable bool) {
 	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
@@ -584,6 +605,7 @@ func SyncBogonFilter(enable bool) {
 /**
  * ensureCIDR ensures the IP string is in CIDR format.
  * Defaults to /32 for IPv4 and /128 for IPv6 if no mask is present.
+ * ensureCIDR 确保 IP 字符串采用 CIDR 格式。如果没有掩码，则 IPv4 默认为 /32，IPv6 默认为 /128。
  */
 func ensureCIDR(s string) string {
 	if strings.Contains(s, "/") {
@@ -595,10 +617,12 @@ func ensureCIDR(s string) string {
 	return s + "/32"
 }
 
+// ShowLockList lists all currently blocked IP ranges.
+// ShowLockList 列出当前所有被封禁的 IP 范围。
 func ShowLockList(limit int, search string) {
 	log.Println("📋 Blacklist Rules (Lock List):")
 
-	// Try to load unified lock_list
+	// Try to load unified lock_list / 尝试加载统一的 lock_list
 	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
 	if err != nil {
 		log.Printf("⚠️  Failed to load lock_list map: %v", err)
@@ -606,7 +630,7 @@ func ShowLockList(limit int, search string) {
 	}
 	defer m.Close()
 
-	// Use false for isIPv6 since we have unified map
+	// Use false for isIPv6 since we have unified map / 由于我们有统一的 Map，因此 isIPv6 使用 false
 	ips, count, err := xdp.ListBlockedIPs(m, false, limit, search)
 	if err != nil {
 		log.Printf("⚠️  Failed to list blocked IPs: %v", err)
@@ -616,7 +640,7 @@ func ShowLockList(limit int, search string) {
 		fmt.Printf(" - %s (ExpiresAt: %d)\n", entry.IP, entry.ExpiresAt)
 	}
 
-	// Also check dynamic lock list
+	// Also check dynamic lock list / 同时检查动态锁定列表
 	md, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/dyn_lock_list", nil)
 	if err == nil {
 		defer md.Close()

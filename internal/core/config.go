@@ -9,6 +9,8 @@ import (
 	"github.com/livp123/netxfw/internal/plugins/types"
 )
 
+// InitConfiguration initializes the default configuration files if they don't exist.
+// InitConfiguration 如果默认配置文件不存在，则初始化它们。
 func InitConfiguration() {
 	configDir := "/etc/netxfw"
 	configPath := configDir + "/config.yaml"
@@ -36,6 +38,7 @@ func InitConfiguration() {
 
 /**
  * TestConfiguration validates the syntax and values of configuration files.
+ * TestConfiguration 验证配置文件的语法和值。
  */
 func TestConfiguration() {
 	configPath := "/etc/netxfw/config.yaml"

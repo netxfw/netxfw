@@ -23,6 +23,8 @@ type Server struct {
 	configPath string
 }
 
+// NewServer creates a new API and UI server instance.
+// NewServer 创建一个新的 API 和 UI 服务器实例。
 func NewServer(manager *xdp.Manager, port int) *Server {
 	return &Server{
 		manager:    manager,
@@ -31,8 +33,10 @@ func NewServer(manager *xdp.Manager, port int) *Server {
 	}
 }
 
+// Start launches the HTTP server for management.
+// Start 启动用于管理的 HTTP 服务器。
 func (s *Server) Start() error {
-	// Auto-generate token if not configured
+	// Auto-generate token if not configured / 如果未配置，则自动生成令牌
 	cfg, err := types.LoadGlobalConfig(s.configPath)
 	if err == nil {
 		if cfg.Web.Token == "" {
@@ -50,14 +54,14 @@ func (s *Server) Start() error {
 
 	mux := http.NewServeMux()
 
-	// API Endpoints with Token Auth
+	// API Endpoints with Token Auth / 带有令牌验证的 API 端点
 	mux.Handle("/api/stats", s.withAuth(http.HandlerFunc(s.handleStats)))
 	mux.Handle("/api/rules", s.withAuth(http.HandlerFunc(s.handleRules)))
 	mux.Handle("/api/config", s.withAuth(http.HandlerFunc(s.handleConfig)))
 	mux.Handle("/api/sync", s.withAuth(http.HandlerFunc(s.handleSync)))
 	mux.Handle("/api/conntrack", s.withAuth(http.HandlerFunc(s.handleConntrack)))
 
-	// UI (Embedded)
+	// UI (Embedded) / UI（嵌入式）
 	mux.HandleFunc("/", s.handleUI)
 
 	addr := fmt.Sprintf(":%d", s.port)
@@ -65,11 +69,13 @@ func (s *Server) Start() error {
 	return http.ListenAndServe(addr, mux)
 }
 
+// withAuth is a middleware for token-based authentication.
+// withAuth 是一个基于令牌验证的中间件。
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg, err := types.LoadGlobalConfig(s.configPath)
 		if err != nil || cfg.Web.Token == "" {
-			// If no token configured, allow all
+			// If no token configured, allow all / 如果未配置令牌，则允许所有访问
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -88,6 +94,8 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 	})
 }
 
+// handleStats returns the global pass/drop statistics.
+// handleStats 返回全局通过/丢弃统计信息。
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	pass, drop := s.manager.GetStats()
 	w.Header().Set("Content-Type", "application/json")
@@ -97,6 +105,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleRules provides a REST interface for listing, adding, and removing BPF rules.
+// handleRules 为列出、添加和删除 BPF 规则提供 REST 接口。
 func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	switch r.Method {
@@ -107,7 +117,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		locked, totalLocked, _ := xdp.ListBlockedIPs(s.manager.LockList(), false, limit, search)
 		whitelist, totalWhitelist, _ := xdp.ListBlockedIPs(s.manager.Whitelist(), false, limit, search)
 
-		// Get IP+Port rules (action 1=allow, 2=deny)
+		// Get IP+Port rules (action 1=allow, 2=deny) / 获取 IP+端口规则（操作 1=允许，2=拒绝）
 		ipPortRules, totalIPPort, _ := s.manager.ListIPPortRules(false, limit, search)
 
 		res := map[string]interface{}{
@@ -123,8 +133,8 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodPost:
 		var req struct {
-			Type   string `json:"type"`   // "blacklist" or "whitelist"
-			Action string `json:"action"` // "add" or "remove"
+			Type   string `json:"type"`   // "blacklist" or "whitelist" / "黑名单" 或 "白名单"
+			Action string `json:"action"` // "add" or "remove" / "添加" 或 "删除"
 			CIDR   string `json:"cidr"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -139,12 +149,12 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 				m = s.manager.LockList()
 				err = xdp.LockIP(m, req.CIDR)
 			} else if req.Type == "whitelist" {
-				// For whitelist, we check if it's an IP+Port rule (e.g. 1.2.3.4:80)
-				// Or a standard CIDR (e.g. 1.2.3.4/32)
+				// For whitelist, we check if it's an IP+Port rule (e.g. 1.2.3.4:80) / 对于白名单，我们检查它是否是 IP+端口规则（例如 1.2.3.4:80）
+				// Or a standard CIDR (e.g. 1.2.3.4/32) / 或标准 CIDR（例如 1.2.3.4/32）
 				port := uint16(0)
 				cidr := req.CIDR
 				if strings.Contains(cidr, ":") && !strings.Contains(cidr, "[") && !strings.Contains(cidr, "/") && strings.Count(cidr, ":") == 1 {
-					// Likely IPv4:Port format
+					// Likely IPv4:Port format / 可能是 IPv4:端口 格式
 					parts := strings.Split(cidr, ":")
 					cidr = parts[0]
 					fmt.Sscanf(parts[1], "%d", &port)
@@ -153,7 +163,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 				m = s.manager.Whitelist()
 				err = xdp.AllowIP(m, cidr, port)
 			} else if req.Type == "ip_port_rules" {
-				// Parse IP:Port and action
+				// Parse IP:Port and action / 解析 IP:端口 和操作
 				ipStr, port, action, parseErr := parseIPPortAction(req.CIDR)
 				if parseErr != nil {
 					err = parseErr
@@ -162,7 +172,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 
 					_, ipNet, err2 := net.ParseCIDR(ipStr)
 					if err2 != nil {
-						// Try as single IP
+						// Try as single IP / 尝试作为单个 IP
 						parsedIP := net.ParseIP(ipStr)
 						if parsedIP == nil {
 							err = fmt.Errorf("invalid IP: %s", ipStr)
@@ -219,7 +229,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Optional: Automatic persistence if enabled in config
+		// Optional: Automatic persistence if enabled in config / 可选：如果配置中启用了自动持久化
 		cfg, _ := types.LoadGlobalConfig(s.configPath)
 		if cfg != nil && cfg.Base.PersistRules {
 			if req.Type == "blacklist" {
@@ -229,7 +239,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					removeFromFile(cfg.Base.LockListFile, req.CIDR)
 				}
 			} else if req.Type == "whitelist" {
-				// Whitelist persistence (update config slice)
+				// Whitelist persistence (update config slice) / 白名单持久化（更新配置切片）
 				if req.Action == "add" {
 					found := false
 					for _, item := range cfg.Base.Whitelist {
@@ -253,7 +263,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					types.SaveGlobalConfig(s.configPath, cfg)
 				}
 			} else if req.Type == "ip_port_rules" {
-				// IP+Port rules persistence
+				// IP+Port rules persistence / IP+端口规则持久化
 				ipStr, port, action, parseErr := parseIPPortAction(req.CIDR)
 				if parseErr == nil {
 					if req.Action == "add" {
@@ -290,6 +300,8 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleConfig updates runtime configuration parameters.
+// handleConfig 更新运行时配置参数。
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		var req struct {
@@ -317,6 +329,8 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// handleSync triggers synchronization between BPF maps and configuration files.
+// handleSync 触发 BPF Map 和配置文件之间的同步。
 func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -324,8 +338,8 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Direction string `json:"direction"` // "map2file" or "file2map"
-		Mode      string `json:"mode"`      // "incremental" or "overwrite"
+		Direction string `json:"direction"` // "map2file" or "file2map" / "Map 到文件" 或 "文件 到 Map"
+		Mode      string `json:"mode"`      // "incremental" or "overwrite" / "增量" 或 "覆盖"
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -341,7 +355,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	if req.Direction == "map2file" {
 		err = s.manager.SyncToFiles(cfg)
 		if err == nil {
-			// Save the updated config back to file (for whitelists)
+			// Save the updated config back to file (for whitelists) / 将更新后的配置保存回文件（用于白名单）
 			err = types.SaveGlobalConfig(s.configPath, cfg)
 		}
 	} else {
@@ -358,6 +372,8 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `{"status":"ok"}`)
 }
 
+// handleConntrack returns the list of active network connections.
+// handleConntrack 返回活动网络连接列表。
 func (s *Server) handleConntrack(w http.ResponseWriter, r *http.Request) {
 	entries, err := s.manager.ListConntrackEntries()
 	if err != nil {
@@ -365,7 +381,7 @@ func (s *Server) handleConntrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sort by LastSeen descending
+	// Sort by LastSeen descending / 按最后见面时间降序排序
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].LastSeen.After(entries[j].LastSeen)
 	})

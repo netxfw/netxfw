@@ -26,6 +26,8 @@ var WebCmd = &cobra.Command{
 			}
 			port = p
 		}
+		// Start web server
+		// 启动 Web 服务器
 		common.RunWebServer(port)
 	},
 }

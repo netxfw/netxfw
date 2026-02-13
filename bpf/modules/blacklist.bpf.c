@@ -15,11 +15,13 @@ static __always_inline struct rule_value *get_blacklist_stats(struct in6_addr *i
     // 优先检查动态黑名单 (LRU)，针对高频变化的攻击 IP 优化
     struct rule_value *val = bpf_map_lookup_elem(&dyn_lock_list, ip);
     // Usually traffic is not blacklisted, so val is NULL most of the time
+    // 通常流量不在黑名单中，所以 val 大多数时候为 NULL
     if (unlikely(val)) return val;
 
     // 2. Fallback to static lock list (LPM) - for CIDR or manual blocks
     // 回退到静态黑名单 (LPM)，用于网段封禁或手动配置
     // Always use max prefix length for lookup in LPM map
+    // 在 LPM 映射中始终使用最大前缀长度进行查找
     struct lpm_key key = { .prefixlen = 128 };
     __builtin_memcpy(&key.data, ip, sizeof(struct in6_addr));
     return bpf_map_lookup_elem(&lock_list, &key);

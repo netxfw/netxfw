@@ -28,6 +28,7 @@ int tc_egress(struct __sk_buff *skb) {
     if (unlikely(data + sizeof(*eth) > data_end)) return TC_ACT_OK;
 
     // Handle VLANs
+    // 处理 VLAN
     __u16 h_proto = eth->h_proto;
     void *network_header = data + sizeof(*eth);
     
@@ -51,6 +52,7 @@ int tc_egress(struct __sk_buff *skb) {
         if (unlikely((void *)ip + sizeof(*ip) > data_end)) return TC_ACT_OK;
         
         // Dynamic IP header length
+        // 动态 IP 头长度
         __u32 ip_len = ip->ihl * 4;
         if (unlikely(ip_len < sizeof(*ip))) return TC_ACT_OK;
         
@@ -88,6 +90,7 @@ int tc_egress(struct __sk_buff *skb) {
                 if (likely(exists)) {
                     __u64 now = bpf_ktime_get_ns();
                     // Optimization: Only update if >1s has passed to reduce cache thrashing
+                    // 优化：仅在超过 1 秒时更新，以减少缓存抖动
                     if (now - exists->last_seen > 1000000000) {
                         exists->last_seen = now;
                     }
@@ -98,6 +101,11 @@ int tc_egress(struct __sk_buff *skb) {
             // But standard behavior is update to refresh LRU.
             // Let's try to lookup first? No, direct update is cleaner for LRU.
             // But we can check if it exists to avoid full update overhead?
+            // 对于 UDP/ICMP，我们也可以在更新前优化查找吗？
+            // 但标准行为是更新以刷新 LRU。
+            // 让我们先尝试查找？不，直接更新对于 LRU 更清晰。
+            // 但我们可以检查它是否存在以避免完全更新的开销？
+
             // Let's stick to update for now, or apply same optimization?
             // UDP is stateless, so every packet renews.
             struct ct_value *exists = bpf_map_lookup_elem(&conntrack_map, &ct_key);

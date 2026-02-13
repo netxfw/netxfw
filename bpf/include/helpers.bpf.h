@@ -55,6 +55,7 @@ extern __u32 cached_auto_block;
 extern __u64 cached_auto_block_expiry;
 
 // Helper functions for common operations
+// 通用操作的辅助函数
 static __always_inline int is_valid_eth_frame(void *data, void *data_end, struct ethhdr *eth) {
     return (data + sizeof(*eth) <= data_end);
 }
@@ -75,6 +76,9 @@ static __always_inline int is_arp_packet(struct ethhdr *eth) {
  * Convert IPv4 address to IPv4-mapped IPv6 address (::ffff:a.b.c.d)
  * ip4: IPv4 address in network byte order
  * ip6: Pointer to struct in6_addr to store the result
+ * 将 IPv4 地址转换为 IPv4 映射的 IPv6 地址 (::ffff:a.b.c.d)
+ * ip4: 网络字节序的 IPv4 地址
+ * ip6: 存储结果的 struct in6_addr 指针
  */
 static __always_inline void ipv4_to_ipv6_mapped(__u32 ip4, struct in6_addr *ip6) {
     ip6->in6_u.u6_addr32[0] = 0;

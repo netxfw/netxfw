@@ -28,6 +28,8 @@ var syncToConfigCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.SyncToConfig function not initialized")
 			os.Exit(1)
 		}
+		// Dump maps to config files
+		// 将 map 转储到配置文件
 		common.SyncToConfig()
 	},
 }
@@ -35,7 +37,7 @@ var syncToConfigCmd = &cobra.Command{
 var syncToMapCmd = &cobra.Command{
 	Use:   "to-map",
 	Short: "Apply configuration files to runtime BPF maps",
-	Long:  `Apply configuration files (config.yaml and rules.deny.txt) to runtime BPF maps.
+	Long: `Apply configuration files (config.yaml and rules.deny.txt) to runtime BPF maps.
 This will overwrite the runtime state with what is defined in the configuration files.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
@@ -48,6 +50,8 @@ This will overwrite the runtime state with what is defined in the configuration 
 			cmd.PrintErrln("❌ common.SyncToMap function not initialized")
 			os.Exit(1)
 		}
+		// Load config files to maps
+		// 将配置文件加载到 map
 		common.SyncToMap()
 	},
 }

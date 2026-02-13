@@ -11,6 +11,7 @@ import (
 )
 
 // runStandalone runs the legacy full-stack mode.
+// runStandalone 运行传统的全栈模式。
 func runStandalone() {
 	const configPath = "/etc/netxfw/config.yaml"
 	const pidPath = defaultPidFile
@@ -25,13 +26,14 @@ func runStandalone() {
 		log.Fatalf("❌ Failed to load global config: %v", err)
 	}
 
-	// Initialize Logging
+	// Initialize Logging / 初始化日志
 	logger.Init(globalCfg.Logging)
 
 	if globalCfg.Base.EnablePprof {
 		startPprof(globalCfg.Base.PprofPort)
 	}
 
+	// 1. Initialize Manager / 初始化管理器
 	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err != nil {
 		log.Printf("ℹ️  Creating new XDP manager...")
@@ -45,7 +47,7 @@ func runStandalone() {
 	}
 	defer manager.Close()
 
-	// Attach Interfaces
+	// 2. Attach Interfaces / 附加接口
 	var interfaces []string
 	if len(globalCfg.Base.Interfaces) > 0 {
 		interfaces = globalCfg.Base.Interfaces
@@ -54,14 +56,14 @@ func runStandalone() {
 	}
 
 	if len(interfaces) > 0 {
-		// Clean up removed interfaces first
+		// Clean up removed interfaces first / 首先清理已删除的接口
 		cleanupOrphanedInterfaces(manager, interfaces)
 		if err := manager.Attach(interfaces); err != nil {
 			log.Fatalf("❌ Failed to attach XDP: %v", err)
 		}
 	}
 
-	// Load ALL Plugins
+	// 3. Load ALL Plugins / 加载所有插件
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(globalCfg); err != nil {
 			log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
@@ -73,6 +75,7 @@ func runStandalone() {
 		defer p.Stop()
 	}
 
+	// 4. Start Web Server / 启动 Web 服务器
 	if globalCfg.Web.Enabled {
 		go func() {
 			if err := startWebServer(globalCfg, manager); err != nil {
@@ -81,6 +84,7 @@ func runStandalone() {
 		}()
 	}
 
+	// 5. Start Cleanup Loop / 启动清理循环
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go runCleanupLoop(ctx, globalCfg)

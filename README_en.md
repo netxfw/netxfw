@@ -118,5 +118,15 @@ sudo ./netxfw system load
 
 ---
 
+## 📚 Documentation
+
+- [Architecture Design](docs/architecture.md)
+- [CLI Manual](docs/cli/cli_en.md)
+- [Plugin Development Guide](docs/plugins/plugins_en.md)
+- [Contributing Guide](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Changelog](CHANGELOG.md)
+
 ## 📄 License
 This project is licensed under the [MIT License](LICENSE).

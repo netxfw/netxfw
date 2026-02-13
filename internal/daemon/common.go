@@ -20,6 +20,8 @@ import (
 
 const defaultPidFile = "/var/run/netxfw.pid"
 
+// managePidFile ensures only one instance of the daemon is running by checking/writing a PID file.
+// managePidFile 通过检查/编写 PID 文件来确保只有一个守护进程实例在运行。
 func managePidFile(path string) error {
 	if content, err := os.ReadFile(path); err == nil {
 		pid, err := strconv.Atoi(strings.TrimSpace(string(content)))
@@ -30,7 +32,7 @@ func managePidFile(path string) error {
 				}
 			}
 		}
-		// PID file exists but process is dead or invalid, remove it
+		// PID file exists but process is dead or invalid, remove it / PID 文件存在但进程已死或无效，将其删除
 		log.Printf("⚠️  Removing stale PID file: %s", path)
 		_ = os.Remove(path)
 	}
@@ -42,12 +44,16 @@ func managePidFile(path string) error {
 	return nil
 }
 
+// removePidFile deletes the PID file on shutdown.
+// removePidFile 在关机时删除 PID 文件。
 func removePidFile(path string) {
 	if err := os.Remove(path); err != nil {
 		log.Printf("⚠️  Failed to remove PID file: %v", err)
 	}
 }
 
+// startPprof starts the Go pprof server for profiling.
+// startPprof 启动用于分析的 Go pprof 服务器。
 func startPprof(port int) {
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("📊 Pprof enabled on %s", addr)
@@ -56,8 +62,10 @@ func startPprof(port int) {
 	}()
 }
 
+// startWebServer launches the REST API server.
+// startWebServer 启动 REST API 服务器。
 func startWebServer(globalCfg *types.GlobalConfig, manager *xdp.Manager) error {
-	// Start API server
+	// Start API server / 启动 API 服务器
 	server := api.NewServer(manager, globalCfg.Web.Port)
 	if err := server.Start(); err != nil {
 		return fmt.Errorf("failed to start web server: %v", err)
@@ -65,6 +73,8 @@ func startWebServer(globalCfg *types.GlobalConfig, manager *xdp.Manager) error {
 	return nil
 }
 
+// cleanupOrphanedInterfaces detaches XDP programs from interfaces no longer in config.
+// cleanupOrphanedInterfaces 从不再配置中的接口分离 XDP 程序。
 func cleanupOrphanedInterfaces(manager *xdp.Manager, configuredInterfaces []string) {
 	if attachedIfaces, err := xdp.GetAttachedInterfaces("/sys/fs/bpf/netxfw"); err == nil {
 		var toDetach []string
@@ -89,6 +99,8 @@ func cleanupOrphanedInterfaces(manager *xdp.Manager, configuredInterfaces []stri
 	}
 }
 
+// waitForSignal waits for OS signals like SIGINT or SIGHUP for graceful shutdown or reload.
+// waitForSignal 等待 SIGINT 或 SIGHUP 等操作系统信号，以便正常关机或重新加载。
 func waitForSignal(configPath string, manager *xdp.Manager, allowedPlugins []string) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -103,9 +115,9 @@ func waitForSignal(configPath string, manager *xdp.Manager, allowedPlugins []str
 				continue
 			}
 
-			// Reload plugins
+			// Reload plugins / 重新加载插件
 			for _, p := range plugins.GetPlugins() {
-				// Filter if allowedPlugins is set (DP mode)
+				// Filter if allowedPlugins is set (DP mode) / 如果设置了 allowedPlugins（DP 模式），则进行过滤
 				if allowedPlugins != nil {
 					found := false
 					for _, name := range allowedPlugins {
@@ -124,11 +136,6 @@ func waitForSignal(configPath string, manager *xdp.Manager, allowedPlugins []str
 				}
 			}
 
-			// If in DP mode (allowedPlugins != nil) or Standalone, re-check interfaces
-			if allowedPlugins != nil || len(allowedPlugins) == 0 {
-				// Interface re-attach logic could be added here if needed
-			}
-
 			log.Println("✅ Configuration reloaded")
 		} else {
 			log.Println("👋 Daemon shutting down...")
@@ -137,6 +144,8 @@ func waitForSignal(configPath string, manager *xdp.Manager, allowedPlugins []str
 	}
 }
 
+// runCleanupLoop periodically removes expired rules from BPF maps.
+// runCleanupLoop 定期从 BPF Map 中删除过期的规则。
 func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
 	if !globalCfg.Base.EnableExpiry {
 		log.Println("ℹ️  Rule cleanup is disabled in config")
@@ -163,7 +172,7 @@ func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
 			if err != nil {
 				continue
 			}
-			// Cleanup all maps that support expiration
+			// Cleanup all maps that support expiration / 清理所有支持过期的 Map
 			removed, _ := xdp.CleanupExpiredRules(m.LockList(), false)
 			removedW, _ := xdp.CleanupExpiredRules(m.Whitelist(), false)
 			removedP, _ := xdp.CleanupExpiredRules(m.IpPortRules(), false)

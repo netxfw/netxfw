@@ -9,9 +9,11 @@
 
 /**
  * Common structures
+ * 通用结构体
  */
 
 // Unified Conntrack Key (IPv6 size for all)
+// 统一连接跟踪键（所有协议使用 IPv6 大小）
 struct ct_key {
     struct in6_addr src_ip;
     struct in6_addr dst_ip;
@@ -27,12 +29,15 @@ struct ct_value {
 
 // Unified LPM Key for IPv4/IPv6
 // IPv4 addresses are stored as IPv4-mapped IPv6 addresses (::ffff:a.b.c.d)
+// 统一的 IPv4/IPv6 LPM 键
+// IPv4 地址存储为 IPv4 映射的 IPv6 地址 (::ffff:a.b.c.d)
 struct lpm_key {
     __u32 prefixlen;
     struct in6_addr data;
 };
 
 // Unified LPM IP+Port Key
+// 统一的 LPM IP+端口键
 struct lpm_ip_port_key {
     __u32 prefixlen;
     __u16 port;
@@ -54,8 +59,8 @@ struct ratelimit_stats {
 };
 
 struct ratelimit_conf {
-    __u64 rate;  // packets per second
-    __u64 burst; // max tokens
+    __u64 rate;  // packets per second / 每秒数据包数
+    __u64 burst; // max tokens / 最大令牌数
 };
 
 struct icmp_stats {
@@ -64,6 +69,7 @@ struct icmp_stats {
 };
 
 // Unified Drop/Pass Detail Key
+// 统一丢弃/通过详细信息键
 struct drop_detail_key {
     __u32 reason;
     __u32 protocol;
@@ -74,6 +80,7 @@ struct drop_detail_key {
 
 /**
  * Map Definitions
+ * Map 定义
  */
 
 #define CT_MAP_SIZE 100000
@@ -81,6 +88,7 @@ struct drop_detail_key {
 #define LOCK_LIST_SIZE 2000000
 
 // Unified Conntrack Map
+// 统一连接跟踪 Map
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __uint(max_entries, CT_MAP_SIZE);
@@ -89,6 +97,7 @@ struct {
 } conntrack_map SEC(".maps");
 
 // Unified Rate Limit Config (LPM TRIE)
+// 统一速率限制配置 (LPM TRIE)
 struct {
     __uint(type, BPF_MAP_TYPE_LPM_TRIE);
     __uint(max_entries, LPM_MAP_SIZE);
@@ -98,14 +107,16 @@ struct {
 } ratelimit_config SEC(".maps");
 
 // Unified Rate Limit State (LRU HASH)
+// 统一速率限制状态 (LRU HASH)
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __uint(max_entries, 100000);
-    __type(key, struct in6_addr); // Key is just IP
+    __type(key, struct in6_addr); // Key is just IP / 键仅为 IP
     __type(value, struct ratelimit_stats);
 } ratelimit_state SEC(".maps");
 
 // Unified Lock List (LPM TRIE) - Static rules
+// 统一锁定列表 (LPM TRIE) - 静态规则
 struct {
     __uint(type, BPF_MAP_TYPE_LPM_TRIE);
     __uint(max_entries, LOCK_LIST_SIZE);
@@ -115,14 +126,16 @@ struct {
 } lock_list SEC(".maps");
 
 // Unified Dynamic Lock List (LRU HASH) - Auto blocking
+// 统一动态锁定列表 (LRU HASH) - 自动阻止
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __uint(max_entries, 1000000);
-    __type(key, struct in6_addr); // Key is just IP
+    __type(key, struct in6_addr); // Key is just IP / 键仅为 IP
     __type(value, struct rule_value);
 } dyn_lock_list SEC(".maps");
 
 // Unified Drop Stats (Per-CPU Array) - Global counters
+// 统一丢弃统计 (Per-CPU Array) - 全局计数器
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(max_entries, 1);
@@ -131,6 +144,7 @@ struct {
 } drop_stats SEC(".maps");
 
 // Unified Drop Reason Stats (Per-CPU Hash) - Detailed stats
+// 统一丢弃原因统计 (Per-CPU Hash) - 详细统计
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
     __uint(max_entries, 65536);
@@ -139,6 +153,7 @@ struct {
 } drop_reason_stats SEC(".maps");
 
 // Unified Pass Stats (Per-CPU Array) - Global counters
+// 统一通过统计 (Per-CPU Array) - 全局计数器
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(max_entries, 1);
@@ -147,6 +162,7 @@ struct {
 } pass_stats SEC(".maps");
 
 // Unified Pass Reason Stats (Per-CPU Hash) - Detailed stats
+// 统一通过原因统计 (Per-CPU Hash) - 详细统计
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
     __uint(max_entries, 65536);
@@ -162,6 +178,7 @@ struct {
 } icmp_limit_map SEC(".maps");
 
 // Unified Whitelist (LPM TRIE)
+// 统一白名单 (LPM TRIE)
 struct {
     __uint(type, BPF_MAP_TYPE_LPM_TRIE);
     __uint(max_entries, LPM_MAP_SIZE);
@@ -178,6 +195,7 @@ struct {
 } allowed_ports SEC(".maps");
 
 // Unified IP+Port Rules (LPM TRIE)
+// 统一 IP+端口规则 (LPM TRIE)
 struct {
     __uint(type, BPF_MAP_TYPE_LPM_TRIE);
     __uint(max_entries, LPM_MAP_SIZE);
