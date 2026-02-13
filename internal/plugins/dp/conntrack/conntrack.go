@@ -6,6 +6,7 @@ import (
 
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 type ConntrackPlugin struct {
@@ -16,22 +17,35 @@ func (p *ConntrackPlugin) Name() string {
 	return "conntrack"
 }
 
-func (p *ConntrackPlugin) Init(config *types.GlobalConfig) error {
-	p.config = &config.Conntrack
+func (p *ConntrackPlugin) Init(ctx *sdk.PluginContext) error {
+	p.config = &ctx.Config.Conntrack
 	return nil
 }
 
-func (p *ConntrackPlugin) Reload(config *types.GlobalConfig, manager *xdp.Manager) error {
+func (p *ConntrackPlugin) Reload(ctx *sdk.PluginContext) error {
 	log.Println("🔄 [ConntrackPlugin] Reloading configuration (Full Sync)...")
-	if err := p.Init(config); err != nil {
+	if err := p.Init(ctx); err != nil {
 		return err
 	}
-	return p.Sync(manager)
+	return p.Sync(ctx.Manager)
 }
 
-func (p *ConntrackPlugin) Start(manager *xdp.Manager) error {
+func (p *ConntrackPlugin) Start(ctx *sdk.PluginContext) error {
 	log.Println("🚀 [ConntrackPlugin] Starting...")
-	return p.Sync(manager)
+	return p.Sync(ctx.Manager)
+}
+
+func (p *ConntrackPlugin) Stop() error {
+	return nil
+}
+
+func (p *ConntrackPlugin) DefaultConfig() interface{} {
+	return types.ConntrackConfig{
+		Enabled:    true,
+		MaxEntries: 100000,
+		TCPTimeout: "1h",
+		UDPTimeout: "5m",
+	}
 }
 
 func (p *ConntrackPlugin) Sync(manager *xdp.Manager) error {
@@ -70,19 +84,6 @@ func (p *ConntrackPlugin) Sync(manager *xdp.Manager) error {
 	return nil
 }
 
-func (p *ConntrackPlugin) Stop() error {
-	return nil
-}
-
 func (p *ConntrackPlugin) Validate(config *types.GlobalConfig) error {
 	return nil
-}
-
-func (p *ConntrackPlugin) DefaultConfig() interface{} {
-	return types.ConntrackConfig{
-		Enabled:    true,
-		MaxEntries: 100000,
-		TCPTimeout: "1h",
-		UDPTimeout: "5m",
-	}
 }

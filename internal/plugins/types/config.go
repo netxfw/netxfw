@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -14,9 +15,10 @@ import (
 // while preserving documentation.
 const DefaultConfigTemplate = `# NetXFW Configuration File / NetXFW 配置文件
 #
-# Edition / 版本
-# Options: standalone, standalone-ai, small-cluster, small-cluster-ai, large-cluster, large-cluster-ai, embedded
-edition: standalone
+
+# Cluster Configuration / 集群配置
+cluster:
+  enabled: false
 
 # Base Configuration / 基础配置
 base:
@@ -214,8 +216,9 @@ logging:
   compress: true
 `
 
+// GlobalConfig represents the top-level configuration structure.
 type GlobalConfig struct {
-	Edition   string          `yaml:"edition"` // standalone, standalone-ai, small-cluster, small-cluster-ai, large-cluster, large-cluster-ai, embedded
+	Cluster   ClusterConfig   `yaml:"cluster"`
 	Base      BaseConfig      `yaml:"base"`
 	Web       WebConfig       `yaml:"web"`
 	Metrics   MetricsConfig   `yaml:"metrics"`
@@ -225,6 +228,11 @@ type GlobalConfig struct {
 	LogEngine LogEngineConfig `yaml:"log_engine"`
 	Capacity  CapacityConfig  `yaml:"capacity"`
 	Logging   LoggingConfig   `yaml:"logging"`
+}
+
+// ClusterConfig defines the cluster synchronization settings.
+type ClusterConfig struct {
+	Enabled bool `yaml:"enabled"`
 }
 
 type LoggingConfig struct {
@@ -363,6 +371,9 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 
 	// Initialize with defaults / 使用默认值初始化
 	cfg := GlobalConfig{
+		Cluster: ClusterConfig{
+			Enabled: false,
+		},
 		Base: BaseConfig{
 			DefaultDeny:        true,
 			AllowReturnTraffic: false,
@@ -411,6 +422,11 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
 		return nil, err
+	}
+
+	// Validate configuration / 验证配置
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
 	// Check for missing keys and update file if needed

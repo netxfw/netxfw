@@ -12,7 +12,7 @@ import (
 // 1. Non-root user failures -> Block immediately
 // 2. Root user failures -> Block after 2 attempts
 func TestRulePolicies(t *testing.T) {
-	c := logengine.NewCounter()
+	c := logengine.NewCounter(0)
 	re := logengine.NewRuleEngine(c)
 
 	rules := []types.LogEngineRule{

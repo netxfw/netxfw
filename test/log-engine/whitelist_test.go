@@ -10,7 +10,7 @@ import (
 
 // TestWhitelistUser verifies the "Block if NOT user X" logic.
 func TestWhitelistUser(t *testing.T) {
-	c := logengine.NewCounter()
+	c := logengine.NewCounter(0)
 	re := logengine.NewRuleEngine(c)
 
 	rules := []types.LogEngineRule{

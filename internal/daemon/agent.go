@@ -8,6 +8,7 @@ import (
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 // runControlPlane handles API, Web, Log Engine, and high-level management.
@@ -43,12 +44,17 @@ func runControlPlane() {
 	defer manager.Close()
 
 	// 2. Load ALL Plugins (Agent manages everything) / 加载所有插件（Agent 管理一切）
+	pluginCtx := &sdk.PluginContext{
+		Context: context.Background(),
+		Manager: manager,
+		Config:  globalCfg,
+	}
 	for _, p := range plugins.GetPlugins() {
-		if err := p.Init(globalCfg); err != nil {
+		if err := p.Init(pluginCtx); err != nil {
 			log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
 			continue
 		}
-		if err := p.Start(manager); err != nil {
+		if err := p.Start(pluginCtx); err != nil {
 			log.Printf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
 		}
 		defer p.Stop()

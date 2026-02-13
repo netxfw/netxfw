@@ -16,6 +16,7 @@ import (
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 const defaultPidFile = "/var/run/netxfw.pid"
@@ -116,6 +117,12 @@ func waitForSignal(configPath string, manager *xdp.Manager, allowedPlugins []str
 			}
 
 			// Reload plugins / 重新加载插件
+			pluginCtx := &sdk.PluginContext{
+				Context: context.Background(),
+				Manager: manager,
+				Config:  globalCfg,
+			}
+
 			for _, p := range plugins.GetPlugins() {
 				// Filter if allowedPlugins is set (DP mode) / 如果设置了 allowedPlugins（DP 模式），则进行过滤
 				if allowedPlugins != nil {
@@ -131,7 +138,7 @@ func waitForSignal(configPath string, manager *xdp.Manager, allowedPlugins []str
 					}
 				}
 
-				if err := p.Reload(globalCfg, manager); err != nil {
+				if err := p.Reload(pluginCtx); err != nil {
 					log.Printf("⚠️  Failed to reload plugin %s: %v", p.Name(), err)
 				}
 			}

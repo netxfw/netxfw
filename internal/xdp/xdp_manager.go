@@ -196,6 +196,42 @@ func ForceCleanup(path string) error {
 	return os.RemoveAll(path)
 }
 
+// MatchesCapacity checks if the current map capacities match the provided config.
+// MatchesCapacity 检查当前的 Map 容量是否与提供的配置匹配。
+func (m *Manager) MatchesCapacity(cfg types.CapacityConfig) bool {
+	if cfg.LockList > 0 {
+		if m.lockList == nil || m.lockList.MaxEntries() != uint32(cfg.LockList) {
+			return false
+		}
+	}
+	if cfg.DynLockList > 0 {
+		if m.dynLockList == nil || m.dynLockList.MaxEntries() != uint32(cfg.DynLockList) {
+			return false
+		}
+	}
+	if cfg.Whitelist > 0 {
+		if m.whitelist == nil || m.whitelist.MaxEntries() != uint32(cfg.Whitelist) {
+			return false
+		}
+	}
+	if cfg.IPPortRules > 0 {
+		if m.ipPortRules == nil || m.ipPortRules.MaxEntries() != uint32(cfg.IPPortRules) {
+			return false
+		}
+	}
+	if cfg.Conntrack > 0 {
+		if m.conntrackMap == nil || m.conntrackMap.MaxEntries() != uint32(cfg.Conntrack) {
+			return false
+		}
+	}
+	if cfg.AllowedPorts > 0 {
+		if m.allowedPorts == nil || m.allowedPorts.MaxEntries() != uint32(cfg.AllowedPorts) {
+			return false
+		}
+	}
+	return true
+}
+
 /**
  * NewManager initializes the BPF objects and removes memory limits.
  * Supports dynamic map capacity adjustment.

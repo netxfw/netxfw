@@ -39,7 +39,7 @@ func TestIPExtractor(t *testing.T) {
 }
 
 func TestCounter(t *testing.T) {
-	c := logengine.NewCounter()
+	c := logengine.NewCounter(0)
 	ip := netip.MustParseAddr("192.168.1.1")
 
 	// Inc 10 times
@@ -61,7 +61,7 @@ func TestCounter(t *testing.T) {
 }
 
 func TestRuleEngine(t *testing.T) {
-	c := logengine.NewCounter()
+	c := logengine.NewCounter(0)
 	re := logengine.NewRuleEngine(c)
 
 	rules := []types.LogEngineRule{
@@ -125,7 +125,7 @@ func TestIPv6Support(t *testing.T) {
 
 	// 2. Test logengine.Counter
 	// 2. 测试 logengine.Counter
-	counter := logengine.NewCounter()
+	counter := logengine.NewCounter(0)
 	// Increment 5 times
 	// 增加 5 次
 	for i := 0; i < 5; i++ {

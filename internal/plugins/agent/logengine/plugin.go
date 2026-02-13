@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 // LogEnginePlugin implements the Plugin interface.
@@ -21,17 +21,17 @@ func (p *LogEnginePlugin) Name() string {
 }
 
 // Init initializes the plugin with the global configuration.
-func (p *LogEnginePlugin) Init(config *types.GlobalConfig) error {
-	p.config = config.LogEngine
-	p.lockListFile = config.Base.LockListFile
+func (p *LogEnginePlugin) Init(ctx *sdk.PluginContext) error {
+	p.config = ctx.Config.LogEngine
+	p.lockListFile = ctx.Config.Base.LockListFile
 	return nil
 }
 
 // Reload updates the plugin configuration without restarting
-func (p *LogEnginePlugin) Reload(config *types.GlobalConfig, manager *xdp.Manager) error {
+func (p *LogEnginePlugin) Reload(ctx *sdk.PluginContext) error {
 	log.Println("🔄 [LogEngine] Reloading configuration...")
-	newCfg := config.LogEngine
-	p.lockListFile = config.Base.LockListFile
+	newCfg := ctx.Config.LogEngine
+	p.lockListFile = ctx.Config.Base.LockListFile
 
 	if !newCfg.Enabled {
 		if p.engine != nil {
@@ -43,25 +43,22 @@ func (p *LogEnginePlugin) Reload(config *types.GlobalConfig, manager *xdp.Manage
 
 	if p.engine == nil {
 		// Was disabled, now enabled
-		p.Init(config)
-		return p.Start(manager)
+		p.Init(ctx)
+		return p.Start(ctx)
 	}
 
 	// Was enabled, update config
-	// Note: Updating lockListFile for running engine might require more work,
-	// but currently UpdateConfig only updates rules/files.
-	// Ideally we should restart if global base config changes, but reload is usually for rules.
 	return p.engine.UpdateConfig(newCfg)
 }
 
 // Start starts the log engine.
-func (p *LogEnginePlugin) Start(manager *xdp.Manager) error {
+func (p *LogEnginePlugin) Start(ctx *sdk.PluginContext) error {
 	if !p.config.Enabled {
 		return nil
 	}
 
 	log.Printf("Starting LogEngine plugin...")
-	actionHandler := NewXDPActionHandler(manager, p.lockListFile)
+	actionHandler := NewXDPActionHandler(ctx.Manager, p.lockListFile)
 	p.engine = New(p.config, actionHandler)
 	p.engine.Start()
 	return nil

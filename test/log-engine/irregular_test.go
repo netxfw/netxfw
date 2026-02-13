@@ -9,7 +9,7 @@ import (
 )
 
 func TestIrregularLogFormat(t *testing.T) {
-	c := logengine.NewCounter()
+	c := logengine.NewCounter(0)
 	re := logengine.NewRuleEngine(c)
 
 	// Rule: Block if line contains "Failed" AND count > 3

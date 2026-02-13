@@ -8,6 +8,7 @@ import (
 
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 type PortPlugin struct {
@@ -18,22 +19,22 @@ func (p *PortPlugin) Name() string {
 	return "port"
 }
 
-func (p *PortPlugin) Init(config *types.GlobalConfig) error {
-	p.config = &config.Port
+func (p *PortPlugin) Init(ctx *sdk.PluginContext) error {
+	p.config = &ctx.Config.Port
 	return nil
 }
 
-func (p *PortPlugin) Reload(config *types.GlobalConfig, manager *xdp.Manager) error {
+func (p *PortPlugin) Reload(ctx *sdk.PluginContext) error {
 	log.Println("🔄 [PortPlugin] Reloading port configuration (Full Sync)...")
-	if err := p.Init(config); err != nil {
+	if err := p.Init(ctx); err != nil {
 		return err
 	}
-	return p.Sync(manager)
+	return p.Sync(ctx.Manager)
 }
 
-func (p *PortPlugin) Start(manager *xdp.Manager) error {
+func (p *PortPlugin) Start(ctx *sdk.PluginContext) error {
 	log.Println("🚀 [PortPlugin] Starting...")
-	return p.Sync(manager)
+	return p.Sync(ctx.Manager)
 }
 
 // Sync synchronizes the current configuration with the BPF maps (Add/Remove)

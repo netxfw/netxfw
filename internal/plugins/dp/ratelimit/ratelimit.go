@@ -8,6 +8,7 @@ import (
 
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 type RateLimitPlugin struct {
@@ -18,22 +19,30 @@ func (p *RateLimitPlugin) Name() string {
 	return "ratelimit"
 }
 
-func (p *RateLimitPlugin) Init(config *types.GlobalConfig) error {
-	p.config = &config.RateLimit
+func (p *RateLimitPlugin) Init(ctx *sdk.PluginContext) error {
+	p.config = &ctx.Config.RateLimit
 	return nil
 }
 
-func (p *RateLimitPlugin) Reload(config *types.GlobalConfig, manager *xdp.Manager) error {
+func (p *RateLimitPlugin) Reload(ctx *sdk.PluginContext) error {
 	log.Println("🔄 [RateLimitPlugin] Reloading configuration (Full Sync)...")
-	if err := p.Init(config); err != nil {
+	if err := p.Init(ctx); err != nil {
 		return err
 	}
-	return p.Sync(manager)
+	return p.Sync(ctx.Manager)
 }
 
-func (p *RateLimitPlugin) Start(manager *xdp.Manager) error {
+func (p *RateLimitPlugin) Start(ctx *sdk.PluginContext) error {
 	log.Println("🚀 [RateLimitPlugin] Starting...")
-	return p.Sync(manager)
+	return p.Sync(ctx.Manager)
+}
+
+func (p *RateLimitPlugin) Stop() error {
+	return nil
+}
+
+func (p *RateLimitPlugin) DefaultConfig() interface{} {
+	return types.RateLimitConfig{}
 }
 
 func (p *RateLimitPlugin) Sync(manager *xdp.Manager) error {
@@ -116,20 +125,6 @@ func (p *RateLimitPlugin) Sync(manager *xdp.Manager) error {
 
 	log.Printf("✅ [RateLimitPlugin] Sync complete. Active rules: %d", len(desiredRules))
 	return nil
-}
-
-
-func (p *RateLimitPlugin) Stop() error {
-	return nil
-}
-
-func (p *RateLimitPlugin) DefaultConfig() interface{} {
-	return types.RateLimitConfig{
-		Enabled:         false,
-		AutoBlock:       false,
-		AutoBlockExpiry: "5m",
-		Rules:           []types.RateLimitRule{},
-	}
 }
 
 func (p *RateLimitPlugin) Validate(config *types.GlobalConfig) error {

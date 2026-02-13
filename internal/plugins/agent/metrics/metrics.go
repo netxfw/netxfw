@@ -9,6 +9,7 @@ import (
 
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -60,28 +61,28 @@ func (p *MetricsPlugin) Name() string {
 	return "metrics"
 }
 
-func (p *MetricsPlugin) Init(config *types.GlobalConfig) error {
-	p.config = &config.Metrics
+func (p *MetricsPlugin) Init(ctx *sdk.PluginContext) error {
+	p.config = &ctx.Config.Metrics
 	return nil
 }
 
-func (p *MetricsPlugin) Reload(config *types.GlobalConfig, manager *xdp.Manager) error {
+func (p *MetricsPlugin) Reload(ctx *sdk.PluginContext) error {
 	log.Println("🔄 [Metrics] Reloading configuration...")
 	if err := p.Stop(); err != nil {
 		log.Printf("⚠️  [Metrics] Error stopping during reload: %v", err)
 	}
-	p.Init(config)
-	return p.Start(manager)
+	p.Init(ctx)
+	return p.Start(ctx)
 }
 
-func (p *MetricsPlugin) Start(manager *xdp.Manager) error {
+func (p *MetricsPlugin) Start(ctx *sdk.PluginContext) error {
 	if !p.config.Enabled {
 		log.Println("📊 Metrics plugin is disabled via config.")
 		return nil
 	}
 
 	// Assign the manager as the stats provider
-	p.provider = manager
+	p.provider = ctx.Manager
 
 	// Default port if not set
 	if p.config.Port == 0 {

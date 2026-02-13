@@ -2,6 +2,7 @@ package logengine
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/netip"
@@ -132,6 +133,52 @@ func (e *Env) Get(key string) string {
 		return string(trimmed)
 	}
 	return string(trimmed[:end])
+}
+
+// JSON parses the log line as JSON and returns a map.
+// JSON 将日志行解析为 JSON 并返回一个 Map。
+func (e *Env) JSON() map[string]interface{} {
+	var res map[string]interface{}
+	if err := json.Unmarshal(e.Line, &res); err != nil {
+		return nil
+	}
+	return res
+}
+
+// KV parses the log line as Key-Value pairs (e.g., "key1=val1 key2=val2") and returns a map.
+// KV 将日志行解析为键值对（例如 "key1=val1 key2=val2"）并返回一个 Map。
+func (e *Env) KV() map[string]string {
+	res := make(map[string]string)
+	parts := bytes.Fields(e.Line)
+	for _, part := range parts {
+		kv := bytes.SplitN(part, []byte{'='}, 2)
+		if len(kv) == 2 {
+			res[string(kv[0])] = string(kv[1])
+		} else {
+			kv = bytes.SplitN(part, []byte{':'}, 2)
+			if len(kv) == 2 {
+				res[string(kv[0])] = string(kv[1])
+			}
+		}
+	}
+	return res
+}
+
+// Match checks if the log line matches the given regular expression.
+// Match 检查日志行是否匹配给定的正则表达式。
+func (e *Env) Match(pattern string) bool {
+	re, ok := regexCache.Load(pattern)
+	if !ok {
+		var err error
+		re, err = regexp.Compile(pattern)
+		if err != nil {
+			log.Printf("⚠️  Invalid regex pattern: %s", pattern)
+			return false
+		}
+		regexCache.Store(pattern, re)
+		atomic.AddInt64(&regexCount, 1)
+	}
+	return re.(*regexp.Regexp).Match(e.Line)
 }
 
 func (e *Env) Count(window int) int {

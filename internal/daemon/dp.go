@@ -1,12 +1,14 @@
 package daemon
 
 import (
+	"context"
 	"log"
 
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 // runDataPlane handles XDP mounting, BPF map initialization, and core packet processing plugins.
@@ -80,11 +82,17 @@ func runDataPlane() {
 			continue
 		}
 
-		if err := p.Init(globalCfg); err != nil {
+		pluginCtx := &sdk.PluginContext{
+			Context: context.Background(),
+			Manager: manager,
+			Config:  globalCfg,
+		}
+
+		if err := p.Init(pluginCtx); err != nil {
 			log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
 			continue
 		}
-		if err := p.Start(manager); err != nil {
+		if err := p.Start(pluginCtx); err != nil {
 			log.Printf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
 		}
 		defer p.Stop()

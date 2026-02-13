@@ -9,7 +9,7 @@ import (
 )
 
 func TestServiceIsolation(t *testing.T) {
-	c := logengine.NewCounter()
+	c := logengine.NewCounter(0)
 	re := logengine.NewRuleEngine(c)
 
 	// Rule 1: SSH Brute Force (Only applies to auth.log)

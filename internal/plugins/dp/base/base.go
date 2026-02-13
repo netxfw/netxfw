@@ -16,6 +16,7 @@ import (
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/ipmerge"
 	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 type BasePlugin struct {
@@ -26,22 +27,22 @@ func (p *BasePlugin) Name() string {
 	return "base"
 }
 
-func (p *BasePlugin) Init(config *types.GlobalConfig) error {
-	p.config = &config.Base
+func (p *BasePlugin) Init(ctx *sdk.PluginContext) error {
+	p.config = &ctx.Config.Base
 	return nil
 }
 
-func (p *BasePlugin) Reload(config *types.GlobalConfig, manager *xdp.Manager) error {
+func (p *BasePlugin) Reload(ctx *sdk.PluginContext) error {
 	log.Println("🔄 [BasePlugin] Reloading configuration (Full Sync)...")
-	if err := p.Init(config); err != nil {
+	if err := p.Init(ctx); err != nil {
 		return err
 	}
-	return p.Sync(manager)
+	return p.Sync(ctx.Manager)
 }
 
-func (p *BasePlugin) Start(manager *xdp.Manager) error {
+func (p *BasePlugin) Start(ctx *sdk.PluginContext) error {
 	log.Println("🚀 [BasePlugin] Starting...")
-	return p.Sync(manager)
+	return p.Sync(ctx.Manager)
 }
 
 func (p *BasePlugin) Sync(manager *xdp.Manager) error {

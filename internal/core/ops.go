@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"log"
 	_ "net/http/pprof"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/runtime"
 	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 /**
@@ -81,12 +83,18 @@ func InstallXDP(cliInterfaces []string) {
 	}
 
 	// Start all plugins to apply configurations / 启动所有插件以应用配置
+	ctx := &sdk.PluginContext{
+		Context: context.Background(),
+		Manager: manager,
+		Config:  globalCfg,
+	}
+
 	for _, p := range plugins.GetPlugins() {
-		if err := p.Init(globalCfg); err != nil {
+		if err := p.Init(ctx); err != nil {
 			log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
 			continue
 		}
-		if err := p.Start(manager); err != nil {
+		if err := p.Start(ctx); err != nil {
 			log.Printf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
 		}
 		defer p.Stop()
@@ -247,74 +255,89 @@ func ReloadXDP(cliInterfaces []string) {
 		log.Printf("ℹ️  Auto-detected interfaces: %v", interfaces)
 	}
 
-	// 2. Initialize new manager with new capacities / 使用新容量初始化新管理器
-	newManager, err := xdp.NewManager(globalCfg.Capacity)
-	if err != nil {
-		log.Fatalf("❌ Failed to create new XDP manager: %v", err)
-	}
-
-	// 3. Try to load old manager from pins to migrate state / 尝试从固定点加载旧管理器以迁移状态
+	// 2. Try to load old manager from pins to check capacity
+	// 2. 尝试从固定点加载旧管理器以检查容量
 	oldManager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
 	if err == nil {
-		log.Println("📦 Migrating state from old BPF maps...")
+		ctx := &sdk.PluginContext{
+			Context: context.Background(),
+			Manager: oldManager,
+			Config:  globalCfg,
+		}
+
+		// Check if the current map capacities match the requested configuration
+		// 检查当前 Map 容量是否与请求的配置匹配
+		if oldManager.MatchesCapacity(globalCfg.Capacity) {
+			log.Println("⚡ Capacity unchanged. Performing incremental hot-reload...")
+
+			// Apply new configurations to existing maps
+			// 将新配置应用到现有 Map
+			for _, p := range plugins.GetPlugins() {
+				if err := p.Init(ctx); err != nil {
+					log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
+					continue
+				}
+				if err := p.Reload(ctx); err != nil {
+					log.Printf("⚠️  Failed to reload plugin %s: %v", p.Name(), err)
+				}
+			}
+
+			// Atomic update XDP program on interfaces
+			// 在接口上原子更新 XDP 程序
+			if err := oldManager.Attach(interfaces); err != nil {
+				log.Printf("⚠️  Failed to update XDP program: %v", err)
+			}
+
+			log.Println("🚀 Incremental reload completed successfully.")
+			oldManager.Close()
+			return
+		}
+
+		log.Println("📦 Capacity changed. Performing full state migration...")
+		// Initialize new manager with new capacities
+		// 使用新容量初始化新管理器
+		newManager, err := xdp.NewManager(globalCfg.Capacity)
+		if err != nil {
+			log.Fatalf("❌ Failed to create new XDP manager: %v", err)
+		}
+
+		// Migrate state from old maps to new maps
+		// 将状态从旧 Map 迁移到新 Map
 		if err := newManager.MigrateState(oldManager); err != nil {
 			log.Printf("⚠️  State migration partial or failed: %v", err)
 		}
 		oldManager.Close()
+
+		// Update pins and attach
+		if err := newManager.Pin("/sys/fs/bpf/netxfw"); err != nil {
+			log.Fatalf("❌ Failed to pin new maps: %v", err)
+		}
+		if err := newManager.Attach(interfaces); err != nil {
+			log.Fatalf("❌ Failed to attach new XDP program: %v", err)
+		}
+
+		// Sync plugins to new manager
+		newCtx := &sdk.PluginContext{
+			Context: context.Background(),
+			Manager: newManager,
+			Config:  globalCfg,
+		}
+		for _, p := range plugins.GetPlugins() {
+			if err := p.Init(newCtx); err != nil {
+				log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
+				continue
+			}
+			if err := p.Start(newCtx); err != nil {
+				log.Printf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
+			}
+		}
+		newManager.Close()
 	} else {
-		log.Println("ℹ️  No existing pinned maps found, starting fresh.")
+		log.Println("ℹ️  No existing pinned maps found, performing fresh install.")
+		InstallXDP(cliInterfaces)
 	}
 
-	// 4. Update pins: Pin new maps (this ensures the directory exists for Attach)
-	// 更新固定：固定新 Map（这确保了 Attach 的目录存在）
-	if err := newManager.Pin("/sys/fs/bpf/netxfw"); err != nil {
-		log.Fatalf("❌ Failed to pin new maps: %v", err)
-	}
-
-	// 5. Atomic swap: Attach new manager to interfaces
-	// This will atomically replace the program if a pinned link exists
-	// 原子交换：将新管理器附加到接口。如果存在固定的 link，这将原子地替换程序。
-	if err := newManager.Attach(interfaces); err != nil {
-		log.Fatalf("❌ Failed to attach new XDP program: %v", err)
-	}
-
-	// Detach from interfaces that are not in the current configuration
-	// 移除未在当前配置中的接口上的 XDP
-	if attachedIfaces, err := xdp.GetAttachedInterfaces("/sys/fs/bpf/netxfw"); err == nil {
-		var toDetach []string
-		for _, attached := range attachedIfaces {
-			found := false
-			for _, configured := range interfaces {
-				if attached == configured {
-					found = true
-					break
-				}
-			}
-			if !found {
-				toDetach = append(toDetach, attached)
-			}
-		}
-		if len(toDetach) > 0 {
-			log.Printf("ℹ️  Detaching from removed interfaces: %v", toDetach)
-			if err := newManager.Detach(toDetach); err != nil {
-				log.Printf("⚠️  Failed to detach from removed interfaces: %v", err)
-			}
-		}
-	}
-
-	// 6. Start all plugins to apply configurations / 启动所有插件以应用配置
-	for _, p := range plugins.GetPlugins() {
-		if err := p.Init(globalCfg); err != nil {
-			log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
-			continue
-		}
-		if err := p.Start(newManager); err != nil {
-			log.Printf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
-		}
-		// Note: We don't defer Stop() here because reload is a one-shot command
-	}
-
-	log.Println("🚀 XDP program reloaded successfully with updated configuration and capacity.")
+	log.Println("🚀 XDP program reloaded successfully.")
 }
 
 /**

@@ -12,7 +12,7 @@ import (
 // Cloudflare: http.request.uri contains "/admin" and ip.src in {1.1.1.1 2.2.2.2}
 // NetXFW:     Get("uri") contains "/admin" && IP in ["1.1.1.1", "2.2.2.2"]
 func TestCloudflareStyle(t *testing.T) {
-	c := logengine.NewCounter()
+	c := logengine.NewCounter(0)
 	re := logengine.NewRuleEngine(c)
 
 	rules := []types.LogEngineRule{

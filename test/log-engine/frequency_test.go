@@ -10,7 +10,7 @@ import (
 
 // TestFrequencyControl demonstrates how to handle high-frequency events like 404 scans or login failures.
 func TestFrequencyControl(t *testing.T) {
-	c := logengine.NewCounter()
+	c := logengine.NewCounter(0)
 	re := logengine.NewRuleEngine(c)
 
 	rules := []types.LogEngineRule{

@@ -11,7 +11,7 @@ import (
 
 // TestExpressionAliases validates using Log/Msg instead of Line in expressions.
 func TestExpressionAliases(t *testing.T) {
-	c := logengine.NewCounter()
+	c := logengine.NewCounter(0)
 	re := logengine.NewRuleEngine(c)
 
 	rules := []types.LogEngineRule{

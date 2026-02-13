@@ -10,7 +10,7 @@ import (
 
 // TestStandardizedLogic validates the "and/or/not" standardized syntax.
 func TestStandardizedLogic(t *testing.T) {
-	c := logengine.NewCounter()
+	c := logengine.NewCounter(0)
 	re := logengine.NewRuleEngine(c)
 
 	rules := []types.LogEngineRule{

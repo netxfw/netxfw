@@ -276,8 +276,8 @@ func ShowRateLimitRules() {
 func ShowStatus() {
 	cfg, _ := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
 	edition := "standalone"
-	if cfg != nil && cfg.Edition != "" {
-		edition = cfg.Edition
+	if cfg != nil && cfg.Cluster.Enabled {
+		edition = "cluster"
 	}
 
 	fmt.Printf("🚀 netxfw Edition: %s\n", edition)
