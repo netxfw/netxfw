@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 // LogEngine is the main orchestrator.
 type LogEngine struct {
+	logger     sdk.Logger
 	config     types.LogEngineConfig
 	tailer     *Tailer
 	tokenizer  *Tokenizer
@@ -26,7 +28,7 @@ type LogEngine struct {
 }
 
 // New creates a new LogEngine.
-func New(cfg types.LogEngineConfig, actionHandler ActionHandler) *LogEngine {
+func New(cfg types.LogEngineConfig, logger sdk.Logger, actionHandler ActionHandler) *LogEngine {
 	if cfg.Workers <= 0 {
 		cfg.Workers = 4 // Default to 4 workers
 	}
@@ -35,6 +37,7 @@ func New(cfg types.LogEngineConfig, actionHandler ActionHandler) *LogEngine {
 	checkpoint := NewCheckpointManager()
 
 	le := &LogEngine{
+		logger:     logger,
 		config:     cfg,
 		tailer:     NewTailer(checkpoint),
 		tokenizer:  NewTokenizer(),
@@ -48,7 +51,7 @@ func New(cfg types.LogEngineConfig, actionHandler ActionHandler) *LogEngine {
 
 	// Load initial rules
 	if err := le.ruleEngine.UpdateRules(cfg.Rules); err != nil {
-		log.Printf("⚠️  Failed to load initial rules: %v", err)
+		le.logger.Warnf("⚠️  Failed to load initial rules: %v", err)
 	}
 
 	return le
@@ -64,7 +67,7 @@ func (le *LogEngine) Start() {
 	}
 	le.running = true
 
-	log.Printf("🚀 Starting LogEngine with %d workers...", le.config.Workers)
+	le.logger.Infof("🚀 Starting LogEngine with %d workers...", le.config.Workers)
 
 	// Start Counter cleanup routine
 	go le.runCleanup()
@@ -91,7 +94,7 @@ func (le *LogEngine) Stop() {
 	}
 	le.running = false
 
-	log.Println("🛑 Stopping LogEngine...")
+	le.logger.Infof("🛑 Stopping LogEngine...")
 	close(le.stopChan)
 	le.tailer.Stop()
 	le.checkpoint.Stop()

@@ -2,19 +2,19 @@ package core
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
 // InitConfiguration initializes the default configuration files if they don't exist.
 // InitConfiguration 如果默认配置文件不存在，则初始化它们。
 func InitConfiguration(ctx context.Context) {
+	log := logger.Get(ctx)
 	configPath := config.GetConfigPath()
 	configDir := filepath.Dir(configPath)
 
@@ -22,7 +22,7 @@ func InitConfiguration(ctx context.Context) {
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			log.Fatalf("❌ Failed to create config directory %s: %v", configDir, err)
 		}
-		log.Printf("📂 Created config directory: %s", configDir)
+		log.Infof("📂 Created config directory: %s", configDir)
 	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
@@ -33,9 +33,9 @@ func InitConfiguration(ctx context.Context) {
 		if err := os.WriteFile(configPath, []byte(defaultConfig), 0644); err != nil {
 			log.Fatalf("❌ Failed to create config.yaml: %v", err)
 		}
-		log.Printf("📄 Created default global config with comments: %s", configPath)
+		log.Infof("📄 Created default global config with comments: %s", configPath)
 	} else {
-		log.Printf("ℹ️  Config file already exists: %s", configPath)
+		log.Infof("ℹ️  Config file already exists: %s", configPath)
 	}
 }
 
@@ -44,8 +44,9 @@ func InitConfiguration(ctx context.Context) {
  * TestConfiguration 验证配置文件的语法和值。
  */
 func TestConfiguration(ctx context.Context) {
+	log := logger.Get(ctx)
 	configPath := config.GetConfigPath()
-	fmt.Printf("🔍 Testing global configuration in %s...\n", configPath)
+	log.Infof("🔍 Testing global configuration in %s...", configPath)
 
 	cfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
@@ -55,15 +56,15 @@ func TestConfiguration(ctx context.Context) {
 	allValid := true
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Validate(cfg); err != nil {
-			fmt.Printf("❌ Validation failed for plugin %s: %v\n", p.Name(), err)
+			log.Errorf("❌ Validation failed for plugin %s: %v", p.Name(), err)
 			allValid = false
 			continue
 		}
-		fmt.Printf("✅ Plugin %s configuration is valid\n", p.Name())
+		log.Infof("✅ Plugin %s configuration is valid", p.Name())
 	}
 
 	if allValid {
-		fmt.Println("🎉 All configurations are valid!")
+		log.Infof("🎉 All configurations are valid!")
 	} else {
 		os.Exit(1)
 	}

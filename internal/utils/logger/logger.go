@@ -54,6 +54,14 @@ func Init(cfg types.LoggingConfig) {
 	globalLogger.Infof("📝 Logging initialized (Level: %s, Path: %s)", level, cfg.Path)
 }
 
+// Sync flushes any buffered log entries.
+func Sync() error {
+	if globalLogger != nil {
+		return globalLogger.Sync()
+	}
+	return nil
+}
+
 // Get returns the logger from context or global logger
 func Get(ctx context.Context) *zap.SugaredLogger {
 	if ctx != nil {

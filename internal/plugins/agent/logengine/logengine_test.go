@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
 // MockActionHandler records calls for verification
@@ -56,7 +57,7 @@ func TestLogEngine_RuleMatching(t *testing.T) {
 	}
 
 	// 3. Initialize Engine
-	le := New(cfg, mockHandler)
+	le := New(cfg, logger.Get(nil), mockHandler)
 
 	// 4. Simulate Log Events
 	// Case A: Should Match Static
@@ -123,7 +124,7 @@ func TestLogEngine_RuleMatching(t *testing.T) {
 	// Case D: Threshold Logic
 	// First Hit
 	ip4 := netip.MustParseAddr("1.1.1.1")
-	le.counter.Inc(ip4) // Simulate worker increment
+	// le.counter.Inc(ip4) // Simulate worker increment
 	event4a := LogEvent{Line: "authentication error 1", Source: "syslog", Timestamp: time.Now()}
 	_, _, _, matched4a := le.ruleEngine.Evaluate(ip4, event4a)
 	if matched4a {
@@ -131,7 +132,7 @@ func TestLogEngine_RuleMatching(t *testing.T) {
 	}
 
 	// Second Hit (Should NOT Trigger if Threshold=2 means >2)
-	le.counter.Inc(ip4) // Simulate worker increment
+	// le.counter.Inc(ip4) // Simulate worker increment
 	event4b := LogEvent{Line: "authentication error 2", Source: "syslog", Timestamp: time.Now()}
 	_, _, _, matched4b := le.ruleEngine.Evaluate(ip4, event4b)
 	if matched4b {
@@ -139,7 +140,7 @@ func TestLogEngine_RuleMatching(t *testing.T) {
 	}
 
 	// Third Hit (Should Trigger)
-	le.counter.Inc(ip4) // Simulate worker increment
+	// le.counter.Inc(ip4) // Simulate worker increment
 	event4c := LogEvent{Line: "authentication error 3", Source: "syslog", Timestamp: time.Now()}
 	action4c, _, ruleID4c, matched4c := le.ruleEngine.Evaluate(ip4, event4c)
 	if !matched4c {
@@ -231,26 +232,26 @@ func TestLogEngine_LongWindow(t *testing.T) {
 		},
 	}
 
-	le := New(cfg, mockHandler)
+	le := New(cfg, logger.Get(nil), mockHandler)
 	ip := netip.MustParseAddr("2.2.2.2")
 	event := LogEvent{Line: "failed login", Source: "auth.log", Timestamp: time.Now()}
 
 	// Hit 1
-	le.counter.Inc(ip)
+	// le.counter.Inc(ip) // Removed manual increment as Evaluate does it now
 	_, _, _, matched := le.ruleEngine.Evaluate(ip, event)
 	if matched {
 		t.Errorf("Should not match on 1st hit")
 	}
 
 	// Hit 2
-	le.counter.Inc(ip)
+	// le.counter.Inc(ip)
 	_, _, _, matched = le.ruleEngine.Evaluate(ip, event)
 	if matched {
 		t.Errorf("Should not match on 2nd hit")
 	}
 
 	// Hit 3
-	le.counter.Inc(ip)
+	// le.counter.Inc(ip)
 	_, _, _, matched = le.ruleEngine.Evaluate(ip, event)
 	if !matched {
 		t.Errorf("Should match on 3rd hit with 3600s window")
@@ -268,7 +269,7 @@ func TestCounter_DynamicConfig(t *testing.T) {
 	}
 
 	mockHandler := &MockActionHandler{}
-	le := New(cfg, mockHandler)
+	le := New(cfg, logger.Get(nil), mockHandler)
 
 	if le.counter.maxWindowSeconds != 7200 {
 		t.Errorf("Expected maxWindowSeconds to be 7200, got %d", le.counter.maxWindowSeconds)

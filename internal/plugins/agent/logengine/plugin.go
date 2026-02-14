@@ -2,7 +2,6 @@ package logengine
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/pkg/sdk"
@@ -29,7 +28,7 @@ func (p *LogEnginePlugin) Init(ctx *sdk.PluginContext) error {
 
 // Reload updates the plugin configuration without restarting
 func (p *LogEnginePlugin) Reload(ctx *sdk.PluginContext) error {
-	log.Println("🔄 [LogEngine] Reloading configuration...")
+	ctx.Logger.Infof("🔄 [LogEngine] Reloading configuration...")
 	newCfg := ctx.Config.LogEngine
 	p.lockListFile = ctx.Config.Base.LockListFile
 
@@ -57,9 +56,9 @@ func (p *LogEnginePlugin) Start(ctx *sdk.PluginContext) error {
 		return nil
 	}
 
-	log.Printf("Starting LogEngine plugin...")
+	ctx.Logger.Infof("Starting LogEngine plugin...")
 	actionHandler := NewXDPActionHandler(ctx.Manager, p.lockListFile)
-	p.engine = New(p.config, actionHandler)
+	p.engine = New(p.config, ctx.Logger, actionHandler)
 	p.engine.Start()
 	return nil
 }
