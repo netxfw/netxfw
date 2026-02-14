@@ -1,8 +1,9 @@
 package storage
 
 import (
-	"net"
 	"time"
+
+	"github.com/livp123/netxfw/internal/utils/iputil"
 )
 
 // RuleType defines the type of security rule
@@ -63,33 +64,5 @@ type Store interface {
 // Helper to normalize CIDR
 // NormalizeCIDR 是用于标准化 CIDR 的辅助函数。
 func NormalizeCIDR(ipStr string) string {
-	if !contains(ipStr, "/") {
-		ip := net.ParseIP(ipStr)
-		if ip == nil {
-			return ipStr
-		}
-		if ip.To4() != nil {
-			return ipStr + "/32"
-		}
-		return ipStr + "/128"
-	}
-	return ipStr
-}
-
-func contains(s, substr string) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] == substr[0] {
-			match := true
-			for j := 1; j < len(substr); j++ {
-				if i+j >= len(s) || s[i+j] != substr[j] {
-					match = false
-					break
-				}
-			}
-			if match {
-				return true
-			}
-		}
-	}
-	return false
+	return iputil.NormalizeCIDR(ipStr)
 }

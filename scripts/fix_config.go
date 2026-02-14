@@ -94,7 +94,7 @@ func backupFile(filePath string) error {
 
 func main() {
 	configPath := "/etc/netxfw/config.yaml"
-	denyRulesPath := "/etc/netxfw/rules.deny.txt"
+	denyRulesPath := "/root/netxfw/rules.deny.txt"
 
 	// Check if command line argument is provided for config path
 	if len(os.Args) > 1 {
@@ -178,16 +178,21 @@ func main() {
 	}
 
 	// Backup and clear the deny rules file
-	if _, err := os.Stat(denyRulesPath); err == nil {
-		if err := backupFile(denyRulesPath); err != nil {
+	targetDenyPath := denyRulesPath
+	if cfg.Base.LockListFile != "" {
+		targetDenyPath = cfg.Base.LockListFile
+	}
+
+	if _, err := os.Stat(targetDenyPath); err == nil {
+		if err := backupFile(targetDenyPath); err != nil {
 			fmt.Printf("Warning: Could not create backup of deny rules: %v\n", err)
 		}
 	}
 
-	if err := os.WriteFile(denyRulesPath, []byte("# netxfw rules - empty\n"), 0644); err != nil {
+	if err := os.WriteFile(targetDenyPath, []byte("# netxfw rules - empty\n"), 0644); err != nil {
 		fmt.Printf("Warning: Could not clear deny rules file: %v\n", err)
 	} else {
-		fmt.Println("Cleared deny rules file")
+		fmt.Printf("Cleared deny rules file: %s\n", targetDenyPath)
 		fixesApplied++
 	}
 

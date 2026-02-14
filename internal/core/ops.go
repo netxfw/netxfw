@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/livp123/netxfw/internal/api"
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/daemon"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
@@ -21,7 +22,7 @@ import (
  */
 func InstallXDP(cliInterfaces []string) {
 	// Load global configuration first to get interface settings / 首先加载全局配置以获取接口设置
-	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
+	globalCfg, err := types.LoadGlobalConfig(config.GetConfigPath())
 	if err != nil {
 		log.Fatalf("❌ Failed to load global config: %v", err)
 	}
@@ -50,7 +51,7 @@ func InstallXDP(cliInterfaces []string) {
 		log.Fatalf("❌ Failed to create XDP manager: %v", err)
 	}
 
-	if err := manager.Pin("/sys/fs/bpf/netxfw"); err != nil {
+	if err := manager.Pin(config.GetPinPath()); err != nil {
 		log.Fatalf("❌ Failed to pin maps: %v", err)
 	}
 
@@ -60,7 +61,7 @@ func InstallXDP(cliInterfaces []string) {
 
 	// Detach from interfaces that are not in the current configuration
 	// 移除未在当前配置中的接口上的 XDP
-	if attachedIfaces, err := xdp.GetAttachedInterfaces("/sys/fs/bpf/netxfw"); err == nil {
+	if attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath()); err == nil {
 		var toDetach []string
 		for _, attached := range attachedIfaces {
 			found := false
@@ -100,7 +101,7 @@ func InstallXDP(cliInterfaces []string) {
 		defer p.Stop()
 	}
 
-	log.Println("🚀 XDP program installed successfully and pinned to /sys/fs/bpf/netxfw")
+	log.Printf("🚀 XDP program installed successfully and pinned to %s", config.GetPinPath())
 }
 
 /**
@@ -123,7 +124,7 @@ func HandlePluginCommand(args []string) {
 		return
 	}
 
-	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	manager, err := xdp.NewManagerFromPins(config.GetPinPath())
 	if err != nil {
 		log.Fatalf("❌ Failed to load XDP manager: %v (Is the firewall running?)", err)
 	}
@@ -165,7 +166,7 @@ func HandlePluginCommand(args []string) {
 func RemoveXDP(cliInterfaces []string) {
 	// Load global configuration to get max entries (needed for NewManager)
 	// 加载全局配置以获取最大条目数（NewManager 需要）
-	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
+	globalCfg, err := types.LoadGlobalConfig(config.GetConfigPath())
 	if err != nil {
 		log.Printf("⚠️  Failed to load global config, using default map capacity: %v", err)
 		globalCfg = &types.GlobalConfig{}
@@ -216,7 +217,7 @@ func RemoveXDP(cliInterfaces []string) {
 	}
 
 	if fullUnload {
-		if err := manager.Unpin("/sys/fs/bpf/netxfw"); err != nil {
+		if err := manager.Unpin(config.GetPinPath()); err != nil {
 			log.Printf("⚠️  Unpin warning: %v", err)
 		}
 		log.Println("✅ XDP program removed and cleanup completed.")
@@ -235,7 +236,7 @@ func ReloadXDP(cliInterfaces []string) {
 	log.Println("🔄 Starting hot-reload of XDP program...")
 
 	// 1. Load global configuration / 加载全局配置
-	globalCfg, err := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
+	globalCfg, err := types.LoadGlobalConfig(config.GetConfigPath())
 	if err != nil {
 		log.Fatalf("❌ Failed to load global config: %v", err)
 	}
@@ -257,7 +258,7 @@ func ReloadXDP(cliInterfaces []string) {
 
 	// 2. Try to load old manager from pins to check capacity
 	// 2. 尝试从固定点加载旧管理器以检查容量
-	oldManager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	oldManager, err := xdp.NewManagerFromPins(config.GetPinPath())
 	if err == nil {
 		ctx := &sdk.PluginContext{
 			Context: context.Background(),
@@ -309,7 +310,7 @@ func ReloadXDP(cliInterfaces []string) {
 		oldManager.Close()
 
 		// Update pins and attach
-		if err := newManager.Pin("/sys/fs/bpf/netxfw"); err != nil {
+		if err := newManager.Pin(config.GetPinPath()); err != nil {
 			log.Fatalf("❌ Failed to pin new maps: %v", err)
 		}
 		if err := newManager.Attach(interfaces); err != nil {
@@ -346,7 +347,7 @@ func ReloadXDP(cliInterfaces []string) {
  */
 func RunWebServer(port int) {
 	// 1. Try to load manager from pins / 尝试从固定点加载管理器
-	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	manager, err := xdp.NewManagerFromPins(config.GetPinPath())
 	if err != nil {
 		log.Printf("⚠️  Could not load pinned maps (is XDP loaded?): %v", err)
 		log.Fatal("❌ Web server requires netxfw XDP to be loaded. Run 'netxfw system load' first.")

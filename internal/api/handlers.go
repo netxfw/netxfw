@@ -3,13 +3,14 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"sort"
-	"strings"
 
 	"github.com/cilium/ebpf"
+	"github.com/livp123/netxfw/internal/optimizer"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/fileutil"
+	"github.com/livp123/netxfw/internal/utils/iputil"
 	"github.com/livp123/netxfw/internal/xdp"
 )
 
@@ -49,13 +50,6 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(res)
 
 	case http.MethodPost:
-		// Check cluster mode
-		cfgCheck, _ := types.LoadGlobalConfig(s.configPath)
-		if cfgCheck != nil && cfgCheck.Cluster.Enabled {
-			http.Error(w, "Write operations forbidden in cluster mode", http.StatusForbidden)
-			return
-		}
-
 		var req struct {
 			Type   string `json:"type"`   // "blacklist" or "whitelist"
 			Action string `json:"action"` // "add" or "remove"
@@ -74,32 +68,25 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 				err = xdp.LockIP(m, req.CIDR)
 			} else if req.Type == "whitelist" {
 				port := uint16(0)
-				cidr := req.CIDR
-				if strings.Contains(cidr, ":") && !strings.Contains(cidr, "[") && !strings.Contains(cidr, "/") && strings.Count(cidr, ":") == 1 {
-					parts := strings.Split(cidr, ":")
-					cidr = parts[0]
-					fmt.Sscanf(parts[1], "%d", &port)
+				// Parse optional port (e.g. 1.2.3.4:80 or [::1]:80)
+				// 解析可选端口（例如 1.2.3.4:80 或 [::1]:80）
+				host, pVal, pErr := iputil.ParseIPPort(req.CIDR)
+				if pErr == nil {
+					req.CIDR = host
+					port = pVal
 				}
 
 				m = s.manager.Whitelist()
-				err = xdp.AllowIP(m, cidr, port)
+				err = xdp.AllowIP(m, req.CIDR, port)
 			} else if req.Type == "ip_port_rules" {
 				ipStr, port, action, parseErr := parseIPPortAction(req.CIDR)
 				if parseErr != nil {
 					err = parseErr
 				} else {
-					_, ipNet, err2 := net.ParseCIDR(ipStr)
+					ipNet, err2 := iputil.ParseCIDR(ipStr)
+
 					if err2 != nil {
-						parsedIP := net.ParseIP(ipStr)
-						if parsedIP == nil {
-							err = fmt.Errorf("invalid IP: %s", ipStr)
-						} else {
-							mask := net.CIDRMask(32, 32)
-							if parsedIP.To4() == nil {
-								mask = net.CIDRMask(128, 128)
-							}
-							ipNet = &net.IPNet{IP: parsedIP, Mask: mask}
-						}
+						err = err2
 					}
 
 					if err == nil {
@@ -113,18 +100,10 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 				if parseErr != nil {
 					err = parseErr
 				} else {
-					_, ipNet, err2 := net.ParseCIDR(ipStr)
+					ipNet, err2 := iputil.ParseCIDR(ipStr)
+
 					if err2 != nil {
-						parsedIP := net.ParseIP(ipStr)
-						if parsedIP == nil {
-							err = fmt.Errorf("invalid IP: %s", ipStr)
-						} else {
-							mask := net.CIDRMask(32, 32)
-							if parsedIP.To4() == nil {
-								mask = net.CIDRMask(128, 128)
-							}
-							ipNet = &net.IPNet{IP: parsedIP, Mask: mask}
-						}
+						err = err2
 					}
 
 					if err == nil {
@@ -151,9 +130,9 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		if cfg != nil && cfg.Base.PersistRules {
 			if req.Type == "blacklist" {
 				if req.Action == "add" {
-					appendToFile(cfg.Base.LockListFile, req.CIDR)
+					fileutil.AppendToFile(cfg.Base.LockListFile, req.CIDR)
 				} else {
-					removeFromFile(cfg.Base.LockListFile, req.CIDR)
+					fileutil.RemoveFromFile(cfg.Base.LockListFile, req.CIDR)
 				}
 			} else if req.Type == "whitelist" {
 				if req.Action == "add" {
@@ -166,6 +145,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					}
 					if !found {
 						cfg.Base.Whitelist = append(cfg.Base.Whitelist, req.CIDR)
+						optimizer.OptimizeWhitelistConfig(cfg)
 						types.SaveGlobalConfig(s.configPath, cfg)
 					}
 				} else {
@@ -176,6 +156,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 					cfg.Base.Whitelist = newWL
+					// No need to optimize on remove, but saving is needed
 					types.SaveGlobalConfig(s.configPath, cfg)
 				}
 			} else if req.Type == "ip_port_rules" {
@@ -197,6 +178,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 								Action: action,
 							})
 						}
+						optimizer.OptimizeIPPortRulesConfig(cfg)
 					} else {
 						newRules := []types.IPPortRule{}
 						for _, rule := range cfg.Port.IPPortRules {
@@ -218,13 +200,6 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 // handleConfig updates runtime configuration parameters.
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		// Check cluster mode
-		cfgCheck, _ := types.LoadGlobalConfig(s.configPath)
-		if cfgCheck != nil && cfgCheck.Cluster.Enabled {
-			http.Error(w, "Write operations forbidden in cluster mode", http.StatusForbidden)
-			return
-		}
-
 		var req struct {
 			Key   string `json:"key"`
 			Value bool   `json:"value"`

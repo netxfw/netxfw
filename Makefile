@@ -9,6 +9,10 @@ ifeq ($(filter $(ipv6),1 yes true on YES TRUE ON),$(ipv6))
 	BPF_CFLAGS += -DENABLE_IPV6
 endif
 
+help:
+	@echo "  make uninstall   - Remove binary and config"
+	@echo "  make clean       - Clean build artifacts"
+
 build:
 	go build -o netxfw ./cmd/netxfw
 
@@ -35,22 +39,17 @@ plugins:
 	done
 	@echo "✅ Plugins compiled to bpf/plugins/out/"
 
+install: build
+	mkdir -p /etc/netxfw
+	mkdir -p /usr/local/bin
+	cp netxfw /usr/local/bin/
+	if [ ! -f /etc/netxfw/config.yaml ]; then cp rules/default.yaml /etc/netxfw/config.yaml; fi
+	if [ ! -f /etc/netxfw/lock_list.txt ]; then touch /etc/netxfw/lock_list.txt; fi
+
+uninstall:
+	rm -f /usr/local/bin/netxfw
+	rm -rf /sys/fs/bpf/netxfw
+
 clean:
 	rm -f netxfw
-	rm -f internal/xdp/*_bpf*.go
-
-run: build
-	sudo ./netxfw
-
-install: build
-	sudo mkdir -p /etc/netxfw
-	if [ -f rules/default.yaml ]; then \
-		if [ ! -f /etc/netxfw/config.yaml ]; then sudo cp rules/default.yaml /etc/netxfw/config.yaml; fi; \
-	fi
-	sudo cp netxfw /usr/local/bin/
-	sudo cp netxfw.service /etc/systemd/system/
-	sudo systemctl daemon-reload
-	@echo "✅ Installed netxfw to /usr/local/bin/"
-	@echo "✅ Configuration file: /etc/netxfw/config.yaml"
-	@echo "✅ Systemd service: netxfw.service installed"
-	@echo "   Usage: sudo systemctl start netxfw"
+	rm -f *.o

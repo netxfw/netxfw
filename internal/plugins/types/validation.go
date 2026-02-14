@@ -2,8 +2,8 @@ package types
 
 import (
 	"fmt"
-	"net"
-	"strings"
+
+	"github.com/livp123/netxfw/internal/utils/iputil"
 )
 
 // Validate checks the configuration for errors.
@@ -20,6 +20,13 @@ func (c *GlobalConfig) Validate() error {
 	if err := c.LogEngine.Validate(); err != nil {
 		return fmt.Errorf("log_engine config error: %w", err)
 	}
+
+	// Align Conntrack Capacity with Conntrack Config
+	// 将连接跟踪容量与连接跟踪配置对齐
+	if c.Conntrack.MaxEntries > 0 {
+		c.Capacity.Conntrack = c.Conntrack.MaxEntries
+	}
+
 	return nil
 }
 
@@ -75,24 +82,12 @@ func (c *LogEngineConfig) Validate() error {
 }
 
 func validateCIDR(s string) error {
-	_, _, err := net.ParseCIDR(s)
-	if err != nil {
-		// Try parsing as single IP
-		ip := net.ParseIP(s)
-		if ip == nil {
-			return fmt.Errorf("invalid CIDR or IP format")
-		}
+	if !iputil.IsValidCIDR(s) && !iputil.IsValidIP(s) {
+		return fmt.Errorf("invalid CIDR or IP format")
 	}
 	return nil
 }
 
 func validateIP(s string) error {
-	if strings.Contains(s, "/") {
-		return validateCIDR(s)
-	}
-	ip := net.ParseIP(s)
-	if ip == nil {
-		return fmt.Errorf("invalid IP format")
-	}
-	return nil
+	return validateCIDR(s)
 }

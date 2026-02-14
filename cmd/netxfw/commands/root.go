@@ -6,6 +6,7 @@ import (
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/agent"
 	"github.com/livp123/netxfw/cmd/netxfw/commands/dp"
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/runtime"
 	"github.com/spf13/cobra"
 )
@@ -23,6 +24,10 @@ func init() {
 	// Operation mode: dp (Data Plane) or agent (Control Plane)
 	// 运行模式：dp（数据平面）或 agent（控制平面）
 	RootCmd.PersistentFlags().StringVar(&runtime.Mode, "mode", "", "Operation mode: dp (Data Plane) or agent (Control Plane)")
+
+	// Config file path
+	// 配置文件路径
+	RootCmd.PersistentFlags().StringVarP(&runtime.ConfigPath, "config", "c", "", fmt.Sprintf("Path to configuration file (default: %s)", config.DefaultConfigPath))
 
 	// Register Agent commands
 	// 注册 Agent 命令

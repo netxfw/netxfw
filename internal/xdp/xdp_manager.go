@@ -10,13 +10,17 @@ import (
 	"net/netip"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/fileutil"
+	"github.com/livp123/netxfw/internal/utils/iputil"
 )
 
 const (
@@ -44,25 +48,11 @@ const (
 // BlockStatic 将 IP 添加到静态黑名单（LPM Trie）并可选择将其持久化到文件。
 // 它复用底层的 LockIP 辅助函数进行 BPF Map 操作。
 func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
-	ip, err := netip.ParseAddr(ipStr)
-	// If parsing fails, it might be a CIDR
-	// 如果解析失败，它可能是一个 CIDR
+	ipNet, err := iputil.ParseCIDR(ipStr)
 	if err != nil {
-		if _, _, err := net.ParseCIDR(ipStr); err != nil {
-			return fmt.Errorf("invalid IP or CIDR %s: %w", ipStr, err)
-		}
+		return fmt.Errorf("invalid IP or CIDR %s: %w", ipStr, err)
 	}
-
-	cidr := ipStr
-	if err == nil {
-		// It's a single IP, append suffix
-		// 这是一个单个 IP，添加后缀
-		if ip.Is4() {
-			cidr += "/32"
-		} else {
-			cidr += "/128"
-		}
-	}
+	cidr := ipNet.String()
 
 	// Use LockList (Static)
 	// 使用 LockList（静态）
@@ -77,18 +67,10 @@ func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 	// Persist to lock list file if configured
 	// 如果配置了，持久化到锁定列表文件
 	if persistFile != "" {
-		// Use O_APPEND to add to the end of the file
-		// 使用 O_APPEND 添加到文件末尾
-		f, err := os.OpenFile(persistFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Printf("⚠️ Failed to open lock list file for persistence: %v", err)
+		if err := fileutil.AppendToFile(persistFile, cidr); err != nil {
+			log.Printf("⚠️ Failed to write to lock list file: %v", err)
 		} else {
-			defer f.Close()
-			if _, err := f.WriteString(cidr + "\n"); err != nil {
-				log.Printf("⚠️ Failed to write to lock list file: %v", err)
-			} else {
-				log.Printf("💾 Persisted IP %s to %s", cidr, persistFile)
-			}
+			log.Printf("💾 Persisted IP %s to %s", cidr, persistFile)
 		}
 	}
 
@@ -251,32 +233,32 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 
 	// Dynamic capacity adjustment / 动态调整容量
 	if cfg.Conntrack > 0 {
-		if m, ok := spec.Maps["conntrack_map"]; ok {
+		if m, ok := spec.Maps[config.MapConntrack]; ok {
 			m.MaxEntries = uint32(cfg.Conntrack)
 		}
 	}
 	if cfg.LockList > 0 {
-		if m, ok := spec.Maps["lock_list"]; ok {
+		if m, ok := spec.Maps[config.MapLockList]; ok {
 			m.MaxEntries = uint32(cfg.LockList)
 		}
 	}
 	if cfg.DynLockList > 0 {
-		if m, ok := spec.Maps["dyn_lock_list"]; ok {
+		if m, ok := spec.Maps[config.MapDynLockList]; ok {
 			m.MaxEntries = uint32(cfg.DynLockList)
 		}
 	}
 	if cfg.Whitelist > 0 {
-		if m, ok := spec.Maps["whitelist"]; ok {
+		if m, ok := spec.Maps[config.MapWhitelist]; ok {
 			m.MaxEntries = uint32(cfg.Whitelist)
 		}
 	}
 	if cfg.IPPortRules > 0 {
-		if m, ok := spec.Maps["ip_port_rules"]; ok {
+		if m, ok := spec.Maps[config.MapIPPortRules]; ok {
 			m.MaxEntries = uint32(cfg.IPPortRules)
 		}
 	}
 	if cfg.AllowedPorts > 0 {
-		if m, ok := spec.Maps["allowed_ports"]; ok {
+		if m, ok := spec.Maps[config.MapAllowedPorts]; ok {
 			m.MaxEntries = uint32(cfg.AllowedPorts)
 		}
 	}
@@ -422,7 +404,7 @@ func (m *Manager) Attach(interfaces []string) error {
 
 		// Try to atomic update existing XDP link
 		// 尝试原子更新现有的 XDP 链接
-		linkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/link_%s", name)
+		linkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("link_%s", name))
 		var attached bool
 
 		if l, err := link.LoadPinnedLink(linkPath, nil); err == nil {
@@ -483,7 +465,7 @@ func (m *Manager) Attach(interfaces []string) error {
 		_ = exec.Command("tc", "qdisc", "add", "dev", name, "clsact").Run()
 
 		// 2. Attach TC program / 挂载 TC 程序
-		tcLinkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/tc_link_%s", name)
+		tcLinkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("tc_link_%s", name))
 		var tcAttached bool
 
 		// Try atomic update for TC / 尝试原子更新 TC
@@ -530,7 +512,7 @@ func (m *Manager) Attach(interfaces []string) error {
  */
 func (m *Manager) Detach(interfaces []string) error {
 	for _, name := range interfaces {
-		linkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/link_%s", name)
+		linkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("link_%s", name))
 		l, err := link.LoadPinnedLink(linkPath, nil)
 		if err != nil {
 			log.Printf("⚠️  No pinned link found for %s, trying manual detach...", name)
@@ -547,7 +529,7 @@ func (m *Manager) Detach(interfaces []string) error {
 		}
 
 		// Detach TC link / 分离 TC 链接
-		tcLinkPath := fmt.Sprintf("/sys/fs/bpf/netxfw/tc_link_%s", name)
+		tcLinkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("tc_link_%s", name))
 		if tl, err := link.LoadPinnedLink(tcLinkPath, nil); err == nil {
 			if err := tl.Close(); err != nil {
 				log.Printf("❌ Failed to close TC link for %s: %v", name, err)
@@ -770,20 +752,20 @@ func (m *Manager) Pin(path string) error {
 		}
 	}
 
-	pinMap(m.lockList, "lock_list")
-	pinMap(m.dynLockList, "dyn_lock_list")
-	pinMap(m.whitelist, "whitelist")
-	pinMap(m.allowedPorts, "allowed_ports")
-	pinMap(m.ipPortRules, "ip_port_rules")
-	pinMap(m.globalConfig, "global_config")
-	pinMap(m.dropStats, "drop_stats")
-	pinMap(m.dropReasonStats, "drop_reason_stats")
-	pinMap(m.icmpLimitMap, "icmp_limit_map")
-	pinMap(m.conntrackMap, "conntrack_map")
-	pinMap(m.passStats, "pass_stats")
-	pinMap(m.passReasonStats, "pass_reason_stats")
-	pinMap(m.ratelimitConfig, "ratelimit_config")
-	pinMap(m.ratelimitState, "ratelimit_state")
+	pinMap(m.lockList, config.MapLockList)
+	pinMap(m.dynLockList, config.MapDynLockList)
+	pinMap(m.whitelist, config.MapWhitelist)
+	pinMap(m.allowedPorts, config.MapAllowedPorts)
+	pinMap(m.ipPortRules, config.MapIPPortRules)
+	pinMap(m.globalConfig, config.MapGlobalConfig)
+	pinMap(m.dropStats, config.MapDropStats)
+	pinMap(m.dropReasonStats, config.MapDropReasonStats)
+	pinMap(m.icmpLimitMap, config.MapICMPLimit)
+	pinMap(m.conntrackMap, config.MapConntrack)
+	pinMap(m.passStats, config.MapPassStats)
+	pinMap(m.passReasonStats, config.MapPassReasonStats)
+	pinMap(m.ratelimitConfig, config.MapRatelimitConfig)
+	pinMap(m.ratelimitState, config.MapRatelimitState)
 
 	return nil
 }

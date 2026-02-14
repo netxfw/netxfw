@@ -10,7 +10,7 @@ import (
 func runCmd(args ...string) string {
 	binPath := os.Getenv("NETXFW_BIN")
 	if binPath == "" {
-		binPath = "/root/netxfw/netxfw"
+		binPath = "/usr/local/bin/netxfw"
 	}
 	cmd := exec.Command(binPath, args...)
 	out, err := cmd.CombinedOutput()
@@ -60,9 +60,9 @@ func main() {
 
 	// Check file before remove
 	// 移除前检查文件
-	content, _ := os.ReadFile("/etc/netxfw/rules.deny.txt")
+	content, _ := os.ReadFile("/etc/netxfw/lock_list.txt")
 	if !strings.Contains(string(content), testIP) {
-		fmt.Println("⚠️  Warning: IP not found in deny file after add (might be using config.yaml persistence or not enabled). Checking config.yaml...")
+		fmt.Println("⚠️  Warning: IP not found in lock list file after add (might be using config.yaml persistence or not enabled). Checking config.yaml...")
 	}
 
 	// Remove
@@ -83,11 +83,11 @@ func main() {
 	// 检查文件
 	// We need to check where it persists.
 	// 我们需要检查它持久化的位置。
-	contentDeny, _ := os.ReadFile("/etc/netxfw/rules.deny.txt")
+	contentDeny, _ := os.ReadFile("/etc/netxfw/lock_list.txt")
 	if strings.Contains(string(contentDeny), testIP) {
-		fmt.Println("❌ IP still in /etc/netxfw/rules.deny.txt after remove.")
+		fmt.Println("❌ IP still in /etc/netxfw/lock_list.txt after remove.")
 	} else {
-		fmt.Println("✅ IP removed from /etc/netxfw/rules.deny.txt.")
+		fmt.Println("✅ IP removed from /etc/netxfw/lock_list.txt.")
 	}
 
 	fmt.Println("\n=== Test Complete ===")

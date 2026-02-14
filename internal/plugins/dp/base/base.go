@@ -5,16 +5,18 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	nxfwbin "github.com/livp123/netxfw/internal/binary"
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/ipmerge"
+	"github.com/livp123/netxfw/internal/utils/iputil"
 	"github.com/livp123/netxfw/internal/xdp"
 	"github.com/livp123/netxfw/pkg/sdk"
 )
@@ -113,42 +115,18 @@ func (p *BasePlugin) Sync(manager *xdp.Manager) error {
 	for _, entry := range p.config.Whitelist {
 		cidr := entry
 		var port uint16
-		// Parse port from config entry
-		if strings.Contains(entry, "/") {
-			lastColon := strings.LastIndex(entry, ":")
-			if lastColon > strings.LastIndex(entry, "/") {
-				portStr := entry[lastColon+1:]
-				cidr = entry[:lastColon]
-				var pVal uint64
-				fmt.Sscanf(portStr, "%d", &pVal)
-				port = uint16(pVal)
-			}
-		} else if !isIPv6(entry) && strings.Contains(entry, ":") {
-			parts := strings.Split(entry, ":")
-			if len(parts) == 2 {
-				cidr = parts[0]
-				var pVal uint64
-				fmt.Sscanf(parts[1], "%d", &pVal)
-				port = uint16(pVal)
-			}
+
+		// Parse port from config entry using helper (handles IP:Port, [IPv6]:Port, CIDR:Port)
+		// 使用辅助函数从配置条目解析端口（处理 IP:Port, [IPv6]:Port, CIDR:Port）
+		host, pVal, err := iputil.ParseIPPort(entry)
+		if err == nil {
+			cidr = host
+			port = pVal
 		}
 
 		// Normalize CIDR
-		ip, ipNet, err := net.ParseCIDR(cidr)
-		if err != nil {
-			ip = net.ParseIP(cidr)
-			if ip != nil {
-				maskBits := 32
-				if ip.To4() == nil {
-					maskBits = 128
-				}
-				ipNet = &net.IPNet{IP: ip, Mask: net.CIDRMask(maskBits, maskBits)}
-			}
-		}
-
-		if ipNet != nil {
-			ones, _ := ipNet.Mask.Size()
-			normKey := fmt.Sprintf("%s/%d", ipNet.IP.String(), ones)
+		normKey := iputil.NormalizeCIDR(cidr)
+		if iputil.IsValidCIDR(normKey) {
 			desiredWhitelist[normKey] = port
 		}
 	}
@@ -285,20 +263,12 @@ func (p *BasePlugin) loadBinaryRules(manager *xdp.Manager) (int, error) {
 	return count, nil
 }
 
-func isIPv6(cidr string) bool {
-	for i := 0; i < len(cidr); i++ {
-		if cidr[i] == ':' {
-			return true
-		}
-	}
-	return false
-}
-
 func (p *BasePlugin) Stop() error {
 	return nil
 }
 
 func (p *BasePlugin) DefaultConfig() interface{} {
+	dir := filepath.Dir(config.GetConfigPath())
 	return types.BaseConfig{
 		DefaultDeny:            true,
 		AllowReturnTraffic:     false,
@@ -311,8 +281,8 @@ func (p *BasePlugin) DefaultConfig() interface{} {
 		ICMPRate:               10,
 		ICMPBurst:              50,
 		Whitelist:              []string{"127.0.0.1/32"},
-		LockListFile:           "/etc/netxfw/rules.deny.txt",
-		LockListBinary:         "/etc/netxfw/rules.deny.bin.zst",
+		LockListFile:           filepath.Join(dir, "rules.deny.txt"),
+		LockListBinary:         filepath.Join(dir, "rules.deny.bin.zst"),
 		LockListMergeThreshold: 0,
 		EnableExpiry:           false,
 		CleanupInterval:        "1m",

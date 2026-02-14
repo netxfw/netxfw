@@ -18,7 +18,7 @@ var SystemCmd = &cobra.Command{
 var systemInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize configuration file",
-	Long:  `Initialize default configuration file in /etc/netxfw/`,
+	Long:  `Initialize default configuration file in /root/netxfw/`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.InitConfiguration == nil {
 			cmd.PrintErrln("❌ common.InitConfiguration function not initialized")

@@ -3,14 +3,14 @@ package port
 import (
 	"fmt"
 	"log"
-	"net"
-	"strings"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/iputil"
 	"github.com/livp123/netxfw/internal/xdp"
 	"github.com/livp123/netxfw/pkg/sdk"
 )
 
+// PortPlugin implements a plugin that manages IP+Port rules.
 type PortPlugin struct {
 	config *types.PortConfig
 }
@@ -107,37 +107,17 @@ func (p *PortPlugin) syncIPPortRules(manager *xdp.Manager, isIPv6 bool) error {
 	desiredRulesMap := make(map[string]types.IPPortRule)
 	for _, rule := range p.config.IPPortRules {
 		// Parse rule.IP to get canonical form
-		_, ipNet, err := net.ParseCIDR(rule.IP)
+		ipNet, err := iputil.ParseCIDR(rule.IP)
 		if err != nil {
-			// Try single IP
-			ip := net.ParseIP(rule.IP)
-			if ip == nil {
-				continue // Invalid IP in config, skip
-			}
-			if ip.To4() != nil {
-				if isIPv6 {
-					continue
-				} // Skip v4 IP if processing v6
-				mask := net.CIDRMask(32, 32)
-				ipNet = &net.IPNet{IP: ip, Mask: mask}
-			} else {
-				if !isIPv6 {
-					continue
-				} // Skip v6 IP if processing v4
-				mask := net.CIDRMask(128, 128)
-				ipNet = &net.IPNet{IP: ip, Mask: mask}
-			}
-		} else {
-			// It is CIDR
-			if ipNet.IP.To4() != nil {
-				if isIPv6 {
-					continue
-				}
-			} else {
-				if !isIPv6 {
-					continue
-				}
-			}
+			continue // Invalid IP
+		}
+
+		isV4 := ipNet.IP.To4() != nil
+		if isIPv6 && isV4 {
+			continue
+		}
+		if !isIPv6 && !isV4 {
+			continue
 		}
 
 		// Canonical string
@@ -151,17 +131,16 @@ func (p *PortPlugin) syncIPPortRules(manager *xdp.Manager, isIPv6 bool) error {
 		if _, ok := desiredRulesMap[key]; !ok {
 			// Parse key back to IPNet and Port to remove
 			// key: "IP/Prefix:Port"
-			lastIdx := strings.LastIndex(key, ":")
-			if lastIdx == -1 {
+			// iputil.ParseIPPort expects "Host:Port", and "IP/Prefix" is a valid host string for SplitHostPort
+			ipCIDR, port, err := iputil.ParseIPPort(key)
+			if err != nil {
 				continue
 			}
 
-			ipCIDR := key[:lastIdx]
-			portStr := key[lastIdx+1:]
-
-			_, ipNet, _ := net.ParseCIDR(ipCIDR) // Should be valid as it came from Manager
-			var port uint16
-			fmt.Sscanf(portStr, "%d", &port)
+			ipNet, err := iputil.ParseCIDR(ipCIDR) // Should be valid as it came from Manager
+			if err != nil {
+				continue
+			}
 
 			if err := manager.RemoveIPPortRule(ipNet, port); err != nil {
 				log.Printf("⚠️ [PortPlugin] Failed to remove rule %s: %v", key, err)
@@ -182,12 +161,14 @@ func (p *PortPlugin) syncIPPortRules(manager *xdp.Manager, isIPv6 bool) error {
 		if !exists || currentActionStr != desiredActionStr {
 			// Add or Update
 			// Re-parse key to get clean IPNet
-			lastIdx := strings.LastIndex(key, ":")
-			if lastIdx == -1 {
+			ipCIDR, _, err := iputil.ParseIPPort(key)
+			if err != nil {
 				continue
 			}
-			ipCIDR := key[:lastIdx]
-			_, ipNet, _ := net.ParseCIDR(ipCIDR)
+			ipNet, err := iputil.ParseCIDR(ipCIDR)
+			if err != nil {
+				continue
+			}
 
 			if err := manager.AddIPPortRule(ipNet, rule.Port, rule.Action, nil); err != nil {
 				log.Printf("⚠️ [PortPlugin] Failed to update rule %s: %v", key, err)

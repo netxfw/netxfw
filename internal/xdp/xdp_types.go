@@ -31,6 +31,8 @@ const (
 	configBogonFilter        = 14
 	configAutoBlock          = 15
 	configAutoBlockExpiry    = 16
+	ConfigAIEnabled          = 200
+	ConfigClusterEnabled     = 500
 )
 
 const (

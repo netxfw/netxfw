@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
@@ -14,8 +15,8 @@ import (
 // runDataPlane handles XDP mounting, BPF map initialization, and core packet processing plugins.
 // runDataPlane 处理 XDP 挂载、BPF Map 初始化以及核心数据包处理插件。
 func runDataPlane() {
-	const configPath = "/etc/netxfw/config-dp.yaml"
-	const pidPath = "/var/run/netxfw-dp.pid"
+	configPath := config.GetConfigPath()
+	pidPath := config.DefaultPidPath
 
 	log.Println("🚀 Starting netxfw in DP (Data Plane) mode")
 
@@ -33,14 +34,15 @@ func runDataPlane() {
 	logger.Init(globalCfg.Logging)
 
 	// 1. Initialize Manager (Create or Load Pinned) / 初始化管理器（创建或加载固定内容）
-	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	pinPath := config.GetPinPath()
+	manager, err := xdp.NewManagerFromPins(pinPath)
 	if err != nil {
 		log.Printf("ℹ️  Creating new XDP manager...")
 		manager, err = xdp.NewManager(globalCfg.Capacity)
 		if err != nil {
 			log.Fatalf("❌ Failed to create XDP manager: %v", err)
 		}
-		if err := manager.Pin("/sys/fs/bpf/netxfw"); err != nil {
+		if err := manager.Pin(pinPath); err != nil {
 			log.Printf("⚠️  Failed to pin maps: %v", err)
 		}
 	}

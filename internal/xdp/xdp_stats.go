@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/cilium/ebpf"
 )
 
 /**
@@ -29,12 +31,19 @@ func (m *Manager) GetDropDetails() ([]DropDetailEntry, error) {
 	if m.dropReasonStats == nil {
 		return nil, nil
 	}
+	return GetDropDetailsFromMap(m.dropReasonStats)
+}
 
+/**
+ * GetDropDetailsFromMap retrieves detailed drop statistics from a given map.
+ * GetDropDetailsFromMap 从给定的 Map 中获取详细的拦截统计信息。
+ */
+func GetDropDetailsFromMap(m *ebpf.Map) ([]DropDetailEntry, error) {
 	var results []DropDetailEntry
 	var key NetXfwDropDetailKey
 	var values []uint64 // PERCPU value is a slice of uint64 / PERCPU 值是 uint64 切片
 
-	iter := m.dropReasonStats.Iterate()
+	iter := m.Iterate()
 	for iter.Next(&key, &values) {
 		var totalCount uint64
 		for _, v := range values {
@@ -74,12 +83,19 @@ func (m *Manager) GetPassDetails() ([]DropDetailEntry, error) {
 	if m.passReasonStats == nil {
 		return nil, nil
 	}
+	return GetPassDetailsFromMap(m.passReasonStats)
+}
 
+/**
+ * GetPassDetailsFromMap retrieves detailed pass statistics from a given map.
+ * GetPassDetailsFromMap 从给定的 Map 中获取详细的放行统计信息。
+ */
+func GetPassDetailsFromMap(m *ebpf.Map) ([]DropDetailEntry, error) {
 	var results []DropDetailEntry
 	var key NetXfwDropDetailKey
 	var values []uint64
 
-	iter := m.passReasonStats.Iterate()
+	iter := m.Iterate()
 	for iter.Next(&key, &values) {
 		var totalCount uint64
 		for _, v := range values {
@@ -237,42 +253,51 @@ func (m *Manager) GetConntrackCount() (uint64, error) {
  * ListConntrackEntries 从连接跟踪 Map 中获取所有活动连接。
  */
 func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
+	if m.conntrackMap == nil {
+		return nil, nil
+	}
+	return ListConntrackEntriesFromMap(m.conntrackMap)
+}
+
+/**
+ * ListConntrackEntriesFromMap retrieves all active connections from a given map.
+ * ListConntrackEntriesFromMap 从给定的 Map 中获取所有活动连接。
+ */
+func ListConntrackEntriesFromMap(m *ebpf.Map) ([]ConntrackEntry, error) {
 	var entries []ConntrackEntry
 
 	// List unified entries / 列出统一条目
-	if m.conntrackMap != nil {
-		var key NetXfwCtKey
-		var val NetXfwCtValue
-		iter := m.conntrackMap.Iterate()
-		for iter.Next(&key, &val) {
-			var srcIP, dstIP string
+	var key NetXfwCtKey
+	var val NetXfwCtValue
+	iter := m.Iterate()
+	for iter.Next(&key, &val) {
+		var srcIP, dstIP string
 
-			// Check for IPv4-mapped IPv6 / 检查 IPv4 映射的 IPv6
-			if key.SrcIp.In6U.U6Addr8[10] == 0xff && key.SrcIp.In6U.U6Addr8[11] == 0xff {
-				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[12:]).String()
-			} else {
-				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[:]).String()
-			}
-
-			if key.DstIp.In6U.U6Addr8[10] == 0xff && key.DstIp.In6U.U6Addr8[11] == 0xff {
-				dstIP = net.IP(key.DstIp.In6U.U6Addr8[12:]).String()
-			} else {
-				dstIP = net.IP(key.DstIp.In6U.U6Addr8[:]).String()
-			}
-
-			entry := ConntrackEntry{
-				SrcIP:    srcIP,
-				DstIP:    dstIP,
-				SrcPort:  key.SrcPort,
-				DstPort:  key.DstPort,
-				Protocol: key.Protocol,
-				LastSeen: time.Unix(0, int64(val.LastSeen)),
-			}
-			entries = append(entries, entry)
+		// Check for IPv4-mapped IPv6 / 检查 IPv4 映射的 IPv6
+		if key.SrcIp.In6U.U6Addr8[10] == 0xff && key.SrcIp.In6U.U6Addr8[11] == 0xff {
+			srcIP = net.IP(key.SrcIp.In6U.U6Addr8[12:]).String()
+		} else {
+			srcIP = net.IP(key.SrcIp.In6U.U6Addr8[:]).String()
 		}
-		if err := iter.Err(); err != nil {
-			return nil, fmt.Errorf("iterate conntrack: %w", err)
+
+		if key.DstIp.In6U.U6Addr8[10] == 0xff && key.DstIp.In6U.U6Addr8[11] == 0xff {
+			dstIP = net.IP(key.DstIp.In6U.U6Addr8[12:]).String()
+		} else {
+			dstIP = net.IP(key.DstIp.In6U.U6Addr8[:]).String()
 		}
+
+		entry := ConntrackEntry{
+			SrcIP:    srcIP,
+			DstIP:    dstIP,
+			SrcPort:  key.SrcPort,
+			DstPort:  key.DstPort,
+			Protocol: key.Protocol,
+			LastSeen: time.Unix(0, int64(val.LastSeen)),
+		}
+		entries = append(entries, entry)
+	}
+	if err := iter.Err(); err != nil {
+		return nil, fmt.Errorf("iterate conntrack: %w", err)
 	}
 
 	return entries, nil

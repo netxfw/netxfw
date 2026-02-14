@@ -4,8 +4,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"strings"
+
+	"github.com/livp123/netxfw/internal/utils/iputil"
 )
 
 func generateRandomToken(length int) string {
@@ -16,119 +17,62 @@ func generateRandomToken(length int) string {
 	return hex.EncodeToString(b)
 }
 
-func appendToFile(filePath, line string) {
-	if filePath == "" {
-		return
-	}
-	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	// Check if already exists
-	content, err := os.ReadFile(filePath)
-	if err == nil && strings.Contains(string(content), line) {
-		return
-	}
-
-	f.WriteString(line + "\n")
-}
-
-func removeFromFile(filePath, line string) {
-	if filePath == "" {
-		return
-	}
-	input, err := os.ReadFile(filePath)
-	if err != nil {
-		return
-	}
-
-	lines := strings.Split(string(input), "\n")
-	var newLines []string
-	for _, l := range lines {
-		trimmed := strings.TrimSpace(l)
-		if trimmed != "" && trimmed != line {
-			newLines = append(newLines, trimmed)
-		}
-	}
-
-	os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0644)
-}
-
 func parseIPPortAction(input string) (string, uint16, uint8, error) {
 	// Format: IP:Port:Action or [IP]:Port:Action
+	// 格式: IP:Port:Action 或 [IP]:Port:Action
 	// Action: allow (1) or deny (2)
 
-	// Handle IPv6 with brackets [::1]:80:allow or [::1]:80
-	if strings.HasPrefix(input, "[") {
-		endBracket := strings.Index(input, "]")
-		if endBracket == -1 {
-			return "", 0, 0, fmt.Errorf("invalid IPv6 format: missing ]")
-		}
-		ip := input[1:endBracket]
-		rest := input[endBracket+1:]
-		if strings.HasPrefix(rest, ":") {
-			restParts := strings.Split(strings.TrimPrefix(rest, ":"), ":")
-			if len(restParts) < 1 {
-				return "", 0, 0, fmt.Errorf("missing port")
-			}
-			var port uint16
-			fmt.Sscanf(restParts[0], "%d", &port)
-			action := uint8(2) // Default deny
-			if len(restParts) >= 2 {
-				if restParts[1] == "allow" {
-					action = 1
-				} else if restParts[1] == "deny" {
-					action = 2
-				}
-			}
-			return ip, port, action, nil
-		}
-		return "", 0, 0, fmt.Errorf("invalid format after ]")
+	// Use iputil to parse IP and Port first
+	// 首先使用 iputil 解析 IP 和端口
+	// iputil.ParseIPPort handles:
+	// 1.2.3.4:80
+	// [2001:db8::1]:80
+	// 2001:db8::1:80 (might be tricky if action is appended, let's check)
+
+	// iputil.ParseIPPort expects "host:port".
+	// If the input has ":action" at the end, SplitHostPort might fail or return the action as port if not careful.
+	// However, for "1.2.3.4:80:allow", SplitHostPort("1.2.3.4:80:allow") -> host="1.2.3.4:80", port="allow" (which fails atoi)
+	// OR it errors out "too many colons".
+
+	// So we need to strip the action part first.
+	// 我们需要先剥离 action 部分。
+
+	lastColon := strings.LastIndex(input, ":")
+	if lastColon == -1 {
+		return "", 0, 0, fmt.Errorf("invalid format")
 	}
 
-	// Handle IPv4 or IPv6 without brackets
-	parts := strings.Split(input, ":")
-	if len(parts) < 2 {
-		return "", 0, 0, fmt.Errorf("invalid format, expected IP:Port[:Action]")
+	// Check if the last part is a valid action
+	// 检查最后一部分是否为有效动作
+	suffix := input[lastColon+1:]
+	var action uint8 = 2 // Default deny
+	hasAction := false
+
+	if suffix == "allow" {
+		action = 1
+		hasAction = true
+	} else if suffix == "deny" {
+		action = 2
+		hasAction = true
 	}
 
-	// Check if it's IPv6 without brackets (multiple colons before the port)
-	// Example: 2001:db8::1:80:allow
-	if strings.Count(input, ":") > 2 {
-		// Heuristic: Check last part
-		last := parts[len(parts)-1]
-		if last == "allow" || last == "deny" {
-			if len(parts) < 3 {
-				return "", 0, 0, fmt.Errorf("invalid IPv6 format without brackets")
-			}
-			action := uint8(2)
-			if last == "allow" {
-				action = 1
-			}
-			var port uint16
-			fmt.Sscanf(parts[len(parts)-2], "%d", &port)
-			ip := strings.Join(parts[:len(parts)-2], ":")
-			return ip, port, action, nil
-		} else {
-			// No action specified: 2001:db8::1:80
-			var port uint16
-			fmt.Sscanf(parts[len(parts)-1], "%d", &port)
-			ip := strings.Join(parts[:len(parts)-1], ":")
-			return ip, port, 2, nil
-		}
+	var ipPortStr string
+	if hasAction {
+		ipPortStr = input[:lastColon]
+	} else {
+		// No explicit action, assume the last part is the port
+		// 没有显式动作，假设最后一部分是端口
+		ipPortStr = input
 	}
 
-	// Standard IPv4: 1.2.3.4:80[:allow]
-	ip := parts[0]
-	var port uint16
-	fmt.Sscanf(parts[1], "%d", &port)
-	action := uint8(2)
-	if len(parts) >= 3 {
-		if parts[2] == "allow" {
-			action = 1
-		}
+	host, port, err := iputil.ParseIPPort(ipPortStr)
+	if err != nil {
+		return "", 0, 0, err
 	}
-	return ip, port, action, nil
+
+	// Normalize IPv6: remove brackets if present (ParseIPPort returns host without brackets)
+	// 标准化 IPv6：如果有方括号则移除（ParseIPPort 返回的主机不带方括号）
+	// iputil.ParseIPPort already returns clean host string.
+
+	return host, port, action, nil
 }

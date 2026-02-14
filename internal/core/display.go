@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/ebpf"
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
 )
@@ -44,9 +44,10 @@ func getXDPMode(iface string) string {
  * ShowWhitelist 读取并打印所有白名单范围。
  */
 func ShowWhitelist(limit int, search string) {
-	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist", nil)
+	m, err := config.LoadMap(config.MapWhitelist)
 	if err != nil {
-		log.Fatalf("❌ Failed to load whitelist map: %v", err)
+		fmt.Printf("⚠️  Failed to load whitelist map: %v\n", err)
+		return
 	}
 	defer m.Close()
 
@@ -80,21 +81,36 @@ func ShowWhitelist(limit int, search string) {
  * ShowTopStats 显示按流量和丢弃计数排序的前几名 IP。
  */
 func ShowTopStats(limit int, sortBy string) {
-	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
-	if err != nil {
-		fmt.Println("❌ XDP Program Status: Not Loaded (or maps not pinned)")
-		return
-	}
-	defer m.Close()
-
 	// 1. Fetch Stats / 获取统计信息
-	dropDetails, err := m.GetDropDetails()
-	if err != nil {
-		fmt.Printf("⚠️  Could not retrieve drop details: %v\n", err)
+	var dropDetails []xdp.DropDetailEntry
+	var passDetails []xdp.DropDetailEntry
+	var err error
+
+	dropMap, err := config.LoadMap(config.MapDropReasonStats)
+	if err == nil {
+		defer dropMap.Close()
+		dropDetails, err = xdp.GetDropDetailsFromMap(dropMap)
+		if err != nil {
+			fmt.Printf("⚠️  Could not retrieve drop details: %v\n", err)
+		}
+	} else {
+		fmt.Printf("⚠️  Could not load drop stats map: %v\n", err)
 	}
-	passDetails, err := m.GetPassDetails()
-	if err != nil {
-		fmt.Printf("⚠️  Could not retrieve pass details: %v\n", err)
+
+	passMap, err := config.LoadMap(config.MapPassReasonStats)
+	if err == nil {
+		defer passMap.Close()
+		passDetails, err = xdp.GetPassDetailsFromMap(passMap)
+		if err != nil {
+			fmt.Printf("⚠️  Could not retrieve pass details: %v\n", err)
+		}
+	} else {
+		fmt.Printf("⚠️  Could not load pass stats map: %v\n", err)
+	}
+
+	if dropDetails == nil && passDetails == nil {
+		fmt.Println("❌ No stats available (maps not loaded?)")
+		return
 	}
 
 	// 2. Aggregate by IP / 按 IP 聚合
@@ -156,14 +172,14 @@ func ShowTopStats(limit int, sortBy string) {
  * ShowConntrack 读取并打印所有活动连接。
  */
 func ShowConntrack() {
-	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	m, err := config.LoadMap(config.MapConntrack)
 	if err != nil {
-		fmt.Println("❌ XDP Program Status: Not Loaded (or maps not pinned)")
+		fmt.Printf("❌ Failed to load conntrack map: %v\n", err)
 		return
 	}
 	defer m.Close()
 
-	entries, err := m.ListConntrackEntries()
+	entries, err := xdp.ListConntrackEntriesFromMap(m)
 	if err != nil {
 		log.Fatalf("❌ Failed to list conntrack entries: %v", err)
 	}
@@ -200,7 +216,7 @@ func ShowConntrack() {
  * ShowIPPortRules 读取并打印所有 IP+端口规则。
  */
 func ShowIPPortRules(limit int, search string) {
-	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	m, err := xdp.NewManagerFromPins(config.GetPinPath())
 	if err != nil {
 		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
 	}
@@ -244,7 +260,7 @@ func ShowIPPortRules(limit int, search string) {
  * ShowRateLimitRules 读取并打印所有速率限制规则。
  */
 func ShowRateLimitRules() {
-	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	m, err := xdp.NewManagerFromPins(config.GetPinPath())
 	if err != nil {
 		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
 	}
@@ -274,15 +290,9 @@ func ShowRateLimitRules() {
  * ShowStatus 显示当前的防火墙状态和统计信息。
  */
 func ShowStatus() {
-	cfg, _ := types.LoadGlobalConfig("/etc/netxfw/config.yaml")
-	edition := "standalone"
-	if cfg != nil && cfg.Cluster.Enabled {
-		edition = "cluster"
-	}
+	_, err := types.LoadGlobalConfig(config.GetConfigPath())
 
-	fmt.Printf("🚀 netxfw Edition: %s\n", edition)
-
-	m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	m, err := xdp.NewManagerFromPins(config.GetPinPath())
 	if err != nil {
 		fmt.Println("❌ XDP Program Status: Not Loaded (or maps not pinned)")
 		return
@@ -538,7 +548,7 @@ func ShowStatus() {
 
 	// Check attached interfaces / 检查附加接口
 	fmt.Println("\n🔗 Attached Interfaces:")
-	files, _ := os.ReadDir("/sys/fs/bpf/netxfw")
+	files, _ := os.ReadDir(config.GetPinPath())
 	attachedCount := 0
 	for _, f := range files {
 		if strings.HasPrefix(f.Name(), "link_") {

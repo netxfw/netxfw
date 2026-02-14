@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/cilium/ebpf"
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/iputil"
 	"github.com/livp123/netxfw/internal/xdp"
 )
 
@@ -18,7 +20,7 @@ import (
 // 如果配置文件丢失或直接对 Map 进行了更改，此功能非常有用。
 func SyncToConfig() {
 	log.Println("🔄 Syncing BPF Maps to Configuration Files...")
-	configPath := "/etc/netxfw/config.yaml"
+	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
 		log.Fatalf("❌ Failed to load config: %v", err)
@@ -52,7 +54,7 @@ func SyncToConfig() {
 // 这会用文件中的内容覆盖运行时状态。
 func SyncToMap() {
 	log.Println("🔄 Syncing Configuration Files to BPF Maps...")
-	configPath := "/etc/netxfw/config.yaml"
+	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
 		log.Fatalf("❌ Failed to load config: %v", err)
@@ -66,43 +68,29 @@ func SyncToMap() {
 
 	// 2. Sync Whitelist / 同步白名单
 	log.Println("🧹 Clearing and reloading Whitelist...")
-	mWhitelist, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist", nil)
-	if err == nil {
-		xdp.ClearMap(mWhitelist)
-		mWhitelist.Close()
+	if err := clearMapByName(config.MapWhitelist); err != nil {
+		log.Printf("⚠️  Failed to clear whitelist: %v", err)
 	}
+
+	// Reload rules
 	for _, ip := range globalCfg.Base.Whitelist {
 		var port uint16
 		cidr := ip
-		// Simple parsing / 简单解析
-		if strings.HasPrefix(ip, "[") && strings.Contains(ip, "]:") {
-			endBracket := strings.LastIndex(ip, "]")
-			portStr := ip[endBracket+2:]
-			cidr = ip[1:endBracket]
-			fmt.Sscanf(portStr, "%d", &port)
-		} else if strings.Contains(ip, "/") {
-			lastColon := strings.LastIndex(ip, ":")
-			if lastColon > strings.LastIndex(ip, "/") {
-				cidr = ip[:lastColon]
-				portStr := ip[lastColon+1:]
-				fmt.Sscanf(portStr, "%d", &port)
-			}
-		} else if !IsIPv6(ip) && strings.Contains(ip, ":") {
-			parts := strings.Split(ip, ":")
-			if len(parts) == 2 {
-				cidr = parts[0]
-				fmt.Sscanf(parts[1], "%d", &port)
-			}
+
+		// Try to parse as IP:Port / 尝试解析为 IP:Port
+		host, p, err := iputil.ParseIPPort(ip)
+		if err == nil {
+			cidr = host
+			port = p
 		}
+
 		SyncWhitelistMap(cidr, port, true)
 	}
 
 	// 3. Sync IP Port Rules / 同步 IP 端口规则
 	log.Println("🧹 Clearing and reloading IP Port Rules...")
-	mIPPort, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/ip_port_rules", nil)
-	if err == nil {
-		xdp.ClearMap(mIPPort)
-		mIPPort.Close()
+	if err := clearMapByName(config.MapIPPortRules); err != nil {
+		log.Printf("⚠️  Failed to clear ip_port_rules: %v", err)
 	}
 	for _, r := range globalCfg.Port.IPPortRules {
 		SyncIPPortRule(r.IP, r.Port, r.Action, true)
@@ -110,25 +98,26 @@ func SyncToMap() {
 
 	// 4. Sync Allowed Ports / 同步允许的端口
 	log.Println("🧹 Clearing and reloading Allowed Ports...")
-	mPorts, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/allowed_ports", nil)
-	if err == nil {
-		xdp.ClearMap(mPorts)
-		mPorts.Close()
+	if err := clearMapByName(config.MapAllowedPorts); err != nil {
+		log.Printf("⚠️  Failed to clear allowed_ports: %v", err)
 	}
-	for _, p := range globalCfg.Port.AllowedPorts {
-		mp, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/allowed_ports", nil)
-		if err == nil {
-			xdp.AllowPort(mp, p)
-			mp.Close()
+
+	mAllowed, err := config.LoadMap(config.MapAllowedPorts)
+	if err != nil {
+		log.Printf("⚠️  Failed to load allowed_ports map: %v", err)
+	} else {
+		defer mAllowed.Close()
+		for _, port := range globalCfg.Port.AllowedPorts {
+			if err := xdp.AllowPort(mAllowed, port); err != nil {
+				log.Printf("⚠️  Failed to allow port %d: %v", port, err)
+			}
 		}
 	}
 
 	// 5. Sync Rate Limits / 同步速率限制
 	log.Println("🧹 Clearing and reloading Rate Limits...")
-	mRate, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/ratelimit_config", nil)
-	if err == nil {
-		xdp.ClearMap(mRate)
-		mRate.Close()
+	if err := clearMapByName(config.MapRatelimitConfig); err != nil {
+		log.Printf("⚠️  Failed to clear ratelimit_config: %v", err)
 	}
 	for _, r := range globalCfg.RateLimit.Rules {
 		SyncRateLimitRule(r.IP, r.Rate, r.Burst, true)
@@ -139,10 +128,20 @@ func SyncToMap() {
 
 // Helpers / 辅助函数
 
-func syncBlacklistToConfig(cfg *types.GlobalConfig) {
-	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
+func clearMapByName(mapName string) error {
+	m, err := config.LoadMap(mapName)
 	if err != nil {
-		log.Printf("⚠️  Failed to load lock_list map: %v", err)
+		return err
+	}
+	defer m.Close()
+	_, err = xdp.ClearMap(m)
+	return err
+}
+
+func syncBlacklistToConfig(cfg *types.GlobalConfig) {
+	m, err := config.LoadMap(config.MapLockList)
+	if err != nil {
+		log.Printf("⚠️  Failed to load whitelist map: %v", err)
 		return
 	}
 	defer m.Close()
@@ -154,7 +153,7 @@ func syncBlacklistToConfig(cfg *types.GlobalConfig) {
 	}
 
 	// Also get dynamic lock list if exists / 如果存在，也获取动态锁定列表
-	md, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/dyn_lock_list", nil)
+	md, err := config.LoadMap(config.MapDynLockList)
 	if err == nil {
 		defer md.Close()
 		dynIps, _, _ := xdp.ListBlockedIPs(md, false, 0, "")
@@ -182,7 +181,7 @@ func syncBlacklistToConfig(cfg *types.GlobalConfig) {
 }
 
 func syncWhitelistToConfig(cfg *types.GlobalConfig) {
-	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/whitelist", nil)
+	m, err := config.LoadMap(config.MapWhitelist)
 	if err != nil {
 		log.Printf("⚠️  Failed to load whitelist map: %v", err)
 		return
@@ -222,7 +221,7 @@ func listWhitelistEntries(m *ebpf.Map) ([]string, error) {
 }
 
 func syncIPPortRulesToConfig(cfg *types.GlobalConfig) {
-	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/ip_port_rules", nil)
+	m, err := config.LoadMap(config.MapIPPortRules)
 	if err != nil {
 		return
 	}
@@ -246,7 +245,7 @@ func syncIPPortRulesToConfig(cfg *types.GlobalConfig) {
 }
 
 func syncAllowedPortsToConfig(cfg *types.GlobalConfig) {
-	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/allowed_ports", nil)
+	m, err := config.LoadMap(config.MapAllowedPorts)
 	if err != nil {
 		return
 	}
@@ -266,7 +265,7 @@ func syncAllowedPortsToConfig(cfg *types.GlobalConfig) {
 }
 
 func syncRateLimitsToConfig(cfg *types.GlobalConfig) {
-	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/ratelimit_config", nil)
+	m, err := config.LoadMap(config.MapRatelimitConfig)
 	if err != nil {
 		return
 	}

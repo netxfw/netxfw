@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
@@ -11,11 +12,11 @@ import (
 	"github.com/livp123/netxfw/pkg/sdk"
 )
 
-// runStandalone runs the legacy full-stack mode.
-// runStandalone 运行传统的全栈模式。
-func runStandalone() {
-	const configPath = "/etc/netxfw/config.yaml"
-	const pidPath = defaultPidFile
+// runUnified runs the unified full-stack mode.
+// runUnified 运行统一的全栈模式。
+func runUnified() {
+	configPath := config.GetConfigPath()
+	pidPath := config.DefaultPidPath
 
 	if err := managePidFile(pidPath); err != nil {
 		log.Fatalf("❌ %v", err)
@@ -35,14 +36,15 @@ func runStandalone() {
 	}
 
 	// 1. Initialize Manager / 初始化管理器
-	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	pinPath := config.GetPinPath()
+	manager, err := xdp.NewManagerFromPins(pinPath)
 	if err != nil {
 		log.Printf("ℹ️  Creating new XDP manager...")
 		manager, err = xdp.NewManager(globalCfg.Capacity)
 		if err != nil {
 			log.Fatalf("❌ Failed to create XDP manager: %v", err)
 		}
-		if err := manager.Pin("/sys/fs/bpf/netxfw"); err != nil {
+		if err := manager.Pin(pinPath); err != nil {
 			log.Printf("⚠️  Failed to pin maps: %v", err)
 		}
 	}

@@ -2,12 +2,12 @@ package agent
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
+	"github.com/livp123/netxfw/internal/utils/iputil"
 	"github.com/spf13/cobra"
 )
 
@@ -59,20 +59,18 @@ Examples:
 
 		// 1. Parse IP and Port from input (e.g., 1.2.3.4:80 or [2001:db8::1]:80)
 		// 1. 从输入中解析 IP 和端口 (例如：1.2.3.4:80 或 [2001:db8::1]:80)
-		host, portStr, err := net.SplitHostPort(input)
+		host, pVal, err := iputil.ParseIPPort(input)
 		if err == nil {
 			// Successfully split into Host and Port
 			// 成功拆分出主机和端口
 			ip = host
-			if p, err := strconv.Atoi(portStr); err == nil {
-				port = p
-			}
+			port = int(pVal)
 		} else {
 			// Could not split (e.g. plain IPv4, plain IPv6, or invalid)
 			// Assume it's just an IP address
 			// 无法拆分 (例如纯 IPv4, 纯 IPv6 或无效输入)，假设它只是一个 IP 地址
 			ip = input
-			// If input was [IPv6], strip brackets for consistency if SplitHostPort didn't do it
+			// If input was [IPv6], strip brackets for consistency
 			// 如果输入包含 [IPv6]，去掉方括号
 			ip = strings.TrimPrefix(ip, "[")
 			ip = strings.TrimSuffix(ip, "]")
@@ -124,7 +122,10 @@ Examples:
 			if isAllow {
 				act = 1
 			}
-			common.SyncIPPortRule(ip, uint16(port), act, true)
+			if err := common.SyncIPPortRule(ip, uint16(port), act, true); err != nil {
+				cmd.PrintErrln(err)
+				os.Exit(1)
+			}
 		} else {
 			// IP Only Rule
 			// 仅 IP 规则
@@ -238,20 +239,18 @@ var ruleRemoveCmd = &cobra.Command{
 
 		// 1. Parse IP and Port from input (e.g., 1.2.3.4:80 or [2001:db8::1]:80)
 		// 1. 从输入中解析 IP 和端口 (例如：1.2.3.4:80 或 [2001:db8::1]:80)
-		host, portStr, err := net.SplitHostPort(input)
+		host, pVal, err := iputil.ParseIPPort(input)
 		if err == nil {
 			// Successfully split into Host and Port
 			// 成功拆分出主机和端口
 			ip = host
-			if p, err := strconv.Atoi(portStr); err == nil {
-				port = p
-			}
+			port = int(pVal)
 		} else {
 			// Could not split (e.g. plain IPv4, plain IPv6, or invalid)
 			// Assume it's just an IP address
 			// 无法拆分 (例如纯 IPv4, 纯 IPv6 或无效输入)，假设它只是一个 IP 地址
 			ip = input
-			// If input was [IPv6], strip brackets for consistency if SplitHostPort didn't do it
+			// If input was [IPv6], strip brackets for consistency
 			// 如果输入包含 [IPv6]，去掉方括号
 			ip = strings.TrimPrefix(ip, "[")
 			ip = strings.TrimSuffix(ip, "]")
@@ -266,7 +265,11 @@ var ruleRemoveCmd = &cobra.Command{
 		}
 
 		if port > 0 {
-			common.SyncIPPortRule(ip, uint16(port), 0, false)
+			if err := common.SyncIPPortRule(ip, uint16(port), 0, false); err != nil {
+				cmd.PrintErrln(err)
+				// We don't exit here because we might want to continue or it's just a warning
+				// 我们在这里不退出，因为我们可能想要继续，或者这只是一个警告
+			}
 		} else {
 			// Try to remove from both if port is not specified
 			// 如果未指定端口，尝试从两者中移除

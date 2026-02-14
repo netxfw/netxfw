@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
 )
@@ -21,7 +22,7 @@ func NewServer(manager *xdp.Manager, port int) *Server {
 	return &Server{
 		manager:    manager,
 		port:       port,
-		configPath: "/etc/netxfw/config.yaml",
+		configPath: config.GetConfigPath(),
 	}
 }
 

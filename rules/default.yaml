@@ -3,11 +3,11 @@
 
 capacity:
   lock_list: 1024
-  conntrack: 65535
+  conntrack: 100000
   dyn_lock_list: 10000
 
 base:
-  default_deny: true
+  default_deny: false
   bogon_filter: true
   tcp_flags_check: true
   drop_fragments: false

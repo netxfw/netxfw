@@ -10,7 +10,7 @@ func Run(mode string) {
 	case "agent":
 		runControlPlane()
 	default:
-		log.Println("ℹ️  No mode specified, running in Standalone (Hybrid) mode")
-		runStandalone()
+		log.Println("ℹ️  No mode specified, running in Unified mode")
+		runUnified()
 	}
 }

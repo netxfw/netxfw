@@ -24,7 +24,7 @@ var (
 	EnsureStandaloneMode      func()
 	SyncLockMap               func(ip string, lock bool)
 	SyncWhitelistMap          func(ip string, port uint16, allow bool)
-	SyncIPPortRule            func(ip string, port uint16, protocol uint8, allow bool)
+	SyncIPPortRule            func(ip string, port uint16, protocol uint8, allow bool) error
 	ShowIPPortRules           func(limit int, search string)
 	ShowWhitelist             func(limit int, search string)
 	ShowLockList              func(limit int, search string)

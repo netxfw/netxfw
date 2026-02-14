@@ -9,30 +9,28 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cilium/ebpf"
+	"github.com/livp123/netxfw/internal/config"
+	"github.com/livp123/netxfw/internal/optimizer"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/ipmerge"
+	"github.com/livp123/netxfw/internal/utils/iputil"
 	"github.com/livp123/netxfw/internal/xdp"
 )
 
-// SyncIPPortRule updates the ip_port_rules map and config.
-// action: 1 = Allow, 2 = Deny (mapped from CLI)
-// SyncIPPortRule 更新 ip_port_rules Map 和配置。
-// action: 1 = 允许, 2 = 拒绝 (从 CLI 映射)
-func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
-	mapPath := "/sys/fs/bpf/netxfw/ip_port_rules"
-
-	m, err := ebpf.LoadPinnedMap(mapPath, nil)
+// SyncIPPortRule syncs an IP+Port rule to the XDP map and config.
+// SyncIPPortRule 同步 IP+端口规则到 XDP Map 和配置。
+func SyncIPPortRule(ipStr string, port uint16, action uint8, add bool) error {
+	m, err := config.LoadMap(config.MapIPPortRules)
 	if err != nil {
-		log.Fatalf("❌ Failed to load pinned map (is the daemon running?): %v", err)
+		return fmt.Errorf("failed to load ip_port_rules map: %v", err)
 	}
 	defer m.Close()
 
-	cidr := ensureCIDR(ip)
+	cidr := iputil.NormalizeCIDR(ipStr)
 
 	if add {
 		if err := xdp.AddIPPortRule(m, cidr, port, action); err != nil {
-			log.Fatalf("❌ Failed to add rule %s:%d: %v", cidr, port, err)
+			return fmt.Errorf("failed to add rule %s:%d: %v", cidr, port, err)
 		}
 		log.Printf("🛡️ Added IP+Port rule: %s:%d -> Action %d", cidr, port, action)
 	} else {
@@ -44,16 +42,16 @@ func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
 	}
 
 	// Update Config / 更新配置
-	configPath := "/etc/netxfw/config.yaml"
+	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		newRules := []types.IPPortRule{}
 		modified := false
-		targetCIDR := ensureCIDR(ip)
+		targetCIDR := iputil.NormalizeCIDR(ipStr)
 
 		for _, r := range globalCfg.Port.IPPortRules {
 			// Normalize existing rule IP / 标准化现有规则 IP
-			ruleCIDR := ensureCIDR(r.IP)
+			ruleCIDR := iputil.NormalizeCIDR(r.IP)
 			if ruleCIDR == targetCIDR && r.Port == port {
 				if add {
 					// Update existing if action changed / 如果动作改变，则更新现有规则
@@ -74,7 +72,7 @@ func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
 			// Check if we found it in the loop / 检查是否在循环中找到了它
 			found := false
 			for i, r := range newRules {
-				if ensureCIDR(r.IP) == targetCIDR && r.Port == port {
+				if iputil.NormalizeCIDR(r.IP) == targetCIDR && r.Port == port {
 					found = true
 					if r.Action != action {
 						newRules[i].Action = action
@@ -85,7 +83,7 @@ func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
 			}
 			if !found {
 				newRules = append(newRules, types.IPPortRule{
-					IP:     ip,
+					IP:     ipStr,
 					Port:   port,
 					Action: action,
 				})
@@ -95,16 +93,17 @@ func SyncIPPortRule(ip string, port uint16, action uint8, add bool) {
 
 		if modified {
 			globalCfg.Port.IPPortRules = newRules
-			OptimizeIPPortRulesConfig(globalCfg)
+			optimizer.OptimizeIPPortRulesConfig(globalCfg)
 			types.SaveGlobalConfig(configPath, globalCfg)
 		}
 	}
+	return nil
 }
 
 // SyncAllowedPort updates the allowed_ports map and config.
 // SyncAllowedPort 更新 allowed_ports Map 和配置。
 func SyncAllowedPort(port uint16, add bool) {
-	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/allowed_ports", nil)
+	m, err := config.LoadMap(config.MapAllowedPorts)
 	if err != nil {
 		log.Fatalf("❌ Failed to load pinned map: %v", err)
 	}
@@ -124,7 +123,7 @@ func SyncAllowedPort(port uint16, add bool) {
 	}
 
 	// Update Config / 更新配置
-	configPath := "/etc/netxfw/config.yaml"
+	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		newPorts := []uint16{}
@@ -156,15 +155,14 @@ func SyncAllowedPort(port uint16, add bool) {
 // SyncRateLimitRule updates the rate_limit_rules map and config.
 // SyncRateLimitRule 更新 rate_limit_rules Map 和配置。
 func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
-	mapPath := "/sys/fs/bpf/netxfw/ratelimit_config"
-
-	m, err := ebpf.LoadPinnedMap(mapPath, nil)
+	m, err := config.LoadMap(config.MapRatelimitConfig)
 	if err != nil {
-		log.Fatalf("❌ Failed to load pinned map: %v", err)
+		log.Printf("⚠️  Failed to load ratelimit_config map: %v", err)
+		return
 	}
 	defer m.Close()
 
-	cidr := ensureCIDR(ip)
+	cidr := iputil.NormalizeCIDR(ip)
 
 	if add {
 		if err := xdp.AddRateLimitRule(m, cidr, rate, burst); err != nil {
@@ -180,15 +178,15 @@ func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
 	}
 
 	// Update Config / 更新配置
-	configPath := "/etc/netxfw/config.yaml"
+	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		newRules := []types.RateLimitRule{}
 		modified := false
-		targetCIDR := ensureCIDR(ip)
+		targetCIDR := iputil.NormalizeCIDR(ip)
 
 		for _, r := range globalCfg.RateLimit.Rules {
-			if ensureCIDR(r.IP) == targetCIDR {
+			if iputil.NormalizeCIDR(r.IP) == targetCIDR {
 				if add {
 					// Update / 更新
 					if r.Rate != rate || r.Burst != burst {
@@ -208,7 +206,7 @@ func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
 		if add && !modified {
 			found := false
 			for _, r := range newRules {
-				if ensureCIDR(r.IP) == targetCIDR {
+				if iputil.NormalizeCIDR(r.IP) == targetCIDR {
 					found = true
 					break
 				}
@@ -233,7 +231,7 @@ func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
 // SyncAutoBlock updates the auto-block setting in config.
 // SyncAutoBlock 更新配置中的自动封禁设置。
 func SyncAutoBlock(enable bool) {
-	configPath := "/etc/netxfw/config.yaml"
+	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.RateLimit.AutoBlock = enable
@@ -247,7 +245,7 @@ func SyncAutoBlock(enable bool) {
 // SyncAutoBlockExpiry updates the auto-block expiry time in config.
 // SyncAutoBlockExpiry 更新配置中的自动封禁过期时间。
 func SyncAutoBlockExpiry(seconds uint32) {
-	configPath := "/etc/netxfw/config.yaml"
+	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.RateLimit.AutoBlockExpiry = fmt.Sprintf("%ds", seconds)
@@ -264,20 +262,14 @@ func ClearBlacklist() {
 	log.Println("🧹 Clearing blacklist...")
 
 	// Clear Unified Map / 清除统一 Map
-	m, err := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
-	if err == nil {
-		if _, err := xdp.ClearMap(m); err != nil {
-			log.Printf("⚠️  Failed to clear blacklist: %v", err)
-		} else {
-			log.Println("✅ IPv4 Blacklist cleared.")
-		}
-		m.Close()
+	if err := clearMapByName(config.MapLockList); err != nil {
+		log.Printf("⚠️  Failed to clear blacklist: %v", err)
 	} else {
-		log.Printf("⚠️  Failed to load lock_list: %v", err)
+		log.Println("✅ IPv4 Blacklist cleared.")
 	}
 
 	// Clear persistence file / 清除持久化文件
-	configPath := "/etc/netxfw/config.yaml"
+	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil && globalCfg.Base.LockListFile != "" {
 		if err := os.WriteFile(globalCfg.Base.LockListFile, []byte(""), 0644); err == nil {
@@ -310,13 +302,13 @@ func ImportLockListFromFile(path string) {
 		}
 	}
 
-	m, _ := ebpf.LoadPinnedMap("/sys/fs/bpf/netxfw/lock_list", nil)
+	m, _ := config.LoadMap(config.MapLockList)
 	if m != nil {
 		defer m.Close()
 	}
 
 	// Prepare persistence update / 准备持久化更新
-	configPath := "/etc/netxfw/config.yaml"
+	configPath := config.GetConfigPath()
 	globalCfg, _ := types.LoadGlobalConfig(configPath)
 	var persistentLines []string
 	if globalCfg != nil && globalCfg.Base.LockListFile != "" {
@@ -334,7 +326,7 @@ func ImportLockListFromFile(path string) {
 	for _, cidr := range cidrs {
 		// Check valid CIDR/IP / 检查有效的 CIDR/IP
 		if !strings.Contains(cidr, "/") {
-			if IsIPv6(cidr) {
+			if iputil.IsIPv6(cidr) {
 				cidr += "/128"
 			} else {
 				cidr += "/32"
@@ -363,8 +355,11 @@ func ImportLockListFromFile(path string) {
 		if err != nil {
 			merged = persistentLines
 		}
-		os.WriteFile(globalCfg.Base.LockListFile, []byte(strings.Join(merged, "\n")+"\n"), 0644)
-		log.Printf("📄 Persisted %d rules to %s", len(merged), globalCfg.Base.LockListFile)
+		if err := os.WriteFile(globalCfg.Base.LockListFile, []byte(strings.Join(merged, "\n")+"\n"), 0644); err != nil {
+			log.Printf("⚠️  Failed to persist rules: %v", err)
+		} else {
+			log.Printf("📄 Persisted %d rules to %s", len(merged), globalCfg.Base.LockListFile)
+		}
 	}
 
 	log.Printf("✅ Imported %d rules.", count)

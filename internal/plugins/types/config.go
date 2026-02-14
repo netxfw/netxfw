@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"sort"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -15,10 +17,6 @@ import (
 // while preserving documentation.
 const DefaultConfigTemplate = `# NetXFW Configuration File / NetXFW 配置文件
 #
-
-# Cluster Configuration / 集群配置
-cluster:
-  enabled: false
 
 # Base Configuration / 基础配置
 base:
@@ -43,6 +41,10 @@ base:
   # Enable AF_XDP: Enable high-performance packet redirection to userspace.
   # 启用 AF_XDP：启用高性能数据包重定向到用户空间。
   enable_af_xdp: false
+
+  # BPF Pin Path: Path to pin BPF maps. Defaults to /sys/fs/bpf/netxfw if empty.
+  # BPF 固定路径：固定 BPF Map 的路径。如果为空，默认为 /sys/fs/bpf/netxfw。
+  bpf_pin_path: ""
 
   # Strict Protocol Validation: Drop malformed packets.
   # 严格协议验证：丢弃畸形数据包。
@@ -117,19 +119,20 @@ base:
 # Web Server Configuration / Web 服务器配置
 web:
   enabled: false
-  port: 8080
+  port: 11811
   token: ""
 
 # Metrics Configuration / 监控指标配置
 metrics:
   enabled: false
   server_enabled: true
-  port: 9090
+  port: 11812
   push_enabled: false
   push_gateway_addr: ""
   push_interval: "15s"
   textfile_enabled: false
   textfile_path: "/var/lib/node_exporter/netxfw.prom"
+
 
 # Port Configuration / 端口配置
 port:
@@ -209,7 +212,7 @@ logging:
   # Max size in MB before rotation / 轮转前的最大大小 (MB)
   max_size: 10
   # Max number of old files to keep / 保留的旧文件最大数量
-  max_backups: 5
+  max_backups: 3
   # Max number of days to keep old files / 保留旧文件的最大天数
   max_age: 30
   # Whether to compress old files / 是否压缩旧文件
@@ -218,7 +221,6 @@ logging:
 
 // GlobalConfig represents the top-level configuration structure.
 type GlobalConfig struct {
-	Cluster   ClusterConfig   `yaml:"cluster"`
 	Base      BaseConfig      `yaml:"base"`
 	Web       WebConfig       `yaml:"web"`
 	Metrics   MetricsConfig   `yaml:"metrics"`
@@ -228,11 +230,25 @@ type GlobalConfig struct {
 	LogEngine LogEngineConfig `yaml:"log_engine"`
 	Capacity  CapacityConfig  `yaml:"capacity"`
 	Logging   LoggingConfig   `yaml:"logging"`
+	AI        AIConfig        `yaml:"ai"`
 }
 
 // ClusterConfig defines the cluster synchronization settings.
 type ClusterConfig struct {
 	Enabled bool `yaml:"enabled"`
+}
+
+type AIConfig struct {
+	Enabled       bool     `yaml:"enabled"`
+	ModelType     string   `yaml:"model_type"`
+	APIKey        string   `yaml:"api_key"`
+	APIEndpoint   string   `yaml:"api_endpoint"`
+	Port          int      `yaml:"port"`
+	Token         string   `yaml:"token"`
+	ReadOnly      bool     `yaml:"read_only"`
+	Cors          []string `yaml:"cors"`
+	EnforceSafety bool     `yaml:"enforce_safety"`
+	AnonymizeLogs bool     `yaml:"anonymize_logs"`
 }
 
 type LoggingConfig struct {
@@ -327,6 +343,7 @@ type BaseConfig struct {
 	LockListMergeThreshold int      `yaml:"lock_list_merge_threshold"` // If > 0, merge IPs into /24 (IPv4) or /64 (IPv6) if count >= threshold
 	LockListV4Mask         int      `yaml:"lock_list_v4_mask"`         // Target mask for IPv4 merging (default 24)
 	LockListV6Mask         int      `yaml:"lock_list_v6_mask"`         // Target mask for IPv6 merging (default 64)
+	BPFPinPath             string   `yaml:"bpf_pin_path"`              // Path to pin BPF maps (override default)
 	EnableExpiry           bool     `yaml:"enable_expiry"`
 	CleanupInterval        string   `yaml:"cleanup_interval"`
 	PersistRules           bool     `yaml:"persist_rules"`
@@ -371,9 +388,6 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 
 	// Initialize with defaults / 使用默认值初始化
 	cfg := GlobalConfig{
-		Cluster: ClusterConfig{
-			Enabled: false,
-		},
 		Base: BaseConfig{
 			DefaultDeny:        true,
 			AllowReturnTraffic: false,
@@ -413,9 +427,23 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 			Enabled:    false,
 			Path:       "/var/log/netxfw/agent.log",
 			MaxSize:    10, // 10MB
-			MaxBackups: 5,
+			MaxBackups: 3,
 			MaxAge:     30, // 30 days
 			Compress:   true,
+		},
+		AI: AIConfig{
+			Enabled:       true,
+			ModelType:     "gemini",
+			Port:          11813,
+			ReadOnly:      false,
+			EnforceSafety: true,
+			Cors:          []string{"*"},
+		},
+		Web: WebConfig{
+			Port: 11811,
+		},
+		Metrics: MetricsConfig{
+			Port: 11812,
 		},
 	}
 
@@ -482,6 +510,9 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 		log.Printf("⚠️  Failed to backup config file, skipping update: %v", err)
 		return
 	}
+
+	// Cleanup old backups (Keep latest 3) / 清理旧备份（保留最近 3 个）
+	cleanupBackups(path, 3)
 
 	// Write new config (defaultNode now contains merged state)
 	// yaml.v3 Encoder adds a newline
@@ -640,4 +671,31 @@ func MergeYamlNodes(target, source *yaml.Node) {
 	}
 
 	target.Content = newContent
+}
+
+// cleanupBackups keeps only the latest N backup files.
+func cleanupBackups(originalPath string, keep int) {
+	dir := filepath.Dir(originalPath)
+	baseName := filepath.Base(originalPath)
+	pattern := baseName + ".bak.*"
+
+	matches, err := filepath.Glob(filepath.Join(dir, pattern))
+	if err != nil {
+		return
+	}
+
+	if len(matches) <= keep {
+		return
+	}
+
+	// Sort by name (timestamp allows chronological sorting)
+	sort.Strings(matches)
+
+	// Remove oldest
+	toRemove := matches[:len(matches)-keep]
+	for _, f := range toRemove {
+		if err := os.Remove(f); err == nil {
+			log.Printf("🗑️ Removed old backup: %s", f)
+		}
+	}
 }

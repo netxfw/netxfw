@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
@@ -14,8 +15,8 @@ import (
 // runControlPlane handles API, Web, Log Engine, and high-level management.
 // runControlPlane 处理 API、Web、日志引擎和高级管理。
 func runControlPlane() {
-	const configPath = "/etc/netxfw/config.yaml"
-	const pidPath = "/var/run/netxfw-agent.pid"
+	configPath := config.GetConfigPath()
+	pidPath := config.DefaultPidPath
 
 	log.Println("🚀 Starting netxfw in Agent (Control Plane) mode")
 
@@ -36,10 +37,13 @@ func runControlPlane() {
 		startPprof(globalCfg.Base.PprofPort)
 	}
 
-	// 1. Connect to Existing BPF Maps / 连接到现有的 BPF Map
-	manager, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+	// 1. Initialize Manager (from pinned maps) / 初始化管理器（从固定 Map）
+	// In Agent mode, we expect maps to be already pinned by the Daemon.
+	// 在 Agent 模式下，我们期望 Map 已经被 Daemon 固定。
+	pinPath := config.GetPinPath()
+	manager, err := xdp.NewManagerFromPins(pinPath)
 	if err != nil {
-		log.Fatalf("❌ Failed to load pinned maps. Is the Data Plane (DP) running? Error: %v", err)
+		log.Fatalf("❌ Agent requires netxfw daemon to be running and maps pinned at %s: %v", pinPath, err)
 	}
 	defer manager.Close()
 

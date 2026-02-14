@@ -13,13 +13,12 @@ import (
 	"time"
 
 	"github.com/livp123/netxfw/internal/api"
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
 	"github.com/livp123/netxfw/pkg/sdk"
 )
-
-const defaultPidFile = "/var/run/netxfw.pid"
 
 // managePidFile ensures only one instance of the daemon is running by checking/writing a PID file.
 // managePidFile 通过检查/编写 PID 文件来确保只有一个守护进程实例在运行。
@@ -77,7 +76,7 @@ func startWebServer(globalCfg *types.GlobalConfig, manager *xdp.Manager) error {
 // cleanupOrphanedInterfaces detaches XDP programs from interfaces no longer in config.
 // cleanupOrphanedInterfaces 从不再配置中的接口分离 XDP 程序。
 func cleanupOrphanedInterfaces(manager *xdp.Manager, configuredInterfaces []string) {
-	if attachedIfaces, err := xdp.GetAttachedInterfaces("/sys/fs/bpf/netxfw"); err == nil {
+	if attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath()); err == nil {
 		var toDetach []string
 		for _, attached := range attachedIfaces {
 			found := false
@@ -175,7 +174,7 @@ func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
 			log.Println("🛑 Stopping cleanup loop")
 			return
 		case <-ticker.C:
-			m, err := xdp.NewManagerFromPins("/sys/fs/bpf/netxfw")
+			m, err := xdp.NewManagerFromPins(config.GetPinPath())
 			if err != nil {
 				continue
 			}

@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 )
@@ -12,8 +14,8 @@ import (
 // InitConfiguration initializes the default configuration files if they don't exist.
 // InitConfiguration 如果默认配置文件不存在，则初始化它们。
 func InitConfiguration() {
-	configDir := "/etc/netxfw"
-	configPath := configDir + "/config.yaml"
+	configPath := config.GetConfigPath()
+	configDir := filepath.Dir(configPath)
 
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -41,7 +43,7 @@ func InitConfiguration() {
  * TestConfiguration 验证配置文件的语法和值。
  */
 func TestConfiguration() {
-	configPath := "/etc/netxfw/config.yaml"
+	configPath := config.GetConfigPath()
 	fmt.Printf("🔍 Testing global configuration in %s...\n", configPath)
 
 	cfg, err := types.LoadGlobalConfig(configPath)
