@@ -10,7 +10,7 @@ import (
 
 func TestOptimizedLike(t *testing.T) {
 	c := logengine.NewCounter(0)
-	re := logengine.NewRuleEngine(c)
+	re := logengine.NewRuleEngine(c, &MockLogger{})
 
 	rules := []types.LogEngineRule{
 		{

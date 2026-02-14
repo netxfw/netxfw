@@ -10,7 +10,7 @@ import (
 
 func TestSimplifiedRules(t *testing.T) {
 	c := logengine.NewCounter(0)
-	re := logengine.NewRuleEngine(c)
+	re := logengine.NewRuleEngine(c, &MockLogger{})
 
 	rules := []types.LogEngineRule{
 		// 1. Keyword Check
@@ -59,16 +59,13 @@ func TestSimplifiedRules(t *testing.T) {
 	// Test 2: Threshold
 	e2 := logengine.LogEvent{Line: "Connection opened"}
 	// 1st hit
-	c.Inc(ip)
 	_, _, _, matched = re.Evaluate(ip, e2)
 	if matched {
 		t.Errorf("Should not match rate_limit yet (1 <= 2)")
 	}
 	// 2nd hit
-	c.Inc(ip)
 	re.Evaluate(ip, e2)
 	// 3rd hit (trigger > 2)
-	c.Inc(ip)
 	_, _, id, matched = re.Evaluate(ip, e2)
 	if !matched || id != "rate_limit" {
 		t.Errorf("Expected rate_limit match on 3rd attempt, got %v/%s", matched, id)
@@ -90,10 +87,8 @@ func TestSimplifiedRules(t *testing.T) {
 	// Test 4: Combined (Keyword + Regex + Threshold)
 	e4 := logengine.LogEvent{Line: "Error 500"}
 	// 1st hit (Threshold=1, so >1 means 2 hits needed)
-	c.Inc(ip)
 	re.Evaluate(ip, e4)
 	// 2nd hit
-	c.Inc(ip)
 	_, _, id, matched = re.Evaluate(ip, e4)
 	if !matched || id != "combined" {
 		t.Errorf("Expected combined match on 2nd attempt, got %v/%s", matched, id)

@@ -11,7 +11,7 @@ import (
 // TestFrequencyControl demonstrates how to handle high-frequency events like 404 scans or login failures.
 func TestFrequencyControl(t *testing.T) {
 	c := logengine.NewCounter(0)
-	re := logengine.NewRuleEngine(c)
+	re := logengine.NewRuleEngine(c, &MockLogger{})
 
 	rules := []types.LogEngineRule{
 		// Scenario 1: Nginx 404 Flood
@@ -46,7 +46,6 @@ func TestFrequencyControl(t *testing.T) {
 	// --- Test Scenario 1: 404 Flood ---
 	// 1. Generate 5 404 logs (Threshold is > 5, so 5 is safe, 6th triggers)
 	for i := 0; i < 5; i++ {
-		c.Inc(ip)
 		event := logengine.LogEvent{
 			Line:   `192.168.1.50 - - [12/Feb/2026:10:00:00 +0000] "GET /random HTTP/1.1" 404 123 "-" "curl/7.0"`,
 			Source: "/var/log/nginx/access.log",
@@ -58,7 +57,6 @@ func TestFrequencyControl(t *testing.T) {
 	}
 
 	// 2. The 6th 404 log should trigger the rule
-	c.Inc(ip)
 	event404 := logengine.LogEvent{
 		Line:   `192.168.1.50 - - [12/Feb/2026:10:00:00 +0000] "GET /overflow HTTP/1.1" 404 123`,
 		Source: "/var/log/nginx/access.log",
@@ -84,7 +82,6 @@ func TestFrequencyControl(t *testing.T) {
 	}
 
 	for _, line := range failures {
-		c.Inc(attackerIP)
 		event := logengine.LogEvent{
 			Line:   line,
 			Source: "/var/log/auth.log",
@@ -96,7 +93,6 @@ func TestFrequencyControl(t *testing.T) {
 	}
 
 	// 2. The 4th failure triggers
-	c.Inc(attackerIP)
 	eventFail := logengine.LogEvent{
 		Line:   "Another Failed attempt",
 		Source: "/var/log/auth.log",

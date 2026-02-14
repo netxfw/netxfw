@@ -13,7 +13,7 @@ import (
 
 // runControlPlane handles API, Web, Log Engine, and high-level management.
 // runControlPlane 处理 API、Web、日志引擎和高级管理。
-func runControlPlane(ctx context.Context) {
+func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	log := logger.Get(ctx)
 	configPath := config.GetConfigPath()
 	pidPath := config.DefaultPidPath
@@ -37,23 +37,28 @@ func runControlPlane(ctx context.Context) {
 		startPprof(globalCfg.Base.PprofPort)
 	}
 
-	// 1. Initialize Manager (from pinned maps) / 初始化管理器（从固定 Map）
-	// In Agent mode, we expect maps to be already pinned by the Daemon.
-	// 在 Agent 模式下，我们期望 Map 已经被 Daemon 固定。
-	pinPath := config.GetPinPath()
-	manager, err := xdp.NewManagerFromPins(pinPath, log)
-	if err != nil {
-		log.Fatalf("❌ Agent requires netxfw daemon to be running and maps pinned at %s: %v", pinPath, err)
+	// 1. Initialize Manager
+	var manager xdp.ManagerInterface
+	if opts.Manager != nil {
+		log.Info("Using injected Manager (e.g. for testing)")
+		manager = opts.Manager
+	} else {
+		// In Agent mode, we expect maps to be already pinned by the Daemon.
+		// 在 Agent 模式下，我们期望 Map 已经被 Daemon 固定。
+		pinPath := config.GetPinPath()
+		realMgr, err := xdp.NewManagerFromPins(pinPath, log)
+		if err != nil {
+			log.Fatalf("❌ Agent requires netxfw daemon to be running and maps pinned at %s: %v", pinPath, err)
+		}
+		defer realMgr.Close()
+		// Wrap manager with Adapter for interface compliance
+		manager = xdp.NewAdapter(realMgr)
 	}
-	defer manager.Close()
-
-	// Wrap manager with Adapter for interface compliance
-	adapter := xdp.NewAdapter(manager)
 
 	// 2. Load ALL Plugins (Agent manages everything) / 加载所有插件（Agent 管理一切）
 	pluginCtx := &sdk.PluginContext{
 		Context: ctx,
-		Manager: adapter,
+		Manager: manager,
 		Config:  globalCfg,
 		Logger:  log,
 	}
@@ -83,5 +88,5 @@ func runControlPlane(ctx context.Context) {
 	go runCleanupLoop(ctxCleanup, globalCfg)
 
 	log.Info("🛡️ Agent is running.")
-	waitForSignal(ctx, configPath, adapter, nil) // nil means reload all / nil 表示重新加载所有内容
+	waitForSignal(ctx, configPath, manager, nil) // nil means reload all / nil 表示重新加载所有内容
 }

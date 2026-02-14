@@ -11,7 +11,7 @@ import (
 // TestStandardizedLogic validates the "and/or/not" standardized syntax.
 func TestStandardizedLogic(t *testing.T) {
 	c := logengine.NewCounter(0)
-	re := logengine.NewRuleEngine(c)
+	re := logengine.NewRuleEngine(c, &MockLogger{})
 
 	rules := []types.LogEngineRule{
 		// Rule: Block if log contains "Error" AND "Database" (using 'and' keyword)

@@ -13,7 +13,7 @@ import (
 // 2. Root user failures -> Block after 2 attempts
 func TestRulePolicies(t *testing.T) {
 	c := logengine.NewCounter(0)
-	re := logengine.NewRuleEngine(c)
+	re := logengine.NewRuleEngine(c, &MockLogger{})
 
 	rules := []types.LogEngineRule{
 		// Rule 1: Block non-root users immediately on failure
@@ -45,7 +45,6 @@ func TestRulePolicies(t *testing.T) {
 	}
 
 	// 1st attempt: Should block immediately
-	c.Inc(ipNonRoot)
 	action, _, id, matched := re.Evaluate(ipNonRoot, eventNonRoot)
 	if !matched {
 		t.Errorf("Non-root rule should match immediately")
@@ -63,21 +62,18 @@ func TestRulePolicies(t *testing.T) {
 	}
 
 	// 1st attempt: Should NOT block (Count=1 <= 2)
-	c.Inc(ipRoot)
 	_, _, _, matched = re.Evaluate(ipRoot, eventRoot)
 	if matched {
 		t.Errorf("Root rule should not match on 1st attempt")
 	}
 
 	// 2nd attempt: Should NOT block (Count=2 <= 2)
-	c.Inc(ipRoot)
 	_, _, _, matched = re.Evaluate(ipRoot, eventRoot)
 	if matched {
 		t.Errorf("Root rule should not match on 2nd attempt")
 	}
 
 	// 3rd attempt: Should BLOCK (Count=3 > 2)
-	c.Inc(ipRoot)
 	action, _, id, matched = re.Evaluate(ipRoot, eventRoot)
 	if !matched {
 		t.Errorf("Root rule should match on 3rd attempt")

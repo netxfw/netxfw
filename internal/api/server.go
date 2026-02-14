@@ -12,13 +12,13 @@ import (
 )
 
 type Server struct {
-	manager    *xdp.Manager
+	manager    xdp.ManagerInterface
 	port       int
 	configPath string
 }
 
 // NewServer creates a new API and UI server instance.
-func NewServer(manager *xdp.Manager, port int) *Server {
+func NewServer(manager xdp.ManagerInterface, port int) *Server {
 	return &Server{
 		manager:    manager,
 		port:       port,

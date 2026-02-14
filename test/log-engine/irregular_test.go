@@ -10,7 +10,7 @@ import (
 
 func TestIrregularLogFormat(t *testing.T) {
 	c := logengine.NewCounter(0)
-	re := logengine.NewRuleEngine(c)
+	re := logengine.NewRuleEngine(c, &MockLogger{})
 
 	// Rule: Block if line contains "Failed" AND count > 3
 	// Note: We implemented Contains method on Env
@@ -29,7 +29,6 @@ func TestIrregularLogFormat(t *testing.T) {
 
 	// 1. Send 10 "Success" logs - Should NOT block even if count is high
 	for i := 0; i < 10; i++ {
-		c.Inc(ip)
 		// Even though count increments, the rule condition `contains(Line, "Failed")` is false
 		event := logengine.LogEvent{
 			Line:   "Accepted password for user admin from 10.0.0.1",
@@ -45,7 +44,6 @@ func TestIrregularLogFormat(t *testing.T) {
 	// Note: Total count for IP is now 10 + 4 = 14, so Count(60) > 3 is true.
 	// The gating factor is the Line content.
 	for i := 0; i < 4; i++ {
-		c.Inc(ip)
 		event := logengine.LogEvent{
 			Line:   "Failed password for user root from 10.0.0.1",
 			Source: "/var/log/auth.log",

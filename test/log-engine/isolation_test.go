@@ -10,7 +10,7 @@ import (
 
 func TestServiceIsolation(t *testing.T) {
 	c := logengine.NewCounter(0)
-	re := logengine.NewRuleEngine(c)
+	re := logengine.NewRuleEngine(c, &MockLogger{})
 
 	// Rule 1: SSH Brute Force (Only applies to auth.log)
 	// Rule 2: Nginx 404 Flood (Only applies to access.log)
@@ -34,7 +34,6 @@ func TestServiceIsolation(t *testing.T) {
 
 	// 1. Send SSH failures (should match rule 1)
 	for i := 0; i < 4; i++ {
-		c.Inc(ip)
 		event := logengine.LogEvent{
 			Line:   "Failed password for root",
 			Source: "/var/log/auth.log",
@@ -57,7 +56,6 @@ func TestServiceIsolation(t *testing.T) {
 	// Reset counter or use new IP
 	ip2 := netip.MustParseAddr("192.168.1.101")
 	for i := 0; i < 6; i++ {
-		c.Inc(ip2)
 		event := logengine.LogEvent{
 			Line:   "GET /admin HTTP/1.1 404",
 			Source: "/var/log/auth.log", // Wrong source
@@ -71,7 +69,6 @@ func TestServiceIsolation(t *testing.T) {
 	// 3. Send Nginx 404s (Correct source) -> Should match
 	ip3 := netip.MustParseAddr("192.168.1.102")
 	for i := 0; i < 6; i++ {
-		c.Inc(ip3)
 		event := logengine.LogEvent{
 			Line:   "GET /admin HTTP/1.1 404",
 			Source: "/var/log/nginx/access.log",

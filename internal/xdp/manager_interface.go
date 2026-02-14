@@ -4,11 +4,16 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
+	"github.com/livp123/netxfw/internal/plugins/types"
 )
 
 // ManagerInterface defines the interface for XDP operations.
 // ManagerInterface 定义了 XDP 操作的接口。
 type ManagerInterface interface {
+	// Sync Operations
+	SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error
+	SyncToFiles(cfg *types.GlobalConfig) error
+
 	// Map Getters (discouraged for direct use, prefer high-level methods)
 	LockList() *ebpf.Map
 	DynLockList() *ebpf.Map

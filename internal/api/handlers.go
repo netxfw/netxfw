@@ -6,17 +6,17 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/optimizer"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/fileutil"
 	"github.com/livp123/netxfw/internal/utils/iputil"
-	"github.com/livp123/netxfw/internal/xdp"
 )
 
 // handleStats returns the global pass/drop statistics.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	pass, drop := s.manager.GetStats()
+	pass, _ := s.manager.GetPassCount()
+	drop, _ := s.manager.GetDropCount()
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]uint64{
 		"pass": pass,
@@ -32,11 +32,11 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		search := r.URL.Query().Get("search")
 		limit := 100
 
-		locked, totalLocked, _ := xdp.ListBlockedIPs(s.manager.LockList(), false, limit, search)
-		whitelist, totalWhitelist, _ := xdp.ListBlockedIPs(s.manager.Whitelist(), false, limit, search)
+		locked, totalLocked, _ := s.manager.ListBlacklistIPs(limit, search)
+		whitelist, totalWhitelist, _ := s.manager.ListWhitelistIPs(limit, search)
 
 		// Get IP+Port rules (action 1=allow, 2=deny)
-		ipPortRules, totalIPPort, _ := s.manager.ListIPPortRules(false, limit, search)
+		ipPortRules, totalIPPort, _ := s.manager.ListIPPortRules(true, limit, search)
 
 		res := map[string]interface{}{
 			"blacklist":      locked,
@@ -61,11 +61,9 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var err error
-		var m *ebpf.Map
 		if req.Action == "add" {
 			if req.Type == "blacklist" {
-				m = s.manager.LockList()
-				err = xdp.LockIP(m, req.CIDR)
+				err = s.manager.AddBlacklistIP(req.CIDR)
 			} else if req.Type == "whitelist" {
 				port := uint16(0)
 				// Parse optional port (e.g. 1.2.3.4:80 or [::1]:80)
@@ -76,8 +74,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					port = pVal
 				}
 
-				m = s.manager.Whitelist()
-				err = xdp.AllowIP(m, req.CIDR, port)
+				err = s.manager.AddWhitelistIP(req.CIDR, port)
 			} else if req.Type == "ip_port_rules" {
 				ipStr, port, action, parseErr := parseIPPortAction(req.CIDR)
 				if parseErr != nil {
@@ -90,7 +87,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					}
 
 					if err == nil {
-						err = s.manager.AddIPPortRule(ipNet, port, action, nil)
+						err = s.manager.AddIPPortRule(ipNet.String(), port, action)
 					}
 				}
 			}
@@ -107,16 +104,15 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					}
 
 					if err == nil {
-						err = s.manager.RemoveIPPortRule(ipNet, port)
+						err = s.manager.RemoveIPPortRule(ipNet.String(), port)
 					}
 				}
 			} else {
 				if req.Type == "blacklist" {
-					m = s.manager.LockList()
+					err = s.manager.RemoveBlacklistIP(req.CIDR)
 				} else {
-					m = s.manager.Whitelist()
+					err = s.manager.RemoveWhitelistIP(req.CIDR)
 				}
-				err = xdp.UnlockIP(m, req.CIDR)
 			}
 		}
 
@@ -268,7 +264,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 // handleConntrack returns the list of active network connections.
 func (s *Server) handleConntrack(w http.ResponseWriter, r *http.Request) {
-	entries, err := s.manager.ListConntrackEntries()
+	entries, err := s.manager.ListAllConntrackEntries()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

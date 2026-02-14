@@ -67,7 +67,7 @@ func startPprof(port int) {
 
 // startWebServer launches the REST API server.
 // startWebServer 启动 REST API 服务器。
-func startWebServer(globalCfg *types.GlobalConfig, manager *xdp.Manager) error {
+func startWebServer(globalCfg *types.GlobalConfig, manager xdp.ManagerInterface) error {
 	// Start API server / 启动 API 服务器
 	server := api.NewServer(manager, globalCfg.Web.Port)
 	if err := server.Start(); err != nil {

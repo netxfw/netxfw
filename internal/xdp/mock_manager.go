@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
+	"github.com/livp123/netxfw/internal/plugins/types"
 )
 
 type MockManager struct {
@@ -22,6 +23,41 @@ type MockManager struct {
 	EnableAFXDP     bool
 	EnableRateLimit bool
 	DropFragments   bool
+}
+
+// Sync Operations
+func (m *MockManager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
+	if overwrite {
+		m.ClearBlacklist()
+		m.ClearWhitelist()
+		m.ClearIPPortRules()
+		m.ClearAllowedPorts()
+		m.ClearRateLimitRules()
+	}
+
+	// Sync Whitelist from config
+	for _, rule := range cfg.Base.Whitelist {
+		if strings.Contains(rule, ":") {
+			parts := strings.Split(rule, ":")
+			if len(parts) == 2 {
+				// Mock implementation: just storing, parsing skipped for brevity
+				m.WhitelistMap[parts[0]] = 0
+			}
+		} else {
+			m.WhitelistMap[rule] = 0
+		}
+	}
+	return nil
+}
+
+func (m *MockManager) SyncToFiles(cfg *types.GlobalConfig) error {
+	// Sync Whitelist to config
+	var wl []string
+	for ip := range m.WhitelistMap {
+		wl = append(wl, ip)
+	}
+	cfg.Base.Whitelist = wl
+	return nil
 }
 
 func NewMockManager() *MockManager {

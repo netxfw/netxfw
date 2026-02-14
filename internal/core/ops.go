@@ -116,7 +116,7 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 func RunDaemon(ctx context.Context) {
 	InitConfiguration(ctx)
 	TestConfiguration(ctx)
-	daemon.Run(ctx, runtime.Mode)
+	daemon.Run(ctx, runtime.Mode, nil)
 }
 
 /**
@@ -363,7 +363,8 @@ func RunWebServer(ctx context.Context, port int) error {
 	defer manager.Close()
 
 	// 2. Start API server / 启动 API 服务器
-	server := api.NewServer(manager, port)
+	adapter := xdp.NewAdapter(manager)
+	server := api.NewServer(adapter, port)
 	if err := server.Start(); err != nil {
 		return fmt.Errorf("failed to start web server: %v", err)
 	}

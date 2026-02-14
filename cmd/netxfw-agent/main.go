@@ -42,5 +42,5 @@ func main() {
 
 	// Run the daemon logic directly
 	// 直接运行守护进程逻辑
-	daemon.Run(ctx, runtime.Mode)
+	daemon.Run(ctx, runtime.Mode, nil)
 }

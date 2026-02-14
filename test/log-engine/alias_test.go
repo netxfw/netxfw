@@ -10,7 +10,7 @@ import (
 
 func TestAliasFunctions(t *testing.T) {
 	c := logengine.NewCounter(0)
-	re := logengine.NewRuleEngine(c)
+	re := logengine.NewRuleEngine(c, &MockLogger{})
 
 	rules := []types.LogEngineRule{
 		{
@@ -43,14 +43,12 @@ func TestAliasFunctions(t *testing.T) {
 	}
 
 	// 1st attempt: Count=1. Expression: ... && 1 > 1 -> False
-	c.Inc(ip)
 	_, _, _, matched := re.Evaluate(ip, evt)
 	if matched {
 		t.Errorf("Should not match on first attempt (Count=1)")
 	}
 
 	// 2nd attempt: Count=2. Expression: ... && 2 > 1 -> True
-	c.Inc(ip)
 	_, _, id, matched := re.Evaluate(ip, evt)
 	if !matched {
 		t.Errorf("Should match on second attempt")

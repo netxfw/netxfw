@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
+	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/iputil"
 )
 
@@ -14,6 +15,14 @@ type Adapter struct {
 
 func NewAdapter(m *Manager) *Adapter {
 	return &Adapter{manager: m}
+}
+
+// Sync Operations
+func (a *Adapter) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
+	return a.manager.SyncFromFiles(cfg, overwrite)
+}
+func (a *Adapter) SyncToFiles(cfg *types.GlobalConfig) error {
+	return a.manager.SyncToFiles(cfg)
 }
 
 // Map Getters

@@ -90,7 +90,7 @@ func runUnified(ctx context.Context) {
 	// 4. Start Web Server / 启动 Web 服务器
 	if globalCfg.Web.Enabled {
 		go func() {
-			if err := startWebServer(globalCfg, manager); err != nil {
+			if err := startWebServer(globalCfg, adapter); err != nil {
 				log.Errorf("❌ Web server failed: %v", err)
 			}
 		}()
@@ -102,5 +102,5 @@ func runUnified(ctx context.Context) {
 	go runCleanupLoop(ctxCleanup, globalCfg)
 
 	log.Info("🛡️ NetXFW Unified is running.")
-	waitForSignal(ctx, configPath, adapter, nil)
+	waitForSignal(ctx, configPath, adapter, interfaces)
 }

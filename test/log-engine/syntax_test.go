@@ -11,7 +11,7 @@ import (
 // TestSimplifiedSyntax verifies the YAML-friendly list syntax (and/or/not)
 func TestSimplifiedSyntax(t *testing.T) {
 	c := logengine.NewCounter(0)
-	re := logengine.NewRuleEngine(c)
+	re := logengine.NewRuleEngine(c, &MockLogger{})
 
 	rules := []types.LogEngineRule{
 		// Rule 1: Block non-root users immediately

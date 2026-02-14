@@ -12,7 +12,7 @@ import (
 // TestExpressionAliases validates using Log/Msg instead of Line in expressions.
 func TestExpressionAliases(t *testing.T) {
 	c := logengine.NewCounter(0)
-	re := logengine.NewRuleEngine(c)
+	re := logengine.NewRuleEngine(c, &MockLogger{})
 
 	rules := []types.LogEngineRule{
 		// 1. Use 'Log' function alias (log() -> Log())

@@ -62,7 +62,7 @@ func TestCounter(t *testing.T) {
 
 func TestRuleEngine(t *testing.T) {
 	c := logengine.NewCounter(0)
-	re := logengine.NewRuleEngine(c)
+	re := logengine.NewRuleEngine(c, &MockLogger{})
 
 	rules := []types.LogEngineRule{
 		{
@@ -80,7 +80,6 @@ func TestRuleEngine(t *testing.T) {
 
 	// Not enough counts
 	// 次数不足
-	c.Inc(ip)
 	action, _, id, matched := re.Evaluate(ip, logengine.LogEvent{Line: "dummy", Source: "test"})
 	if matched {
 		t.Errorf("Should not match yet, count is 1")
@@ -89,7 +88,7 @@ func TestRuleEngine(t *testing.T) {
 	// Add more counts
 	// 增加更多次数
 	for i := 0; i < 5; i++ {
-		c.Inc(ip)
+		re.Evaluate(ip, logengine.LogEvent{Line: "dummy", Source: "test"})
 	}
 	// Total 6
 	// 总共 6 次
@@ -138,7 +137,7 @@ func TestIPv6Support(t *testing.T) {
 
 	// 3. Test Rule Engine
 	// 3. 测试规则引擎
-	re := logengine.NewRuleEngine(counter)
+	re := logengine.NewRuleEngine(counter, &MockLogger{})
 	rules := []types.LogEngineRule{
 		{
 			ID:         "ipv6_test",
