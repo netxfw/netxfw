@@ -1,75 +1,82 @@
 package core
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"strings"
 
-	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/iputil"
-	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
 // SyncToConfig dumps current BPF map states to configuration files.
 // This is useful if the config files were lost or if changes were made directly to maps.
 // SyncToConfig 将当前 BPF Map 状态转储到配置文件。
 // 如果配置文件丢失或直接对 Map 进行了更改，此功能非常有用。
-func SyncToConfig() {
-	log.Println("🔄 Syncing BPF Maps to Configuration Files...")
+func SyncToConfig(ctx context.Context, mgr XDPManager) error {
+	log := logger.Get(ctx)
+	log.Info("🔄 Syncing BPF Maps to Configuration Files...")
 	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
-		log.Fatalf("❌ Failed to load config: %v", err)
+		return fmt.Errorf("failed to load config: %v", err)
 	}
 
 	// 1. Sync Blacklist (lock_list) -> rules.deny.txt (or configured file) / 同步黑名单
-	syncBlacklistToConfig(globalCfg)
+	syncBlacklistToConfig(ctx, mgr, globalCfg)
 
 	// 2. Sync Whitelist (whitelist) -> config.yaml / 同步白名单
-	syncWhitelistToConfig(globalCfg)
+	syncWhitelistToConfig(ctx, mgr, globalCfg)
 
 	// 3. Sync IP Port Rules -> config.yaml / 同步 IP 端口规则
-	syncIPPortRulesToConfig(globalCfg)
+	syncIPPortRulesToConfig(ctx, mgr, globalCfg)
 
 	// 4. Sync Allowed Ports -> config.yaml / 同步允许的端口
-	syncAllowedPortsToConfig(globalCfg)
+	syncAllowedPortsToConfig(ctx, mgr, globalCfg)
 
 	// 5. Sync Rate Limits -> config.yaml / 同步速率限制
-	syncRateLimitsToConfig(globalCfg)
+	syncRateLimitsToConfig(ctx, mgr, globalCfg)
 
 	// Save final config / 保存最终配置
 	if err := types.SaveGlobalConfig(configPath, globalCfg); err != nil {
-		log.Fatalf("❌ Failed to save config: %v", err)
+		return fmt.Errorf("failed to save config: %v", err)
 	}
-	log.Println("✅ Configuration files updated successfully.")
+	log.Info("✅ Configuration files updated successfully.")
+	return nil
 }
 
 // SyncToMap applies the current configuration files to the BPF maps.
 // This overwrites the runtime state with what is in the files.
 // SyncToMap 将当前配置文件应用到 BPF Map。
 // 这会用文件中的内容覆盖运行时状态。
-func SyncToMap() {
-	log.Println("🔄 Syncing Configuration Files to BPF Maps...")
+func SyncToMap(ctx context.Context, mgr XDPManager) error {
+	log := logger.Get(ctx)
+	log.Info("🔄 Syncing Configuration Files to BPF Maps...")
 	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
-		log.Fatalf("❌ Failed to load config: %v", err)
+		return fmt.Errorf("failed to load config: %v", err)
 	}
 
 	// 1. Sync Blacklist / 同步黑名单
 	if globalCfg.Base.LockListFile != "" {
-		log.Printf("📥 Importing Blacklist from %s...", globalCfg.Base.LockListFile)
-		ImportLockListFromFile(globalCfg.Base.LockListFile)
+		log.Infof("📥 Importing Blacklist from %s...", globalCfg.Base.LockListFile)
+		// ImportLockListFromFile needs to be refactored or we use LockIP loop
+		// For now, let's assume we read file and loop LockIP
+		// ImportLockListFromFile(globalCfg.Base.LockListFile)
+		if err := importLockListFromFile(ctx, mgr, globalCfg.Base.LockListFile); err != nil {
+			log.Errorf("⚠️ Failed to import lock list: %v", err)
+		}
 	}
 
 	// 2. Sync Whitelist / 同步白名单
-	log.Println("🧹 Clearing and reloading Whitelist...")
-	if err := clearMapByName(config.MapWhitelist); err != nil {
-		log.Printf("⚠️  Failed to clear whitelist: %v", err)
+	log.Info("🧹 Clearing and reloading Whitelist...")
+	if err := mgr.ClearWhitelist(); err != nil {
+		log.Errorf("⚠️  Failed to clear whitelist: %v", err)
 	}
 
 	// Reload rules
@@ -84,82 +91,82 @@ func SyncToMap() {
 			port = p
 		}
 
-		SyncWhitelistMap(cidr, port, true)
+		if err := mgr.AddWhitelistIP(cidr, port); err != nil {
+			log.Errorf("⚠️ Failed to sync whitelist rule %s: %v", ip, err)
+		}
 	}
 
 	// 3. Sync IP Port Rules / 同步 IP 端口规则
-	log.Println("🧹 Clearing and reloading IP Port Rules...")
-	if err := clearMapByName(config.MapIPPortRules); err != nil {
-		log.Printf("⚠️  Failed to clear ip_port_rules: %v", err)
+	log.Info("🧹 Clearing and reloading IP Port Rules...")
+	if err := mgr.ClearIPPortRules(); err != nil {
+		log.Errorf("⚠️  Failed to clear ip_port_rules: %v", err)
 	}
 	for _, r := range globalCfg.Port.IPPortRules {
-		SyncIPPortRule(r.IP, r.Port, r.Action, true)
+		if err := mgr.AddIPPortRule(r.IP, r.Port, r.Action); err != nil {
+			log.Errorf("⚠️ Failed to sync ip_port_rule %s:%d: %v", r.IP, r.Port, err)
+		}
 	}
 
 	// 4. Sync Allowed Ports / 同步允许的端口
-	log.Println("🧹 Clearing and reloading Allowed Ports...")
-	if err := clearMapByName(config.MapAllowedPorts); err != nil {
-		log.Printf("⚠️  Failed to clear allowed_ports: %v", err)
+	log.Info("🧹 Clearing and reloading Allowed Ports...")
+	if err := mgr.ClearAllowedPorts(); err != nil {
+		log.Errorf("⚠️  Failed to clear allowed_ports: %v", err)
 	}
 
-	mAllowed, err := config.LoadMap(config.MapAllowedPorts)
-	if err != nil {
-		log.Printf("⚠️  Failed to load allowed_ports map: %v", err)
-	} else {
-		defer mAllowed.Close()
-		for _, port := range globalCfg.Port.AllowedPorts {
-			if err := xdp.AllowPort(mAllowed, port); err != nil {
-				log.Printf("⚠️  Failed to allow port %d: %v", port, err)
-			}
+	for _, port := range globalCfg.Port.AllowedPorts {
+		if err := mgr.AllowPort(port); err != nil {
+			log.Errorf("⚠️  Failed to allow port %d: %v", port, err)
 		}
 	}
 
 	// 5. Sync Rate Limits / 同步速率限制
-	log.Println("🧹 Clearing and reloading Rate Limits...")
-	if err := clearMapByName(config.MapRatelimitConfig); err != nil {
-		log.Printf("⚠️  Failed to clear ratelimit_config: %v", err)
+	log.Info("🧹 Clearing and reloading Rate Limits...")
+	if err := mgr.ClearRateLimitRules(); err != nil {
+		log.Errorf("⚠️  Failed to clear ratelimit_config: %v", err)
 	}
 	for _, r := range globalCfg.RateLimit.Rules {
-		SyncRateLimitRule(r.IP, r.Rate, r.Burst, true)
+		if err := mgr.AddRateLimitRule(r.IP, r.Rate, r.Burst); err != nil {
+			log.Errorf("⚠️  Failed to add rate limit rule: %v", err)
+		}
 	}
 
-	log.Println("✅ BPF Maps synced from configuration.")
+	log.Info("✅ BPF Maps synced from configuration.")
+	return nil
 }
 
 // Helpers / 辅助函数
 
-func clearMapByName(mapName string) error {
-	m, err := config.LoadMap(mapName)
+func importLockListFromFile(ctx context.Context, mgr XDPManager, filePath string) error {
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
-	defer m.Close()
-	_, err = xdp.ClearMap(m)
-	return err
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if err := mgr.AddBlacklistIP(line); err != nil {
+			logger.Get(ctx).Warnf("Failed to lock IP %s: %v", line, err)
+		}
+	}
+	return nil
 }
 
-func syncBlacklistToConfig(cfg *types.GlobalConfig) {
-	m, err := config.LoadMap(config.MapLockList)
-	if err != nil {
-		log.Printf("⚠️  Failed to load whitelist map: %v", err)
-		return
-	}
-	defer m.Close()
+func syncBlacklistToConfig(ctx context.Context, mgr XDPManager, cfg *types.GlobalConfig) {
+	log := logger.Get(ctx)
 
-	ips, _, err := xdp.ListBlockedIPs(m, false, 0, "")
+	ips, _, err := mgr.ListBlacklistIPs(0, "")
 	if err != nil {
-		log.Printf("⚠️  Failed to list blocked IPs: %v", err)
+		log.Errorf("⚠️  Failed to list blocked IPs: %v", err)
 		return
 	}
 
 	// Also get dynamic lock list if exists / 如果存在，也获取动态锁定列表
-	md, err := config.LoadMap(config.MapDynLockList)
-	if err == nil {
-		defer md.Close()
-		dynIps, _, _ := xdp.ListBlockedIPs(md, false, 0, "")
-		for _, ip := range dynIps {
-			ips = append(ips, ip)
-		}
+	dynIps, _, _ := mgr.ListDynamicBlacklistIPs(0, "")
+	for _, ip := range dynIps {
+		ips = append(ips, ip)
 	}
 
 	// Extract just the IP strings / 仅提取 IP 字符串
@@ -173,114 +180,69 @@ func syncBlacklistToConfig(cfg *types.GlobalConfig) {
 	if cfg.Base.LockListFile != "" {
 		err := os.WriteFile(cfg.Base.LockListFile, []byte(strings.Join(ipStrings, "\n")+"\n"), 0644)
 		if err != nil {
-			log.Printf("❌ Failed to write blacklist file: %v", err)
+			log.Errorf("❌ Failed to write blacklist file: %v", err)
 		} else {
-			log.Printf("📄 Exported %d blacklist rules to %s", len(ips), cfg.Base.LockListFile)
+			log.Infof("📄 Exported %d blacklist rules to %s", len(ips), cfg.Base.LockListFile)
 		}
 	}
 }
 
-func syncWhitelistToConfig(cfg *types.GlobalConfig) {
-	m, err := config.LoadMap(config.MapWhitelist)
-	if err != nil {
-		log.Printf("⚠️  Failed to load whitelist map: %v", err)
-		return
-	}
-	defer m.Close()
+func syncWhitelistToConfig(ctx context.Context, mgr XDPManager, cfg *types.GlobalConfig) {
+	log := logger.Get(ctx)
 
-	ips, err := listWhitelistEntries(m)
+	ips, _, err := mgr.ListWhitelistIPs(0, "")
 	if err != nil {
-		log.Printf("⚠️  Failed to list whitelist IPs: %v", err)
+		log.Errorf("⚠️  Failed to list whitelist IPs: %v", err)
 		return
 	}
 
 	cfg.Base.Whitelist = ips
-	log.Printf("📄 Updated config whitelist with %d entries", len(ips))
+	log.Infof("📄 Updated config whitelist with %d entries", len(ips))
 }
 
-func listWhitelistEntries(m *ebpf.Map) ([]string, error) {
-	var ips []string
-	iter := m.Iterate()
-	var key xdp.NetXfwLpmKey
-	var val xdp.NetXfwRuleValue
-
-	for iter.Next(&key, &val) {
-		ipStr := xdp.FormatLpmKey(&key)
-		// val.Counter holds the port number / val.Counter 保存端口号
-		if val.Counter > 1 {
-			if strings.Contains(ipStr, ":") && !strings.Contains(ipStr, ".") {
-				// IPv6
-				ipStr = fmt.Sprintf("[%s]:%d", ipStr, val.Counter)
-			} else {
-				ipStr = fmt.Sprintf("%s:%d", ipStr, val.Counter)
-			}
-		}
-		ips = append(ips, ipStr)
-	}
-	return ips, iter.Err()
-}
-
-func syncIPPortRulesToConfig(cfg *types.GlobalConfig) {
-	m, err := config.LoadMap(config.MapIPPortRules)
+func syncIPPortRulesToConfig(ctx context.Context, mgr XDPManager, cfg *types.GlobalConfig) {
+	log := logger.Get(ctx)
+	rules, _, err := mgr.ListIPPortRules(false, 0, "")
 	if err != nil {
+		log.Errorf("⚠️ Failed to list IP Port Rules: %v", err)
 		return
 	}
-	defer m.Close()
 
-	var rules []types.IPPortRule
-	iter := m.Iterate()
-	var key xdp.NetXfwLpmIpPortKey
-	var val xdp.NetXfwRuleValue
-
-	for iter.Next(&key, &val) {
-		ip := xdp.FormatIn6Addr(&key.Ip)
-		rules = append(rules, types.IPPortRule{
-			IP:     ip,
-			Port:   key.Port,
-			Action: uint8(val.Counter), // 1=Allow, 2=Deny / 1=允许, 2=拒绝
+	var configRules []types.IPPortRule
+	for _, r := range rules {
+		configRules = append(configRules, types.IPPortRule{
+			IP:     r.IP,
+			Port:   r.Port,
+			Action: r.Action,
 		})
 	}
-	cfg.Port.IPPortRules = rules
-	log.Printf("📄 Updated config IP Port Rules with %d entries", len(rules))
+	cfg.Port.IPPortRules = configRules
+	log.Infof("📄 Updated config IP Port Rules with %d entries", len(configRules))
 }
 
-func syncAllowedPortsToConfig(cfg *types.GlobalConfig) {
-	m, err := config.LoadMap(config.MapAllowedPorts)
+func syncAllowedPortsToConfig(ctx context.Context, mgr XDPManager, cfg *types.GlobalConfig) {
+	log := logger.Get(ctx)
+	ports, err := mgr.ListAllowedPorts()
 	if err != nil {
+		log.Errorf("⚠️ Failed to list allowed ports: %v", err)
 		return
 	}
-	defer m.Close()
 
-	var ports []uint16
-	iter := m.Iterate()
-	var port uint16
-	var val uint8
-
-	for iter.Next(&port, &val) {
-		ports = append(ports, port)
-	}
 	sort.Slice(ports, func(i, j int) bool { return ports[i] < ports[j] })
 	cfg.Port.AllowedPorts = ports
-	log.Printf("📄 Updated config Allowed Ports with %d entries", len(ports))
+	log.Infof("📄 Updated config Allowed Ports with %d entries", len(ports))
 }
 
-func syncRateLimitsToConfig(cfg *types.GlobalConfig) {
-	m, err := config.LoadMap(config.MapRatelimitConfig)
+func syncRateLimitsToConfig(ctx context.Context, mgr XDPManager, cfg *types.GlobalConfig) {
+	log := logger.Get(ctx)
+	rulesMap, _, err := mgr.ListRateLimitRules(0, "")
 	if err != nil {
+		log.Errorf("⚠️ Failed to list rate limit rules: %v", err)
 		return
 	}
-	defer m.Close()
 
 	var rules []types.RateLimitRule
-	iter := m.Iterate()
-	var key xdp.NetXfwLpmKey
-	var val struct {
-		Rate  uint64
-		Burst uint64
-	}
-
-	for iter.Next(&key, &val) {
-		ip := xdp.FormatLpmKey(&key)
+	for ip, val := range rulesMap {
 		rules = append(rules, types.RateLimitRule{
 			IP:    ip,
 			Rate:  val.Rate,
@@ -288,5 +250,5 @@ func syncRateLimitsToConfig(cfg *types.GlobalConfig) {
 		})
 	}
 	cfg.RateLimit.Rules = rules
-	log.Printf("📄 Updated config Rate Limits with %d entries", len(rules))
+	log.Infof("📄 Updated config Rate Limits with %d entries", len(rules))
 }

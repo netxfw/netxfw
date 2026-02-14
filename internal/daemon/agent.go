@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"context"
-	"log"
 
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins"
@@ -14,11 +13,12 @@ import (
 
 // runControlPlane handles API, Web, Log Engine, and high-level management.
 // runControlPlane 处理 API、Web、日志引擎和高级管理。
-func runControlPlane() {
+func runControlPlane(ctx context.Context) {
+	log := logger.Get(ctx)
 	configPath := config.GetConfigPath()
 	pidPath := config.DefaultPidPath
 
-	log.Println("🚀 Starting netxfw in Agent (Control Plane) mode")
+	log.Info("🚀 Starting netxfw in Agent (Control Plane) mode")
 
 	if err := managePidFile(pidPath); err != nil {
 		log.Fatalf("❌ %v", err)
@@ -47,19 +47,23 @@ func runControlPlane() {
 	}
 	defer manager.Close()
 
+	// Wrap manager with Adapter for interface compliance
+	adapter := xdp.NewAdapter(manager)
+
 	// 2. Load ALL Plugins (Agent manages everything) / 加载所有插件（Agent 管理一切）
 	pluginCtx := &sdk.PluginContext{
-		Context: context.Background(),
-		Manager: manager,
+		Context: ctx,
+		Manager: adapter,
 		Config:  globalCfg,
+		Logger:  log,
 	}
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(pluginCtx); err != nil {
-			log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
+			log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
 			continue
 		}
 		if err := p.Start(pluginCtx); err != nil {
-			log.Printf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
+			log.Warnf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
 		}
 		defer p.Stop()
 	}
@@ -68,16 +72,16 @@ func runControlPlane() {
 	if globalCfg.Web.Enabled {
 		go func() {
 			if err := startWebServer(globalCfg, manager); err != nil {
-				log.Printf("❌ Web server failed: %v", err)
+				log.Errorf("❌ Web server failed: %v", err)
 			}
 		}()
 	}
 
 	// 4. Start Cleanup Loop / 启动清理循环
-	ctx, cancel := context.WithCancel(context.Background())
+	ctxCleanup, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go runCleanupLoop(ctx, globalCfg)
+	go runCleanupLoop(ctxCleanup, globalCfg)
 
-	log.Println("🛡️ Agent is running.")
-	waitForSignal(configPath, manager, nil) // nil means reload all / nil 表示重新加载所有内容
+	log.Info("🛡️ Agent is running.")
+	waitForSignal(ctx, configPath, adapter, nil) // nil means reload all / nil 表示重新加载所有内容
 }

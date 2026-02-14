@@ -45,7 +45,7 @@ func (p *RateLimitPlugin) DefaultConfig() interface{} {
 	return types.RateLimitConfig{}
 }
 
-func (p *RateLimitPlugin) Sync(manager *xdp.Manager) error {
+func (p *RateLimitPlugin) Sync(manager xdp.ManagerInterface) error {
 	if p.config == nil {
 		return nil
 	}
@@ -101,8 +101,7 @@ func (p *RateLimitPlugin) Sync(manager *xdp.Manager) error {
 	// Remove obsolete
 	for key := range currentRules {
 		if _, ok := desiredRules[key]; !ok {
-			_, ipNet, _ := net.ParseCIDR(key)
-			if err := manager.RemoveRateLimitRule(ipNet); err != nil {
+			if err := manager.RemoveRateLimitRule(key); err != nil {
 				log.Printf("⚠️ [RateLimitPlugin] Failed to remove rule %s: %v", key, err)
 			} else {
 				log.Printf("➖ [RateLimitPlugin] Removed rule %s", key)
@@ -114,8 +113,7 @@ func (p *RateLimitPlugin) Sync(manager *xdp.Manager) error {
 	for key, rule := range desiredRules {
 		currentVal, exists := currentRules[key]
 		if !exists || currentVal.Rate != rule.Rate || currentVal.Burst != rule.Burst {
-			_, ipNet, _ := net.ParseCIDR(key)
-			if err := manager.AddRateLimitRule(ipNet, rule.Rate, rule.Burst); err != nil {
+			if err := manager.AddRateLimitRule(key, rule.Rate, rule.Burst); err != nil {
 				log.Printf("⚠️ [RateLimitPlugin] Failed to update rule %s: %v", key, err)
 			} else {
 				log.Printf("➕ [RateLimitPlugin] Updated rule %s", key)

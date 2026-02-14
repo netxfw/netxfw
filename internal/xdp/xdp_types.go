@@ -51,6 +51,15 @@ type RateLimitConf struct {
 }
 
 /**
+ * IPPortRule represents an IP+Port rule
+ */
+type IPPortRule struct {
+	IP     string
+	Port   uint16
+	Action uint8 // 1=Allow, 2=Deny
+}
+
+/**
  * Manager handles the lifecycle of eBPF objects and links.
  * Manager 负责 eBPF 对象和链路的生命周期管理。
  */
@@ -105,42 +114,22 @@ func (m *Manager) Whitelist() *ebpf.Map {
 	return m.whitelist
 }
 
-func (m *Manager) AllowedPorts() *ebpf.Map {
-	return m.allowedPorts
-}
-
-func (m *Manager) GlobalConfig() *ebpf.Map {
-	return m.globalConfig
-}
-
-func (m *Manager) IpPortRules() *ebpf.Map {
+func (m *Manager) IPPortRules() *ebpf.Map {
 	return m.ipPortRules
 }
 
-func (m *Manager) DropStats() *ebpf.Map {
-	return m.dropStats
-}
-
-func (m *Manager) PassStats() *ebpf.Map {
-	return m.passStats
-}
-
-func (m *Manager) IcmpLimitMap() *ebpf.Map {
-	return m.icmpLimitMap
-}
-
-func (m *Manager) ConntrackMap() *ebpf.Map {
-	return m.conntrackMap
+func (m *Manager) AllowedPorts() *ebpf.Map {
+	return m.allowedPorts
 }
 
 func (m *Manager) RatelimitConfig() *ebpf.Map {
 	return m.ratelimitConfig
 }
 
-func (m *Manager) RatelimitState() *ebpf.Map {
-	return m.ratelimitState
+func (m *Manager) GlobalConfig() *ebpf.Map {
+	return m.globalConfig
 }
 
-func (m *Manager) DropReasonStats() *ebpf.Map {
-	return m.dropReasonStats
+func (m *Manager) ConntrackMap() *ebpf.Map {
+	return m.conntrackMap
 }

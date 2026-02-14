@@ -1,16 +1,20 @@
 package daemon
 
-import "log"
+import (
+	"context"
+	"github.com/livp123/netxfw/internal/utils/logger"
+)
 
 // Run starts the daemon in the specified mode.
-func Run(mode string) {
+func Run(ctx context.Context, mode string) {
+	log := logger.Get(ctx)
 	switch mode {
 	case "dp":
-		runDataPlane()
+		runDataPlane(ctx)
 	case "agent":
-		runControlPlane()
+		runControlPlane(ctx)
 	default:
-		log.Println("ℹ️  No mode specified, running in Unified mode")
-		runUnified()
+		log.Info("ℹ️  No mode specified, running in Unified mode")
+		runUnified(ctx)
 	}
 }

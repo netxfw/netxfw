@@ -106,7 +106,7 @@ func (m *Manager) ListWhitelist(isIPv6 bool) ([]string, error) {
 	mapObj := m.Whitelist()
 	// Use 0 limit to get all
 	// 使用 0 限制以获取全部
-	ips, _, err := ListWhitelistedIPs(mapObj, isIPv6, 0, "")
+	ips, _, err := ListWhitelistIPs(mapObj, 0, "")
 	return ips, err
 }
 
@@ -684,18 +684,17 @@ func (m *Manager) RemovePlugin(index int) error {
 	return nil
 }
 
-/**
- * Close releases all BPF resources.
- * Note: Persistent links are NOT closed here to allow them to stay in kernel.
- * Close 释放所有 BPF 资源。
- * 注意：此处不关闭持久链接，以允许它们保留在内核中。
- */
-func (m *Manager) Close() {
-	m.objs.Close()
+// Close releases all BPF resources.
+// Note: Persistent links are NOT closed here to allow them to stay in kernel.
+// Close 释放所有 BPF 资源。
+// 注意：此处不关闭持久链接，以允许它们保留在内核中。
+func (m *Manager) Close() error {
+	err := m.objs.Close()
 	// We no longer automatically close links here to keep them persistent.
 	// Links are now pinned and should be managed via Detach or manually.
 	// 我们不再在此处自动关闭链接，以保持其持久性。
 	// 链接现在已被固定，应通过 Detach 或手动管理。
+	return err
 }
 
 /**

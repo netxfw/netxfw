@@ -28,9 +28,18 @@ var syncToConfigCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.SyncToConfig function not initialized")
 			os.Exit(1)
 		}
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 		// Dump maps to config files
 		// 将 map 转储到配置文件
-		common.SyncToConfig()
+		if err := common.SyncToConfig(cmd.Context(), mgr); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -50,9 +59,18 @@ This will overwrite the runtime state with what is defined in the configuration 
 			cmd.PrintErrln("❌ common.SyncToMap function not initialized")
 			os.Exit(1)
 		}
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 		// Load config files to maps
 		// 将配置文件加载到 map
-		common.SyncToMap()
+		if err := common.SyncToMap(cmd.Context(), mgr); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 

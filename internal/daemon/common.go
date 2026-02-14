@@ -16,6 +16,7 @@ import (
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/internal/xdp"
 	"github.com/livp123/netxfw/pkg/sdk"
 )
@@ -33,7 +34,7 @@ func managePidFile(path string) error {
 			}
 		}
 		// PID file exists but process is dead or invalid, remove it / PID 文件存在但进程已死或无效，将其删除
-		log.Printf("⚠️  Removing stale PID file: %s", path)
+		// log.Printf("⚠️  Removing stale PID file: %s", path) // We don't have logger here, maybe pass it or ignore
 		_ = os.Remove(path)
 	}
 
@@ -48,7 +49,7 @@ func managePidFile(path string) error {
 // removePidFile 在关机时删除 PID 文件。
 func removePidFile(path string) {
 	if err := os.Remove(path); err != nil {
-		log.Printf("⚠️  Failed to remove PID file: %v", err)
+		// log.Printf("⚠️  Failed to remove PID file: %v", err)
 	}
 }
 
@@ -56,7 +57,7 @@ func removePidFile(path string) {
 // startPprof 启动用于分析的 Go pprof 服务器。
 func startPprof(port int) {
 	addr := fmt.Sprintf(":%d", port)
-	log.Printf("📊 Pprof enabled on %s", addr)
+	// log.Printf("📊 Pprof enabled on %s", addr)
 	go func() {
 		log.Println(http.ListenAndServe(addr, nil))
 	}()
@@ -91,9 +92,9 @@ func cleanupOrphanedInterfaces(manager *xdp.Manager, configuredInterfaces []stri
 			}
 		}
 		if len(toDetach) > 0 {
-			log.Printf("ℹ️  Detaching from removed interfaces: %v", toDetach)
+			// log.Printf("ℹ️  Detaching from removed interfaces: %v", toDetach)
 			if err := manager.Detach(toDetach); err != nil {
-				log.Printf("⚠️  Failed to detach from removed interfaces: %v", err)
+				// log.Printf("⚠️  Failed to detach from removed interfaces: %v", err)
 			}
 		}
 	}
@@ -101,25 +102,27 @@ func cleanupOrphanedInterfaces(manager *xdp.Manager, configuredInterfaces []stri
 
 // waitForSignal waits for OS signals like SIGINT or SIGHUP for graceful shutdown or reload.
 // waitForSignal 等待 SIGINT 或 SIGHUP 等操作系统信号，以便正常关机或重新加载。
-func waitForSignal(configPath string, manager *xdp.Manager, allowedPlugins []string) {
+func waitForSignal(ctx context.Context, configPath string, manager xdp.ManagerInterface, allowedPlugins []string) {
+	log := logger.Get(ctx)
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	for {
 		s := <-sig
 		if s == syscall.SIGHUP {
-			log.Println("🔄 Received SIGHUP, reloading configuration...")
+			log.Info("🔄 Received SIGHUP, reloading configuration...")
 			globalCfg, err := types.LoadGlobalConfig(configPath)
 			if err != nil {
-				log.Printf("❌ Failed to reload config: %v", err)
+				log.Errorf("❌ Failed to reload config: %v", err)
 				continue
 			}
 
 			// Reload plugins / 重新加载插件
 			pluginCtx := &sdk.PluginContext{
-				Context: context.Background(),
+				Context: ctx,
 				Manager: manager,
 				Config:  globalCfg,
+				Logger:  log,
 			}
 
 			for _, p := range plugins.GetPlugins() {
@@ -138,13 +141,13 @@ func waitForSignal(configPath string, manager *xdp.Manager, allowedPlugins []str
 				}
 
 				if err := p.Reload(pluginCtx); err != nil {
-					log.Printf("⚠️  Failed to reload plugin %s: %v", p.Name(), err)
+					log.Warnf("⚠️  Failed to reload plugin %s: %v", p.Name(), err)
 				}
 			}
 
-			log.Println("✅ Configuration reloaded")
+			log.Info("✅ Configuration reloaded")
 		} else {
-			log.Println("👋 Daemon shutting down...")
+			log.Info("👋 Daemon shutting down...")
 			break
 		}
 	}
@@ -153,25 +156,26 @@ func waitForSignal(configPath string, manager *xdp.Manager, allowedPlugins []str
 // runCleanupLoop periodically removes expired rules from BPF maps.
 // runCleanupLoop 定期从 BPF Map 中删除过期的规则。
 func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
+	log := logger.Get(ctx)
 	if !globalCfg.Base.EnableExpiry {
-		log.Println("ℹ️  Rule cleanup is disabled in config")
+		log.Info("ℹ️  Rule cleanup is disabled in config")
 		return
 	}
 
 	interval, err := time.ParseDuration(globalCfg.Base.CleanupInterval)
 	if err != nil {
-		log.Printf("⚠️  Invalid cleanup_interval '%s', defaulting to 1m: %v", globalCfg.Base.CleanupInterval, err)
+		log.Warnf("⚠️  Invalid cleanup_interval '%s', defaulting to 1m: %v", globalCfg.Base.CleanupInterval, err)
 		interval = 1 * time.Minute
 	}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	log.Printf("🧹 Rule cleanup enabled (Interval: %v)", interval)
+	log.Infof("🧹 Rule cleanup enabled (Interval: %v)", interval)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("🛑 Stopping cleanup loop")
+			log.Info("🛑 Stopping cleanup loop")
 			return
 		case <-ticker.C:
 			m, err := xdp.NewManagerFromPins(config.GetPinPath())
@@ -181,11 +185,11 @@ func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
 			// Cleanup all maps that support expiration / 清理所有支持过期的 Map
 			removed, _ := xdp.CleanupExpiredRules(m.LockList(), false)
 			removedW, _ := xdp.CleanupExpiredRules(m.Whitelist(), false)
-			removedP, _ := xdp.CleanupExpiredRules(m.IpPortRules(), false)
+			removedP, _ := xdp.CleanupExpiredRules(m.IPPortRules(), false)
 
 			total := removed + removedW + removedP
 			if total > 0 {
-				log.Printf("🧹 Cleanup: removed %d expired rules from BPF maps", total)
+				log.Infof("🧹 Cleanup: removed %d expired rules from BPF maps", total)
 			}
 			m.Close()
 		}

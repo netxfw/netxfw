@@ -18,6 +18,9 @@ var WebCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.RunWebServer function not initialized")
 			os.Exit(1)
 		}
+		
+		ctx := cmd.Context()
+		
 		port := 11811
 		if len(args) > 0 {
 			p, err := strconv.Atoi(args[0])
@@ -28,7 +31,7 @@ var WebCmd = &cobra.Command{
 		}
 		// Start web server
 		// 启动 Web 服务器
-		common.RunWebServer(port)
+		common.RunWebServer(ctx, port)
 	},
 }
 

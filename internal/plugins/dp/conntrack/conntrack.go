@@ -48,7 +48,7 @@ func (p *ConntrackPlugin) DefaultConfig() interface{} {
 	}
 }
 
-func (p *ConntrackPlugin) Sync(manager *xdp.Manager) error {
+func (p *ConntrackPlugin) Sync(manager xdp.ManagerInterface) error {
 	if p.config == nil {
 		return nil
 	}
@@ -66,18 +66,30 @@ func (p *ConntrackPlugin) Sync(manager *xdp.Manager) error {
 	}
 
 	// 2. Set timeout if configured
-	// TODO: Support separate TCP/UDP timeouts if BPF supports it
+	var tcpDuration time.Duration
+	var err error
+
 	if p.config.TCPTimeout != "" {
-		timeout, err := time.ParseDuration(p.config.TCPTimeout)
-		if err == nil {
-			if err := manager.SetConntrackTimeout(timeout); err != nil {
-				log.Printf("⚠️  [ConntrackPlugin] Failed to set conntrack timeout: %v", err)
-			} else {
-				log.Printf("✅ [ConntrackPlugin] Conntrack timeout set to %v", timeout)
-			}
-		} else {
+		tcpDuration, err = time.ParseDuration(p.config.TCPTimeout)
+		if err != nil {
 			log.Printf("⚠️  [ConntrackPlugin] Invalid TCPTimeout format: %s", p.config.TCPTimeout)
+			tcpDuration = time.Hour // Default
 		}
+	} else {
+		tcpDuration = time.Hour
+	}
+
+	if p.config.UDPTimeout != "" {
+		_, err := time.ParseDuration(p.config.UDPTimeout)
+		if err != nil {
+			log.Printf("⚠️  [ConntrackPlugin] Invalid UDPTimeout format: %s", p.config.UDPTimeout)
+		}
+	}
+
+	if err := manager.SetConntrackTimeout(tcpDuration); err != nil {
+		log.Printf("⚠️  [ConntrackPlugin] Failed to set conntrack timeout: %v", err)
+	} else {
+		log.Printf("✅ [ConntrackPlugin] Conntrack timeout set to %v (Global)", tcpDuration)
 	}
 
 	log.Printf("✅ [ConntrackPlugin] Connection tracking (LRU-based) enabled")

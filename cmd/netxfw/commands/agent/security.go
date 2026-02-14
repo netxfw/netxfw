@@ -27,18 +27,26 @@ var securityFragmentsCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncDropFragments == nil {
-			cmd.PrintErrln("❌ common.SyncDropFragments function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
 			log.Fatalf("❌ Invalid boolean value: %v", err)
 		}
 		// Toggle drop fragments
 		// 切换丢弃分片
-		common.SyncDropFragments(enable)
+		if err := common.SyncDropFragments(ctx, mgr, enable); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -53,18 +61,26 @@ var securityStrictTCPCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncStrictTCP == nil {
-			cmd.PrintErrln("❌ common.SyncStrictTCP function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
 			log.Fatalf("❌ Invalid boolean value: %v", err)
 		}
 		// Toggle strict TCP
 		// 切换严格 TCP 检查
-		common.SyncStrictTCP(enable)
+		if err := common.SyncStrictTCP(ctx, mgr, enable); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -79,18 +95,26 @@ var securitySYNLimitCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncSYNLimit == nil {
-			cmd.PrintErrln("❌ common.SyncSYNLimit function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
 			log.Fatalf("❌ Invalid boolean value: %v", err)
 		}
 		// Toggle SYN limit
 		// 切换 SYN 限制
-		common.SyncSYNLimit(enable)
+		if err := common.SyncSYNLimit(ctx, mgr, enable); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -105,18 +129,26 @@ var securityBogonCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncBogonFilter == nil {
-			cmd.PrintErrln("❌ common.SyncBogonFilter function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
 			log.Fatalf("❌ Invalid boolean value: %v", err)
 		}
 		// Toggle Bogon filtering
 		// 切换 Bogon 过滤
-		common.SyncBogonFilter(enable)
+		if err := common.SyncBogonFilter(ctx, mgr, enable); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -131,18 +163,26 @@ var securityAutoBlockCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncAutoBlock == nil {
-			cmd.PrintErrln("❌ common.SyncAutoBlock function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
 			log.Fatalf("❌ Invalid boolean value: %v", err)
 		}
 		// Toggle auto-blocking
 		// 切换自动封锁
-		common.SyncAutoBlock(enable)
+		if err := common.SyncAutoBlock(ctx, mgr, enable); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -157,18 +197,26 @@ var securityAutoBlockExpiryCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncAutoBlockExpiry == nil {
-			cmd.PrintErrln("❌ common.SyncAutoBlockExpiry function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		expiry, err := strconv.Atoi(args[0])
 		if err != nil {
 			log.Fatalf("❌ Invalid expiry value: %v", err)
 		}
 		// Set auto-block expiry
 		// 设置自动封锁过期时间
-		common.SyncAutoBlockExpiry(uint32(expiry))
+		if err := common.SyncAutoBlockExpiry(ctx, mgr, uint32(expiry)); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 

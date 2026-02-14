@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/livp123/netxfw/internal/utils/iputil"
 )
@@ -82,10 +83,19 @@ func (c *LogEngineConfig) Validate() error {
 }
 
 func validateCIDR(s string) error {
-	if !iputil.IsValidCIDR(s) && !iputil.IsValidIP(s) {
-		return fmt.Errorf("invalid CIDR or IP format")
+	if iputil.IsValidCIDR(s) || iputil.IsValidIP(s) {
+		return nil
 	}
-	return nil
+
+	// Try with port (CIDR:Port or IP:Port)
+	host, _, err := net.SplitHostPort(s)
+	if err == nil {
+		if iputil.IsValidCIDR(host) || iputil.IsValidIP(host) {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("invalid CIDR or IP format")
 }
 
 func validateIP(s string) error {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/livp123/netxfw/internal/core"
@@ -15,13 +16,14 @@ func main() {
 	// Set runtime mode
 	// 设置运行模式
 	runtime.Mode = "dp"
+	ctx := context.Background()
 
 	// Initialize configuration
 	// 初始化配置
-	core.InitConfiguration()
-	core.TestConfiguration()
+	core.InitConfiguration(ctx)
+	core.TestConfiguration(ctx)
 
 	// Run the daemon logic directly
 	// 直接运行守护进程逻辑
-	daemon.Run(runtime.Mode)
+	daemon.Run(ctx, runtime.Mode)
 }

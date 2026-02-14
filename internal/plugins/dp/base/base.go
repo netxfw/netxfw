@@ -47,7 +47,7 @@ func (p *BasePlugin) Start(ctx *sdk.PluginContext) error {
 	return p.Sync(ctx.Manager)
 }
 
-func (p *BasePlugin) Sync(manager *xdp.Manager) error {
+func (p *BasePlugin) Sync(manager xdp.ManagerInterface) error {
 	if p.config == nil {
 		return nil
 	}
@@ -89,10 +89,10 @@ func (p *BasePlugin) Sync(manager *xdp.Manager) error {
 	currentWhitelist := make(map[string]uint16)
 
 	// Helper to parse whitelist entries from BPF
-	parseWhitelist := func(isIPv6 bool) {
-		ips, err := manager.ListWhitelist(isIPv6)
+	parseWhitelist := func() {
+		ips, _, err := manager.ListWhitelistIPs(0, "")
 		if err != nil {
-			log.Printf("⚠️ [BasePlugin] Failed to list whitelist (v6=%v): %v", isIPv6, err)
+			log.Printf("⚠️ [BasePlugin] Failed to list whitelist: %v", err)
 			return
 		}
 		for _, entry := range ips {
@@ -108,8 +108,7 @@ func (p *BasePlugin) Sync(manager *xdp.Manager) error {
 			currentWhitelist[cidr] = port
 		}
 	}
-	parseWhitelist(false)
-	parseWhitelist(true)
+	parseWhitelist()
 
 	desiredWhitelist := make(map[string]uint16)
 	for _, entry := range p.config.Whitelist {
@@ -134,7 +133,7 @@ func (p *BasePlugin) Sync(manager *xdp.Manager) error {
 	// Remove obsolete
 	for cidr := range currentWhitelist {
 		if _, ok := desiredWhitelist[cidr]; !ok {
-			if err := manager.RemoveAllowStatic(cidr); err != nil {
+			if err := manager.RemoveWhitelistIP(cidr); err != nil {
 				log.Printf("⚠️ [BasePlugin] Failed to remove whitelist %s: %v", cidr, err)
 			} else {
 				log.Printf("➖ [BasePlugin] Removed whitelist %s", cidr)
@@ -142,7 +141,7 @@ func (p *BasePlugin) Sync(manager *xdp.Manager) error {
 		} else {
 			// Check if port changed
 			if currentWhitelist[cidr] != desiredWhitelist[cidr] {
-				// AllowStatic overwrites, so just log
+				// AddWhitelistIP overwrites, so just log
 				log.Printf("🔄 [BasePlugin] Updating whitelist %s port %d -> %d", cidr, currentWhitelist[cidr], desiredWhitelist[cidr])
 			}
 		}
@@ -151,7 +150,7 @@ func (p *BasePlugin) Sync(manager *xdp.Manager) error {
 	// Add new or update
 	for cidr, port := range desiredWhitelist {
 		// Always apply to ensure port is correct and map is consistent
-		if err := manager.AllowStatic(cidr, port); err != nil {
+		if err := manager.AddWhitelistIP(cidr, port); err != nil {
 			log.Printf("⚠️ [BasePlugin] Failed to allow %s: %v", cidr, err)
 		} else {
 			if _, ok := currentWhitelist[cidr]; !ok {
@@ -197,7 +196,7 @@ func (p *BasePlugin) Sync(manager *xdp.Manager) error {
 
 				count := 0
 				for _, line := range merged {
-					if err := manager.BlockStatic(line, ""); err != nil {
+					if err := manager.AddBlacklistIP(line); err != nil {
 						log.Printf("⚠️  [BasePlugin] Failed to block %s: %v", line, err)
 					}
 					count++
@@ -212,7 +211,7 @@ func (p *BasePlugin) Sync(manager *xdp.Manager) error {
 	return nil
 }
 
-func (p *BasePlugin) loadBinaryRules(manager *xdp.Manager) (int, error) {
+func (p *BasePlugin) loadBinaryRules(manager xdp.ManagerInterface) (int, error) {
 	// 1. Decompress to temporary file
 	tmpBin := p.config.LockListBinary + ".decomp"
 	cmd := exec.Command("zstd", "-d", "-f", "-o", tmpBin, p.config.LockListBinary)
@@ -254,7 +253,7 @@ func (p *BasePlugin) loadBinaryRules(manager *xdp.Manager) (int, error) {
 	// 4. Load into BPF maps
 	count := 0
 	for _, r := range records {
-		if err := manager.BlockStatic(fmt.Sprintf("%s/%d", r.IP.String(), r.PrefixLen), ""); err != nil {
+		if err := manager.AddBlacklistIP(fmt.Sprintf("%s/%d", r.IP.String(), r.PrefixLen)); err != nil {
 			continue
 		}
 		count++

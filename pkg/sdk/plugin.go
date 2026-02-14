@@ -15,7 +15,7 @@ type PluginContext struct {
 	context.Context
 	// Manager provides access to low-level XDP operations and BPF maps.
 	// Manager 提供对底层 XDP 操作和 BPF Map 的访问。
-	Manager *xdp.Manager
+	Manager xdp.ManagerInterface
 	// Config holds the current global configuration snapshot.
 	// Config 保存当前的全局配置快照。
 	Config *types.GlobalConfig

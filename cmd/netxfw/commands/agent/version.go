@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
@@ -13,7 +14,7 @@ var VersionCmd = &cobra.Command{
 	Short: "Show version information",
 	Long:  `Show the current version of netxfw`,
 	Run: func(cmd *cobra.Command, args []string) {
-		showVersion()
+		showVersion(cmd.Context())
 	},
 }
 
@@ -21,11 +22,14 @@ func init() {
 	// RootCmd.AddCommand(versionCmd)
 }
 
-func showVersion() {
+func showVersion(ctx context.Context) {
 	fmt.Printf("netxfw %s\n", version.Version)
 	// Show additional status info if available
 	// 如果可用，显示额外的状态信息
 	if common.ShowStatus != nil {
-		common.ShowStatus()
+		mgr, err := common.GetManager()
+		if err == nil {
+			common.ShowStatus(ctx, mgr)
+		}
 	}
 }

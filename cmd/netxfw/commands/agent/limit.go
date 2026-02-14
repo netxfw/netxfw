@@ -12,27 +12,30 @@ import (
 var LimitCmd = &cobra.Command{
 	Use:   "limit",
 	Short: "Rate limit management",
-	Long:  `Rate limit management commands
+	Long: `Rate limit management commands
 限速管理命令`,
 }
 
 var limitAddCmd = &cobra.Command{
 	Use:   "add <ip> <rate> <burst>",
 	Short: "Add rate limit rule",
-	Long:  `Add IP rate limit rule (packets per second)
+	Long: `Add IP rate limit rule (packets per second)
 添加 IP 限速规则（每秒包数）`,
-	Args:  cobra.ExactArgs(3),
+	Args: cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncRateLimitRule == nil {
-			cmd.PrintErrln("❌ common.SyncRateLimitRule function not initialized")
-			os.Exit(1)
-		}
 
 		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+		ctx := cmd.Context()
 
 		ip := args[0]
 		rate, err := strconv.ParseUint(args[1], 10, 64)
@@ -45,7 +48,10 @@ var limitAddCmd = &cobra.Command{
 		}
 		// Add rate limit rule
 		// 添加限速规则
-		common.SyncRateLimitRule(ip, rate, burst, true)
+		if err := common.SyncRateLimitRule(ctx, mgr, ip, rate, burst, true); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -59,14 +65,22 @@ var limitRemoveCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncRateLimitRule == nil {
-			cmd.PrintErrln("❌ common.SyncRateLimitRule function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		// Remove rate limit rule
 		// 移除限速规则
-		common.SyncRateLimitRule(args[0], 0, 0, false)
+		if err := common.SyncRateLimitRule(ctx, mgr, args[0], 0, 0, false); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -75,13 +89,17 @@ var limitListCmd = &cobra.Command{
 	Short: "List rate limit rules",
 	Long:  `List all rate limit rules`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.ShowRateLimitRules == nil {
-			cmd.PrintErrln("❌ common.ShowRateLimitRules function not initialized")
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+
 		// Show rate limit rules
 		// 显示限速规则
-		common.ShowRateLimitRules()
+		if err := common.ShowRateLimitRules(cmd.Context(), mgr); err != nil {
+			cmd.PrintErrln(err)
+		}
 	},
 }
 

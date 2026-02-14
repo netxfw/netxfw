@@ -65,6 +65,12 @@ func CheckConflict(mapPtr *ebpf.Map, cidrStr string, isWhitelistMap bool) (bool,
 	return false, ""
 }
 
+// IsIPInMap checks if a CIDR exists in the map.
+func IsIPInMap(mapPtr *ebpf.Map, cidrStr string) (bool, error) {
+	conflict, _ := CheckConflict(mapPtr, cidrStr, false)
+	return conflict, nil
+}
+
 /**
  * LockIP adds an IPv4 or IPv6 address or CIDR to the BPF lock list.
  * LockIP 将 IPv4/IPv6 地址或 CIDR 网段添加到 BPF 锁定列表中。
@@ -179,10 +185,10 @@ func UnlockIP(mapPtr *ebpf.Map, cidrStr string) error {
 }
 
 /**
- * ListWhitelistedIPs iterates over the BPF whitelist map and returns limited allowed ranges.
- * ListWhitelistedIPs 遍历 BPF 白名单 Map 并返回有限数量的允许网段。
+ * ListWhitelistIPs iterates over the BPF whitelist map and returns limited allowed ranges.
+ * ListWhitelistIPs 遍历 BPF 白名单 Map 并返回有限数量的允许网段。
  */
-func ListWhitelistedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) ([]string, int, error) {
+func ListWhitelistIPs(mapPtr *ebpf.Map, limit int, search string) ([]string, int, error) {
 	// isIPv6 is deprecated but kept for compatibility
 	if mapPtr == nil {
 		return nil, 0, nil

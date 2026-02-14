@@ -38,7 +38,7 @@ func (p *PortPlugin) Start(ctx *sdk.PluginContext) error {
 }
 
 // Sync synchronizes the current configuration with the BPF maps (Add/Remove)
-func (p *PortPlugin) Sync(manager *xdp.Manager) error {
+func (p *PortPlugin) Sync(manager xdp.ManagerInterface) error {
 	if p.config == nil {
 		return nil
 	}
@@ -63,7 +63,7 @@ func (p *PortPlugin) Sync(manager *xdp.Manager) error {
 	// Remove ports not in config
 	for port := range existingPorts {
 		if !desiredPorts[port] {
-			if err := manager.RemovePort(port); err != nil {
+			if err := manager.RemoveAllowedPort(port); err != nil {
 				log.Printf("⚠️ [PortPlugin] Failed to remove port %d: %v", port, err)
 			} else {
 				log.Printf("➖ [PortPlugin] Removed port %d", port)
@@ -74,7 +74,7 @@ func (p *PortPlugin) Sync(manager *xdp.Manager) error {
 	// Add ports in config
 	for port := range desiredPorts {
 		if !existingPorts[port] {
-			if err := manager.AllowPort(port, nil); err != nil {
+			if err := manager.AllowPort(port); err != nil {
 				log.Printf("⚠️ [PortPlugin] Failed to allow port %d: %v", port, err)
 			} else {
 				log.Printf("➕ [PortPlugin] Allowed port %d", port)
@@ -95,11 +95,20 @@ func (p *PortPlugin) Sync(manager *xdp.Manager) error {
 	return nil
 }
 
-func (p *PortPlugin) syncIPPortRules(manager *xdp.Manager, isIPv6 bool) error {
+func (p *PortPlugin) syncIPPortRules(manager xdp.ManagerInterface, isIPv6 bool) error {
 	// List existing rules
-	currentRulesMap, _, err := manager.ListIPPortRules(isIPv6, 0, "")
+	currentRulesSlice, _, err := manager.ListIPPortRules(isIPv6, 0, "")
 	if err != nil {
 		return err
+	}
+
+	// Convert slice to map for diffing
+	currentRulesMap := make(map[string]uint8)
+	for _, r := range currentRulesSlice {
+		// Canonical string
+		// r.IP should already be in "IP/Prefix" format from Manager
+		key := fmt.Sprintf("%s:%d", r.IP, r.Port)
+		currentRulesMap[key] = r.Action
 	}
 
 	// Build desired rules map for fast lookup
@@ -127,53 +136,37 @@ func (p *PortPlugin) syncIPPortRules(manager *xdp.Manager, isIPv6 bool) error {
 	}
 
 	// Remove rules not in config
-	for key := range currentRulesMap {
-		if _, ok := desiredRulesMap[key]; !ok {
+	for keyStr := range currentRulesMap {
+		if _, ok := desiredRulesMap[keyStr]; !ok {
 			// Parse key back to IPNet and Port to remove
 			// key: "IP/Prefix:Port"
 			// iputil.ParseIPPort expects "Host:Port", and "IP/Prefix" is a valid host string for SplitHostPort
-			ipCIDR, port, err := iputil.ParseIPPort(key)
+			ipCIDR, port, err := iputil.ParseIPPort(keyStr)
 			if err != nil {
 				continue
 			}
 
-			ipNet, err := iputil.ParseCIDR(ipCIDR) // Should be valid as it came from Manager
-			if err != nil {
-				continue
-			}
-
-			if err := manager.RemoveIPPortRule(ipNet, port); err != nil {
-				log.Printf("⚠️ [PortPlugin] Failed to remove rule %s: %v", key, err)
+			if err := manager.RemoveIPPortRule(ipCIDR, port); err != nil {
+				log.Printf("⚠️ [PortPlugin] Failed to remove rule %s: %v", keyStr, err)
 			} else {
-				log.Printf("➖ [PortPlugin] Removed rule %s", key)
+				log.Printf("➖ [PortPlugin] Removed rule %s", keyStr)
 			}
 		}
 	}
 
 	// Add/Update rules from config
 	for key, rule := range desiredRulesMap {
-		currentActionStr, exists := currentRulesMap[key]
-		desiredActionStr := "allow"
+		currentAction, exists := currentRulesMap[key]
+		desiredAction := uint8(1) // Allow
 		if rule.Action == 2 {
-			desiredActionStr = "deny"
+			desiredAction = 2
 		}
 
-		if !exists || currentActionStr != desiredActionStr {
-			// Add or Update
-			// Re-parse key to get clean IPNet
-			ipCIDR, _, err := iputil.ParseIPPort(key)
-			if err != nil {
-				continue
-			}
-			ipNet, err := iputil.ParseCIDR(ipCIDR)
-			if err != nil {
-				continue
-			}
-
-			if err := manager.AddIPPortRule(ipNet, rule.Port, rule.Action, nil); err != nil {
-				log.Printf("⚠️ [PortPlugin] Failed to update rule %s: %v", key, err)
+		if !exists || currentAction != desiredAction {
+			if err := manager.AddIPPortRule(rule.IP, rule.Port, desiredAction); err != nil {
+				log.Printf("⚠️ [PortPlugin] Failed to add rule %s: %v", key, err)
 			} else {
-				log.Printf("➕ [PortPlugin] Updated rule %s (%s)", key, desiredActionStr)
+				log.Printf("➕ [PortPlugin] Added/Updated rule %s", key)
 			}
 		}
 	}

@@ -22,7 +22,7 @@ import (
 type StatsProvider interface {
 	GetDropCount() (uint64, error)
 	GetPassCount() (uint64, error)
-	GetLockedIPCount() (uint64, error)
+	GetLockedIPCount() (int, error)
 	GetDropDetails() ([]xdp.DropDetailEntry, error)
 	GetPassDetails() ([]xdp.DropDetailEntry, error)
 }

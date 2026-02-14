@@ -1,8 +1,8 @@
 package core
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"sort"
@@ -11,7 +11,7 @@ import (
 
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
 /**
@@ -43,22 +43,15 @@ func getXDPMode(iface string) string {
  * ShowWhitelist reads and prints all whitelisted ranges.
  * ShowWhitelist 读取并打印所有白名单范围。
  */
-func ShowWhitelist(limit int, search string) {
-	m, err := config.LoadMap(config.MapWhitelist)
+func ShowWhitelist(ctx context.Context, xdpMgr XDPManager, limit int, search string) error {
+	ips, total, err := xdpMgr.ListWhitelistIPs(limit, search)
 	if err != nil {
-		fmt.Printf("⚠️  Failed to load whitelist map: %v\n", err)
-		return
-	}
-	defer m.Close()
-
-	ips, total, err := xdp.ListWhitelistedIPs(m, false, limit, search)
-	if err != nil {
-		log.Fatalf("❌ Failed to list whitelisted IPs: %v", err)
+		return fmt.Errorf("failed to list whitelisted IPs: %v", err)
 	}
 
 	if len(ips) == 0 {
 		fmt.Println("Empty whitelist.")
-		return
+		return nil
 	}
 
 	header := "⚪ Currently whitelisted IPs/ranges"
@@ -74,43 +67,29 @@ func ShowWhitelist(limit int, search string) {
 	if limit > 0 && total >= limit {
 		fmt.Printf("\n⚠️  Showing up to %d entries (limit reached).\n", limit)
 	}
+	return nil
 }
 
 /**
  * ShowTopStats displays the top IPs by traffic and drop counts.
  * ShowTopStats 显示按流量和丢弃计数排序的前几名 IP。
  */
-func ShowTopStats(limit int, sortBy string) {
+func ShowTopStats(ctx context.Context, xdpMgr XDPManager, limit int, sortBy string) error {
+	log := logger.Get(ctx)
 	// 1. Fetch Stats / 获取统计信息
-	var dropDetails []xdp.DropDetailEntry
-	var passDetails []xdp.DropDetailEntry
-	var err error
-
-	dropMap, err := config.LoadMap(config.MapDropReasonStats)
-	if err == nil {
-		defer dropMap.Close()
-		dropDetails, err = xdp.GetDropDetailsFromMap(dropMap)
-		if err != nil {
-			fmt.Printf("⚠️  Could not retrieve drop details: %v\n", err)
-		}
-	} else {
-		fmt.Printf("⚠️  Could not load drop stats map: %v\n", err)
+	dropDetails, err := xdpMgr.GetDropDetails()
+	if err != nil {
+		log.Warnf("⚠️  Could not retrieve drop details: %v", err)
 	}
 
-	passMap, err := config.LoadMap(config.MapPassReasonStats)
-	if err == nil {
-		defer passMap.Close()
-		passDetails, err = xdp.GetPassDetailsFromMap(passMap)
-		if err != nil {
-			fmt.Printf("⚠️  Could not retrieve pass details: %v\n", err)
-		}
-	} else {
-		fmt.Printf("⚠️  Could not load pass stats map: %v\n", err)
+	passDetails, err := xdpMgr.GetPassDetails()
+	if err != nil {
+		log.Warnf("⚠️  Could not retrieve pass details: %v", err)
 	}
 
 	if dropDetails == nil && passDetails == nil {
 		fmt.Println("❌ No stats available (maps not loaded?)")
-		return
+		return nil
 	}
 
 	// 2. Aggregate by IP / 按 IP 聚合
@@ -165,29 +144,23 @@ func ShowTopStats(limit int, sortBy string) {
 		fmt.Printf("%-40s %-15d %-15d %-15d\n", s.IP, s.Total, s.Pass, s.Drop)
 		count++
 	}
+	return nil
 }
 
 /**
  * ShowConntrack reads and prints all active connections.
  * ShowConntrack 读取并打印所有活动连接。
  */
-func ShowConntrack() {
-	m, err := config.LoadMap(config.MapConntrack)
+func ShowConntrack(ctx context.Context, xdpMgr XDPManager) error {
+	entries, err := xdpMgr.ListAllConntrackEntries()
 	if err != nil {
-		fmt.Printf("❌ Failed to load conntrack map: %v\n", err)
-		return
-	}
-	defer m.Close()
-
-	entries, err := xdp.ListConntrackEntriesFromMap(m)
-	if err != nil {
-		log.Fatalf("❌ Failed to list conntrack entries: %v", err)
+		return fmt.Errorf("failed to list conntrack entries: %v", err)
 	}
 
 	fmt.Println("🕵️  Active Connections (Conntrack):")
 	if len(entries) == 0 {
 		fmt.Println(" - No active connections.")
-		return
+		return nil
 	}
 
 	fmt.Printf("%-40s %-5s %-40s %-5s %-8s\n", "Source", "Port", "Destination", "Port", "Protocol")
@@ -209,35 +182,34 @@ func ShowConntrack() {
 		fmt.Printf("%-40s %-5d %-40s %-5d %-8s\n", e.SrcIP, e.SrcPort, e.DstIP, e.DstPort, proto)
 	}
 	fmt.Printf("\nTotal active connections: %d\n", len(entries))
+	return nil
 }
 
 /**
  * ShowIPPortRules reads and prints all IP+Port rules.
  * ShowIPPortRules 读取并打印所有 IP+端口规则。
  */
-func ShowIPPortRules(limit int, search string) {
-	m, err := xdp.NewManagerFromPins(config.GetPinPath())
+func ShowIPPortRules(ctx context.Context, xdpMgr XDPManager, limit int, search string) error {
+	rules, total, err := xdpMgr.ListIPPortRules(false, limit, search)
 	if err != nil {
-		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
-	}
-	defer m.Close()
-
-	rules, total, err := m.ListIPPortRules(false, limit, search)
-	if err != nil {
-		log.Fatalf("❌ Failed to list IP+Port rules: %v", err)
+		return fmt.Errorf("failed to list IP+Port rules: %v", err)
 	}
 
-	ports, err := m.ListAllowedPorts()
+	ports, err := xdpMgr.ListAllowedPorts()
 	if err != nil {
-		log.Fatalf("❌ Failed to list allowed ports: %v", err)
+		return fmt.Errorf("failed to list allowed ports: %v", err)
 	}
 
 	fmt.Println("🛡️ Current IP+Port Rules:")
 	if len(rules) == 0 {
 		fmt.Println(" - No IP+Port rules.")
 	} else {
-		for target, action := range rules {
-			fmt.Printf(" - %s -> %s\n", target, action)
+		for _, rule := range rules {
+			actionStr := "Deny"
+			if rule.Action == 1 {
+				actionStr = "Allow"
+			}
+			fmt.Printf(" - %s:%d -> %s\n", rule.IP, rule.Port, actionStr)
 		}
 	}
 
@@ -253,28 +225,23 @@ func ShowIPPortRules(limit int, search string) {
 			fmt.Printf(" - Port %d\n", port)
 		}
 	}
+	return nil
 }
 
 /**
  * ShowRateLimitRules reads and prints all rate limit rules.
  * ShowRateLimitRules 读取并打印所有速率限制规则。
  */
-func ShowRateLimitRules() {
-	m, err := xdp.NewManagerFromPins(config.GetPinPath())
+func ShowRateLimitRules(ctx context.Context, xdpMgr XDPManager) error {
+	rules, _, err := xdpMgr.ListRateLimitRules(0, "")
 	if err != nil {
-		log.Fatalf("❌ Failed to initialize manager from pins: %v", err)
-	}
-	defer m.Close()
-
-	rules, _, err := m.ListRateLimitRules(0, "")
-	if err != nil {
-		log.Fatalf("❌ Failed to list rate limit rules: %v", err)
+		return fmt.Errorf("failed to list rate limit rules: %v", err)
 	}
 
 	fmt.Println("🚀 Current Rate Limit Rules (Traffic Control):")
 	if len(rules) == 0 {
 		fmt.Println(" - No rate limit rules defined.")
-		return
+		return nil
 	}
 
 	fmt.Printf("%-30s %-15s %-15s\n", "IP/CIDR", "Rate (PPS)", "Burst")
@@ -283,33 +250,32 @@ func ShowRateLimitRules() {
 	for target, conf := range rules {
 		fmt.Printf("%-30s %-15d %-15d\n", target, conf.Rate, conf.Burst)
 	}
+	return nil
 }
 
 /**
  * ShowStatus displays the current firewall status and statistics.
  * ShowStatus 显示当前的防火墙状态和统计信息。
  */
-func ShowStatus() {
+func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
+	log := logger.Get(ctx)
 	_, err := types.LoadGlobalConfig(config.GetConfigPath())
-
-	m, err := xdp.NewManagerFromPins(config.GetPinPath())
 	if err != nil {
-		fmt.Println("❌ XDP Program Status: Not Loaded (or maps not pinned)")
-		return
+		// Log but continue, maybe config file is missing but XDP is running
+		log.Warnf("⚠️  Could not load global config: %v", err)
 	}
-	defer m.Close()
 
 	fmt.Println("✅ XDP Program Status: Loaded and Running")
 
 	// Get drop stats / 获取丢弃统计
-	drops, err := m.GetDropCount()
+	drops, err := xdpMgr.GetDropCount()
 	if err != nil {
 		fmt.Printf("⚠️  Could not retrieve drop statistics: %v\n", err)
 	} else {
 		fmt.Printf("📊 Global Drop Count: %d packets\n", drops)
 
 		// Show detailed drop stats / 显示详细的丢弃统计
-		details, err := m.GetDropDetails()
+		details, err := xdpMgr.GetDropDetails()
 		if err == nil && len(details) > 0 {
 			// Sort by count descending / 按计数降序排序
 			sort.Slice(details, func(i, j int) bool {
@@ -390,14 +356,14 @@ func ShowStatus() {
 	}
 
 	// Get pass stats / 获取通过统计
-	passes, err := m.GetPassCount()
+	passes, err := xdpMgr.GetPassCount()
 	if err != nil {
 		fmt.Printf("⚠️  Could not retrieve pass statistics: %v\n", err)
 	} else {
 		fmt.Printf("📊 Global Pass Count: %d packets\n", passes)
 
 		// Show detailed pass stats / 显示详细的通过统计
-		details, err := m.GetPassDetails()
+		details, err := xdpMgr.GetPassDetails()
 		if err == nil && len(details) > 0 {
 			// Sort by count descending / 按计数降序排序
 			sort.Slice(details, func(i, j int) bool {
@@ -457,19 +423,19 @@ func ShowStatus() {
 	}
 
 	// Get locked IP count / 获取锁定 IP 计数
-	lockedCount, err := m.GetLockedIPCount()
+	lockedCount, err := xdpMgr.GetLockedIPCount()
 	if err == nil {
 		fmt.Printf("🔒 Locked IP Count: %d addresses\n", lockedCount)
 	}
 
 	// Get whitelist count / 获取白名单计数
-	whitelistCount, err := m.GetWhitelistCount()
+	whitelistCount, err := xdpMgr.GetWhitelistCount()
 	if err == nil {
 		fmt.Printf("⚪ Whitelist Count: %d addresses\n", whitelistCount)
 	}
 
 	// Get conntrack count / 获取连接跟踪计数
-	ctCount, err := m.GetConntrackCount()
+	ctCount, err := xdpMgr.GetConntrackCount()
 	if err == nil {
 		fmt.Printf("🕵️  Active Connections: %d\n", ctCount)
 	}
@@ -477,7 +443,7 @@ func ShowStatus() {
 	// Check default deny policy / 检查默认拒绝策略
 	var key uint32 = 0 // CONFIG_DEFAULT_DENY
 	var val uint64
-	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
+	if err := xdpMgr.GlobalConfig().Lookup(&key, &val); err == nil {
 		status := "Disabled (Allow by default)"
 		if val == 1 {
 			status = "Enabled (Deny by default)"
@@ -487,7 +453,7 @@ func ShowStatus() {
 
 	// Check allow return traffic / 检查允许返回流量
 	key = 1 // CONFIG_ALLOW_RETURN_TRAFFIC
-	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
+	if err := xdpMgr.GlobalConfig().Lookup(&key, &val); err == nil {
 		status := "Disabled"
 		if val == 1 {
 			status = "Enabled"
@@ -497,7 +463,7 @@ func ShowStatus() {
 
 	// Check allow ICMP / 检查允许 ICMP
 	key = 2 // CONFIG_ALLOW_ICMP
-	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
+	if err := xdpMgr.GlobalConfig().Lookup(&key, &val); err == nil {
 		status := "Disabled"
 		if val == 1 {
 			status = "Enabled"
@@ -509,8 +475,8 @@ func ShowStatus() {
 			var rate, burst uint64
 			kRate := uint32(5)  // CONFIG_ICMP_RATE
 			kBurst := uint32(6) // CONFIG_ICMP_BURST
-			if err := m.GlobalConfig().Lookup(&kRate, &rate); err == nil {
-				if err := m.GlobalConfig().Lookup(&kBurst, &burst); err == nil {
+			if err := xdpMgr.GlobalConfig().Lookup(&kRate, &rate); err == nil {
+				if err := xdpMgr.GlobalConfig().Lookup(&kBurst, &burst); err == nil {
 					fmt.Printf("   ├─ Rate Limit: %d packets/sec\n", rate)
 					fmt.Printf("   └─ Burst Limit: %d packets\n", burst)
 				}
@@ -520,7 +486,7 @@ func ShowStatus() {
 
 	// Check conntrack / 检查连接跟踪
 	key = 3 // CONFIG_ENABLE_CONNTRACK
-	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
+	if err := xdpMgr.GlobalConfig().Lookup(&key, &val); err == nil {
 		status := "Disabled"
 		if val == 1 {
 			status = "Enabled"
@@ -530,7 +496,7 @@ func ShowStatus() {
 		if val == 1 {
 			kTimeout := uint32(4) // CONFIG_CONNTRACK_TIMEOUT
 			var timeoutNs uint64
-			if err := m.GlobalConfig().Lookup(&kTimeout, &timeoutNs); err == nil {
+			if err := xdpMgr.GlobalConfig().Lookup(&kTimeout, &timeoutNs); err == nil {
 				fmt.Printf("   └─ Idle Timeout: %v\n", time.Duration(timeoutNs))
 			}
 		}
@@ -538,7 +504,7 @@ func ShowStatus() {
 
 	// Check global ratelimit / 检查全局速率限制
 	key = 10 // CONFIG_ENABLE_RATELIMIT
-	if err := m.GlobalConfig().Lookup(&key, &val); err == nil {
+	if err := xdpMgr.GlobalConfig().Lookup(&key, &val); err == nil {
 		status := "Disabled"
 		if val == 1 {
 			status = "Enabled"
@@ -561,4 +527,5 @@ func ShowStatus() {
 	if attachedCount == 0 {
 		fmt.Println(" - None (Program is loaded but not attached to any interface)")
 	}
+	return nil
 }

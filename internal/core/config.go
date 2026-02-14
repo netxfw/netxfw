@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -13,7 +14,7 @@ import (
 
 // InitConfiguration initializes the default configuration files if they don't exist.
 // InitConfiguration 如果默认配置文件不存在，则初始化它们。
-func InitConfiguration() {
+func InitConfiguration(ctx context.Context) {
 	configPath := config.GetConfigPath()
 	configDir := filepath.Dir(configPath)
 
@@ -42,7 +43,7 @@ func InitConfiguration() {
  * TestConfiguration validates the syntax and values of configuration files.
  * TestConfiguration 验证配置文件的语法和值。
  */
-func TestConfiguration() {
+func TestConfiguration(ctx context.Context) {
 	configPath := config.GetConfigPath()
 	fmt.Printf("🔍 Testing global configuration in %s...\n", configPath)
 

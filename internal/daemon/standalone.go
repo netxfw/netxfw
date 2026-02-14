@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"context"
-	"log"
 
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins"
@@ -14,7 +13,8 @@ import (
 
 // runUnified runs the unified full-stack mode.
 // runUnified 运行统一的全栈模式。
-func runUnified() {
+func runUnified(ctx context.Context) {
+	log := logger.Get(ctx)
 	configPath := config.GetConfigPath()
 	pidPath := config.DefaultPidPath
 
@@ -39,13 +39,13 @@ func runUnified() {
 	pinPath := config.GetPinPath()
 	manager, err := xdp.NewManagerFromPins(pinPath)
 	if err != nil {
-		log.Printf("ℹ️  Creating new XDP manager...")
+		log.Info("ℹ️  Creating new XDP manager...")
 		manager, err = xdp.NewManager(globalCfg.Capacity)
 		if err != nil {
 			log.Fatalf("❌ Failed to create XDP manager: %v", err)
 		}
 		if err := manager.Pin(pinPath); err != nil {
-			log.Printf("⚠️  Failed to pin maps: %v", err)
+			log.Warnf("⚠️  Failed to pin maps: %v", err)
 		}
 	}
 	defer manager.Close()
@@ -67,18 +67,22 @@ func runUnified() {
 	}
 
 	// 3. Load ALL Plugins / 加载所有插件
+	// Wrap manager with Adapter for interface compliance
+	adapter := xdp.NewAdapter(manager)
+
 	pluginCtx := &sdk.PluginContext{
-		Context: context.Background(),
-		Manager: manager,
+		Context: ctx,
+		Manager: adapter,
 		Config:  globalCfg,
+		Logger:  log,
 	}
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(pluginCtx); err != nil {
-			log.Printf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
+			log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
 			continue
 		}
 		if err := p.Start(pluginCtx); err != nil {
-			log.Printf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
+			log.Warnf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
 		}
 		defer p.Stop()
 	}
@@ -87,16 +91,16 @@ func runUnified() {
 	if globalCfg.Web.Enabled {
 		go func() {
 			if err := startWebServer(globalCfg, manager); err != nil {
-				log.Printf("❌ Web server failed: %v", err)
+				log.Errorf("❌ Web server failed: %v", err)
 			}
 		}()
 	}
 
 	// 5. Start Cleanup Loop / 启动清理循环
-	ctx, cancel := context.WithCancel(context.Background())
+	ctxCleanup, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go runCleanupLoop(ctx, globalCfg)
+	go runCleanupLoop(ctxCleanup, globalCfg)
 
-	log.Println("🛡️ Daemon is running (Standalone).")
-	waitForSignal(configPath, manager, nil)
+	log.Info("🛡️ NetXFW Unified is running.")
+	waitForSignal(ctx, configPath, adapter, nil)
 }

@@ -253,6 +253,7 @@ type AIConfig struct {
 
 type LoggingConfig struct {
 	Enabled    bool   `yaml:"enabled"`
+	Level      string `yaml:"level"`       // Log level (debug, info, warn, error)
 	Path       string `yaml:"path"`        // Log file path
 	MaxSize    int    `yaml:"max_size"`    // Max size in MB before rotation
 	MaxBackups int    `yaml:"max_backups"` // Max number of old files to keep

@@ -2,9 +2,8 @@ package core
 
 import (
 	"bufio"
+	"context"
 	"fmt"
-	"log"
-	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -14,30 +13,25 @@ import (
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/ipmerge"
 	"github.com/livp123/netxfw/internal/utils/iputil"
-	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
 // SyncIPPortRule syncs an IP+Port rule to the XDP map and config.
 // SyncIPPortRule 同步 IP+端口规则到 XDP Map 和配置。
-func SyncIPPortRule(ipStr string, port uint16, action uint8, add bool) error {
-	m, err := config.LoadMap(config.MapIPPortRules)
-	if err != nil {
-		return fmt.Errorf("failed to load ip_port_rules map: %v", err)
-	}
-	defer m.Close()
-
+func SyncIPPortRule(ctx context.Context, xdpMgr XDPManager, ipStr string, port uint16, action uint8, add bool) error {
+	log := logger.Get(ctx)
 	cidr := iputil.NormalizeCIDR(ipStr)
 
 	if add {
-		if err := xdp.AddIPPortRule(m, cidr, port, action); err != nil {
+		if err := xdpMgr.AddIPPortRule(cidr, port, action); err != nil {
 			return fmt.Errorf("failed to add rule %s:%d: %v", cidr, port, err)
 		}
-		log.Printf("🛡️ Added IP+Port rule: %s:%d -> Action %d", cidr, port, action)
+		log.Infof("🛡️ Added IP+Port rule: %s:%d -> Action %d", cidr, port, action)
 	} else {
-		if err := xdp.RemoveIPPortRule(m, cidr, port); err != nil {
-			log.Printf("⚠️  Failed to remove rule %s:%d: %v", cidr, port, err)
+		if err := xdpMgr.RemoveIPPortRule(cidr, port); err != nil {
+			log.Warnf("⚠️  Failed to remove rule %s:%d: %v", cidr, port, err)
 		} else {
-			log.Printf("🛡️ Removed IP+Port rule: %s:%d", cidr, port)
+			log.Infof("🛡️ Removed IP+Port rule: %s:%d", cidr, port)
 		}
 	}
 
@@ -102,23 +96,19 @@ func SyncIPPortRule(ipStr string, port uint16, action uint8, add bool) error {
 
 // SyncAllowedPort updates the allowed_ports map and config.
 // SyncAllowedPort 更新 allowed_ports Map 和配置。
-func SyncAllowedPort(port uint16, add bool) {
-	m, err := config.LoadMap(config.MapAllowedPorts)
-	if err != nil {
-		log.Fatalf("❌ Failed to load pinned map: %v", err)
-	}
-	defer m.Close()
+func SyncAllowedPort(ctx context.Context, xdpMgr XDPManager, port uint16, add bool) error {
+	log := logger.Get(ctx)
 
 	if add {
-		if err := xdp.AllowPort(m, port); err != nil {
-			log.Fatalf("❌ Failed to allow port %d: %v", port, err)
+		if err := xdpMgr.AllowPort(port); err != nil {
+			return fmt.Errorf("failed to allow port %d: %v", port, err)
 		}
-		log.Printf("🔓 Allowed global port: %d", port)
+		log.Infof("🔓 Allowed global port: %d", port)
 	} else {
-		if err := xdp.RemoveAllowedPort(m, port); err != nil {
-			log.Printf("⚠️  Failed to remove allowed port %d: %v", port, err)
+		if err := xdpMgr.RemoveAllowedPort(port); err != nil {
+			log.Warnf("⚠️  Failed to remove allowed port %d: %v", port, err)
 		} else {
-			log.Printf("🔒 Removed allowed global port: %d", port)
+			log.Infof("🔒 Removed allowed global port: %d", port)
 		}
 	}
 
@@ -150,30 +140,25 @@ func SyncAllowedPort(port uint16, add bool) {
 			types.SaveGlobalConfig(configPath, globalCfg)
 		}
 	}
+	return nil
 }
 
 // SyncRateLimitRule updates the rate_limit_rules map and config.
 // SyncRateLimitRule 更新 rate_limit_rules Map 和配置。
-func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
-	m, err := config.LoadMap(config.MapRatelimitConfig)
-	if err != nil {
-		log.Printf("⚠️  Failed to load ratelimit_config map: %v", err)
-		return
-	}
-	defer m.Close()
-
+func SyncRateLimitRule(ctx context.Context, xdpMgr XDPManager, ip string, rate uint64, burst uint64, add bool) error {
+	log := logger.Get(ctx)
 	cidr := iputil.NormalizeCIDR(ip)
 
 	if add {
-		if err := xdp.AddRateLimitRule(m, cidr, rate, burst); err != nil {
-			log.Fatalf("❌ Failed to add rate limit rule %s: %v", cidr, err)
+		if err := xdpMgr.AddRateLimitRule(cidr, rate, burst); err != nil {
+			return fmt.Errorf("failed to add rate limit rule %s: %v", cidr, err)
 		}
-		log.Printf("🚀 Added rate limit: %s -> %d pps (burst %d)", cidr, rate, burst)
+		log.Infof("🚀 Added rate limit: %s -> %d pps (burst %d)", cidr, rate, burst)
 	} else {
-		if err := xdp.RemoveRateLimitRule(m, cidr); err != nil {
-			log.Printf("⚠️  Failed to remove rate limit rule %s: %v", cidr, err)
+		if err := xdpMgr.RemoveRateLimitRule(cidr); err != nil {
+			log.Warnf("⚠️  Failed to remove rate limit rule %s: %v", cidr, err)
 		} else {
-			log.Printf("🚀 Removed rate limit: %s", cidr)
+			log.Infof("🚀 Removed rate limit: %s", cidr)
 		}
 	}
 
@@ -226,70 +211,78 @@ func SyncRateLimitRule(ip string, rate uint64, burst uint64, add bool) {
 			types.SaveGlobalConfig(configPath, globalCfg)
 		}
 	}
+	return nil
 }
 
 // SyncAutoBlock updates the auto-block setting in config.
 // SyncAutoBlock 更新配置中的自动封禁设置。
-func SyncAutoBlock(enable bool) {
+func SyncAutoBlock(ctx context.Context, mgr XDPManager, enable bool) error {
+	log := logger.Get(ctx)
 	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.RateLimit.AutoBlock = enable
 		types.SaveGlobalConfig(configPath, globalCfg)
-		log.Printf("🛡️ Auto Block set to: %v", enable)
+		log.Infof("🛡️ Auto Block set to: %v", enable)
+		return nil
 	} else {
-		log.Fatalf("❌ Failed to load config: %v", err)
+		return fmt.Errorf("failed to load config: %v", err)
 	}
 }
 
 // SyncAutoBlockExpiry updates the auto-block expiry time in config.
 // SyncAutoBlockExpiry 更新配置中的自动封禁过期时间。
-func SyncAutoBlockExpiry(seconds uint32) {
+func SyncAutoBlockExpiry(ctx context.Context, mgr XDPManager, seconds uint32) error {
+	log := logger.Get(ctx)
 	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.RateLimit.AutoBlockExpiry = fmt.Sprintf("%ds", seconds)
 		types.SaveGlobalConfig(configPath, globalCfg)
-		log.Printf("🛡️ Auto Block Expiry set to: %d seconds", seconds)
+		log.Infof("🛡️ Auto Block Expiry set to: %d seconds", seconds)
+		return nil
 	} else {
-		log.Fatalf("❌ Failed to load config: %v", err)
+		return fmt.Errorf("failed to load config: %v", err)
 	}
 }
 
 // ClearBlacklist clears all entries from lock_list.
 // ClearBlacklist 清除 lock_list 中的所有条目。
-func ClearBlacklist() {
-	log.Println("🧹 Clearing blacklist...")
+func ClearBlacklist(ctx context.Context, xdpMgr XDPManager) error {
+	log := logger.Get(ctx)
+	log.Info("🧹 Clearing blacklist...")
 
 	// Clear Unified Map / 清除统一 Map
-	if err := clearMapByName(config.MapLockList); err != nil {
-		log.Printf("⚠️  Failed to clear blacklist: %v", err)
-	} else {
-		log.Println("✅ IPv4 Blacklist cleared.")
+	if err := xdpMgr.ClearBlacklist(); err != nil {
+		log.Warnf("⚠️  Failed to clear blacklist: %v", err)
+		return err
 	}
+	log.Info("✅ IPv4 Blacklist cleared.")
 
 	// Clear persistence file / 清除持久化文件
 	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil && globalCfg.Base.LockListFile != "" {
 		if err := os.WriteFile(globalCfg.Base.LockListFile, []byte(""), 0644); err == nil {
-			log.Printf("📄 Cleared persistence file: %s", globalCfg.Base.LockListFile)
+			log.Infof("📄 Cleared persistence file: %s", globalCfg.Base.LockListFile)
 		} else {
-			log.Printf("⚠️  Failed to clear persistence file: %v", err)
+			log.Warnf("⚠️  Failed to clear persistence file: %v", err)
 		}
 	}
+	return nil
 }
 
 // ImportLockListFromFile imports IPs from a file to the blacklist.
 // ImportLockListFromFile 从文件导入 IP 到黑名单。
-func ImportLockListFromFile(path string) {
+func ImportLockListFromFile(ctx context.Context, xdpMgr XDPManager, path string) error {
+	log := logger.Get(ctx)
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatalf("❌ Failed to open file: %v", err)
+		return fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
 
-	log.Printf("📦 Importing blacklist from %s...", path)
+	log.Infof("📦 Importing blacklist from %s...", path)
 	scanner := bufio.NewScanner(file)
 	count := 0
 
@@ -300,11 +293,6 @@ func ImportLockListFromFile(path string) {
 		if line != "" && !strings.HasPrefix(line, "#") {
 			cidrs = append(cidrs, line)
 		}
-	}
-
-	m, _ := config.LoadMap(config.MapLockList)
-	if m != nil {
-		defer m.Close()
 	}
 
 	// Prepare persistence update / 准备持久化更新
@@ -334,12 +322,10 @@ func ImportLockListFromFile(path string) {
 		}
 
 		// Update BPF / 更新 BPF
-		if m != nil {
-			if err := xdp.LockIP(m, cidr); err != nil {
-				log.Printf("⚠️  Failed to lock %s: %v", cidr, err)
-			} else {
-				count++
-			}
+		if err := xdpMgr.AddBlacklistIP(cidr); err != nil {
+			log.Warnf("⚠️  Failed to lock %s: %v", cidr, err)
+		} else {
+			count++
 		}
 
 		// Update persistent list / 更新持久化列表
@@ -356,25 +342,27 @@ func ImportLockListFromFile(path string) {
 			merged = persistentLines
 		}
 		if err := os.WriteFile(globalCfg.Base.LockListFile, []byte(strings.Join(merged, "\n")+"\n"), 0644); err != nil {
-			log.Printf("⚠️  Failed to persist rules: %v", err)
+			log.Warnf("⚠️  Failed to persist rules: %v", err)
 		} else {
-			log.Printf("📄 Persisted %d rules to %s", len(merged), globalCfg.Base.LockListFile)
+			log.Infof("📄 Persisted %d rules to %s", len(merged), globalCfg.Base.LockListFile)
 		}
 	}
 
-	log.Printf("✅ Imported %d rules.", count)
+	log.Infof("✅ Imported %d rules.", count)
+	return nil
 }
 
 // ImportWhitelistFromFile imports IPs from a file to the whitelist.
 // ImportWhitelistFromFile 从文件导入 IP 到白名单。
-func ImportWhitelistFromFile(path string) {
+func ImportWhitelistFromFile(ctx context.Context, xdpMgr XDPManager, path string) error {
+	log := logger.Get(ctx)
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatalf("❌ Failed to open file: %v", err)
+		return fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
 
-	log.Printf("📦 Importing whitelist from %s...", path)
+	log.Infof("📦 Importing whitelist from %s...", path)
 	scanner := bufio.NewScanner(file)
 	count := 0
 
@@ -384,46 +372,33 @@ func ImportWhitelistFromFile(path string) {
 			// Format: IP or IP:Port / 格式：IP 或 IP:端口
 			var ip string
 			var port uint16
-
-			// Handle IPv6 [IP]:Port / 处理 IPv6 [IP]:端口
-			if strings.HasPrefix(line, "[") {
-				end := strings.LastIndex(line, "]")
-				if end != -1 {
-					ip = line[1:end]
-					if len(line) > end+2 && line[end+1] == ':' {
-						fmt.Sscanf(line[end+2:], "%d", &port)
-					}
-				}
+			host, p, err := iputil.ParseIPPort(line)
+			if err == nil {
+				ip = host
+				port = p
 			} else {
-				// Try to parse as IP:Port / 尝试解析为 IP:端口
-				host, portStr, err := net.SplitHostPort(line)
-				if err == nil {
-					ip = host
-					p, _ := strconv.Atoi(portStr)
-					port = uint16(p)
-				} else {
-					ip = line
-					port = 0
-				}
+				ip = line
 			}
 
-			SyncWhitelistMap(ip, port, true)
+			SyncWhitelistMap(ctx, xdpMgr, ip, port, true)
 			count++
 		}
 	}
-	log.Printf("✅ Imported %d whitelist rules.", count)
+	log.Infof("✅ Imported %d whitelist rules.", count)
+	return nil
 }
 
 // ImportIPPortRulesFromFile imports IP+Port rules from a file.
 // ImportIPPortRulesFromFile 从文件导入 IP+端口规则。
-func ImportIPPortRulesFromFile(path string) {
+func ImportIPPortRulesFromFile(ctx context.Context, xdpMgr XDPManager, path string) error {
+	log := logger.Get(ctx)
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatalf("❌ Failed to open file: %v", err)
+		return fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
 
-	log.Printf("📦 Importing IP+Port rules from %s...", path)
+	log.Infof("📦 Importing IP+Port rules from %s...", path)
 	scanner := bufio.NewScanner(file)
 	count := 0
 
@@ -441,10 +416,11 @@ func ImportIPPortRulesFromFile(path string) {
 					action = 1
 				}
 
-				SyncIPPortRule(ip, uint16(port), action, true)
+				SyncIPPortRule(ctx, xdpMgr, ip, uint16(port), action, true)
 				count++
 			}
 		}
 	}
-	log.Printf("✅ Imported %d IP+Port rules.", count)
+	log.Infof("✅ Imported %d IP+Port rules.", count)
+	return nil
 }

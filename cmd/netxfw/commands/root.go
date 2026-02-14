@@ -7,7 +7,9 @@ import (
 	"github.com/livp123/netxfw/cmd/netxfw/commands/agent"
 	"github.com/livp123/netxfw/cmd/netxfw/commands/dp"
 	"github.com/livp123/netxfw/internal/config"
+	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/runtime"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +20,31 @@ var RootCmd = &cobra.Command{
 It provides stateful packet filtering, connection tracking, and rate limiting.
 netxfw 是一个基于 eBPF/XDP 技术构建的高性能防火墙。
 它提供有状态包过滤、连接跟踪和速率限制。`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Load configuration to get logging settings
+		// 加载配置以获取日志设置
+		cfgPath := runtime.ConfigPath
+		if cfgPath == "" {
+			cfgPath = config.DefaultConfigPath
+		}
+		
+		globalCfg, err := types.LoadGlobalConfig(cfgPath)
+		if err != nil {
+			// If config fails to load, use default logging config (console only)
+			// 如果加载配置失败，使用默认日志配置（仅控制台）
+			logger.Init(types.LoggingConfig{
+				Enabled: true,
+				Level:   "info",
+			})
+		} else {
+			logger.Init(globalCfg.Logging)
+		}
+
+		// Inject logger into context
+		// 将 Logger 注入 Context
+		ctx := logger.WithContext(cmd.Context(), logger.Get(nil))
+		cmd.SetContext(ctx)
+	},
 }
 
 func init() {

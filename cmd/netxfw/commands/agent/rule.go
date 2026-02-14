@@ -32,20 +32,15 @@ Examples:
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncLockMap == nil {
-			cmd.PrintErrln("❌ common.SyncLockMap function not initialized")
-			os.Exit(1)
-		}
-		if common.SyncWhitelistMap == nil {
-			cmd.PrintErrln("❌ common.SyncWhitelistMap function not initialized")
-			os.Exit(1)
-		}
-		if common.SyncIPPortRule == nil {
-			cmd.PrintErrln("❌ common.SyncIPPortRule function not initialized")
-			os.Exit(1)
-		}
 
 		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+		ctx := cmd.Context()
 
 		if len(args) == 0 {
 			cmd.PrintErrln("❌ Missing arguments. Usage: netxfw rule add <ip>[:<port>] [allow|deny]")
@@ -122,7 +117,7 @@ Examples:
 			if isAllow {
 				act = 1
 			}
-			if err := common.SyncIPPortRule(ip, uint16(port), act, true); err != nil {
+			if err := common.SyncIPPortRule(ctx, mgr, ip, uint16(port), act, true); err != nil {
 				cmd.PrintErrln(err)
 				os.Exit(1)
 			}
@@ -130,15 +125,25 @@ Examples:
 			// IP Only Rule
 			// 仅 IP 规则
 			if isAllow {
-				common.SyncWhitelistMap(ip, 0, true)
+				if err := common.SyncWhitelistMap(ctx, mgr, ip, 0, true); err != nil {
+					cmd.PrintErrln(err)
+					os.Exit(1)
+				}
 				// Ensure it's not locked
 				// 确保未被锁定
-				common.SyncLockMap(ip, false)
+				if err := common.SyncLockMap(ctx, mgr, ip, false); err != nil {
+					cmd.PrintErrln(err)
+				}
 			} else {
-				common.SyncLockMap(ip, true)
+				if err := common.SyncLockMap(ctx, mgr, ip, true); err != nil {
+					cmd.PrintErrln(err)
+					os.Exit(1)
+				}
 				// Ensure it's not whitelisted
 				// 确保未在白名单中
-				common.SyncWhitelistMap(ip, 0, false)
+				if err := common.SyncWhitelistMap(ctx, mgr, ip, 0, false); err != nil {
+					cmd.PrintErrln(err)
+				}
 			}
 		}
 	},
@@ -149,14 +154,12 @@ var ruleIPListCmd = &cobra.Command{
 	Short: "List IP rules",
 	Long:  `List IP-based firewall rules (whitelist and blacklist)`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.ShowWhitelist == nil {
-			cmd.PrintErrln("❌ common.ShowWhitelist function not initialized")
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		if common.ShowLockList == nil {
-			cmd.PrintErrln("❌ common.ShowLockList function not initialized")
-			os.Exit(1)
-		}
+		ctx := cmd.Context()
 
 		limit := 100
 		search := ""
@@ -173,9 +176,13 @@ var ruleIPListCmd = &cobra.Command{
 		}
 
 		fmt.Println("=== Whitelist (IP Rules) ===")
-		common.ShowWhitelist(limit, search)
+		if err := common.ShowWhitelist(ctx, mgr, limit, search); err != nil {
+			cmd.PrintErrln(err)
+		}
 		fmt.Println("\n=== Blacklist (IP Rules) ===")
-		common.ShowLockList(limit, search)
+		if err := common.ShowLockList(ctx, mgr, limit, search); err != nil {
+			cmd.PrintErrln(err)
+		}
 	},
 }
 
@@ -184,10 +191,12 @@ var rulePortListCmd = &cobra.Command{
 	Short: "List port rules",
 	Long:  `List port-based firewall rules`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.ShowIPPortRules == nil {
-			cmd.PrintErrln("❌ common.ShowIPPortRules function not initialized")
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+		ctx := cmd.Context()
 
 		limit := 100
 		search := ""
@@ -204,7 +213,9 @@ var rulePortListCmd = &cobra.Command{
 		}
 
 		fmt.Println("=== IP+Port Rules ===")
-		common.ShowIPPortRules(limit, search)
+		if err := common.ShowIPPortRules(ctx, mgr, limit, search); err != nil {
+			cmd.PrintErrln(err)
+		}
 	},
 }
 
@@ -218,20 +229,15 @@ var ruleRemoveCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncLockMap == nil {
-			cmd.PrintErrln("❌ common.SyncLockMap function not initialized")
-			os.Exit(1)
-		}
-		if common.SyncWhitelistMap == nil {
-			cmd.PrintErrln("❌ common.SyncWhitelistMap function not initialized")
-			os.Exit(1)
-		}
-		if common.SyncIPPortRule == nil {
-			cmd.PrintErrln("❌ common.SyncIPPortRule function not initialized")
-			os.Exit(1)
-		}
 
 		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+		ctx := cmd.Context()
 
 		input := args[0]
 		var ip string
@@ -265,7 +271,7 @@ var ruleRemoveCmd = &cobra.Command{
 		}
 
 		if port > 0 {
-			if err := common.SyncIPPortRule(ip, uint16(port), 0, false); err != nil {
+			if err := common.SyncIPPortRule(ctx, mgr, ip, uint16(port), 0, false); err != nil {
 				cmd.PrintErrln(err)
 				// We don't exit here because we might want to continue or it's just a warning
 				// 我们在这里不退出，因为我们可能想要继续，或者这只是一个警告
@@ -273,8 +279,12 @@ var ruleRemoveCmd = &cobra.Command{
 		} else {
 			// Try to remove from both if port is not specified
 			// 如果未指定端口，尝试从两者中移除
-			common.SyncLockMap(ip, false)
-			common.SyncWhitelistMap(ip, 0, false)
+			if err := common.SyncLockMap(ctx, mgr, ip, false); err != nil {
+				cmd.PrintErrln(err)
+			}
+			if err := common.SyncWhitelistMap(ctx, mgr, ip, 0, false); err != nil {
+				cmd.PrintErrln(err)
+			}
 		}
 	},
 }
@@ -284,22 +294,12 @@ var ruleListCmd = &cobra.Command{
 	Short: "List rules",
 	Long:  `List firewall rules`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.ShowIPPortRules == nil {
-			cmd.PrintErrln("❌ common.ShowIPPortRules function not initialized")
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		if common.ShowWhitelist == nil {
-			cmd.PrintErrln("❌ common.ShowWhitelist function not initialized")
-			os.Exit(1)
-		}
-		if common.ShowLockList == nil {
-			cmd.PrintErrln("❌ common.ShowLockList function not initialized")
-			os.Exit(1)
-		}
-		if common.ShowConntrack == nil {
-			cmd.PrintErrln("❌ common.ShowConntrack function not initialized")
-			os.Exit(1)
-		}
+		ctx := cmd.Context()
 
 		// Handle the new command structure
 		// 处理新的命令结构
@@ -331,11 +331,15 @@ var ruleListCmd = &cobra.Command{
 
 					if subArg == "allow" || subArg == "white" {
 						fmt.Println("=== Whitelist (IP Rules) ===")
-						common.ShowWhitelist(limit, search)
+						if err := common.ShowWhitelist(ctx, mgr, limit, search); err != nil {
+							cmd.PrintErrln(err)
+						}
 						return
 					} else if subArg == "deny" || subArg == "block" || subArg == "lock" {
 						fmt.Println("=== Blacklist (IP Rules) ===")
-						common.ShowLockList(limit, search)
+						if err := common.ShowLockList(ctx, mgr, limit, search); err != nil {
+							cmd.PrintErrln(err)
+						}
 						return
 					}
 				}
@@ -343,9 +347,13 @@ var ruleListCmd = &cobra.Command{
 				// Default to showing both IP whitelist and blacklist
 				// 默认显示 IP 白名单和黑名单
 				fmt.Println("=== Whitelist (IP Rules) ===")
-				common.ShowWhitelist(limit, search)
+				if err := common.ShowWhitelist(ctx, mgr, limit, search); err != nil {
+					cmd.PrintErrln(err)
+				}
 				fmt.Println("\n=== Blacklist (IP Rules) ===")
-				common.ShowLockList(limit, search)
+				if err := common.ShowLockList(ctx, mgr, limit, search); err != nil {
+					cmd.PrintErrln(err)
+				}
 				return
 
 			case "port":
@@ -371,11 +379,15 @@ var ruleListCmd = &cobra.Command{
 
 					if subArg == "allow" || subArg == "white" {
 						fmt.Println("=== Whitelist (IP+Port Rules) ===")
-						common.ShowIPPortRules(limit, search)
+						if err := common.ShowIPPortRules(ctx, mgr, limit, search); err != nil {
+							cmd.PrintErrln(err)
+						}
 						return
 					} else if subArg == "deny" || subArg == "block" || subArg == "lock" {
 						fmt.Println("=== Blacklist (IP+Port Rules) ===")
-						common.ShowIPPortRules(limit, search)
+						if err := common.ShowIPPortRules(ctx, mgr, limit, search); err != nil {
+							cmd.PrintErrln(err)
+						}
 						return
 					}
 				}
@@ -383,7 +395,9 @@ var ruleListCmd = &cobra.Command{
 				// Default to showing all IP+Port rules
 				// 默认显示所有 IP+Port 规则
 				fmt.Println("=== IP+Port Rules ===")
-				common.ShowIPPortRules(limit, search)
+				if err := common.ShowIPPortRules(ctx, mgr, limit, search); err != nil {
+					cmd.PrintErrln(err)
+				}
 				return
 
 			case "whitelist", "allow":
@@ -403,7 +417,9 @@ var ruleListCmd = &cobra.Command{
 					}
 				}
 
-				common.ShowWhitelist(limit, search)
+				if err := common.ShowWhitelist(ctx, mgr, limit, search); err != nil {
+					cmd.PrintErrln(err)
+				}
 				return
 
 			case "blacklist", "lock", "deny", "block":
@@ -423,7 +439,9 @@ var ruleListCmd = &cobra.Command{
 					}
 				}
 
-				common.ShowLockList(limit, search)
+				if err := common.ShowLockList(ctx, mgr, limit, search); err != nil {
+					cmd.PrintErrln(err)
+				}
 				return
 
 			case "rules":
@@ -443,11 +461,15 @@ var ruleListCmd = &cobra.Command{
 					}
 				}
 
-				common.ShowIPPortRules(limit, search)
+				if err := common.ShowIPPortRules(ctx, mgr, limit, search); err != nil {
+					cmd.PrintErrln(err)
+				}
 				return
 
 			case "conntrack":
-				common.ShowConntrack()
+				if err := common.ShowConntrack(ctx, mgr); err != nil {
+					cmd.PrintErrln(err)
+				}
 				return
 			}
 		}
@@ -455,11 +477,17 @@ var ruleListCmd = &cobra.Command{
 		// Default behavior: show all rules (IP whitelist, IP blacklist, and IP+Port rules)
 		// 默认行为：显示所有规则（IP 白名单，IP 黑名单和 IP+Port 规则）
 		fmt.Println("=== Whitelist (IP Rules) ===")
-		common.ShowWhitelist(100, "")
+		if err := common.ShowWhitelist(ctx, mgr, 100, ""); err != nil {
+			cmd.PrintErrln(err)
+		}
 		fmt.Println("\n=== Blacklist (IP Rules) ===")
-		common.ShowLockList(100, "")
+		if err := common.ShowLockList(ctx, mgr, 100, ""); err != nil {
+			cmd.PrintErrln(err)
+		}
 		fmt.Println("\n=== IP+Port Rules ===")
-		common.ShowIPPortRules(100, "")
+		if err := common.ShowIPPortRules(ctx, mgr, 100, ""); err != nil {
+			cmd.PrintErrln(err)
+		}
 	},
 }
 
@@ -473,30 +501,35 @@ var ruleImportCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.ImportLockListFromFile == nil {
-			cmd.PrintErrln("❌ common.ImportLockListFromFile function not initialized")
-			os.Exit(1)
-		}
-		if common.ImportWhitelistFromFile == nil {
-			cmd.PrintErrln("❌ common.ImportWhitelistFromFile function not initialized")
-			os.Exit(1)
-		}
-		if common.ImportIPPortRulesFromFile == nil {
-			cmd.PrintErrln("❌ common.ImportIPPortRulesFromFile function not initialized")
-			os.Exit(1)
-		}
 
 		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+		ctx := cmd.Context()
+
 		ruleType := args[0]
 		filePath := args[1]
 
 		switch ruleType {
 		case "lock", "deny":
-			common.ImportLockListFromFile(filePath)
+			if err := common.ImportLockListFromFile(ctx, mgr, filePath); err != nil {
+				cmd.PrintErrln(err)
+				os.Exit(1)
+			}
 		case "allow":
-			common.ImportWhitelistFromFile(filePath)
+			if err := common.ImportWhitelistFromFile(ctx, mgr, filePath); err != nil {
+				cmd.PrintErrln(err)
+				os.Exit(1)
+			}
 		case "rules":
-			common.ImportIPPortRulesFromFile(filePath)
+			if err := common.ImportIPPortRulesFromFile(ctx, mgr, filePath); err != nil {
+				cmd.PrintErrln(err)
+				os.Exit(1)
+			}
 		default:
 			fmt.Println("❌ Unknown rule type. Use: lock (or deny), allow, or rules")
 		}
@@ -512,12 +545,20 @@ var ruleClearCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.ClearBlacklist == nil {
-			cmd.PrintErrln("❌ common.ClearBlacklist function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
-		common.ClearBlacklist()
+		ctx := cmd.Context()
+
+		if err := common.ClearBlacklist(ctx, mgr); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 

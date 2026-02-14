@@ -16,14 +16,20 @@ var ConntrackCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.ShowConntrack == nil {
-			cmd.PrintErrln("❌ common.ShowConntrack function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+
 		// Show conntrack table
 		// 显示连接跟踪表
-		common.ShowConntrack()
+		if err := common.ShowConntrack(cmd.Context(), mgr); err != nil {
+			cmd.PrintErrln(err)
+		}
 	},
 }
 

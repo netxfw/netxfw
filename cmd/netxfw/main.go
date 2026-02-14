@@ -122,7 +122,7 @@ func printUsage() {
 
 func showVersion() {
 	fmt.Printf("netxfw %s\n", version.Version)
-	core.ShowStatus() // showStatus now includes edition info
+	// core.ShowStatus() // Removed to avoid build error (ShowStatus requires context and manager)
 }
 
 func ensureStandaloneMode() {

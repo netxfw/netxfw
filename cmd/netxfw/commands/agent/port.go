@@ -25,11 +25,16 @@ var portAddCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncAllowedPort == nil {
-			cmd.PrintErrln("❌ common.SyncAllowedPort function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		if len(args) < 1 {
 			log.Fatal("❌ Missing port number")
 		}
@@ -39,7 +44,10 @@ var portAddCmd = &cobra.Command{
 		}
 		// Add allowed port
 		// 添加允许的端口
-		common.SyncAllowedPort(uint16(port), true)
+		if err := common.SyncAllowedPort(ctx, mgr, uint16(port), true); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -53,11 +61,15 @@ var portRemoveCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncAllowedPort == nil {
-			cmd.PrintErrln("❌ common.SyncAllowedPort function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
 
 		port, err := strconv.Atoi(args[0])
 		if err != nil {
@@ -65,7 +77,10 @@ var portRemoveCmd = &cobra.Command{
 		}
 		// Remove allowed port
 		// 移除允许的端口
-		common.SyncAllowedPort(uint16(port), false)
+		if err := common.SyncAllowedPort(ctx, mgr, uint16(port), false); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 

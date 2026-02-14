@@ -25,7 +25,7 @@ type ActionHandler interface {
 
 // XDPActionHandler implements ActionHandler using the XDP manager asynchronously.
 type XDPActionHandler struct {
-	manager      *xdp.Manager
+	manager      xdp.ManagerInterface
 	lockListFile string
 	actionChan   chan actionRequest
 	stopChan     chan struct{}
@@ -38,7 +38,7 @@ type actionRequest struct {
 }
 
 // NewXDPActionHandler creates a new handler and starts the worker.
-func NewXDPActionHandler(m *xdp.Manager, lockListFile string) *XDPActionHandler {
+func NewXDPActionHandler(m xdp.ManagerInterface, lockListFile string) *XDPActionHandler {
 	h := &XDPActionHandler{
 		manager:      m,
 		lockListFile: lockListFile,
@@ -83,9 +83,9 @@ func (h *XDPActionHandler) execute(req actionRequest) {
 	var err error
 	switch req.actionType {
 	case ActionStatic:
-		err = h.manager.BlockStatic(req.ip.String(), h.lockListFile)
+		err = h.manager.AddBlacklistIPWithFile(req.ip.String(), h.lockListFile)
 	case ActionDynamic:
-		err = h.manager.BlockDynamic(req.ip.String(), req.ttl)
+		err = h.manager.AddDynamicBlacklistIP(req.ip.String(), req.ttl)
 	case ActionLog:
 		// Logging is handled by the caller/pipeline
 		return

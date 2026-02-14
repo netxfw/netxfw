@@ -155,16 +155,33 @@ func (m *Manager) GetStats() (uint64, uint64) {
 }
 
 /**
- * GetDropCount retrieves global drop statistics from the PERCPU map.
- * GetDropCount 从 PERCPU Map 中获取全局拦截统计信息。
+ * GetMapCount returns the total number of entries in a map.
  */
-func (m *Manager) GetDropCount() (uint64, error) {
-	if m.dropStats == nil {
+func GetMapCount(m *ebpf.Map) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	count := 0
+	iter := m.Iterate()
+	var key []byte
+	var val []byte
+	// Using generic iteration since we just want to count
+	for iter.Next(&key, &val) {
+		count++
+	}
+	return count, iter.Err()
+}
+
+/**
+ * GetCounterValueFromMap retrieves a global counter value from a PERCPU_ARRAY map.
+ */
+func GetCounterValueFromMap(m *ebpf.Map) (uint64, error) {
+	if m == nil {
 		return 0, nil
 	}
 	var key uint32 = 0
 	var values []uint64
-	if err := m.dropStats.Lookup(&key, &values); err != nil {
+	if err := m.Lookup(&key, &values); err != nil {
 		return 0, err
 	}
 	var total uint64
@@ -172,6 +189,14 @@ func (m *Manager) GetDropCount() (uint64, error) {
 		total += v
 	}
 	return total, nil
+}
+
+/**
+ * GetDropCount retrieves global drop statistics from the PERCPU map.
+ * GetDropCount 从 PERCPU Map 中获取全局拦截统计信息。
+ */
+func (m *Manager) GetDropCount() (uint64, error) {
+	return GetCounterValueFromMap(m.dropStats)
 }
 
 /**
@@ -179,19 +204,7 @@ func (m *Manager) GetDropCount() (uint64, error) {
  * GetPassCount 从 PERCPU Map 中获取全局放行统计信息。
  */
 func (m *Manager) GetPassCount() (uint64, error) {
-	if m.passStats == nil {
-		return 0, nil
-	}
-	var key uint32 = 0
-	var values []uint64
-	if err := m.passStats.Lookup(&key, &values); err != nil {
-		return 0, err
-	}
-	var total uint64
-	for _, v := range values {
-		total += v
-	}
-	return total, nil
+	return GetCounterValueFromMap(m.passStats)
 }
 
 /**
@@ -199,19 +212,9 @@ func (m *Manager) GetPassCount() (uint64, error) {
  * GetLockedIPCount 返回锁定列表 Map 中的条目总数。
  */
 func (m *Manager) GetLockedIPCount() (uint64, error) {
-	var count uint64
-
 	// Count unified locked IPs / 统计统一锁定 IP
-	if m.lockList != nil {
-		iter := m.lockList.Iterate()
-		var key NetXfwLpmKey
-		var val NetXfwRuleValue
-		for iter.Next(&key, &val) {
-			count++
-		}
-	}
-
-	return count, nil
+	count, err := GetMapCount(m.lockList)
+	return uint64(count), err
 }
 
 /**
@@ -219,16 +222,8 @@ func (m *Manager) GetLockedIPCount() (uint64, error) {
  * GetWhitelistCount 返回白名单 Map 中的条目总数。
  */
 func (m *Manager) GetWhitelistCount() (uint64, error) {
-	var count uint64
-	if m.whitelist != nil {
-		iter := m.whitelist.Iterate()
-		var key NetXfwLpmKey
-		var val NetXfwRuleValue
-		for iter.Next(&key, &val) {
-			count++
-		}
-	}
-	return count, nil
+	count, err := GetMapCount(m.whitelist)
+	return uint64(count), err
 }
 
 /**
@@ -236,16 +231,8 @@ func (m *Manager) GetWhitelistCount() (uint64, error) {
  * GetConntrackCount 返回连接跟踪 Map 中的条目总数。
  */
 func (m *Manager) GetConntrackCount() (uint64, error) {
-	var count uint64
-	if m.conntrackMap != nil {
-		iter := m.conntrackMap.Iterate()
-		var key NetXfwCtKey
-		var val NetXfwCtValue
-		for iter.Next(&key, &val) {
-			count++
-		}
-	}
-	return count, nil
+	count, err := GetMapCount(m.conntrackMap)
+	return uint64(count), err
 }
 
 /**

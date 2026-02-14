@@ -26,7 +26,7 @@ var systemInitCmd = &cobra.Command{
 		}
 		// Initialize configuration
 		// 初始化配置
-		common.InitConfiguration()
+		common.InitConfiguration(cmd.Context())
 	},
 }
 
@@ -35,13 +35,16 @@ var systemStatusCmd = &cobra.Command{
 	Short: "Show runtime status and statistics",
 	Long:  `Show current runtime status and statistics`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.ShowStatus == nil {
-			cmd.PrintErrln("❌ common.ShowStatus function not initialized")
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
 		// Show system status
 		// 显示系统状态
-		common.ShowStatus()
+		if err := common.ShowStatus(cmd.Context(), mgr); err != nil {
+			cmd.PrintErrln(err)
+		}
 	},
 }
 
@@ -56,7 +59,7 @@ var systemTestCmd = &cobra.Command{
 		}
 		// Test configuration
 		// 测试配置
-		common.TestConfiguration()
+		common.TestConfiguration(cmd.Context())
 	},
 }
 
@@ -71,7 +74,7 @@ var systemDaemonCmd = &cobra.Command{
 		}
 		// Run as daemon
 		// 以守护进程方式运行
-		common.RunDaemon()
+		common.RunDaemon(cmd.Context())
 	},
 }
 
@@ -90,10 +93,15 @@ var systemLoadCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.InstallXDP function not initialized")
 			os.Exit(1)
 		}
-		common.InitConfiguration()
+
+		ctx := cmd.Context()
+		common.InitConfiguration(ctx)
+
 		// Install XDP program
 		// 安装 XDP 程序
-		common.InstallXDP(interfaces)
+		// Note: InstallXDP creates its own manager internally usually, or attaches to interfaces.
+		// Checking api.go, InstallXDP signature is: func(ctx context.Context, interfaces []string)
+		common.InstallXDP(ctx, interfaces)
 	},
 }
 
@@ -108,7 +116,7 @@ var systemReloadCmd = &cobra.Command{
 		}
 		// Reload XDP program
 		// 重载 XDP 程序
-		common.ReloadXDP(interfaces)
+		common.ReloadXDP(cmd.Context(), interfaces)
 	},
 }
 
@@ -123,7 +131,7 @@ var systemUnloadCmd = &cobra.Command{
 		}
 		// Remove XDP program
 		// 移除 XDP 程序
-		common.RemoveXDP(interfaces)
+		common.RemoveXDP(cmd.Context(), interfaces)
 	},
 }
 
@@ -133,17 +141,19 @@ var systemSetDefaultDenyCmd = &cobra.Command{
 	Long:  `Set default deny policy`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.SyncDefaultDeny == nil {
-			cmd.PrintErrln("❌ common.SyncDefaultDeny function not initialized")
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
 			log.Fatalf("❌ Invalid boolean value: %v", err)
 		}
 		// Set default deny policy
 		// 设置默认拒绝策略
-		common.SyncDefaultDeny(enable)
+		common.SyncDefaultDeny(cmd.Context(), mgr, enable)
 	},
 }
 
@@ -153,17 +163,19 @@ var systemRateLimitCmd = &cobra.Command{
 	Long:  `Enable/disable universal rate limiting`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.SyncEnableRateLimit == nil {
-			cmd.PrintErrln("❌ common.SyncEnableRateLimit function not initialized")
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
 			log.Fatalf("❌ Invalid boolean value: %v", err)
 		}
 		// Toggle global rate limit
 		// 切换全局速率限制
-		common.SyncEnableRateLimit(enable)
+		common.SyncEnableRateLimit(cmd.Context(), mgr, enable)
 	},
 }
 
@@ -173,17 +185,19 @@ var systemAFXDPCmd = &cobra.Command{
 	Long:  `Enable/disable AF_XDP redirection`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.SyncEnableAFXDP == nil {
-			cmd.PrintErrln("❌ common.SyncEnableAFXDP function not initialized")
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
 			log.Fatalf("❌ Invalid boolean value: %v", err)
 		}
 		// Toggle AF_XDP
 		// 切换 AF_XDP
-		common.SyncEnableAFXDP(enable)
+		common.SyncEnableAFXDP(cmd.Context(), mgr, enable)
 	},
 }
 
@@ -217,10 +231,11 @@ var systemTopCmd = &cobra.Command{
 	Short: "Show top IPs by traffic or drops",
 	Long:  `Show top source IPs sorted by total traffic or drop count.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.ShowTopStats == nil {
-			cmd.PrintErrln("❌ common.ShowTopStats function not initialized")
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.ShowTopStats(limit, sortBy)
+		common.ShowTopStats(cmd.Context(), mgr, limit, sortBy)
 	},
 }

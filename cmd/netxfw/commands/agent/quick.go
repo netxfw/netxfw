@@ -19,14 +19,22 @@ var QuickBlockCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncLockMap == nil {
-			cmd.PrintErrln("❌ common.SyncLockMap function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		// Block IP
 		// 封锁 IP
-		common.SyncLockMap(args[0], true)
+		if err := common.SyncLockMap(ctx, mgr, args[0], true); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -40,14 +48,22 @@ var QuickUnlockCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncLockMap == nil {
-			cmd.PrintErrln("❌ common.SyncLockMap function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		// Unblock IP
 		// 解封 IP
-		common.SyncLockMap(args[0], false)
+		if err := common.SyncLockMap(ctx, mgr, args[0], false); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -61,11 +77,16 @@ var QuickAllowCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncWhitelistMap == nil {
-			cmd.PrintErrln("❌ common.SyncWhitelistMap function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		var port uint16
 		if len(args) > 1 {
 			p, err := strconv.ParseUint(args[1], 10, 16)
@@ -76,7 +97,10 @@ var QuickAllowCmd = &cobra.Command{
 		}
 		// Allow IP
 		// 允许 IP
-		common.SyncWhitelistMap(args[0], port, true)
+		if err := common.SyncWhitelistMap(ctx, mgr, args[0], port, true); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -90,11 +114,16 @@ var QuickUnallowCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.SyncWhitelistMap == nil {
-			cmd.PrintErrln("❌ common.SyncWhitelistMap function not initialized")
+
+		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		common.EnsureStandaloneMode()
+		ctx := cmd.Context()
+
 		var port uint16
 		if len(args) > 1 {
 			p, err := strconv.ParseUint(args[1], 10, 16)
@@ -105,7 +134,10 @@ var QuickUnallowCmd = &cobra.Command{
 		}
 		// Unallow IP
 		// 取消允许 IP
-		common.SyncWhitelistMap(args[0], port, false)
+		if err := common.SyncWhitelistMap(ctx, mgr, args[0], port, false); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -118,19 +150,27 @@ var QuickClearCmd = &cobra.Command{
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
 			os.Exit(1)
 		}
-		if common.ClearBlacklist == nil {
-			cmd.PrintErrln("❌ common.ClearBlacklist function not initialized")
-			os.Exit(1)
-		}
 		if common.AskConfirmation == nil {
 			cmd.PrintErrln("❌ common.AskConfirmation function not initialized")
 			os.Exit(1)
 		}
+
 		common.EnsureStandaloneMode()
+
+		mgr, err := common.GetManager()
+		if err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+		ctx := cmd.Context()
+
 		// Confirm and clear blacklist
 		// 确认并清空黑名单
 		if common.AskConfirmation("Are you sure you want to clear all entries from the blacklist?") {
-			common.ClearBlacklist()
+			if err := common.ClearBlacklist(ctx, mgr); err != nil {
+				cmd.PrintErrln(err)
+				os.Exit(1)
+			}
 		}
 	},
 }
