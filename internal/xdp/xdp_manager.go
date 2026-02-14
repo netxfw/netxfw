@@ -325,63 +325,29 @@ func NewManagerFromPins(path string) (*Manager, error) {
 
 	m := &Manager{objs: objs}
 
-	var err error
-	if m.lockList, err = ebpf.LoadPinnedMap(path+"/lock_list", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned lock_list: %v", err)
-		m.lockList = objs.LockList
+	loadMap := func(name string, fallback *ebpf.Map) *ebpf.Map {
+		m, err := ebpf.LoadPinnedMap(path+"/"+name, nil)
+		if err != nil {
+			log.Printf("⚠️  Could not load pinned %s: %v", name, err)
+			return fallback
+		}
+		return m
 	}
-	if m.dynLockList, err = ebpf.LoadPinnedMap(path+"/dyn_lock_list", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned dyn_lock_list: %v", err)
-		m.dynLockList = objs.DynLockList
-	}
-	if m.whitelist, err = ebpf.LoadPinnedMap(path+"/whitelist", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned whitelist: %v", err)
-		m.whitelist = objs.Whitelist
-	}
-	if m.allowedPorts, err = ebpf.LoadPinnedMap(path+"/allowed_ports", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned allowed_ports: %v", err)
-		m.allowedPorts = objs.AllowedPorts
-	}
-	if m.ipPortRules, err = ebpf.LoadPinnedMap(path+"/ip_port_rules", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned ip_port_rules: %v", err)
-		m.ipPortRules = objs.IpPortRules
-	}
-	if m.globalConfig, err = ebpf.LoadPinnedMap(path+"/global_config", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned global_config: %v", err)
-		m.globalConfig = objs.GlobalConfig
-	}
-	if m.dropStats, err = ebpf.LoadPinnedMap(path+"/drop_stats", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned drop_stats: %v", err)
-		m.dropStats = objs.DropStats
-	}
-	if m.dropReasonStats, err = ebpf.LoadPinnedMap(path+"/drop_reason_stats", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned drop_reason_stats: %v", err)
-		m.dropReasonStats = objs.DropReasonStats
-	}
-	if m.passStats, err = ebpf.LoadPinnedMap(path+"/pass_stats", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned pass_stats: %v", err)
-		m.passStats = objs.PassStats
-	}
-	if m.passReasonStats, err = ebpf.LoadPinnedMap(path+"/pass_reason_stats", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned pass_reason_stats: %v", err)
-		m.passReasonStats = objs.PassReasonStats
-	}
-	if m.icmpLimitMap, err = ebpf.LoadPinnedMap(path+"/icmp_limit_map", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned icmp_limit_map: %v", err)
-		m.icmpLimitMap = objs.IcmpLimitMap
-	}
-	if m.conntrackMap, err = ebpf.LoadPinnedMap(path+"/conntrack_map", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned conntrack_map: %v", err)
-		m.conntrackMap = objs.ConntrackMap
-	}
-	if m.ratelimitConfig, err = ebpf.LoadPinnedMap(path+"/ratelimit_config", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned ratelimit_config: %v", err)
-		m.ratelimitConfig = objs.RatelimitConfig
-	}
-	if m.ratelimitState, err = ebpf.LoadPinnedMap(path+"/ratelimit_state", nil); err != nil {
-		log.Printf("⚠️  Could not load pinned ratelimit_state: %v", err)
-		m.ratelimitState = objs.RatelimitState
-	}
+
+	m.lockList = loadMap(config.MapLockList, objs.LockList)
+	m.dynLockList = loadMap(config.MapDynLockList, objs.DynLockList)
+	m.whitelist = loadMap(config.MapWhitelist, objs.Whitelist)
+	m.allowedPorts = loadMap(config.MapAllowedPorts, objs.AllowedPorts)
+	m.ipPortRules = loadMap(config.MapIPPortRules, objs.IpPortRules)
+	m.globalConfig = loadMap(config.MapGlobalConfig, objs.GlobalConfig)
+	m.dropStats = loadMap(config.MapDropStats, objs.DropStats)
+	m.dropReasonStats = loadMap(config.MapDropReasonStats, objs.DropReasonStats)
+	m.passStats = loadMap(config.MapPassStats, objs.PassStats)
+	m.passReasonStats = loadMap(config.MapPassReasonStats, objs.PassReasonStats)
+	m.icmpLimitMap = loadMap(config.MapICMPLimit, objs.IcmpLimitMap)
+	m.conntrackMap = loadMap(config.MapConntrack, objs.ConntrackMap)
+	m.ratelimitConfig = loadMap(config.MapRatelimitConfig, objs.RatelimitConfig)
+	m.ratelimitState = loadMap(config.MapRatelimitState, objs.RatelimitState)
 
 	return m, nil
 }
