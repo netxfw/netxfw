@@ -46,6 +46,7 @@ type Env struct {
 	// Cache
 	fields       []string
 	fieldsParsed bool
+	incremented  bool
 }
 
 var envPool = sync.Pool{
@@ -70,6 +71,7 @@ func (e *Env) Reset() {
 	e.Addr = netip.Addr{}
 	e.fields = e.fields[:0]
 	e.fieldsParsed = false
+	e.incremented = false
 }
 
 // Fields returns []string for compatibility with expressions like Fields()[0] == "val".
@@ -182,8 +184,11 @@ func (e *Env) Match(pattern string) bool {
 }
 
 func (e *Env) Count(window int) int {
+	if !e.incremented {
+		e.Counter.Inc(e.Addr)
+		e.incremented = true
+	}
 	val := e.Counter.Count(e.Addr, window)
-	fmt.Printf("DEBUG: Count(%s, %d) = %d\n", e.Addr, window, val)
 	return val
 }
 

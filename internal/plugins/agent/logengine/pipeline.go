@@ -251,8 +251,8 @@ func (le *LogEngine) worker(id int) {
 			// I'll fix the `ipBuf` reset just in case.
 
 			// 2. Update Counter
-			// We increment unconditionally. This might be revisited if users want per-rule counting.
-			le.counter.Inc(ip)
+			// Moved to RuleEngine (lazy increment on match) to avoid counting unrelated logs.
+			// le.counter.Inc(ip)
 
 			// 3. Evaluate Rules
 			actionType, ttl, ruleID, matched := le.ruleEngine.Evaluate(ip, event)
