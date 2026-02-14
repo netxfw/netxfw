@@ -1,7 +1,6 @@
 package logengine
 
 import (
-	"log"
 	"net/netip"
 	"sync"
 	"time"
@@ -34,15 +33,15 @@ func New(cfg types.LogEngineConfig, logger sdk.Logger, actionHandler ActionHandl
 	}
 
 	counter := NewCounter(cfg.MaxWindow)
-	checkpoint := NewCheckpointManager()
+	checkpoint := NewCheckpointManager(logger)
 
 	le := &LogEngine{
 		logger:     logger,
 		config:     cfg,
-		tailer:     NewTailer(checkpoint),
+		tailer:     NewTailer(checkpoint, logger),
 		tokenizer:  NewTokenizer(),
 		extractor:  NewIPExtractor(),
-		ruleEngine: NewRuleEngine(counter),
+		ruleEngine: NewRuleEngine(counter, logger),
 		counter:    counter,
 		action:     actionHandler,
 		stopChan:   make(chan struct{}),
@@ -268,10 +267,10 @@ func (le *LogEngine) worker(id int) {
 
 func (le *LogEngine) executeAction(ip netip.Addr, actionType ActionType, ttl time.Duration, ruleID string) {
 	if err := le.action.Block(ip, actionType, ttl); err != nil {
-		log.Printf("❌ Action failed for rule %s (type: %d): %v", ruleID, actionType, err)
+		le.logger.Errorf("❌ Action failed for rule %s (type: %d): %v", ruleID, actionType, err)
 	} else {
 		// Log the hit
-		log.Printf("🛡️  Rule %s triggered action type %d (ttl: %v) for IP %s", ruleID, actionType, ttl, ip)
+		le.logger.Infof("🛡️  Rule %s triggered action type %d (ttl: %v) for IP %s", ruleID, actionType, ttl, ip)
 	}
 }
 

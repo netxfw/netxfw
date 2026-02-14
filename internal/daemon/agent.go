@@ -41,7 +41,7 @@ func runControlPlane(ctx context.Context) {
 	// In Agent mode, we expect maps to be already pinned by the Daemon.
 	// 在 Agent 模式下，我们期望 Map 已经被 Daemon 固定。
 	pinPath := config.GetPinPath()
-	manager, err := xdp.NewManagerFromPins(pinPath)
+	manager, err := xdp.NewManagerFromPins(pinPath, log)
 	if err != nil {
 		log.Fatalf("❌ Agent requires netxfw daemon to be running and maps pinned at %s: %v", pinPath, err)
 	}

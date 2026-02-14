@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/livp123/netxfw/pkg/sdk"
 	"github.com/nxadm/tail"
 )
 
@@ -14,6 +15,7 @@ const CheckpointFile = "/var/lib/netxfw/log_offsets.json"
 
 // CheckpointManager handles persistence of file offsets.
 type CheckpointManager struct {
+	logger  sdk.Logger
 	mu      sync.Mutex
 	offsets map[string]int64
 	file    string
@@ -22,8 +24,9 @@ type CheckpointManager struct {
 }
 
 // NewCheckpointManager creates a new manager.
-func NewCheckpointManager() *CheckpointManager {
+func NewCheckpointManager(logger sdk.Logger) *CheckpointManager {
 	return &CheckpointManager{
+		logger:  logger,
 		offsets: make(map[string]int64),
 		file:    CheckpointFile,
 		stop:    make(chan struct{}),
@@ -38,13 +41,13 @@ func (cm *CheckpointManager) Load() {
 	data, err := os.ReadFile(cm.file)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			log.Printf("⚠️  Failed to load checkpoints: %v", err)
+			cm.logger.Warnf("⚠️  Failed to load checkpoints: %v", err)
 		}
 		return
 	}
 
 	if err := json.Unmarshal(data, &cm.offsets); err != nil {
-		log.Printf("⚠️  Failed to parse checkpoints: %v", err)
+		cm.logger.Warnf("⚠️  Failed to parse checkpoints: %v", err)
 	}
 }
 
@@ -55,7 +58,7 @@ func (cm *CheckpointManager) Save() {
 
 	data, err := json.MarshalIndent(cm.offsets, "", "  ")
 	if err != nil {
-		log.Printf("⚠️  Failed to marshal checkpoints: %v", err)
+		cm.logger.Warnf("⚠️  Failed to marshal checkpoints: %v", err)
 		return
 	}
 
@@ -63,7 +66,7 @@ func (cm *CheckpointManager) Save() {
 	_ = os.MkdirAll("/var/lib/netxfw", 0755)
 
 	if err := os.WriteFile(cm.file, data, 0644); err != nil {
-		log.Printf("⚠️  Failed to save checkpoints: %v", err)
+		cm.logger.Warnf("⚠️  Failed to save checkpoints: %v", err)
 	}
 }
 

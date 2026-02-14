@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -67,9 +66,9 @@ func (p *MetricsPlugin) Init(ctx *sdk.PluginContext) error {
 }
 
 func (p *MetricsPlugin) Reload(ctx *sdk.PluginContext) error {
-	log.Println("🔄 [Metrics] Reloading configuration...")
+	ctx.Logger.Infof("🔄 [Metrics] Reloading configuration...")
 	if err := p.Stop(); err != nil {
-		log.Printf("⚠️  [Metrics] Error stopping during reload: %v", err)
+		ctx.Logger.Warnf("⚠️  [Metrics] Error stopping during reload: %v", err)
 	}
 	p.Init(ctx)
 	return p.Start(ctx)
@@ -77,7 +76,7 @@ func (p *MetricsPlugin) Reload(ctx *sdk.PluginContext) error {
 
 func (p *MetricsPlugin) Start(ctx *sdk.PluginContext) error {
 	if !p.config.Enabled {
-		log.Println("📊 Metrics plugin is disabled via config.")
+		ctx.Logger.Infof("📊 Metrics plugin is disabled via config.")
 		return nil
 	}
 
@@ -100,9 +99,9 @@ func (p *MetricsPlugin) Start(ctx *sdk.PluginContext) error {
 		}
 
 		go func() {
-			log.Printf("📊 Metrics HTTP server listening on %s", addr)
+			ctx.Logger.Infof("📊 Metrics HTTP server listening on %s", addr)
 			if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Printf("❌ Metrics server error: %v", err)
+				ctx.Logger.Errorf("❌ Metrics server error: %v", err)
 			}
 		}()
 	}
@@ -132,12 +131,12 @@ func (p *MetricsPlugin) Start(ctx *sdk.PluginContext) error {
 
 			// 3. Handle Textfile Export (for node_exporter)
 			if p.config.TextfileEnabled && p.config.TextfilePath != "" {
-				p.writeTextFile()
+				p.writeTextFile(ctx.Logger)
 			}
 
 			// 4. Handle Active Push (e.g. to PushGateway)
 			if p.config.PushEnabled && time.Since(lastPush) >= pushInterval {
-				p.pushMetrics()
+				p.pushMetrics(ctx.Logger)
 				lastPush = time.Now()
 			}
 		}
@@ -248,17 +247,17 @@ func passReasonToString(code uint32) string {
 	}
 }
 
-func (p *MetricsPlugin) writeTextFile() {
+func (p *MetricsPlugin) writeTextFile(logger sdk.Logger) {
 	f, err := os.Create(p.config.TextfilePath + ".tmp")
 	if err != nil {
-		log.Printf("❌ Failed to create metrics textfile: %v", err)
+		logger.Errorf("❌ Failed to create metrics textfile: %v", err)
 		return
 	}
 
 	enc := expfmt.NewEncoder(f, expfmt.Format("text/plain; version=0.0.4"))
 	mfs, err := prometheus.DefaultGatherer.Gather()
 	if err != nil {
-		log.Printf("❌ Failed to gather metrics for textfile: %v", err)
+		logger.Errorf("❌ Failed to gather metrics for textfile: %v", err)
 		f.Close()
 		return
 	}
@@ -270,21 +269,21 @@ func (p *MetricsPlugin) writeTextFile() {
 
 	// Atomic rename
 	if err := os.Rename(p.config.TextfilePath+".tmp", p.config.TextfilePath); err != nil {
-		log.Printf("❌ Failed to rename metrics textfile: %v", err)
+		logger.Errorf("❌ Failed to rename metrics textfile: %v", err)
 	}
 }
 
-func (p *MetricsPlugin) pushMetrics() {
+func (p *MetricsPlugin) pushMetrics(logger sdk.Logger) {
 	if p.config.PushGatewayAddr == "" {
 		return
 	}
 
-	log.Printf("📤 Pushing metrics to %s", p.config.PushGatewayAddr)
+	logger.Infof("📤 Pushing metrics to %s", p.config.PushGatewayAddr)
 	err := push.New(p.config.PushGatewayAddr, "netxfw").
 		Gatherer(prometheus.DefaultGatherer).
 		Push()
 	if err != nil {
-		log.Printf("❌ Could not push to PushGateway: %v", err)
+		logger.Errorf("❌ Could not push to PushGateway: %v", err)
 	}
 }
 

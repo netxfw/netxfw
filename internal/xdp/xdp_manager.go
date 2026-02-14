@@ -5,7 +5,6 @@ package xdp
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"net/netip"
 	"os"
@@ -68,13 +67,13 @@ func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 	// 如果配置了，持久化到锁定列表文件
 	if persistFile != "" {
 		if err := fileutil.AppendToFile(persistFile, cidr); err != nil {
-			log.Printf("⚠️ Failed to write to lock list file: %v", err)
+			m.logger.Warnf("⚠️ Failed to write to lock list file: %v", err)
 		} else {
-			log.Printf("💾 Persisted IP %s to %s", cidr, persistFile)
+			m.logger.Infof("💾 Persisted IP %s to %s", cidr, persistFile)
 		}
 	}
 
-	log.Printf("🚫 Added IP %s to STATIC blacklist (permanent)", cidr)
+	m.logger.Infof("🚫 Added IP %s to STATIC blacklist (permanent)", cidr)
 	return nil
 }
 
@@ -165,7 +164,7 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 		}
 	}
 
-	log.Printf("🚫 Blocked IP %s for %v (expiry: %d)", ip, ttl, expiry)
+	m.logger.Infof("🚫 Blocked IP %s for %v (expiry: %d)", ip, ttl, expiry)
 	return nil
 }
 
@@ -219,7 +218,7 @@ func (m *Manager) MatchesCapacity(cfg types.CapacityConfig) bool {
  * Supports dynamic map capacity adjustment.
  * NewManager 初始化 BPF 对象并移除内存限制，支持动态调整 Map 容量。
  */
-func NewManager(cfg types.CapacityConfig) (*Manager, error) {
+func NewManager(cfg types.CapacityConfig, logger Logger) (*Manager, error) {
 	// Remove resource limits for BPF / 移除 BPF 资源限制
 	if err := rlimit.RemoveMemlock(); err != nil {
 		return nil, fmt.Errorf("remove memlock: %w", err)
@@ -286,6 +285,7 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
 		jmpTable:        objs.JmpTable,
 		dropReasonStats: objs.DropReasonStats,
 		passReasonStats: objs.PassReasonStats,
+		logger:          logger,
 	}
 
 	// Initialize jump table with default protocol handlers
@@ -310,7 +310,7 @@ func NewManager(cfg types.CapacityConfig) (*Manager, error) {
  * NewManagerFromPins 使用已固定到文件系统的 Map 加载管理器。
  * 这对于需要与正在运行的 XDP 程序交互的 CLI 工具非常有用。
  */
-func NewManagerFromPins(path string) (*Manager, error) {
+func NewManagerFromPins(path string, logger Logger) (*Manager, error) {
 	// Remove resource limits for BPF / 移除 BPF 资源限制
 	if err := rlimit.RemoveMemlock(); err != nil {
 		return nil, fmt.Errorf("remove memlock: %w", err)
@@ -323,12 +323,15 @@ func NewManagerFromPins(path string) (*Manager, error) {
 		return nil, fmt.Errorf("load eBPF objects: %w", err)
 	}
 
-	m := &Manager{objs: objs}
+	m := &Manager{
+		objs:   objs,
+		logger: logger,
+	}
 
 	loadMap := func(name string, fallback *ebpf.Map) *ebpf.Map {
 		m, err := ebpf.LoadPinnedMap(path+"/"+name, nil)
 		if err != nil {
-			log.Printf("⚠️  Could not load pinned %s: %v", name, err)
+			logger.Warnf("⚠️  Could not load pinned %s: %v", name, err)
 			return fallback
 		}
 		return m
@@ -364,7 +367,7 @@ func (m *Manager) Attach(interfaces []string) error {
 	for _, name := range interfaces {
 		iface, err := net.InterfaceByName(name)
 		if err != nil {
-			log.Printf("Skip interface %s: %v", name, err)
+			m.logger.Warnf("Skip interface %s: %v", name, err)
 			continue
 		}
 
@@ -375,11 +378,11 @@ func (m *Manager) Attach(interfaces []string) error {
 
 		if l, err := link.LoadPinnedLink(linkPath, nil); err == nil {
 			if err := l.Update(m.objs.XdpFirewall); err == nil {
-				log.Printf("✅ Atomic Reload: Updated XDP program on %s", name)
+				m.logger.Infof("✅ Atomic Reload: Updated XDP program on %s", name)
 				l.Close()
 				attached = true
 			} else {
-				log.Printf("⚠️  Atomic Reload failed on %s: %v. Fallback to detach/attach.", name, err)
+				m.logger.Warnf("⚠️  Atomic Reload failed on %s: %v. Fallback to detach/attach.", name, err)
 				l.Close()
 				_ = os.Remove(linkPath) // Force remove to allow re-attach / 强制删除以允许重新挂载
 			}
@@ -413,15 +416,15 @@ func (m *Manager) Attach(interfaces []string) error {
 					// 将链接固定到文件系统，使其在进程退出后保持持久
 					_ = os.Remove(linkPath) // Remove old link pin if exists / 如果存在旧的链接固定点，则将其删除
 					if err := l.Pin(linkPath); err != nil {
-						log.Printf("⚠️  Failed to pin link on %s: %v", name, err)
+						m.logger.Warnf("⚠️  Failed to pin link on %s: %v", name, err)
 						l.Close()
 						continue
 					}
-					log.Printf("✅ Attached XDP on %s (Mode: %s) and pinned link", name, mode.name)
+					m.logger.Infof("✅ Attached XDP on %s (Mode: %s) and pinned link", name, mode.name)
 					attached = true
 					break
 				}
-				log.Printf("⚠️  Failed to attach XDP on %s using %s mode: %v", name, mode.name, err)
+				m.logger.Warnf("⚠️  Failed to attach XDP on %s using %s mode: %v", name, mode.name, err)
 			}
 		}
 
@@ -437,7 +440,7 @@ func (m *Manager) Attach(interfaces []string) error {
 		// Try atomic update for TC / 尝试原子更新 TC
 		if tl, err := link.LoadPinnedLink(tcLinkPath, nil); err == nil {
 			if err := tl.Update(m.objs.TcEgress); err == nil {
-				log.Printf("✅ Atomic Reload: Updated TC Egress on %s", name)
+				m.logger.Infof("✅ Atomic Reload: Updated TC Egress on %s", name)
 				tl.Close()
 				tcAttached = true
 			} else {
@@ -455,18 +458,18 @@ func (m *Manager) Attach(interfaces []string) error {
 			if err == nil {
 				_ = os.Remove(tcLinkPath)
 				if err := tcLink.Pin(tcLinkPath); err != nil {
-					log.Printf("⚠️  Failed to pin TC link on %s: %v", name, err)
+					m.logger.Warnf("⚠️  Failed to pin TC link on %s: %v", name, err)
 					tcLink.Close()
 				} else {
-					log.Printf("✅ Attached TC Egress on %s and pinned link", name)
+					m.logger.Infof("✅ Attached TC Egress on %s and pinned link", name)
 				}
 			} else {
-				log.Printf("⚠️  Failed to attach TC Egress on %s: %v (Conntrack will not work for this interface)", name, err)
+				m.logger.Warnf("⚠️  Failed to attach TC Egress on %s: %v (Conntrack will not work for this interface)", name, err)
 			}
 		}
 
 		if !attached {
-			log.Printf("❌ Failed to attach XDP on %s with any mode", name)
+			m.logger.Errorf("❌ Failed to attach XDP on %s with any mode", name)
 		}
 	}
 	return nil
@@ -481,27 +484,27 @@ func (m *Manager) Detach(interfaces []string) error {
 		linkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("link_%s", name))
 		l, err := link.LoadPinnedLink(linkPath, nil)
 		if err != nil {
-			log.Printf("⚠️  No pinned link found for %s, trying manual detach...", name)
+			m.logger.Warnf("⚠️  No pinned link found for %s, trying manual detach...", name)
 			// Fallback: try to detach using interface index if possible,
 			// but usually unpinning the persistent link is enough.
 			// 备选方案：如果可能，尝试使用接口索引进行分离，但通常取消固定持久链接就足够了。
 			continue
 		}
 		if err := l.Close(); err != nil {
-			log.Printf("❌ Failed to close link for %s: %v", name, err)
+			m.logger.Errorf("❌ Failed to close link for %s: %v", name, err)
 		} else {
 			_ = os.Remove(linkPath)
-			log.Printf("✅ Detached XDP from %s", name)
+			m.logger.Infof("✅ Detached XDP from %s", name)
 		}
 
 		// Detach TC link / 分离 TC 链接
 		tcLinkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("tc_link_%s", name))
 		if tl, err := link.LoadPinnedLink(tcLinkPath, nil); err == nil {
 			if err := tl.Close(); err != nil {
-				log.Printf("❌ Failed to close TC link for %s: %v", name, err)
+				m.logger.Errorf("❌ Failed to close TC link for %s: %v", name, err)
 			} else {
 				_ = os.Remove(tcLinkPath)
-				log.Printf("✅ Detached TC Egress from %s", name)
+				m.logger.Infof("✅ Detached TC Egress from %s", name)
 			}
 		}
 	}
@@ -663,7 +666,7 @@ func (m *Manager) LoadPlugin(elfPath string, index int) error {
 		return fmt.Errorf("failed to update jmp_table with plugin: %w", err)
 	}
 
-	log.Printf("✅ Plugin loaded: %s at index %d", elfPath, index)
+	m.logger.Infof("✅ Plugin loaded: %s at index %d", elfPath, index)
 	return nil
 }
 
@@ -680,7 +683,7 @@ func (m *Manager) RemovePlugin(index int) error {
 		return fmt.Errorf("failed to remove plugin from jmp_table: %w", err)
 	}
 
-	log.Printf("✅ Plugin removed from index %d", index)
+	m.logger.Infof("✅ Plugin removed from index %d", index)
 	return nil
 }
 
@@ -713,7 +716,7 @@ func (m *Manager) Pin(path string) error {
 		p := path + "/" + name
 		_ = os.Remove(p) // Ensure old pin is removed / 确保旧的固定点被移除
 		if err := ebpfMap.Pin(p); err != nil {
-			log.Printf("⚠️  Failed to pin %s: %v", name, err)
+			m.logger.Warnf("⚠️  Failed to pin %s: %v", name, err)
 		}
 	}
 

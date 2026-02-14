@@ -2,7 +2,6 @@ package ratelimit
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"time"
 
@@ -25,16 +24,16 @@ func (p *RateLimitPlugin) Init(ctx *sdk.PluginContext) error {
 }
 
 func (p *RateLimitPlugin) Reload(ctx *sdk.PluginContext) error {
-	log.Println("🔄 [RateLimitPlugin] Reloading configuration (Full Sync)...")
+	ctx.Logger.Infof("🔄 [RateLimitPlugin] Reloading configuration (Full Sync)...")
 	if err := p.Init(ctx); err != nil {
 		return err
 	}
-	return p.Sync(ctx.Manager)
+	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
 func (p *RateLimitPlugin) Start(ctx *sdk.PluginContext) error {
-	log.Println("🚀 [RateLimitPlugin] Starting...")
-	return p.Sync(ctx.Manager)
+	ctx.Logger.Infof("🚀 [RateLimitPlugin] Starting...")
+	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
 func (p *RateLimitPlugin) Stop() error {
@@ -45,26 +44,26 @@ func (p *RateLimitPlugin) DefaultConfig() interface{} {
 	return types.RateLimitConfig{}
 }
 
-func (p *RateLimitPlugin) Sync(manager xdp.ManagerInterface) error {
+func (p *RateLimitPlugin) Sync(manager xdp.ManagerInterface, logger sdk.Logger) error {
 	if p.config == nil {
 		return nil
 	}
 
 	// 1. Set global rate limit toggle
 	if err := manager.SetEnableRateLimit(p.config.Enabled); err != nil {
-		log.Printf("⚠️  [RateLimitPlugin] Failed to set enable rate limit: %v", err)
+		logger.Warnf("⚠️  [RateLimitPlugin] Failed to set enable rate limit: %v", err)
 	}
 
 	// 2. Set auto-block toggle and expiry
 	if err := manager.SetAutoBlock(p.config.AutoBlock); err != nil {
-		log.Printf("⚠️  [RateLimitPlugin] Failed to set auto-block: %v", err)
+		logger.Warnf("⚠️  [RateLimitPlugin] Failed to set auto-block: %v", err)
 	}
 
 	if p.config.AutoBlockExpiry != "" {
 		duration, err := time.ParseDuration(p.config.AutoBlockExpiry)
 		if err == nil {
 			if err := manager.SetAutoBlockExpiry(duration); err != nil {
-				log.Printf("⚠️  [RateLimitPlugin] Failed to set auto-block expiry: %v", err)
+				logger.Warnf("⚠️  [RateLimitPlugin] Failed to set auto-block expiry: %v", err)
 			}
 		}
 	}
@@ -72,7 +71,7 @@ func (p *RateLimitPlugin) Sync(manager xdp.ManagerInterface) error {
 	// 3. Sync Rate Limit Rules
 	currentRules, _, err := manager.ListRateLimitRules(0, "")
 	if err != nil {
-		log.Printf("⚠️ [RateLimitPlugin] Failed to list current rules: %v", err)
+		logger.Warnf("⚠️ [RateLimitPlugin] Failed to list current rules: %v", err)
 		return fmt.Errorf("failed to list rate limit rules: %w", err)
 	}
 
@@ -83,7 +82,7 @@ func (p *RateLimitPlugin) Sync(manager xdp.ManagerInterface) error {
 			// Try parsing as single IP
 			ip := net.ParseIP(rule.IP)
 			if ip == nil {
-				log.Printf("⚠️ [RateLimitPlugin] Invalid IP/CIDR: %s", rule.IP)
+				logger.Warnf("⚠️ [RateLimitPlugin] Invalid IP/CIDR: %s", rule.IP)
 				continue
 			}
 			mask := net.CIDRMask(32, 32)
@@ -102,9 +101,9 @@ func (p *RateLimitPlugin) Sync(manager xdp.ManagerInterface) error {
 	for key := range currentRules {
 		if _, ok := desiredRules[key]; !ok {
 			if err := manager.RemoveRateLimitRule(key); err != nil {
-				log.Printf("⚠️ [RateLimitPlugin] Failed to remove rule %s: %v", key, err)
+				logger.Warnf("⚠️ [RateLimitPlugin] Failed to remove rule %s: %v", key, err)
 			} else {
-				log.Printf("➖ [RateLimitPlugin] Removed rule %s", key)
+				logger.Infof("➖ [RateLimitPlugin] Removed rule %s", key)
 			}
 		}
 	}
@@ -114,14 +113,14 @@ func (p *RateLimitPlugin) Sync(manager xdp.ManagerInterface) error {
 		currentVal, exists := currentRules[key]
 		if !exists || currentVal.Rate != rule.Rate || currentVal.Burst != rule.Burst {
 			if err := manager.AddRateLimitRule(key, rule.Rate, rule.Burst); err != nil {
-				log.Printf("⚠️ [RateLimitPlugin] Failed to update rule %s: %v", key, err)
+				logger.Warnf("⚠️ [RateLimitPlugin] Failed to update rule %s: %v", key, err)
 			} else {
-				log.Printf("➕ [RateLimitPlugin] Updated rule %s", key)
+				logger.Infof("➕ [RateLimitPlugin] Updated rule %s", key)
 			}
 		}
 	}
 
-	log.Printf("✅ [RateLimitPlugin] Sync complete. Active rules: %d", len(desiredRules))
+	logger.Infof("✅ [RateLimitPlugin] Sync complete. Active rules: %d", len(desiredRules))
 	return nil
 }
 

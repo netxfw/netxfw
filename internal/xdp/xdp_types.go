@@ -10,6 +10,14 @@ import (
 	"github.com/cilium/ebpf/link"
 )
 
+// Logger defines the logging interface used by the XDP manager.
+// It matches the sdk.Logger interface but decouples the dependency.
+type Logger interface {
+	Infof(template string, args ...interface{})
+	Warnf(template string, args ...interface{})
+	Errorf(template string, args ...interface{})
+}
+
 // Generate Go bindings for the BPF program / 为 BPF 程序生成 Go 绑定
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang NetXfw ../../bpf/netxfw.bpf.c -- -I../../bpf
 
@@ -81,6 +89,7 @@ type Manager struct {
 	jmpTable        *ebpf.Map
 	dropReasonStats *ebpf.Map
 	passReasonStats *ebpf.Map
+	logger          Logger
 }
 
 /**

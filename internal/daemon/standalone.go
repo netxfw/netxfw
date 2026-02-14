@@ -37,10 +37,10 @@ func runUnified(ctx context.Context) {
 
 	// 1. Initialize Manager / 初始化管理器
 	pinPath := config.GetPinPath()
-	manager, err := xdp.NewManagerFromPins(pinPath)
+	manager, err := xdp.NewManagerFromPins(pinPath, log)
 	if err != nil {
 		log.Info("ℹ️  Creating new XDP manager...")
-		manager, err = xdp.NewManager(globalCfg.Capacity)
+		manager, err = xdp.NewManager(globalCfg.Capacity, log)
 		if err != nil {
 			log.Fatalf("❌ Failed to create XDP manager: %v", err)
 		}

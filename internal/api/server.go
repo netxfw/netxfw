@@ -2,12 +2,12 @@ package api
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/pprof"
 
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/internal/xdp"
 )
 
@@ -28,6 +28,7 @@ func NewServer(manager *xdp.Manager, port int) *Server {
 
 // Start launches the HTTP server for management.
 func (s *Server) Start() error {
+	log := logger.Get(nil)
 	// Auto-generate token if not configured
 	cfg, err := types.LoadGlobalConfig(s.configPath)
 	if err == nil {
@@ -37,10 +38,10 @@ func (s *Server) Start() error {
 			cfg.Web.Enabled = true
 			cfg.Web.Port = s.port
 			types.SaveGlobalConfig(s.configPath, cfg)
-			log.Printf("🔑 No Web Token configured. Automatically generated a new one: %s", token)
-			log.Printf("📝 Token has been saved to %s", s.configPath)
+			log.Infof("🔑 No Web Token configured. Automatically generated a new one: %s", token)
+			log.Infof("📝 Token has been saved to %s", s.configPath)
 		} else {
-			log.Printf("🔑 Using configured Web Token for authentication")
+			log.Infof("🔑 Using configured Web Token for authentication")
 		}
 	}
 
@@ -67,6 +68,6 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/", s.handleUI)
 
 	addr := fmt.Sprintf(":%d", s.port)
-	log.Printf("🚀 Management API and UI starting on http://localhost%s", addr)
+	log.Infof("🚀 Management API and UI starting on http://localhost%s", addr)
 	return http.ListenAndServe(addr, mux)
 }

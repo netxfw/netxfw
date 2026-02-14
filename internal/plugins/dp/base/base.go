@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,53 +34,53 @@ func (p *BasePlugin) Init(ctx *sdk.PluginContext) error {
 }
 
 func (p *BasePlugin) Reload(ctx *sdk.PluginContext) error {
-	log.Println("🔄 [BasePlugin] Reloading configuration (Full Sync)...")
+	ctx.Logger.Infof("🔄 [BasePlugin] Reloading configuration (Full Sync)...")
 	if err := p.Init(ctx); err != nil {
 		return err
 	}
-	return p.Sync(ctx.Manager)
+	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
 func (p *BasePlugin) Start(ctx *sdk.PluginContext) error {
-	log.Println("🚀 [BasePlugin] Starting...")
-	return p.Sync(ctx.Manager)
+	ctx.Logger.Infof("🚀 [BasePlugin] Starting...")
+	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
-func (p *BasePlugin) Sync(manager xdp.ManagerInterface) error {
+func (p *BasePlugin) Sync(manager xdp.ManagerInterface, logger sdk.Logger) error {
 	if p.config == nil {
 		return nil
 	}
 
 	// 1. Set default deny and return traffic
 	if err := manager.SetDefaultDeny(p.config.DefaultDeny); err != nil {
-		log.Printf("⚠️  [BasePlugin] Failed to set default deny: %v", err)
+		logger.Warnf("⚠️  [BasePlugin] Failed to set default deny: %v", err)
 	}
 	if err := manager.SetAllowReturnTraffic(p.config.AllowReturnTraffic); err != nil {
-		log.Printf("⚠️  [BasePlugin] Failed to set allow return traffic: %v", err)
+		logger.Warnf("⚠️  [BasePlugin] Failed to set allow return traffic: %v", err)
 	}
 	if err := manager.SetAllowICMP(p.config.AllowICMP); err != nil {
-		log.Printf("⚠️  [BasePlugin] Failed to set allow ICMP: %v", err)
+		logger.Warnf("⚠️  [BasePlugin] Failed to set allow ICMP: %v", err)
 	}
 	if err := manager.SetEnableAFXDP(p.config.EnableAFXDP); err != nil {
-		log.Printf("⚠️  [BasePlugin] Failed to set enable AF_XDP: %v", err)
+		logger.Warnf("⚠️  [BasePlugin] Failed to set enable AF_XDP: %v", err)
 	}
 	if err := manager.SetStrictProtocol(p.config.StrictProtocol); err != nil {
-		log.Printf("⚠️  [BasePlugin] Failed to set strict protocol: %v", err)
+		logger.Warnf("⚠️  [BasePlugin] Failed to set strict protocol: %v", err)
 	}
 	if err := manager.SetDropFragments(p.config.DropFragments); err != nil {
-		log.Printf("⚠️  [BasePlugin] Failed to set drop fragments: %v", err)
+		logger.Warnf("⚠️  [BasePlugin] Failed to set drop fragments: %v", err)
 	}
 	if err := manager.SetStrictTCP(p.config.StrictTCP); err != nil {
-		log.Printf("⚠️  [BasePlugin] Failed to set strict TCP: %v", err)
+		logger.Warnf("⚠️  [BasePlugin] Failed to set strict TCP: %v", err)
 	}
 	if err := manager.SetSYNLimit(p.config.SYNLimit); err != nil {
-		log.Printf("⚠️  [BasePlugin] Failed to set SYN limit: %v", err)
+		logger.Warnf("⚠️  [BasePlugin] Failed to set SYN limit: %v", err)
 	}
 	if p.config.ICMPRate > 0 && p.config.ICMPBurst > 0 {
 		if err := manager.SetICMPRateLimit(p.config.ICMPRate, p.config.ICMPBurst); err != nil {
-			log.Printf("⚠️  [BasePlugin] Failed to set ICMP rate limit: %v", err)
+			logger.Warnf("⚠️  [BasePlugin] Failed to set ICMP rate limit: %v", err)
 		} else {
-			log.Printf("✅ [BasePlugin] ICMP rate limit set to %d/s (burst: %d)", p.config.ICMPRate, p.config.ICMPBurst)
+			logger.Infof("✅ [BasePlugin] ICMP rate limit set to %d/s (burst: %d)", p.config.ICMPRate, p.config.ICMPBurst)
 		}
 	}
 
@@ -92,7 +91,7 @@ func (p *BasePlugin) Sync(manager xdp.ManagerInterface) error {
 	parseWhitelist := func() {
 		ips, _, err := manager.ListWhitelistIPs(0, "")
 		if err != nil {
-			log.Printf("⚠️ [BasePlugin] Failed to list whitelist: %v", err)
+			logger.Warnf("⚠️ [BasePlugin] Failed to list whitelist: %v", err)
 			return
 		}
 		for _, entry := range ips {
@@ -134,15 +133,15 @@ func (p *BasePlugin) Sync(manager xdp.ManagerInterface) error {
 	for cidr := range currentWhitelist {
 		if _, ok := desiredWhitelist[cidr]; !ok {
 			if err := manager.RemoveWhitelistIP(cidr); err != nil {
-				log.Printf("⚠️ [BasePlugin] Failed to remove whitelist %s: %v", cidr, err)
+				logger.Warnf("⚠️ [BasePlugin] Failed to remove whitelist %s: %v", cidr, err)
 			} else {
-				log.Printf("➖ [BasePlugin] Removed whitelist %s", cidr)
+				logger.Infof("➖ [BasePlugin] Removed whitelist %s", cidr)
 			}
 		} else {
 			// Check if port changed
 			if currentWhitelist[cidr] != desiredWhitelist[cidr] {
 				// AddWhitelistIP overwrites, so just log
-				log.Printf("🔄 [BasePlugin] Updating whitelist %s port %d -> %d", cidr, currentWhitelist[cidr], desiredWhitelist[cidr])
+				logger.Infof("🔄 [BasePlugin] Updating whitelist %s port %d -> %d", cidr, currentWhitelist[cidr], desiredWhitelist[cidr])
 			}
 		}
 	}
@@ -151,10 +150,10 @@ func (p *BasePlugin) Sync(manager xdp.ManagerInterface) error {
 	for cidr, port := range desiredWhitelist {
 		// Always apply to ensure port is correct and map is consistent
 		if err := manager.AddWhitelistIP(cidr, port); err != nil {
-			log.Printf("⚠️ [BasePlugin] Failed to allow %s: %v", cidr, err)
+			logger.Warnf("⚠️ [BasePlugin] Failed to allow %s: %v", cidr, err)
 		} else {
 			if _, ok := currentWhitelist[cidr]; !ok {
-				log.Printf("➕ [BasePlugin] Added whitelist %s (port: %d)", cidr, port)
+				logger.Infof("➕ [BasePlugin] Added whitelist %s (port: %d)", cidr, port)
 			}
 		}
 	}
@@ -164,10 +163,10 @@ func (p *BasePlugin) Sync(manager xdp.ManagerInterface) error {
 		if _, err := os.Stat(p.config.LockListBinary); err == nil {
 			count, err := p.loadBinaryRules(manager)
 			if err == nil {
-				log.Printf("🛡️  [BasePlugin] Pre-loaded %d rules from binary %s", count, p.config.LockListBinary)
+				logger.Infof("🛡️  [BasePlugin] Pre-loaded %d rules from binary %s", count, p.config.LockListBinary)
 				return nil // Skip text file if binary loading succeeded
 			}
-			log.Printf("⚠️  [BasePlugin] Failed to load binary rules: %v, falling back to text file", err)
+			logger.Warnf("⚠️  [BasePlugin] Failed to load binary rules: %v, falling back to text file", err)
 		}
 	}
 
@@ -188,25 +187,25 @@ func (p *BasePlugin) Sync(manager xdp.ManagerInterface) error {
 
 				merged, err := ipmerge.MergeCIDRs(lines)
 				if err != nil {
-					log.Printf("⚠️  [BasePlugin] Merge error: %v", err)
+					logger.Warnf("⚠️  [BasePlugin] Merge error: %v", err)
 					merged = lines
 				} else {
-					log.Printf("ℹ️  [BasePlugin] Optimized locklist from %d to %d rules", len(lines), len(merged))
+					logger.Infof("ℹ️  [BasePlugin] Optimized locklist from %d to %d rules", len(lines), len(merged))
 				}
 
 				count := 0
 				for _, line := range merged {
 					if err := manager.AddBlacklistIP(line); err != nil {
-						log.Printf("⚠️  [BasePlugin] Failed to block %s: %v", line, err)
+						logger.Warnf("⚠️  [BasePlugin] Failed to block %s: %v", line, err)
 					}
 					count++
 				}
-				log.Printf("🛡️  [BasePlugin] Pre-loaded %d IPs/ranges from %s", count, p.config.LockListFile)
+				logger.Infof("🛡️  [BasePlugin] Pre-loaded %d IPs/ranges from %s", count, p.config.LockListFile)
 			}
 		}
 	}
 
-	log.Printf("✅ [BasePlugin] Applied default_deny=%v and %d whitelist entries",
+	logger.Infof("✅ [BasePlugin] Applied default_deny=%v and %d whitelist entries",
 		p.config.DefaultDeny, len(desiredWhitelist))
 	return nil
 }

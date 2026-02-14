@@ -2,7 +2,6 @@ package port
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/iputil"
@@ -25,20 +24,20 @@ func (p *PortPlugin) Init(ctx *sdk.PluginContext) error {
 }
 
 func (p *PortPlugin) Reload(ctx *sdk.PluginContext) error {
-	log.Println("🔄 [PortPlugin] Reloading port configuration (Full Sync)...")
+	ctx.Logger.Infof("🔄 [PortPlugin] Reloading port configuration (Full Sync)...")
 	if err := p.Init(ctx); err != nil {
 		return err
 	}
-	return p.Sync(ctx.Manager)
+	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
 func (p *PortPlugin) Start(ctx *sdk.PluginContext) error {
-	log.Println("🚀 [PortPlugin] Starting...")
-	return p.Sync(ctx.Manager)
+	ctx.Logger.Infof("🚀 [PortPlugin] Starting...")
+	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
 // Sync synchronizes the current configuration with the BPF maps (Add/Remove)
-func (p *PortPlugin) Sync(manager xdp.ManagerInterface) error {
+func (p *PortPlugin) Sync(manager xdp.ManagerInterface, logger sdk.Logger) error {
 	if p.config == nil {
 		return nil
 	}
@@ -46,7 +45,7 @@ func (p *PortPlugin) Sync(manager xdp.ManagerInterface) error {
 	// --- 1. Sync Global Allowed Ports ---
 	currentPorts, err := manager.ListAllowedPorts()
 	if err != nil {
-		log.Printf("⚠️ [PortPlugin] Failed to list current allowed ports: %v", err)
+		logger.Warnf("⚠️ [PortPlugin] Failed to list current allowed ports: %v", err)
 		return fmt.Errorf("failed to list allowed ports: %w", err)
 	}
 
@@ -64,9 +63,9 @@ func (p *PortPlugin) Sync(manager xdp.ManagerInterface) error {
 	for port := range existingPorts {
 		if !desiredPorts[port] {
 			if err := manager.RemoveAllowedPort(port); err != nil {
-				log.Printf("⚠️ [PortPlugin] Failed to remove port %d: %v", port, err)
+				logger.Warnf("⚠️ [PortPlugin] Failed to remove port %d: %v", port, err)
 			} else {
-				log.Printf("➖ [PortPlugin] Removed port %d", port)
+				logger.Infof("➖ [PortPlugin] Removed port %d", port)
 			}
 		}
 	}
@@ -75,27 +74,27 @@ func (p *PortPlugin) Sync(manager xdp.ManagerInterface) error {
 	for port := range desiredPorts {
 		if !existingPorts[port] {
 			if err := manager.AllowPort(port); err != nil {
-				log.Printf("⚠️ [PortPlugin] Failed to allow port %d: %v", port, err)
+				logger.Warnf("⚠️ [PortPlugin] Failed to allow port %d: %v", port, err)
 			} else {
-				log.Printf("➕ [PortPlugin] Allowed port %d", port)
+				logger.Infof("➕ [PortPlugin] Allowed port %d", port)
 			}
 		}
 	}
 
 	// --- 2. Sync IP+Port Rules ---
-	if err := p.syncIPPortRules(manager, false); err != nil {
-		log.Printf("⚠️ [PortPlugin] Failed to sync IPv4 rules: %v", err)
+	if err := p.syncIPPortRules(manager, false, logger); err != nil {
+		logger.Warnf("⚠️ [PortPlugin] Failed to sync IPv4 rules: %v", err)
 	}
-	if err := p.syncIPPortRules(manager, true); err != nil {
-		log.Printf("⚠️ [PortPlugin] Failed to sync IPv6 rules: %v", err)
+	if err := p.syncIPPortRules(manager, true, logger); err != nil {
+		logger.Warnf("⚠️ [PortPlugin] Failed to sync IPv6 rules: %v", err)
 	}
 
-	log.Printf("✅ [PortPlugin] Sync complete. Active: %d global ports, %d IP+Port rules",
+	logger.Infof("✅ [PortPlugin] Sync complete. Active: %d global ports, %d IP+Port rules",
 		len(p.config.AllowedPorts), len(p.config.IPPortRules))
 	return nil
 }
 
-func (p *PortPlugin) syncIPPortRules(manager xdp.ManagerInterface, isIPv6 bool) error {
+func (p *PortPlugin) syncIPPortRules(manager xdp.ManagerInterface, isIPv6 bool, logger sdk.Logger) error {
 	// List existing rules
 	currentRulesSlice, _, err := manager.ListIPPortRules(isIPv6, 0, "")
 	if err != nil {
@@ -147,9 +146,9 @@ func (p *PortPlugin) syncIPPortRules(manager xdp.ManagerInterface, isIPv6 bool) 
 			}
 
 			if err := manager.RemoveIPPortRule(ipCIDR, port); err != nil {
-				log.Printf("⚠️ [PortPlugin] Failed to remove rule %s: %v", keyStr, err)
+				logger.Warnf("⚠️ [PortPlugin] Failed to remove rule %s: %v", keyStr, err)
 			} else {
-				log.Printf("➖ [PortPlugin] Removed rule %s", keyStr)
+				logger.Infof("➖ [PortPlugin] Removed rule %s", keyStr)
 			}
 		}
 	}
@@ -164,9 +163,9 @@ func (p *PortPlugin) syncIPPortRules(manager xdp.ManagerInterface, isIPv6 bool) 
 
 		if !exists || currentAction != desiredAction {
 			if err := manager.AddIPPortRule(rule.IP, rule.Port, desiredAction); err != nil {
-				log.Printf("⚠️ [PortPlugin] Failed to add rule %s: %v", key, err)
+				logger.Warnf("⚠️ [PortPlugin] Failed to add rule %s: %v", key, err)
 			} else {
-				log.Printf("➕ [PortPlugin] Added/Updated rule %s", key)
+				logger.Infof("➕ [PortPlugin] Added/Updated rule %s", key)
 			}
 		}
 	}

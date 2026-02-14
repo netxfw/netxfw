@@ -16,6 +16,7 @@ import (
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 // Rule represents a compiled rule.
@@ -33,6 +34,7 @@ type Rule struct {
 type RuleEngine struct {
 	rules   atomic.Pointer[[]Rule]
 	counter *Counter
+	logger  sdk.Logger
 }
 
 // Env is the environment passed to the rule execution (Byte Mode Only).
@@ -297,9 +299,10 @@ func (e *Env) InCIDR(cidr string) bool {
 }
 
 // NewRuleEngine creates a new RuleEngine.
-func NewRuleEngine(counter *Counter) *RuleEngine {
+func NewRuleEngine(counter *Counter, logger sdk.Logger) *RuleEngine {
 	re := &RuleEngine{
 		counter: counter,
+		logger:  logger,
 	}
 	re.rules.Store(&[]Rule{})
 	return re
@@ -459,13 +462,13 @@ func (re *RuleEngine) UpdateRules(configs []types.LogEngineRule) error {
 					}
 				}
 			} else {
-				log.Printf("⚠️  Rule '%s': Unknown action '%s', defaulting to Log (0).", cfg.ID, cfg.Action)
+				re.logger.Warnf("⚠️  Rule '%s': Unknown action '%s', defaulting to Log (0).", cfg.ID, cfg.Action)
 				actType = ActionLog
 			}
 		}
 
 		// Log compiled rule info for verification
-		log.Printf("✅ Rule '%s' loaded: Action=%d (0=Log,1=Dyn,2=Sta), TTL=%v, Path=%s",
+		re.logger.Infof("✅ Rule '%s' loaded: Action=%d (0=Log,1=Dyn,2=Sta), TTL=%v, Path=%s",
 			cfg.ID, actType, ttl, cfg.Path)
 
 		newRules = append(newRules, Rule{

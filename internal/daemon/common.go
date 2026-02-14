@@ -3,7 +3,6 @@ package daemon
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -34,7 +33,7 @@ func managePidFile(path string) error {
 			}
 		}
 		// PID file exists but process is dead or invalid, remove it / PID 文件存在但进程已死或无效，将其删除
-		// log.Printf("⚠️  Removing stale PID file: %s", path) // We don't have logger here, maybe pass it or ignore
+		logger.Get(nil).Warnf("⚠️  Removing stale PID file: %s", path)
 		_ = os.Remove(path)
 	}
 
@@ -49,7 +48,7 @@ func managePidFile(path string) error {
 // removePidFile 在关机时删除 PID 文件。
 func removePidFile(path string) {
 	if err := os.Remove(path); err != nil {
-		// log.Printf("⚠️  Failed to remove PID file: %v", err)
+		logger.Get(nil).Warnf("⚠️  Failed to remove PID file: %v", err)
 	}
 }
 
@@ -57,9 +56,12 @@ func removePidFile(path string) {
 // startPprof 启动用于分析的 Go pprof 服务器。
 func startPprof(port int) {
 	addr := fmt.Sprintf(":%d", port)
-	// log.Printf("📊 Pprof enabled on %s", addr)
+	logger.Get(nil).Infof("📊 Pprof enabled on %s", addr)
 	go func() {
-		log.Println(http.ListenAndServe(addr, nil))
+		err := http.ListenAndServe(addr, nil)
+		if err != nil {
+			logger.Get(nil).Errorf("❌ Pprof server error: %v", err)
+		}
 	}()
 }
 
@@ -92,9 +94,9 @@ func cleanupOrphanedInterfaces(manager *xdp.Manager, configuredInterfaces []stri
 			}
 		}
 		if len(toDetach) > 0 {
-			// log.Printf("ℹ️  Detaching from removed interfaces: %v", toDetach)
+			logger.Get(nil).Infof("ℹ️  Detaching from removed interfaces: %v", toDetach)
 			if err := manager.Detach(toDetach); err != nil {
-				// log.Printf("⚠️  Failed to detach from removed interfaces: %v", err)
+				logger.Get(nil).Warnf("⚠️  Failed to detach from removed interfaces: %v", err)
 			}
 		}
 	}
@@ -178,7 +180,7 @@ func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
 			log.Info("🛑 Stopping cleanup loop")
 			return
 		case <-ticker.C:
-			m, err := xdp.NewManagerFromPins(config.GetPinPath())
+			m, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
 			if err != nil {
 				continue
 			}

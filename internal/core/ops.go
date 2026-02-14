@@ -49,7 +49,7 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		log.Infof("ℹ️  Auto-detected interfaces: %v", interfaces)
 	}
 
-	manager, err := xdp.NewManager(globalCfg.Capacity)
+	manager, err := xdp.NewManager(globalCfg.Capacity, log)
 	if err != nil {
 		return fmt.Errorf("failed to create XDP manager: %v", err)
 	}
@@ -129,7 +129,7 @@ func HandlePluginCommand(ctx context.Context, args []string) error {
 		return fmt.Errorf("Usage: netxfw plugin <load|remove> ...")
 	}
 
-	manager, err := xdp.NewManagerFromPins(config.GetPinPath())
+	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
 	if err != nil {
 		return fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
 	}
@@ -209,7 +209,7 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 		log.Infof("ℹ️  Detaching from all detected interfaces: %v", interfaces)
 	}
 
-	manager, err := xdp.NewManager(globalCfg.Capacity)
+	manager, err := xdp.NewManager(globalCfg.Capacity, log)
 	if err != nil {
 		return fmt.Errorf("failed to create XDP manager: %v", err)
 	}
@@ -260,7 +260,7 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 
 	// 2. Try to load old manager from pins to check capacity
 	// 2. 尝试从固定点加载旧管理器以检查容量
-	oldManager, err := xdp.NewManagerFromPins(config.GetPinPath())
+	oldManager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
 	if err == nil {
 		oldAdapter := xdp.NewAdapter(oldManager)
 		pluginCtx := &sdk.PluginContext{
@@ -301,7 +301,7 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 		log.Info("📦 Capacity changed. Performing full state migration...")
 		// Initialize new manager with new capacities
 		// 使用新容量初始化新管理器
-		newManager, err := xdp.NewManager(globalCfg.Capacity)
+		newManager, err := xdp.NewManager(globalCfg.Capacity, log)
 		if err != nil {
 			return fmt.Errorf("failed to create new XDP manager: %v", err)
 		}
@@ -355,7 +355,7 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 func RunWebServer(ctx context.Context, port int) error {
 	log := logger.Get(ctx)
 	// 1. Try to load manager from pins / 尝试从固定点加载管理器
-	manager, err := xdp.NewManagerFromPins(config.GetPinPath())
+	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
 	if err != nil {
 		log.Warnf("⚠️  Could not load pinned maps (is XDP loaded?): %v", err)
 		return fmt.Errorf("web server requires netxfw XDP to be loaded. Run 'netxfw system load' first")

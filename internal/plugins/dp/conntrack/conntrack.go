@@ -1,7 +1,6 @@
 package conntrack
 
 import (
-	"log"
 	"time"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
@@ -23,16 +22,16 @@ func (p *ConntrackPlugin) Init(ctx *sdk.PluginContext) error {
 }
 
 func (p *ConntrackPlugin) Reload(ctx *sdk.PluginContext) error {
-	log.Println("🔄 [ConntrackPlugin] Reloading configuration (Full Sync)...")
+	ctx.Logger.Infof("🔄 [ConntrackPlugin] Reloading configuration (Full Sync)...")
 	if err := p.Init(ctx); err != nil {
 		return err
 	}
-	return p.Sync(ctx.Manager)
+	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
 func (p *ConntrackPlugin) Start(ctx *sdk.PluginContext) error {
-	log.Println("🚀 [ConntrackPlugin] Starting...")
-	return p.Sync(ctx.Manager)
+	ctx.Logger.Infof("🚀 [ConntrackPlugin] Starting...")
+	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
 func (p *ConntrackPlugin) Stop() error {
@@ -48,7 +47,7 @@ func (p *ConntrackPlugin) DefaultConfig() interface{} {
 	}
 }
 
-func (p *ConntrackPlugin) Sync(manager xdp.ManagerInterface) error {
+func (p *ConntrackPlugin) Sync(manager xdp.ManagerInterface, logger sdk.Logger) error {
 	if p.config == nil {
 		return nil
 	}
@@ -56,12 +55,12 @@ func (p *ConntrackPlugin) Sync(manager xdp.ManagerInterface) error {
 	// 1. Sync Enable/Disable
 	// Even if disabled, we must explicitly call SetConntrack(false) to overwrite previous state
 	if err := manager.SetConntrack(p.config.Enabled); err != nil {
-		log.Printf("⚠️  [ConntrackPlugin] Failed to set conntrack state: %v", err)
+		logger.Warnf("⚠️  [ConntrackPlugin] Failed to set conntrack state: %v", err)
 		return err
 	}
 
 	if !p.config.Enabled {
-		log.Println("ℹ️  [ConntrackPlugin] Connection tracking disabled")
+		logger.Infof("ℹ️  [ConntrackPlugin] Connection tracking disabled")
 		return nil
 	}
 
@@ -72,7 +71,7 @@ func (p *ConntrackPlugin) Sync(manager xdp.ManagerInterface) error {
 	if p.config.TCPTimeout != "" {
 		tcpDuration, err = time.ParseDuration(p.config.TCPTimeout)
 		if err != nil {
-			log.Printf("⚠️  [ConntrackPlugin] Invalid TCPTimeout format: %s", p.config.TCPTimeout)
+			logger.Warnf("⚠️  [ConntrackPlugin] Invalid TCPTimeout format: %s", p.config.TCPTimeout)
 			tcpDuration = time.Hour // Default
 		}
 	} else {
@@ -82,17 +81,17 @@ func (p *ConntrackPlugin) Sync(manager xdp.ManagerInterface) error {
 	if p.config.UDPTimeout != "" {
 		_, err := time.ParseDuration(p.config.UDPTimeout)
 		if err != nil {
-			log.Printf("⚠️  [ConntrackPlugin] Invalid UDPTimeout format: %s", p.config.UDPTimeout)
+			logger.Warnf("⚠️  [ConntrackPlugin] Invalid UDPTimeout format: %s", p.config.UDPTimeout)
 		}
 	}
 
 	if err := manager.SetConntrackTimeout(tcpDuration); err != nil {
-		log.Printf("⚠️  [ConntrackPlugin] Failed to set conntrack timeout: %v", err)
+		logger.Warnf("⚠️  [ConntrackPlugin] Failed to set conntrack timeout: %v", err)
 	} else {
-		log.Printf("✅ [ConntrackPlugin] Conntrack timeout set to %v (Global)", tcpDuration)
+		logger.Infof("✅ [ConntrackPlugin] Conntrack timeout set to %v (Global)", tcpDuration)
 	}
 
-	log.Printf("✅ [ConntrackPlugin] Connection tracking (LRU-based) enabled")
+	logger.Infof("✅ [ConntrackPlugin] Connection tracking (LRU-based) enabled")
 	return nil
 }
 

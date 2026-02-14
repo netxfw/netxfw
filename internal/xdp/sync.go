@@ -25,11 +25,11 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	}
 
 	if overwrite {
-		log.Printf("🧹 Overwrite mode: Clearing BPF maps before sync...")
+		m.logger.Infof("🧹 Overwrite mode: Clearing BPF maps before sync...")
 		m.ClearMaps()
 	}
 
-	log.Printf("🔄 Syncing rules from %s and config to BPF maps...", cfg.Base.LockListFile)
+	m.logger.Infof("🔄 Syncing rules from %s and config to BPF maps...", cfg.Base.LockListFile)
 
 	// 1. Sync Whitelist from config to maps / 从配置同步白名单到 Map
 	for _, rule := range cfg.Base.Whitelist {
@@ -48,7 +48,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 
 		if targetMap != nil {
 			if err := AllowIP(targetMap, cidr, port); err != nil {
-				log.Printf("⚠️  Failed to whitelist %s: %v", rule, err)
+				m.logger.Warnf("⚠️  Failed to whitelist %s: %v", rule, err)
 			}
 		}
 	}
@@ -73,7 +73,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		if err != nil {
 			ip = net.ParseIP(line)
 			if ip == nil {
-				log.Printf("⚠️  Skipping invalid IP/CIDR: %s", line)
+				m.logger.Warnf("⚠️  Skipping invalid IP/CIDR: %s", line)
 				continue
 			}
 			if ip.To4() != nil {
@@ -102,7 +102,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 
 		if err := LockIP(targetMap, fmt.Sprintf("%s/%d", r.IP.String(), r.PrefixLen)); err != nil {
-			log.Printf("⚠️  Failed to lock %s/%d: %v", r.IP.String(), r.PrefixLen, err)
+			m.logger.Warnf("⚠️  Failed to lock %s/%d: %v", r.IP.String(), r.PrefixLen, err)
 		}
 	}
 
@@ -121,7 +121,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 		if ipNet != nil {
 			if err := m.AddIPPortRule(ipNet, rule.Port, rule.Action, nil); err != nil {
-				log.Printf("⚠️  Failed to add IP+Port rule %s:%d (action %d): %v", rule.IP, rule.Port, rule.Action, err)
+				m.logger.Warnf("⚠️  Failed to add IP+Port rule %s:%d (action %d): %v", rule.IP, rule.Port, rule.Action, err)
 			}
 		}
 	}
@@ -129,7 +129,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	// 4. Sync allowed ports from config to maps / 从配置同步允许端口到 Map
 	for _, port := range cfg.Port.AllowedPorts {
 		if err := m.AllowPort(port, nil); err != nil {
-			log.Printf("⚠️  Failed to allow port %d: %v", port, err)
+			m.logger.Warnf("⚠️  Failed to allow port %d: %v", port, err)
 		}
 	}
 
@@ -148,7 +148,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 		if ipNet != nil {
 			if err := m.AddRateLimitRule(ipNet, rule.Rate, rule.Burst); err != nil {
-				log.Printf("⚠️  Failed to add rate limit rule %s: %v", rule.IP, err)
+				m.logger.Warnf("⚠️  Failed to add rate limit rule %s: %v", rule.IP, err)
 			}
 		}
 	}
@@ -191,14 +191,14 @@ func (m *Manager) UpdateBinaryCache(cfg *types.GlobalConfig, records []binary.Re
 	tmpBin := cfg.Base.LockListBinary + ".tmp"
 	tmpFile, err := os.Create(tmpBin)
 	if err != nil {
-		log.Printf("❌ Failed to create temporary binary file: %v", err)
+		m.logger.Errorf("❌ Failed to create temporary binary file: %v", err)
 		return
 	}
 
 	if err := binary.Encode(tmpFile, records); err != nil {
 		tmpFile.Close()
 		os.Remove(tmpBin)
-		log.Printf("❌ Failed to encode binary records: %v", err)
+		m.logger.Errorf("❌ Failed to encode binary records: %v", err)
 		return
 	}
 	tmpFile.Close()
@@ -206,11 +206,11 @@ func (m *Manager) UpdateBinaryCache(cfg *types.GlobalConfig, records []binary.Re
 	cmd := exec.Command("zstd", "-f", "-o", cfg.Base.LockListBinary, tmpBin)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		os.Remove(tmpBin)
-		log.Printf("❌ Failed to compress with zstd: %v\nOutput: %s", err, string(output))
+		m.logger.Errorf("❌ Failed to compress with zstd: %v\nOutput: %s", err, string(output))
 		return
 	}
 	os.Remove(tmpBin)
-	log.Printf("✅ Successfully updated binary cache %s", cfg.Base.LockListBinary)
+	m.logger.Infof("✅ Successfully updated binary cache %s", cfg.Base.LockListBinary)
 }
 
 // SyncToFiles dumps current BPF map rules back to text files.
@@ -220,7 +220,7 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 		return fmt.Errorf("lock_list_file must be configured")
 	}
 
-	log.Printf("💾 Syncing BPF maps to %s and config object...", cfg.Base.LockListFile)
+	m.logger.Infof("💾 Syncing BPF maps to %s and config object...", cfg.Base.LockListFile)
 
 	// 1. Sync Whitelist from maps to config object / 从 Map 同步白名单到配置对象
 	wl, _, err := ListBlockedIPs(m.whitelist, false, 0, "")

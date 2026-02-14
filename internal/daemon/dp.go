@@ -35,10 +35,10 @@ func runDataPlane(ctx context.Context) {
 
 	// 1. Initialize Manager (Create or Load Pinned) / 初始化管理器（创建或加载固定内容）
 	pinPath := config.GetPinPath()
-	manager, err := xdp.NewManagerFromPins(pinPath)
+	manager, err := xdp.NewManagerFromPins(pinPath, log)
 	if err != nil {
 		log.Info("ℹ️  Creating new XDP manager...")
-		manager, err = xdp.NewManager(globalCfg.Capacity)
+		manager, err = xdp.NewManager(globalCfg.Capacity, log)
 		if err != nil {
 			log.Fatalf("❌ Failed to create XDP manager: %v", err)
 		}
