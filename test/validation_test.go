@@ -1,8 +1,9 @@
 package types
 
 import (
-	"github.com/livp123/netxfw/internal/plugins/types"
 	"testing"
+
+	"github.com/livp123/netxfw/internal/plugins/types"
 )
 
 func TestConfigValidation(t *testing.T) {
@@ -78,6 +79,33 @@ func TestConfigValidation(t *testing.T) {
 				RateLimit: types.RateLimitConfig{
 					Rules: []types.RateLimitRule{
 						{IP: "999.999.999.999"},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Valid LogEngine Actions",
+			config: types.GlobalConfig{
+				LogEngine: types.LogEngineConfig{
+					Rules: []types.LogEngineRule{
+						{ID: "r1", Action: "block"},
+						{ID: "r2", Action: "log"},
+						{ID: "r3", Action: "1"},
+						{ID: "r4", Action: "2"},
+						{ID: "r5", Action: "static"},
+						{ID: "r6", Action: "block:10m"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Invalid LogEngine Action",
+			config: types.GlobalConfig{
+				LogEngine: types.LogEngineConfig{
+					Rules: []types.LogEngineRule{
+						{ID: "r1", Action: "invalid_action"},
 					},
 				},
 			},

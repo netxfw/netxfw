@@ -76,8 +76,19 @@ func (c *LogEngineConfig) Validate() error {
 		if rule.TailPosition != "" && rule.TailPosition != "start" && rule.TailPosition != "end" && rule.TailPosition != "offset" {
 			return fmt.Errorf("invalid log_engine rule #%d: invalid tail_position '%s'", i, rule.TailPosition)
 		}
-		if rule.Action != "" && rule.Action != "block" && rule.Action != "log" {
-			return fmt.Errorf("invalid log_engine rule #%d: invalid action '%s'", i, rule.Action)
+		if rule.Action != "" {
+			act := rule.Action
+			// Check if it's one of the supported strings or numeric strings
+			// This should match the logic in logengine/rule_engine.go
+			switch act {
+			case "0", "1", "2", "log", "block", "dynamic", "static", "permanent", "lock", "deny", "black", "dynblock", "dynblack":
+				// Valid
+			default:
+				// Also check for prefix-based dynamic blocks like "block:10m"
+				if !((len(act) > 6 && act[:6] == "block:") || (len(act) > 6 && act[:6] == "black:")) {
+					return fmt.Errorf("invalid log_engine rule #%d: invalid action '%s'", i, act)
+				}
+			}
 		}
 	}
 	return nil
