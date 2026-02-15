@@ -19,6 +19,10 @@ import (
 const DefaultConfigTemplate = `# NetXFW Configuration File / NetXFW 配置文件
 #
 
+# Cluster Configuration / 集群配置
+cluster:
+  enabled: false
+
 # Base Configuration / 基础配置
 base:
   # Default Deny Policy: If true, all traffic not explicitly allowed is dropped.
@@ -27,7 +31,7 @@ base:
 
   # Allow Return Traffic: Stateless check (ACK + Port range).
   # 允许回程流量：无状态检查（ACK + 端口范围）。
-  allow_return_traffic: false
+  allow_return_traffic: true
 
   # Allow ICMP: Allow Ping and other ICMP messages.
   # 允许 ICMP：允许 Ping 和其他 ICMP 消息。
@@ -222,6 +226,7 @@ logging:
 // GlobalConfig represents the top-level configuration structure.
 // GlobalConfig 表示顶级配置结构。
 type GlobalConfig struct {
+	Cluster   ClusterConfig   `yaml:"cluster"`
 	Base      BaseConfig      `yaml:"base"`
 	Web       WebConfig       `yaml:"web"`
 	Metrics   MetricsConfig   `yaml:"metrics"`
@@ -450,6 +455,9 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 
 	// Initialize with defaults / 使用默认值初始化
 	cfg := GlobalConfig{
+		Cluster: ClusterConfig{
+			Enabled: false,
+		},
 		Base: BaseConfig{
 			DefaultDeny:        true,
 			AllowReturnTraffic: false,

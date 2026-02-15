@@ -5,6 +5,7 @@ package xdp
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
@@ -172,41 +173,100 @@ func NewManagerFromPins(path string, logger Logger) (*Manager, error) {
 		return nil, fmt.Errorf("remove memlock: %w", err)
 	}
 
-	// We still need to load objects to get the program, but we will replace maps with pinned ones
-	// 我们仍需加载对象以获取程序，但将使用固定的 Map 替换它们
+	// Prepare map replacements to reuse pinned maps
+	// 准备 Map 替换以重用固定的 Map
+	opts := &ebpf.CollectionOptions{
+		MapReplacements: make(map[string]*ebpf.Map),
+	}
+
+	mapNames := []string{
+		config.MapLockList,
+		config.MapDynLockList,
+		config.MapWhitelist,
+		config.MapAllowedPorts,
+		config.MapIPPortRules,
+		config.MapGlobalConfig,
+		config.MapDropStats,
+		config.MapDropReasonStats,
+		config.MapPassStats,
+		config.MapPassReasonStats,
+		config.MapICMPLimit,
+		config.MapConntrack,
+		config.MapRatelimitConfig,
+		config.MapRatelimitState,
+	}
+
+	// Try to load each pinned map
+	// 尝试加载每个固定的 Map
+	for _, name := range mapNames {
+		mp, err := ebpf.LoadPinnedMap(filepath.Join(path, name), nil)
+		if err == nil {
+			opts.MapReplacements[name] = mp
+			// Note: The Collection takes ownership of these maps when passed via MapReplacements
+			// and will close them when Collection.Close() is called.
+			// 注意：当通过 MapReplacements 传递时，Collection 接管这些 Map 的所有权，
+			// 并将在调用 Collection.Close() 时关闭它们。
+		} else {
+			// It's okay if some maps are missing (e.g. first run), we'll create new ones
+			// 如果缺少某些 Map（例如首次运行），也没关系，我们将创建新的
+			logger.Infof("📌 Could not load pinned map %s (will create new): %v", name, err)
+		}
+	}
+
+	// Load objects with map replacements
+	// 加载带有 Map 替换的对象
 	var objs NetXfwObjects
-	if err := LoadNetXfwObjects(&objs, nil); err != nil {
-		return nil, fmt.Errorf("load eBPF objects: %w", err)
+
+	// Temporarily adjust MaxEntries in spec to match pinned maps if needed
+	// 如果需要，临时调整规范中的 MaxEntries 以匹配固定的 Map
+	spec, err := LoadNetXfw()
+	if err == nil {
+		for name, pinnedMap := range opts.MapReplacements {
+			if specMap, ok := spec.Maps[name]; ok {
+				if specMap.MaxEntries != pinnedMap.MaxEntries() {
+					// Update spec to match pinned map capacity to avoid incompatibility error
+					// 更新规范以匹配固定 Map 的容量，避免不兼容错误
+					specMap.MaxEntries = pinnedMap.MaxEntries()
+				}
+			}
+		}
+		// Load using the modified spec
+		if err := spec.LoadAndAssign(&objs, opts); err != nil {
+			for _, m := range opts.MapReplacements {
+				m.Close()
+			}
+			return nil, fmt.Errorf("load eBPF objects: %w", err)
+		}
+	} else {
+		// Fallback to standard load if spec loading fails (unlikely)
+		// 如果规范加载失败（不太可能），则回退到标准加载
+		if err := LoadNetXfwObjects(&objs, opts); err != nil {
+			for _, m := range opts.MapReplacements {
+				m.Close()
+			}
+			return nil, fmt.Errorf("load eBPF objects: %w", err)
+		}
 	}
 
 	m := &Manager{
-		objs:   objs,
-		logger: logger,
+		objs:            objs,
+		lockList:        objs.LockList,
+		dynLockList:     objs.DynLockList,
+		whitelist:       objs.Whitelist,
+		allowedPorts:    objs.AllowedPorts,
+		ipPortRules:     objs.IpPortRules,
+		globalConfig:    objs.GlobalConfig,
+		dropStats:       objs.DropStats,
+		dropReasonStats: objs.DropReasonStats,
+		passStats:       objs.PassStats,
+		passReasonStats: objs.PassReasonStats,
+		icmpLimitMap:    objs.IcmpLimitMap,
+		conntrackMap:    objs.ConntrackMap,
+		ratelimitConfig: objs.RatelimitConfig,
+		ratelimitState:  objs.RatelimitState,
+		jmpTable:        objs.JmpTable,
+		logger:          logger,
 	}
-
-	loadMap := func(name string, fallback *ebpf.Map) *ebpf.Map {
-		mp, err := ebpf.LoadPinnedMap(path+"/"+name, nil)
-		if err != nil {
-			logger.Warnf("⚠️  Could not load pinned %s: %v", name, err)
-			return fallback
-		}
-		return mp
-	}
-
-	m.lockList = loadMap(config.MapLockList, objs.LockList)
-	m.dynLockList = loadMap(config.MapDynLockList, objs.DynLockList)
-	m.whitelist = loadMap(config.MapWhitelist, objs.Whitelist)
-	m.allowedPorts = loadMap(config.MapAllowedPorts, objs.AllowedPorts)
-	m.ipPortRules = loadMap(config.MapIPPortRules, objs.IpPortRules)
-	m.globalConfig = loadMap(config.MapGlobalConfig, objs.GlobalConfig)
-	m.dropStats = loadMap(config.MapDropStats, objs.DropStats)
-	m.dropReasonStats = loadMap(config.MapDropReasonStats, objs.DropReasonStats)
-	m.passStats = loadMap(config.MapPassStats, objs.PassStats)
-	m.passReasonStats = loadMap(config.MapPassReasonStats, objs.PassReasonStats)
-	m.icmpLimitMap = loadMap(config.MapICMPLimit, objs.IcmpLimitMap)
-	m.conntrackMap = loadMap(config.MapConntrack, objs.ConntrackMap)
-	m.ratelimitConfig = loadMap(config.MapRatelimitConfig, objs.RatelimitConfig)
-	m.ratelimitState = loadMap(config.MapRatelimitState, objs.RatelimitState)
 
 	return m, nil
 }

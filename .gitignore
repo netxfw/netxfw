@@ -11,6 +11,7 @@
 # Local config
 /etc/
 /vendor/
+/config.yaml
 
 # BPF objects
 internal/xdp/netxfw_bpfel.o

@@ -1,5 +1,6 @@
 # NetXFW Configuration File / NetXFW 配置文件
 #
+
 # Cluster Configuration / 集群配置
 cluster:
   enabled: false
@@ -10,7 +11,7 @@ base:
   default_deny: true
   # Allow Return Traffic: Stateless check (ACK + Port range).
   # 允许回程流量：无状态检查（ACK + 端口范围）。
-  allow_return_traffic: false
+  allow_return_traffic: true
   # Allow ICMP: Allow Ping and other ICMP messages.
   # 允许 ICMP：允许 Ping 和其他 ICMP 消息。
   allow_icmp: true
