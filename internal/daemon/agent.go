@@ -55,6 +55,14 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 		manager = xdp.NewAdapter(realMgr)
 	}
 
+	// Consistency Check at startup (Ensure BPF maps match Config)
+	// 启动时的一致性检查（确保 BPF Map 与配置匹配）
+	if err := manager.VerifyAndRepair(globalCfg); err != nil {
+		log.Warnf("⚠️  Startup consistency check failed: %v", err)
+	} else {
+		log.Info("✅ Startup consistency check passed (Config synced to BPF).")
+	}
+
 	// 2. Load ALL Plugins (Agent manages everything) / 加载所有插件（Agent 管理一切）
 	pluginCtx := &sdk.PluginContext{
 		Context: ctx,

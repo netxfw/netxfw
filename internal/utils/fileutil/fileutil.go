@@ -2,8 +2,38 @@ package fileutil
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 )
+
+// AtomicWriteFile writes data to a temporary file and then renames it to the target file.
+// AtomicWriteFile 将数据写入临时文件，然后将其重命名为目标文件。
+func AtomicWriteFile(filename string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(filename)
+	tmpFile, err := os.CreateTemp(dir, "atomic-*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpFile.Name()) // Clean up if something fails
+
+	if _, err := tmpFile.Write(data); err != nil {
+		tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Chmod(perm); err != nil {
+		tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Sync(); err != nil {
+		tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpFile.Name(), filename)
+}
 
 // ReadLines reads all non-empty lines from a file.
 // ReadLines 读取文件中的所有非空行。

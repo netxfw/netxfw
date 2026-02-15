@@ -28,8 +28,8 @@ var (
 // 规则命令
 var (
 	EnsureStandaloneMode      func()
-	SyncLockMap               func(ctx context.Context, mgr core.XDPManager, ip string, lock bool) error
-	SyncWhitelistMap          func(ctx context.Context, mgr core.XDPManager, ip string, port uint16, allow bool) error
+	SyncLockMap      func(ctx context.Context, mgr core.XDPManager, cidr string, lock bool, force bool) error
+	SyncWhitelistMap func(ctx context.Context, mgr core.XDPManager, cidr string, port uint16, allow bool, force bool) error
 	SyncIPPortRule            func(ctx context.Context, mgr core.XDPManager, ip string, port uint16, protocol uint8, allow bool) error
 	ShowIPPortRules           func(ctx context.Context, mgr core.XDPManager, limit int, search string) error
 	ShowWhitelist             func(ctx context.Context, mgr core.XDPManager, limit int, search string) error

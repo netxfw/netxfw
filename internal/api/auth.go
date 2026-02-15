@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/livp123/netxfw/internal/core"
 	"github.com/livp123/netxfw/internal/plugins/types"
 )
 
@@ -84,7 +85,9 @@ func verifyToken(tokenString string, secret string) (*TokenClaims, error) {
 // withAuth 是用于基于令牌认证的中间件（支持 Bearer Token 和旧查询参数）
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		core.ConfigMu.RLock()
 		cfg, err := types.LoadGlobalConfig(s.configPath)
+		core.ConfigMu.RUnlock()
 		if err != nil {
 			http.Error(w, "Config Error", http.StatusInternalServerError)
 			return
@@ -134,7 +137,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	core.ConfigMu.RLock()
 	cfg, err := types.LoadGlobalConfig(s.configPath)
+	core.ConfigMu.RUnlock()
 	if err != nil {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return

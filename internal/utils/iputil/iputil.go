@@ -81,8 +81,8 @@ func ParseIPPort(input string) (string, uint16, error) {
 		return "", 0, fmt.Errorf("port out of range: %d", port)
 	}
 
-	if !IsValidIP(ip) {
-		return "", 0, fmt.Errorf("invalid IP address: %s", ip)
+	if !IsValidCIDR(ip) {
+		return "", 0, fmt.Errorf("invalid IP address or CIDR: %s", ip)
 	}
 
 	return ip, uint16(port), nil

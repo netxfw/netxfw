@@ -6,12 +6,135 @@ package xdp
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 	"time"
 
 	"github.com/cilium/ebpf"
+	"github.com/livp123/netxfw/internal/utils/fileutil"
 	"github.com/livp123/netxfw/internal/utils/iputil"
 )
+
+// BlockStatic adds an IP to the static blocklist (LPM trie) and optionally persists it to a file.
+// It reuses the underlying LockIP helper for BPF map operations.
+// BlockStatic 将 IP 添加到静态黑名单（LPM Trie）并可选择将其持久化到文件。
+// 它复用底层的 LockIP 辅助函数进行 BPF Map 操作。
+func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
+	ipNet, err := iputil.ParseCIDR(ipStr)
+	if err != nil {
+		return fmt.Errorf("invalid IP or CIDR %s: %w", ipStr, err)
+	}
+	cidr := ipNet.String()
+
+	// Use LockList (Static) / 使用 LockList（静态）
+	mapObj := m.LockList()
+
+	// Reuse existing LockIP helper / 复用现有的 LockIP 辅助函数
+	if err := LockIP(mapObj, cidr); err != nil {
+		return fmt.Errorf("failed to add to static blacklist %s: %v", cidr, err)
+	}
+
+	// Persist to lock list file if configured / 如果配置了，持久化到锁定列表文件
+	if persistFile != "" {
+		if err := fileutil.AppendToFile(persistFile, cidr); err != nil {
+			m.logger.Warnf("⚠️ Failed to write to lock list file: %v", err)
+		} else {
+			m.logger.Infof("💾 Persisted IP %s to %s", cidr, persistFile)
+		}
+	}
+
+	m.logger.Infof("🚫 Added IP %s to STATIC blacklist (permanent)", cidr)
+	return nil
+}
+
+// AllowStatic adds an IP/CIDR to the whitelist.
+// AllowStatic 将 IP/CIDR 添加到白名单。
+func (m *Manager) AllowStatic(ipStr string, port uint16) error {
+	mapObj := m.Whitelist()
+
+	if err := AllowIP(mapObj, ipStr, port); err != nil {
+		return fmt.Errorf("failed to allow %s: %v", ipStr, err)
+	}
+	return nil
+}
+
+// RemoveAllowStatic removes an IP/CIDR from the whitelist.
+// RemoveAllowStatic 从白名单中移除 IP/CIDR。
+func (m *Manager) RemoveAllowStatic(ipStr string) error {
+	mapObj := m.Whitelist()
+
+	if err := UnlockIP(mapObj, ipStr); err != nil {
+		return fmt.Errorf("failed to remove from whitelist %s: %v", ipStr, err)
+	}
+	return nil
+}
+
+// ListWhitelist returns all whitelisted IPs/CIDRs.
+// ListWhitelist 返回所有白名单中的 IP/CIDR。
+func (m *Manager) ListWhitelist(isIPv6 bool) ([]string, error) {
+	mapObj := m.Whitelist()
+	// Use 0 limit to get all / 使用 0 限制以获取全部
+	ips, _, err := ListWhitelistIPs(mapObj, 0, "")
+	return ips, err
+}
+
+// BlockDynamic adds an IP to the dynamic blocklist (LRU hash) with a TTL.
+// BlockDynamic 将 IP 添加到带有 TTL 的动态黑名单（LRU Hash）中。
+func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
+	ip, err := netip.ParseAddr(ipStr)
+	if err != nil {
+		return fmt.Errorf("invalid IP address %s: %w", ipStr, err)
+	}
+
+	expiry := uint64(0)
+	if ttl > 0 {
+		expiry = uint64(time.Now().Add(ttl).UnixNano())
+	}
+
+	if ip.Is4() {
+		mapObj := m.DynLockList()
+		if mapObj == nil {
+			return fmt.Errorf("dyn_lock_list not available")
+		}
+
+		// Use mapped IPv6 for key / 使用映射的 IPv6 作为键
+		key := NetXfwIn6Addr{}
+		b := ip.As4()
+		// ::ffff:a.b.c.d
+		key.In6U.U6Addr8[10] = 0xff
+		key.In6U.U6Addr8[11] = 0xff
+		copy(key.In6U.U6Addr8[12:], b[:])
+
+		val := NetXfwRuleValue{
+			Counter:   2, // Deny / 拒绝
+			ExpiresAt: expiry,
+		}
+		if err := mapObj.Update(&key, &val, ebpf.UpdateAny); err != nil {
+			return fmt.Errorf("failed to block IPv4 %s: %v", ip, err)
+		}
+	} else if ip.Is6() {
+		mapObj := m.DynLockList()
+		if mapObj == nil {
+			return fmt.Errorf("dyn_lock_list not available")
+		}
+
+		key := NetXfwIn6Addr{}
+		b := ip.As16()
+		copy(key.In6U.U6Addr8[:], b[:])
+
+		val := NetXfwRuleValue{
+			Counter:   2, // Deny / 拒绝
+			ExpiresAt: expiry,
+		}
+
+		if err := mapObj.Update(&key, &val, ebpf.UpdateAny); err != nil {
+			return fmt.Errorf("failed to block IPv6 %s: %v", ip, err)
+		}
+	}
+
+	m.logger.Infof("🚫 Blocked IP %s for %v (expiry: %d)", ip, ttl, expiry)
+	return nil
+}
 
 /**
  * AddIPPortRuleToMap adds an IP+Port rule to the map.

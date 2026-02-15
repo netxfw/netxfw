@@ -165,7 +165,6 @@ log_engine:
 # Capacity Configuration / 容量配置
 # Adjust these based on your system memory and requirements.
 capacity:
-  conntrack: 100000
   lock_list: 2000000
   dyn_lock_list: 0
   whitelist: 65536

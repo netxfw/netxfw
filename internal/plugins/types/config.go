@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/livp123/netxfw/internal/utils/fileutil"
 	"gopkg.in/yaml.v3"
 )
 
@@ -197,7 +198,6 @@ log_engine:
 # Adjust these based on your system memory and requirements.
 # 根据您的系统内存和需求进行调整。
 capacity:
-  conntrack: 100000
   lock_list: 2000000
   dyn_lock_list: 2000000
   whitelist: 65536
@@ -359,7 +359,7 @@ type WebConfig struct {
 // CapacityConfig defines the capacity settings for BPF maps.
 // CapacityConfig 定义 BPF Map 的容量设置。
 type CapacityConfig struct {
-	Conntrack    int `yaml:"conntrack"`
+	Conntrack    int `yaml:"-"` // Deprecated: Use Conntrack.MaxEntries / 已弃用：使用 Conntrack.MaxEntries
 	LockList     int `yaml:"lock_list"`
 	DynLockList  int `yaml:"dyn_lock_list"`
 	Whitelist    int `yaml:"whitelist"`
@@ -578,7 +578,7 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 
 	// Write new config (defaultNode now contains merged state)
 	// yaml.v3 Encoder adds a newline
-	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
+	if err := fileutil.AtomicWriteFile(path, buf.Bytes(), 0644); err != nil {
 		log.Printf("❌ Failed to update config file: %v", err)
 	} else {
 		log.Println("✅ Configuration file updated (comments restored/preserved).")
@@ -659,12 +659,12 @@ func SaveGlobalConfig(path string, cfg *GlobalConfig) error {
 			if err := enc.Encode(&fileNode); err != nil {
 				return err
 			}
-			return os.WriteFile(path, buf.Bytes(), 0644)
+			return fileutil.AtomicWriteFile(path, buf.Bytes(), 0644)
 		}
 	}
 
 	// Fallback if file doesn't exist or is malformed: just write the new config
-	return os.WriteFile(path, data, 0644)
+	return fileutil.AtomicWriteFile(path, data, 0644)
 }
 
 // MergeYamlNodes updates target (existing file) with source (new config).

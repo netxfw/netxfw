@@ -6,9 +6,8 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/livp123/netxfw/internal/optimizer"
+	"github.com/livp123/netxfw/internal/core"
 	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/utils/fileutil"
 	"github.com/livp123/netxfw/internal/utils/iputil"
 )
 
@@ -66,7 +65,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		var err error
 		if req.Action == "add" {
 			if req.Type == "blacklist" {
-				err = s.manager.AddBlacklistIP(req.CIDR)
+				err = core.SyncLockMap(r.Context(), s.manager, req.CIDR, true, true)
 			} else if req.Type == "whitelist" {
 				port := uint16(0)
 				// Parse optional port (e.g. 1.2.3.4:80 or [::1]:80)
@@ -77,7 +76,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					port = pVal
 				}
 
-				err = s.manager.AddWhitelistIP(req.CIDR, port)
+				err = core.SyncWhitelistMap(r.Context(), s.manager, req.CIDR, port, true, true)
 			} else if req.Type == "ip_port_rules" {
 				ipStr, port, action, parseErr := parseIPPortAction(req.CIDR)
 				if parseErr != nil {
@@ -90,7 +89,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					}
 
 					if err == nil {
-						err = s.manager.AddIPPortRule(ipNet.String(), port, action)
+						err = core.SyncIPPortRule(r.Context(), s.manager, ipNet.String(), port, action, true)
 					}
 				}
 			}
@@ -107,14 +106,14 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					}
 
 					if err == nil {
-						err = s.manager.RemoveIPPortRule(ipNet.String(), port)
+						err = core.SyncIPPortRule(r.Context(), s.manager, ipNet.String(), port, 0, false)
 					}
 				}
 			} else {
 				if req.Type == "blacklist" {
-					err = s.manager.RemoveBlacklistIP(req.CIDR)
+					err = core.SyncLockMap(r.Context(), s.manager, req.CIDR, false, true)
 				} else {
-					err = s.manager.RemoveWhitelistIP(req.CIDR)
+					err = core.SyncWhitelistMap(r.Context(), s.manager, req.CIDR, 0, false, true)
 				}
 			}
 		}
@@ -122,75 +121,6 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		}
-
-		// Persistence logic / 持久化逻辑
-		cfg, _ := types.LoadGlobalConfig(s.configPath)
-		if cfg != nil && cfg.Base.PersistRules {
-			if req.Type == "blacklist" {
-				if req.Action == "add" {
-					fileutil.AppendToFile(cfg.Base.LockListFile, req.CIDR)
-				} else {
-					fileutil.RemoveFromFile(cfg.Base.LockListFile, req.CIDR)
-				}
-			} else if req.Type == "whitelist" {
-				if req.Action == "add" {
-					found := false
-					for _, item := range cfg.Base.Whitelist {
-						if item == req.CIDR {
-							found = true
-							break
-						}
-					}
-					if !found {
-						cfg.Base.Whitelist = append(cfg.Base.Whitelist, req.CIDR)
-						optimizer.OptimizeWhitelistConfig(cfg)
-						types.SaveGlobalConfig(s.configPath, cfg)
-					}
-				} else {
-					newWL := []string{}
-					for _, item := range cfg.Base.Whitelist {
-						if item != req.CIDR {
-							newWL = append(newWL, item)
-						}
-					}
-					cfg.Base.Whitelist = newWL
-					// No need to optimize on remove, but saving is needed
-					// 移除时无需优化，但需要保存
-					types.SaveGlobalConfig(s.configPath, cfg)
-				}
-			} else if req.Type == "ip_port_rules" {
-				ipStr, port, action, parseErr := parseIPPortAction(req.CIDR)
-				if parseErr == nil {
-					if req.Action == "add" {
-						found := false
-						for i, rule := range cfg.Port.IPPortRules {
-							if rule.IP == ipStr && rule.Port == port {
-								cfg.Port.IPPortRules[i].Action = action
-								found = true
-								break
-							}
-						}
-						if !found {
-							cfg.Port.IPPortRules = append(cfg.Port.IPPortRules, types.IPPortRule{
-								IP:     ipStr,
-								Port:   port,
-								Action: action,
-							})
-						}
-						optimizer.OptimizeIPPortRulesConfig(cfg)
-					} else {
-						newRules := []types.IPPortRule{}
-						for _, rule := range cfg.Port.IPPortRules {
-							if rule.IP != ipStr || rule.Port != port {
-								newRules = append(newRules, rule)
-							}
-						}
-						cfg.Port.IPPortRules = newRules
-					}
-					types.SaveGlobalConfig(s.configPath, cfg)
-				}
-			}
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -213,9 +143,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		var err error
 		switch req.Key {
 		case "afxdp":
-			err = s.manager.SetEnableAFXDP(req.Value)
+			err = core.SyncEnableAFXDP(r.Context(), s.manager, req.Value)
 		case "default_deny":
-			err = s.manager.SetDefaultDeny(req.Value)
+			err = core.SyncDefaultDeny(r.Context(), s.manager, req.Value)
 		}
 
 		if err != nil {
@@ -249,11 +179,26 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Direction == "map2file" {
+		core.ConfigMu.Lock()
+		// Reload config inside lock to ensure freshness before writing back
+		// 在锁内重新加载配置，以确保在写回之前的新鲜度
+		cfg, err = types.LoadGlobalConfig(s.configPath)
+		if err != nil {
+			core.ConfigMu.Unlock()
+			http.Error(w, "Failed to load config: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		err = s.manager.SyncToFiles(cfg)
 		if err == nil {
 			err = types.SaveGlobalConfig(s.configPath, cfg)
 		}
+		core.ConfigMu.Unlock()
 	} else {
+		// For file2map, we just loaded the config (snapshot).
+		// Even if file changes now, we apply this snapshot.
+		// 对于 file2map，我们刚刚加载了配置（快照）。
+		// 即使文件现在发生变化，我们也应用此快照。
 		overwrite := req.Mode == "overwrite"
 		err = s.manager.SyncFromFiles(cfg, overwrite)
 	}

@@ -6,6 +6,7 @@ import (
 	"net/http/pprof"
 
 	"github.com/livp123/netxfw/internal/config"
+	"github.com/livp123/netxfw/internal/core"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/internal/xdp"
@@ -35,6 +36,7 @@ func (s *Server) Start() error {
 	log := logger.Get(nil)
 	// Auto-generate token if not configured
 	// 如果未配置 Token，则自动生成
+	core.ConfigMu.Lock()
 	cfg, err := types.LoadGlobalConfig(s.configPath)
 	if err == nil {
 		if cfg.Web.Token == "" {
@@ -49,6 +51,7 @@ func (s *Server) Start() error {
 			log.Infof("🔑 Using configured Web Token for authentication")
 		}
 	}
+	core.ConfigMu.Unlock()
 
 	mux := http.NewServeMux()
 

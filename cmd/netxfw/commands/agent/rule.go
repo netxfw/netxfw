@@ -124,23 +124,23 @@ Examples:
 			// IP Only Rule
 			// 仅 IP 规则
 			if isAllow {
-				if err := common.SyncWhitelistMap(ctx, mgr, ip, 0, true); err != nil {
+				if err := common.SyncWhitelistMap(ctx, mgr, ip, 0, true, false); err != nil {
 					cmd.PrintErrln(err)
 					os.Exit(1)
 				}
 				// Ensure it's not locked
 				// 确保未被锁定
-				if err := common.SyncLockMap(ctx, mgr, ip, false); err != nil {
+				if err := common.SyncLockMap(ctx, mgr, ip, false, false); err != nil {
 					cmd.PrintErrln(err)
 				}
 			} else {
-				if err := common.SyncLockMap(ctx, mgr, ip, true); err != nil {
+				if err := common.SyncLockMap(ctx, mgr, ip, true, false); err != nil {
 					cmd.PrintErrln(err)
 					os.Exit(1)
 				}
 				// Ensure it's not whitelisted
 				// 确保未在白名单中
-				if err := common.SyncWhitelistMap(ctx, mgr, ip, 0, false); err != nil {
+				if err := common.SyncWhitelistMap(ctx, mgr, ip, 0, false, false); err != nil {
 					cmd.PrintErrln(err)
 				}
 			}
@@ -284,10 +284,10 @@ var ruleRemoveCmd = &cobra.Command{
 		} else {
 			// Try to remove from both if port is not specified
 			// 如果未指定端口，尝试从两者中移除
-			if err := common.SyncLockMap(ctx, mgr, ip, false); err != nil {
+			if err := common.SyncLockMap(ctx, mgr, ip, false, false); err != nil {
 				cmd.PrintErrln(err)
 			}
-			if err := common.SyncWhitelistMap(ctx, mgr, ip, 0, false); err != nil {
+			if err := common.SyncWhitelistMap(ctx, mgr, ip, 0, false, false); err != nil {
 				cmd.PrintErrln(err)
 			}
 		}

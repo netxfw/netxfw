@@ -36,6 +36,12 @@ func (a *Adapter) SyncToFiles(cfg *types.GlobalConfig) error {
 	return a.manager.SyncToFiles(cfg)
 }
 
+// VerifyAndRepair ensures consistency between config and BPF maps.
+// VerifyAndRepair 确保配置和 BPF Map 之间的一致性。
+func (a *Adapter) VerifyAndRepair(cfg *types.GlobalConfig) error {
+	return a.manager.VerifyAndRepair(cfg)
+}
+
 // Map Getters
 // Map 获取器
 

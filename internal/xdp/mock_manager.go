@@ -6,6 +6,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/iputil"
 )
 
 type MockManager struct {
@@ -37,17 +38,21 @@ func (m *MockManager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) err
 
 	// Sync Whitelist from config
 	for _, rule := range cfg.Base.Whitelist {
+		normalized := rule
 		if strings.Contains(rule, ":") {
 			parts := strings.Split(rule, ":")
 			if len(parts) == 2 {
-				// Mock implementation: just storing, parsing skipped for brevity
-				m.WhitelistMap[parts[0]] = 0
+				normalized = parts[0]
 			}
-		} else {
-			m.WhitelistMap[rule] = 0
 		}
+		normalized = iputil.NormalizeCIDR(normalized)
+		m.WhitelistMap[normalized] = 0
 	}
 	return nil
+}
+
+func (m *MockManager) VerifyAndRepair(cfg *types.GlobalConfig) error {
+	return m.SyncFromFiles(cfg, true)
 }
 
 func (m *MockManager) SyncToFiles(cfg *types.GlobalConfig) error {
@@ -110,8 +115,13 @@ func (m *MockManager) SetDropFragments(enable bool) error {
 	return nil
 }
 
-func (m *MockManager) SetAutoBlock(enable bool) error                  { return nil }
-func (m *MockManager) SetAutoBlockExpiry(duration time.Duration) error { return nil }
+func (m *MockManager) SetAutoBlock(enable bool) error {
+	m.EnableRateLimit = enable // Mock implementation uses this for simplicity or add a new field
+	return nil
+}
+func (m *MockManager) SetAutoBlockExpiry(duration time.Duration) error {
+	return nil
+}
 func (m *MockManager) SetConntrack(enable bool) error                  { return nil }
 func (m *MockManager) SetConntrackTimeout(timeout time.Duration) error { return nil }
 func (m *MockManager) SetAllowReturnTraffic(enable bool) error         { return nil }
@@ -121,19 +131,35 @@ func (m *MockManager) SetICMPRateLimit(rate, burst uint64) error       { return 
 
 // Blacklist Operations
 func (m *MockManager) AddBlacklistIP(cidr string) error {
-	m.Blacklist[cidr] = true
+	normalized := cidr
+	if !strings.Contains(cidr, "/") {
+		normalized = cidr + "/32"
+	}
+	m.Blacklist[normalized] = true
 	return nil
 }
 func (m *MockManager) AddBlacklistIPWithFile(cidr string, file string) error {
-	m.Blacklist[cidr] = true
+	normalized := cidr
+	if !strings.Contains(cidr, "/") {
+		normalized = cidr + "/32"
+	}
+	m.Blacklist[normalized] = true
 	return nil
 }
 func (m *MockManager) AddDynamicBlacklistIP(cidr string, ttl time.Duration) error {
-	m.Blacklist[cidr] = true
+	normalized := cidr
+	if !strings.Contains(cidr, "/") {
+		normalized = cidr + "/32"
+	}
+	m.Blacklist[normalized] = true
 	return nil
 }
 func (m *MockManager) RemoveBlacklistIP(cidr string) error {
-	delete(m.Blacklist, cidr)
+	normalized := cidr
+	if !strings.Contains(cidr, "/") {
+		normalized = cidr + "/32"
+	}
+	delete(m.Blacklist, normalized)
 	return nil
 }
 func (m *MockManager) ClearBlacklist() error {
@@ -141,7 +167,11 @@ func (m *MockManager) ClearBlacklist() error {
 	return nil
 }
 func (m *MockManager) IsIPInBlacklist(cidr string) (bool, error) {
-	_, ok := m.Blacklist[cidr]
+	normalized := cidr
+	if !strings.Contains(cidr, "/") {
+		normalized = cidr + "/32"
+	}
+	_, ok := m.Blacklist[normalized]
 	return ok, nil
 }
 func (m *MockManager) ListBlacklistIPs(limit int, search string) ([]BlockedIP, int, error) {
@@ -160,11 +190,19 @@ func (m *MockManager) ListDynamicBlacklistIPs(limit int, search string) ([]Block
 
 // Whitelist Operations
 func (m *MockManager) AddWhitelistIP(cidr string, port uint16) error {
-	m.WhitelistMap[cidr] = port
+	normalized := cidr
+	if !strings.Contains(cidr, "/") {
+		normalized = cidr + "/32"
+	}
+	m.WhitelistMap[normalized] = port
 	return nil
 }
 func (m *MockManager) RemoveWhitelistIP(cidr string) error {
-	delete(m.WhitelistMap, cidr)
+	normalized := cidr
+	if !strings.Contains(cidr, "/") {
+		normalized = cidr + "/32"
+	}
+	delete(m.WhitelistMap, normalized)
 	return nil
 }
 func (m *MockManager) ClearWhitelist() error {
@@ -172,7 +210,11 @@ func (m *MockManager) ClearWhitelist() error {
 	return nil
 }
 func (m *MockManager) IsIPInWhitelist(cidr string) (bool, error) {
-	_, ok := m.WhitelistMap[cidr]
+	normalized := cidr
+	if !strings.Contains(cidr, "/") {
+		normalized = cidr + "/32"
+	}
+	_, ok := m.WhitelistMap[normalized]
 	return ok, nil
 }
 func (m *MockManager) ListWhitelistIPs(limit int, search string) ([]string, int, error) {

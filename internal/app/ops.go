@@ -1,4 +1,4 @@
-package core
+package app
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/livp123/netxfw/internal/api"
 	"github.com/livp123/netxfw/internal/config"
+	"github.com/livp123/netxfw/internal/core"
 	"github.com/livp123/netxfw/internal/daemon"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
@@ -114,8 +115,8 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
  * RunDaemon 启动用于指标和规则同步的后台进程。
  */
 func RunDaemon(ctx context.Context) {
-	InitConfiguration(ctx)
-	TestConfiguration(ctx)
+	core.InitConfiguration(ctx)
+	core.TestConfiguration(ctx)
 	daemon.Run(ctx, runtime.Mode, nil)
 }
 

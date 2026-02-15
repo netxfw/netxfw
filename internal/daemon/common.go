@@ -13,6 +13,7 @@ import (
 
 	"github.com/livp123/netxfw/internal/api"
 	"github.com/livp123/netxfw/internal/config"
+	"github.com/livp123/netxfw/internal/core"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
@@ -113,7 +114,9 @@ func waitForSignal(ctx context.Context, configPath string, manager xdp.ManagerIn
 		s := <-sig
 		if s == syscall.SIGHUP {
 			log.Info("🔄 Received SIGHUP, reloading configuration...")
+			core.ConfigMu.RLock()
 			globalCfg, err := types.LoadGlobalConfig(configPath)
+			core.ConfigMu.RUnlock()
 			if err != nil {
 				log.Errorf("❌ Failed to reload config: %v", err)
 				continue

@@ -66,6 +66,14 @@ func runUnified(ctx context.Context) {
 		}
 	}
 
+	// Consistency Check at startup (Ensure BPF maps match Config)
+	// 启动时的一致性检查（确保 BPF Map 与配置匹配）
+	if err := manager.VerifyAndRepair(globalCfg); err != nil {
+		log.Warnf("⚠️  Startup consistency check failed: %v", err)
+	} else {
+		log.Info("✅ Startup consistency check passed (Config synced to BPF).")
+	}
+
 	// 3. Load ALL Plugins / 加载所有插件
 	// Wrap manager with Adapter for interface compliance
 	adapter := xdp.NewAdapter(manager)

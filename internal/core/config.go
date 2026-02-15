@@ -4,12 +4,17 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
 )
+
+// ConfigMu protects concurrent access to the configuration file.
+// ConfigMu 保护对配置文件的并发访问。
+var ConfigMu sync.RWMutex
 
 // InitConfiguration initializes the default configuration files if they don't exist.
 // InitConfiguration 如果默认配置文件不存在，则初始化它们。

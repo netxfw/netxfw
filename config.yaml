@@ -47,7 +47,7 @@ base:
   whitelist: []
   # Lock List File: Persistence file for blocked IPs.
   # 锁定列表文件：被封禁 IP 的持久化文件。
-  lock_list_file: "/root/netxfw/lock_list.txt"
+  lock_list_file: "/etc/netxfw/rules.deny.txt"
   # Lock List Binary: Binary format for fast loading (optional).
   # 锁定列表二进制文件：用于快速加载的二进制格式（可选）。
   lock_list_binary: ""
@@ -147,7 +147,6 @@ log_engine:
 # Adjust these based on your system memory and requirements.
 # 根据您的系统内存和需求进行调整。
 capacity:
-  conntrack: 100000
   lock_list: 2000000
   dyn_lock_list: 2000000
   whitelist: 65536

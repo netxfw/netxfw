@@ -5,6 +5,7 @@ import (
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands"
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
+	"github.com/livp123/netxfw/internal/app"
 	"github.com/livp123/netxfw/internal/core"
 	"github.com/livp123/netxfw/internal/version"
 )
@@ -34,10 +35,10 @@ func initializeCommandFunctions() {
 	common.ShowStatus = core.ShowStatus
 	common.ShowTopStats = core.ShowTopStats
 	common.TestConfiguration = core.TestConfiguration
-	common.RunDaemon = core.RunDaemon
-	common.InstallXDP = core.InstallXDP
-	common.ReloadXDP = core.ReloadXDP
-	common.RemoveXDP = core.RemoveXDP
+	common.RunDaemon = app.RunDaemon
+	common.InstallXDP = app.InstallXDP
+	common.ReloadXDP = app.ReloadXDP
+	common.RemoveXDP = app.RemoveXDP
 	common.SyncToConfig = core.SyncToConfig
 	common.SyncToMap = core.SyncToMap
 	common.SyncDefaultDeny = core.SyncDefaultDeny
@@ -78,7 +79,7 @@ func initializeCommandFunctions() {
 
 	// Web commands
 	// Web 命令
-	common.RunWebServer = core.RunWebServer
+	common.RunWebServer = app.RunWebServer
 
 	// Conntrack commands
 	// 连接跟踪命令

@@ -1,30 +1,31 @@
 package types
 
 import (
+	"github.com/livp123/netxfw/internal/plugins/types"
 	"testing"
 )
 
 func TestConfigValidation(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  GlobalConfig
+		config  types.GlobalConfig
 		wantErr bool
 	}{
 		{
 			name: "Valid Config",
-			config: GlobalConfig{
-				Base: BaseConfig{
+			config: types.GlobalConfig{
+				Base: types.BaseConfig{
 					LockListV4Mask: 24,
 					LockListV6Mask: 64,
 					Whitelist:      []string{"127.0.0.1/32", "192.168.1.1"},
 				},
-				Port: PortConfig{
-					IPPortRules: []IPPortRule{
+				Port: types.PortConfig{
+					IPPortRules: []types.IPPortRule{
 						{IP: "10.0.0.1", Port: 80, Action: 1},
 					},
 				},
-				RateLimit: RateLimitConfig{
-					Rules: []RateLimitRule{
+				RateLimit: types.RateLimitConfig{
+					Rules: []types.RateLimitRule{
 						{IP: "10.0.0.0/24"},
 					},
 				},
@@ -33,8 +34,8 @@ func TestConfigValidation(t *testing.T) {
 		},
 		{
 			name: "Invalid V4 Mask",
-			config: GlobalConfig{
-				Base: BaseConfig{
+			config: types.GlobalConfig{
+				Base: types.BaseConfig{
 					LockListV4Mask: 33,
 				},
 			},
@@ -42,8 +43,8 @@ func TestConfigValidation(t *testing.T) {
 		},
 		{
 			name: "Invalid Whitelist CIDR",
-			config: GlobalConfig{
-				Base: BaseConfig{
+			config: types.GlobalConfig{
+				Base: types.BaseConfig{
 					Whitelist: []string{"invalid-ip"},
 				},
 			},
@@ -51,9 +52,9 @@ func TestConfigValidation(t *testing.T) {
 		},
 		{
 			name: "Invalid Port",
-			config: GlobalConfig{
-				Port: PortConfig{
-					IPPortRules: []IPPortRule{
+			config: types.GlobalConfig{
+				Port: types.PortConfig{
+					IPPortRules: []types.IPPortRule{
 						{IP: "10.0.0.1", Port: 0, Action: 1},
 					},
 				},
@@ -62,9 +63,9 @@ func TestConfigValidation(t *testing.T) {
 		},
 		{
 			name: "Invalid Action",
-			config: GlobalConfig{
-				Port: PortConfig{
-					IPPortRules: []IPPortRule{
+			config: types.GlobalConfig{
+				Port: types.PortConfig{
+					IPPortRules: []types.IPPortRule{
 						{IP: "10.0.0.1", Port: 80, Action: 3},
 					},
 				},
@@ -73,9 +74,9 @@ func TestConfigValidation(t *testing.T) {
 		},
 		{
 			name: "Invalid RateLimit CIDR",
-			config: GlobalConfig{
-				RateLimit: RateLimitConfig{
-					Rules: []RateLimitRule{
+			config: types.GlobalConfig{
+				RateLimit: types.RateLimitConfig{
+					Rules: []types.RateLimitRule{
 						{IP: "999.999.999.999"},
 					},
 				},
@@ -92,4 +93,18 @@ func TestConfigValidation(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("Conntrack Alignment", func(t *testing.T) {
+		cfg := types.GlobalConfig{
+			Conntrack: types.ConntrackConfig{
+				MaxEntries: 50000,
+			},
+		}
+		if err := cfg.Validate(); err != nil {
+			t.Fatalf("Validate failed: %v", err)
+		}
+		if cfg.Capacity.Conntrack != 50000 {
+			t.Errorf("Expected Capacity.Conntrack to be 50000, got %d", cfg.Capacity.Conntrack)
+		}
+	})
 }

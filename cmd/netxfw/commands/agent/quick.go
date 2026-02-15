@@ -33,7 +33,7 @@ var QuickBlockCmd = &cobra.Command{
 
 		// Block IP
 		// 封锁 IP
-		if err := common.SyncLockMap(ctx, mgr, args[0], true); err != nil {
+		if err := common.SyncLockMap(ctx, mgr, args[0], true, false); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
@@ -64,7 +64,7 @@ var QuickUnlockCmd = &cobra.Command{
 
 		// Unblock IP
 		// 解封 IP
-		if err := common.SyncLockMap(ctx, mgr, args[0], false); err != nil {
+		if err := common.SyncLockMap(ctx, mgr, args[0], false, false); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
@@ -103,7 +103,7 @@ var QuickAllowCmd = &cobra.Command{
 		}
 		// Allow IP
 		// 允许 IP
-		if err := common.SyncWhitelistMap(ctx, mgr, args[0], port, true); err != nil {
+		if err := common.SyncWhitelistMap(ctx, mgr, args[0], port, true, false); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
@@ -142,7 +142,7 @@ var QuickUnallowCmd = &cobra.Command{
 		}
 		// Unallow IP
 		// 取消允许 IP
-		if err := common.SyncWhitelistMap(ctx, mgr, args[0], port, false); err != nil {
+		if err := common.SyncWhitelistMap(ctx, mgr, args[0], port, false, false); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}

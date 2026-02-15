@@ -2,6 +2,7 @@ package xdp
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"log"
 	"net"
@@ -13,7 +14,17 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/binary"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/fileutil"
 )
+
+// VerifyAndRepair ensures consistency between config and BPF maps by forcing a sync.
+// VerifyAndRepair 通过强制同步来确保配置和 BPF Map 之间的一致性。
+func (m *Manager) VerifyAndRepair(cfg *types.GlobalConfig) error {
+	m.logger.Infof("🔍 Verifying consistency between config and BPF maps (Auto-Repair)...")
+	// We use overwrite=true to ensure the map exactly matches the config, removing any ghost rules.
+	// 我们使用 overwrite=true 来确保 Map 与配置完全匹配，删除任何幽灵规则。
+	return m.SyncFromFiles(cfg, true)
+}
 
 // SyncFromFiles reads rules from text files and updates BPF maps.
 // If overwrite is true, it clears existing rules in the maps first.
@@ -342,23 +353,15 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 	}
 
 	// 7. Write lock_list to file / 将锁定列表写入文件
-	file, err := os.Create(cfg.Base.LockListFile)
-	if err != nil {
-		return fmt.Errorf("failed to create lock list file: %w", err)
-	}
-	defer file.Close()
-
-	writer := bufio.NewWriter(file)
+	var buf bytes.Buffer
 	for _, entry := range ips {
 		// Only write if it's a simple block (counter == 0) and not a dynamic rule (check expiresAt?)
 		// Actually, lock_list contains static blocks. dyn_lock_list is separate.
 		// So we just dump everything from lock_list.
-		if _, err := writer.WriteString(entry.IP + "\n"); err != nil {
-			return err
-		}
+		buf.WriteString(entry.IP + "\n")
 	}
-	if err := writer.Flush(); err != nil {
-		return err
+	if err := fileutil.AtomicWriteFile(cfg.Base.LockListFile, buf.Bytes(), 0644); err != nil {
+		return fmt.Errorf("failed to write lock list file: %w", err)
 	}
 	return nil
 }

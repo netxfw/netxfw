@@ -13,6 +13,7 @@ type ManagerInterface interface {
 	// Sync Operations
 	SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error
 	SyncToFiles(cfg *types.GlobalConfig) error
+	VerifyAndRepair(cfg *types.GlobalConfig) error
 
 	// Map Getters (discouraged for direct use, prefer high-level methods)
 	LockList() *ebpf.Map
