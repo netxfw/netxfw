@@ -242,8 +242,8 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 	if err == nil {
 		newWhitelist := []string{}
 		for _, entry := range wl {
-			if entry.RuleValue.Counter > 1 {
-				newWhitelist = append(newWhitelist, fmt.Sprintf("%s:%d", entry.IP, entry.RuleValue.Counter))
+			if entry.Counter > 1 {
+				newWhitelist = append(newWhitelist, fmt.Sprintf("%s:%d", entry.IP, entry.Counter))
 			} else {
 				newWhitelist = append(newWhitelist, entry.IP)
 			}

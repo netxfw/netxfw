@@ -17,8 +17,16 @@ type LogEnginePlugin struct {
 
 // Name returns the name of the plugin.
 // Name 返回插件的名称。
+// Name returns the name of the plugin.
+// Name 返回插件的名称。
 func (p *LogEnginePlugin) Name() string {
 	return "log_engine"
+}
+
+// Type returns the type of the plugin.
+// Type 返回插件的类型。
+func (p *LogEnginePlugin) Type() sdk.PluginType {
+	return sdk.PluginTypeExtension
 }
 
 // Init initializes the plugin with the global configuration.
@@ -62,7 +70,7 @@ func (p *LogEnginePlugin) Start(ctx *sdk.PluginContext) error {
 	}
 
 	ctx.Logger.Infof("Starting LogEngine plugin...")
-	actionHandler := NewXDPActionHandler(ctx.Manager, p.lockListFile)
+	actionHandler := NewXDPActionHandler(ctx.SDK, p.lockListFile)
 	p.engine = New(p.config, ctx.Logger, actionHandler)
 	p.engine.Start()
 	return nil

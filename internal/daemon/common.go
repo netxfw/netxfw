@@ -11,10 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/livp123/netxfw/internal/api"
 	"github.com/livp123/netxfw/internal/config"
-	"github.com/livp123/netxfw/internal/core"
-	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/internal/xdp"
@@ -66,17 +63,6 @@ func startPprof(port int) {
 	}()
 }
 
-// startWebServer launches the REST API server.
-// startWebServer 启动 REST API 服务器。
-func startWebServer(globalCfg *types.GlobalConfig, manager xdp.ManagerInterface) error {
-	// Start API server / 启动 API 服务器
-	server := api.NewServer(manager, globalCfg.Web.Port)
-	if err := server.Start(); err != nil {
-		return fmt.Errorf("failed to start web server: %v", err)
-	}
-	return nil
-}
-
 // cleanupOrphanedInterfaces detaches XDP programs from interfaces no longer in config.
 // cleanupOrphanedInterfaces 从不再配置中的接口分离 XDP 程序。
 func cleanupOrphanedInterfaces(manager *xdp.Manager, configuredInterfaces []string) {
@@ -103,56 +89,34 @@ func cleanupOrphanedInterfaces(manager *xdp.Manager, configuredInterfaces []stri
 	}
 }
 
-// waitForSignal waits for OS signals like SIGINT or SIGHUP for graceful shutdown or reload.
-// waitForSignal 等待 SIGINT 或 SIGHUP 等操作系统信号，以便正常关机或重新加载。
-func waitForSignal(ctx context.Context, configPath string, manager xdp.ManagerInterface, allowedPlugins []string) {
+// waitForSignal blocks until a termination signal is received.
+// waitForSignal 阻塞直到接收到终止信号。
+func waitForSignal(ctx context.Context, configPath string, s *sdk.SDK, reloadFunc func() error, stopFunc func()) {
+
 	log := logger.Get(ctx)
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	for {
-		s := <-sig
-		if s == syscall.SIGHUP {
+		sigVal := <-sig
+		if sigVal == syscall.SIGHUP {
 			log.Info("🔄 Received SIGHUP, reloading configuration...")
-			core.ConfigMu.RLock()
-			globalCfg, err := types.LoadGlobalConfig(configPath)
-			core.ConfigMu.RUnlock()
-			if err != nil {
-				log.Errorf("❌ Failed to reload config: %v", err)
-				continue
-			}
 
-			// Reload plugins / 重新加载插件
-			pluginCtx := &sdk.PluginContext{
-				Context: ctx,
-				Manager: manager,
-				Config:  globalCfg,
-				Logger:  log,
-			}
-
-			for _, p := range plugins.GetPlugins() {
-				// Filter if allowedPlugins is set (DP mode) / 如果设置了 allowedPlugins（DP 模式），则进行过滤
-				if allowedPlugins != nil {
-					found := false
-					for _, name := range allowedPlugins {
-						if p.Name() == name {
-							found = true
-							break
-						}
-					}
-					if !found {
-						continue
-					}
+			if reloadFunc != nil {
+				if err := reloadFunc(); err != nil {
+					log.Errorf("❌ Failed to reload: %v", err)
+				} else {
+					log.Info("✅ Configuration reloaded")
 				}
-
-				if err := p.Reload(pluginCtx); err != nil {
-					log.Warnf("⚠️  Failed to reload plugin %s: %v", p.Name(), err)
-				}
+			} else {
+				log.Warn("⚠️  No reload function provided")
 			}
 
-			log.Info("✅ Configuration reloaded")
 		} else {
 			log.Info("👋 Daemon shutting down...")
+			if stopFunc != nil {
+				stopFunc()
+			}
 			break
 		}
 	}

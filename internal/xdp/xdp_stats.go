@@ -9,25 +9,14 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 /**
- * DropDetailEntry represents a single drop event aggregated by reason/IP/port.
- * DropDetailEntry 表示按原因/IP/端口聚合的单个拦截事件。
- */
-type DropDetailEntry struct {
-	Reason   uint32
-	Protocol uint32
-	SrcIP    string
-	DstPort  uint16
-	Count    uint64
-}
-
-/**
  * GetDropDetails retrieves detailed drop statistics from the PERCPU HASH map.
- * GetDropDetails 从 PERCPU HASH Map 中获取详细的拦截统计信息。
+ * GetDropDetails 从 PERCPU HASH Map 中获取详细的拦截统计信息.
  */
-func (m *Manager) GetDropDetails() ([]DropDetailEntry, error) {
+func (m *Manager) GetDropDetails() ([]sdk.DropDetailEntry, error) {
 	if m.dropReasonStats == nil {
 		return nil, nil
 	}
@@ -36,10 +25,10 @@ func (m *Manager) GetDropDetails() ([]DropDetailEntry, error) {
 
 /**
  * GetDropDetailsFromMap retrieves detailed drop statistics from a given map.
- * GetDropDetailsFromMap 从给定的 Map 中获取详细的拦截统计信息。
+ * GetDropDetailsFromMap 从给定的 Map 中获取详细的拦截统计信息.
  */
-func GetDropDetailsFromMap(m *ebpf.Map) ([]DropDetailEntry, error) {
-	var results []DropDetailEntry
+func GetDropDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
+	var results []sdk.DropDetailEntry
 	var key NetXfwDropDetailKey
 	var values []uint64 // PERCPU value is a slice of uint64 / PERCPU 值是 uint64 切片
 
@@ -59,9 +48,9 @@ func GetDropDetailsFromMap(m *ebpf.Map) ([]DropDetailEntry, error) {
 				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[:]).String()
 			}
 
-			results = append(results, DropDetailEntry{
+			results = append(results, sdk.DropDetailEntry{
 				Reason:   key.Reason,
-				Protocol: key.Protocol,
+				Protocol: uint8(key.Protocol),
 				SrcIP:    srcIP,
 				DstPort:  key.DstPort,
 				Count:    totalCount,
@@ -77,9 +66,9 @@ func GetDropDetailsFromMap(m *ebpf.Map) ([]DropDetailEntry, error) {
 
 /**
  * GetPassDetails retrieves detailed pass statistics (whitelist/return traffic).
- * GetPassDetails 获取详细的放行统计信息（白名单/回程流量）。
+ * GetPassDetails 获取详细的放行统计信息（白名单/回程流量）.
  */
-func (m *Manager) GetPassDetails() ([]DropDetailEntry, error) {
+func (m *Manager) GetPassDetails() ([]sdk.DropDetailEntry, error) {
 	if m.passReasonStats == nil {
 		return nil, nil
 	}
@@ -88,10 +77,10 @@ func (m *Manager) GetPassDetails() ([]DropDetailEntry, error) {
 
 /**
  * GetPassDetailsFromMap retrieves detailed pass statistics from a given map.
- * GetPassDetailsFromMap 从给定的 Map 中获取详细的放行统计信息。
+ * GetPassDetailsFromMap 从给定的 Map 中获取详细的放行统计信息.
  */
-func GetPassDetailsFromMap(m *ebpf.Map) ([]DropDetailEntry, error) {
-	var results []DropDetailEntry
+func GetPassDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
+	var results []sdk.DropDetailEntry
 	var key NetXfwDropDetailKey
 	var values []uint64 // PERCPU value is a slice of uint64 / PERCPU 值是 uint64 切片
 
@@ -111,9 +100,9 @@ func GetPassDetailsFromMap(m *ebpf.Map) ([]DropDetailEntry, error) {
 				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[:]).String()
 			}
 
-			results = append(results, DropDetailEntry{
+			results = append(results, sdk.DropDetailEntry{
 				Reason:   key.Reason,
-				Protocol: key.Protocol,
+				Protocol: uint8(key.Protocol),
 				SrcIP:    srcIP,
 				DstPort:  key.DstPort,
 				Count:    totalCount,

@@ -81,7 +81,7 @@ const uiHTML = `
                         </div>
                         <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="afxdp-toggle" onchange="toggleConfig('afxdp', this.checked)">
-                            <label class="form-check-label" for="afxdp-toggle">Enable AF_XDP Redirection (DPI / AI Path)</label>
+                            <label class="form-check-label" for="afxdp-toggle">Enable AF_XDP Redirection (DPI Path)</label>
                         </div>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="deny-toggle" onchange="toggleConfig('default_deny', this.checked)">

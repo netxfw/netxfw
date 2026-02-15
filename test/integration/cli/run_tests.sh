@@ -27,6 +27,11 @@ echo ""
 echo "=== Running Shell Verification (Import/Sync) ==="
 # 运行 Shell 验证 (Import/Sync)
 
+# Run Web CLI Verification
+echo ""
+echo "[Test Web CLI]"
+"$(dirname "$0")/verify_web_cli.sh"
+
 # Create dummy import file
 # 创建虚拟导入文件
 echo "Creating dummy import file..."

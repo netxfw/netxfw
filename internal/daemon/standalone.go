@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/livp123/netxfw/internal/config"
+	"github.com/livp123/netxfw/internal/core/engine"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
@@ -74,15 +75,36 @@ func runUnified(ctx context.Context) {
 		log.Info("✅ Startup consistency check passed (Config synced to BPF).")
 	}
 
-	// 3. Load ALL Plugins / 加载所有插件
+	// 3. Initialize and Start Core Modules
+	// 初始化并启动核心模块
+	coreModules := []engine.CoreModule{
+		&engine.BaseModule{},
+		&engine.ConntrackModule{},
+		&engine.PortModule{},
+		&engine.RateLimitModule{},
+	}
+
 	// Wrap manager with Adapter for interface compliance
 	adapter := xdp.NewAdapter(manager)
+	s := sdk.NewSDK(adapter)
 
+	for _, mod := range coreModules {
+		if err := mod.Init(globalCfg, s, log); err != nil {
+			log.Fatalf("❌ Failed to init core module %s: %v", mod.Name(), err)
+		}
+		if err := mod.Start(); err != nil {
+			log.Fatalf("❌ Failed to start core module %s: %v", mod.Name(), err)
+		}
+	}
+
+	// 4. Load ALL Plugins / 加载所有插件
 	pluginCtx := &sdk.PluginContext{
-		Context: ctx,
-		Manager: adapter,
-		Config:  globalCfg,
-		Logger:  log,
+		Context:  ctx,
+		Firewall: adapter,
+		Manager:  adapter,
+		Config:   globalCfg,
+		Logger:   log,
+		SDK:      s,
 	}
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(pluginCtx); err != nil {
@@ -95,20 +117,37 @@ func runUnified(ctx context.Context) {
 		defer p.Stop()
 	}
 
-	// 4. Start Web Server / 启动 Web 服务器
-	if globalCfg.Web.Enabled {
-		go func() {
-			if err := startWebServer(globalCfg, adapter); err != nil {
-				log.Errorf("❌ Web server failed: %v", err)
-			}
-		}()
-	}
-
 	// 5. Start Cleanup Loop / 启动清理循环
 	ctxCleanup, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go runCleanupLoop(ctxCleanup, globalCfg)
 
 	log.Info("🛡️ NetXFW Unified is running.")
-	waitForSignal(ctx, configPath, adapter, interfaces)
+
+	reloadFunc := func() error {
+		types.ConfigMu.RLock()
+		newCfg, err := types.LoadGlobalConfig(configPath)
+		types.ConfigMu.RUnlock()
+		if err != nil {
+			return err
+		}
+
+		// Reload Core Modules
+		for _, mod := range coreModules {
+			if err := mod.Reload(newCfg); err != nil {
+				log.Warnf("⚠️  Failed to reload core module %s: %v", mod.Name(), err)
+			}
+		}
+
+		// Reload Plugins
+		pluginCtx.Config = newCfg
+		for _, p := range plugins.GetPlugins() {
+			if err := p.Reload(pluginCtx); err != nil {
+				log.Warnf("⚠️  Failed to reload plugin %s: %v", p.Name(), err)
+			}
+		}
+		return nil
+	}
+
+	waitForSignal(ctx, configPath, s, reloadFunc, nil)
 }

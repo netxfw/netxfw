@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/livp123/netxfw/internal/config"
-	"github.com/livp123/netxfw/internal/plugins"
+	"github.com/livp123/netxfw/internal/core/engine"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/internal/xdp"
@@ -69,45 +69,51 @@ func runDataPlane(ctx context.Context) {
 		log.Warn("⚠️  No interfaces configured for XDP attachment")
 	}
 
-	// 3. Load DP-Specific Plugins / 加载 DP 特定的插件
-	// DP only runs plugins that configure BPF maps or globals. / DP 仅运行配置 BPF Map 或全局变量的插件。
-	dpPlugins := []string{"base", "conntrack", "ratelimit", "port"}
+	// 3. Initialize and Start Core Modules
+	// 初始化并启动核心模块
+	coreModules := []engine.CoreModule{
+		&engine.BaseModule{},
+		&engine.ConntrackModule{},
+		&engine.PortModule{},
+		&engine.RateLimitModule{},
+	}
 
 	// Wrap manager with Adapter for interface compliance
 	adapter := xdp.NewAdapter(manager)
+	s := sdk.NewSDK(adapter)
 
-	pluginCtx := &sdk.PluginContext{
-		Context: ctx,
-		Manager: adapter,
-		Config:  globalCfg,
-		Logger:  log,
+	for _, mod := range coreModules {
+		if err := mod.Init(globalCfg, s, log); err != nil {
+			log.Fatalf("❌ Failed to init core module %s: %v", mod.Name(), err)
+		}
+		if err := mod.Start(); err != nil {
+			log.Fatalf("❌ Failed to start core module %s: %v", mod.Name(), err)
+		}
 	}
 
-	for _, p := range plugins.GetPlugins() {
-		isDpPlugin := false
-		for _, name := range dpPlugins {
-			if p.Name() == name {
-				isDpPlugin = true
-				break
-			}
-		}
-		if !isDpPlugin {
-			continue
-		}
-
-		if err := p.Init(pluginCtx); err != nil {
-			log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
-			continue
-		}
-		if err := p.Start(pluginCtx); err != nil {
-			log.Warnf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
-		}
-		defer p.Stop()
-	}
-	// Wait logic needs to be added here or the function exits?
-	// The original code didn't seem to have a wait loop in runDataPlane?
-	// Ah, I missed the bottom of the file.
+	// 4. Load Extension Plugins
+	// 加载扩展插件
+	// In DP mode, we typically only run core modules.
+	// If plugins are needed, they should be initialized here using a pluginCtx.
 
 	log.Info("🛡️ Data Plane is running.")
-	waitForSignal(ctx, configPath, adapter, dpPlugins)
+
+	reloadFunc := func() error {
+		types.ConfigMu.RLock()
+		newCfg, err := types.LoadGlobalConfig(configPath)
+		types.ConfigMu.RUnlock()
+		if err != nil {
+			return err
+		}
+
+		// Reload Core Modules
+		for _, mod := range coreModules {
+			if err := mod.Reload(newCfg); err != nil {
+				log.Warnf("⚠️  Failed to reload core module %s: %v", mod.Name(), err)
+			}
+		}
+		return nil
+	}
+
+	waitForSignal(ctx, configPath, s, reloadFunc, nil)
 }

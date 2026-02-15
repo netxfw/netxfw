@@ -5,7 +5,7 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 // ActionType defines the type of action
@@ -23,9 +23,9 @@ type ActionHandler interface {
 	Stop()
 }
 
-// XDPActionHandler implements ActionHandler using the XDP manager asynchronously.
+// XDPActionHandler implements ActionHandler using the SDK asynchronously.
 type XDPActionHandler struct {
-	manager      xdp.ManagerInterface
+	sdk          *sdk.SDK
 	lockListFile string
 	actionChan   chan actionRequest
 	stopChan     chan struct{}
@@ -38,9 +38,9 @@ type actionRequest struct {
 }
 
 // NewXDPActionHandler creates a new handler and starts the worker.
-func NewXDPActionHandler(m xdp.ManagerInterface, lockListFile string) *XDPActionHandler {
+func NewXDPActionHandler(s *sdk.SDK, lockListFile string) *XDPActionHandler {
 	h := &XDPActionHandler{
-		manager:      m,
+		sdk:          s,
 		lockListFile: lockListFile,
 		actionChan:   make(chan actionRequest, 1024), // Buffer for burst protection
 		stopChan:     make(chan struct{}),
@@ -76,16 +76,16 @@ func (h *XDPActionHandler) run() {
 }
 
 func (h *XDPActionHandler) execute(req actionRequest) {
-	if h.manager == nil {
+	if h.sdk == nil || h.sdk.Blacklist == nil {
 		return
 	}
 
 	var err error
 	switch req.actionType {
 	case ActionStatic:
-		err = h.manager.AddBlacklistIPWithFile(req.ip.String(), h.lockListFile)
+		err = h.sdk.Blacklist.AddWithFile(req.ip.String(), h.lockListFile)
 	case ActionDynamic:
-		err = h.manager.AddDynamicBlacklistIP(req.ip.String(), req.ttl)
+		err = h.sdk.Blacklist.AddWithDuration(req.ip.String(), req.ttl)
 	case ActionLog:
 		// Logging is handled by the caller/pipeline
 		return

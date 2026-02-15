@@ -34,8 +34,8 @@ func SyncLockMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, lock bo
 
 		// 2. Critical Section: Atomic update
 		// 2. 临界区：原子更新
-		ConfigMu.Lock()
-		defer ConfigMu.Unlock()
+		types.ConfigMu.Lock()
+		defer types.ConfigMu.Unlock()
 
 		// Re-check conflict inside lock to handle race conditions
 		// 在锁内重新检查冲突以处理竞态条件
@@ -113,8 +113,8 @@ func SyncLockMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, lock bo
 		}
 	} else {
 		// Unlock Logic
-		ConfigMu.Lock()
-		defer ConfigMu.Unlock()
+		types.ConfigMu.Lock()
+		defer types.ConfigMu.Unlock()
 
 		if err := xdpMgr.RemoveBlacklistIP(cidrStr); err != nil {
 			return fmt.Errorf("failed to unlock %s: %v", cidrStr, err)
@@ -162,8 +162,8 @@ func SyncWhitelistMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, po
 
 		// 2. Critical Section
 		// 2. 临界区
-		ConfigMu.Lock()
-		defer ConfigMu.Unlock()
+		types.ConfigMu.Lock()
+		defer types.ConfigMu.Unlock()
 
 		// Re-check conflict
 		// 重新检查冲突
@@ -246,8 +246,8 @@ func SyncWhitelistMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, po
 		}
 	} else {
 		// Unlock Logic
-		ConfigMu.Lock()
-		defer ConfigMu.Unlock()
+		types.ConfigMu.Lock()
+		defer types.ConfigMu.Unlock()
 
 		if err := xdpMgr.RemoveWhitelistIP(cidrStr); err != nil {
 			return fmt.Errorf("failed to remove %s from whitelist: %v", cidrStr, err)
@@ -293,13 +293,13 @@ func SyncDefaultDeny(ctx context.Context, xdpMgr XDPManager, enable bool) error 
 	}
 
 	configPath := config.GetConfigPath()
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.Base.DefaultDeny = enable
 		types.SaveGlobalConfig(configPath, globalCfg)
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 
 	log.Infof("🛡️ Default deny policy set to: %v", enable)
 	return nil
@@ -314,13 +314,13 @@ func SyncEnableAFXDP(ctx context.Context, xdpMgr XDPManager, enable bool) error 
 	}
 
 	configPath := config.GetConfigPath()
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.Base.EnableAFXDP = enable
 		types.SaveGlobalConfig(configPath, globalCfg)
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 
 	log.Infof("🚀 AF_XDP redirection set to: %v", enable)
 	return nil
@@ -335,13 +335,13 @@ func SyncEnableRateLimit(ctx context.Context, xdpMgr XDPManager, enable bool) er
 	}
 
 	configPath := config.GetConfigPath()
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.RateLimit.Enabled = enable
 		types.SaveGlobalConfig(configPath, globalCfg)
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 
 	log.Infof("🚀 Global rate limit set to: %v", enable)
 	return nil
@@ -356,13 +356,13 @@ func SyncDropFragments(ctx context.Context, xdpMgr XDPManager, enable bool) erro
 	}
 
 	configPath := config.GetConfigPath()
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.Base.DropFragments = enable
 		types.SaveGlobalConfig(configPath, globalCfg)
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 
 	log.Infof("🛡️ IP Fragment dropping set to: %v", enable)
 	return nil
@@ -377,13 +377,13 @@ func SyncStrictTCP(ctx context.Context, xdpMgr XDPManager, enable bool) error {
 	}
 
 	configPath := config.GetConfigPath()
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.Base.StrictTCP = enable
 		types.SaveGlobalConfig(configPath, globalCfg)
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 
 	log.Infof("🛡️ Strict TCP validation set to: %v", enable)
 	return nil
@@ -398,13 +398,13 @@ func SyncSYNLimit(ctx context.Context, xdpMgr XDPManager, enable bool) error {
 	}
 
 	configPath := config.GetConfigPath()
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.Base.SYNLimit = enable
 		types.SaveGlobalConfig(configPath, globalCfg)
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 
 	log.Infof("🛡️ SYN Rate Limit set to: %v", enable)
 	return nil
@@ -419,13 +419,13 @@ func SyncBogonFilter(ctx context.Context, xdpMgr XDPManager, enable bool) error 
 	}
 
 	configPath := config.GetConfigPath()
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.Base.BogonFilter = enable
 		types.SaveGlobalConfig(configPath, globalCfg)
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 
 	log.Infof("🛡️ Bogon Filter set to: %v", enable)
 	return nil

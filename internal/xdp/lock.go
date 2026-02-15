@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 /**
@@ -294,7 +295,7 @@ func CleanupExpiredRules(mapPtr *ebpf.Map, isIPv6 bool) (int, error) {
  * ListBlockedIPs iterates over the BPF map and returns limited blocked ranges and stats.
  * ListBlockedIPs 遍历 BPF Map 并返回有限数量的封禁网段及其统计信息。
  */
-func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) ([]BlockedIP, int, error) {
+func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) ([]sdk.BlockedIP, int, error) {
 	// isIPv6 is deprecated/ignored for unified maps
 
 	if search != "" {
@@ -330,13 +331,13 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) ([]
 					if val.Counter > 1 {
 						fullStr = fmt.Sprintf("%s (port: %d)", fullStr, val.Counter)
 					}
-					return []BlockedIP{{IP: fullStr, ExpiresAt: val.ExpiresAt, RuleValue: val}}, 1, nil
+					return []sdk.BlockedIP{{IP: fullStr, ExpiresAt: val.ExpiresAt, Counter: val.Counter}}, 1, nil
 				}
 			}
 		}
 	}
 
-	var ips []BlockedIP
+	var ips []sdk.BlockedIP
 	count := 0
 	iter := mapPtr.Iterate()
 
@@ -359,7 +360,7 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) ([]
 		if val.Counter > 1 {
 			fullStr = fmt.Sprintf("%s (port: %d)", fullStr, val.Counter)
 		}
-		ips = append(ips, BlockedIP{IP: fullStr, ExpiresAt: val.ExpiresAt, RuleValue: val})
+		ips = append(ips, sdk.BlockedIP{IP: fullStr, ExpiresAt: val.ExpiresAt, Counter: val.Counter})
 		if limit > 0 && len(ips) >= limit {
 			break
 		}

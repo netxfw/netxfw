@@ -14,8 +14,7 @@ import (
 // handleStats returns the global pass/drop statistics.
 // handleStats 返回全局放行/拦截统计信息。
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	pass, _ := s.manager.GetPassCount()
-	drop, _ := s.manager.GetDropCount()
+	pass, drop, _ := s.sdk.Stats.GetCounters()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]uint64{
@@ -33,12 +32,12 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		search := r.URL.Query().Get("search")
 		limit := 100
 
-		locked, totalLocked, _ := s.manager.ListBlacklistIPs(limit, search)
-		whitelist, totalWhitelist, _ := s.manager.ListWhitelistIPs(limit, search)
+		locked, totalLocked, _ := s.sdk.Blacklist.List(limit, search)
+		whitelist, totalWhitelist, _ := s.sdk.Whitelist.List(limit, search)
 
 		// Get IP+Port rules (action 1=allow, 2=deny)
 		// 获取 IP+端口规则（action 1=允许, 2=拒绝）
-		ipPortRules, totalIPPort, _ := s.manager.ListIPPortRules(true, limit, search)
+		ipPortRules, totalIPPort, _ := s.sdk.Rule.List(true, limit, search)
 
 		res := map[string]interface{}{
 			"blacklist":      locked,
@@ -65,7 +64,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		var err error
 		if req.Action == "add" {
 			if req.Type == "blacklist" {
-				err = core.SyncLockMap(r.Context(), s.manager, req.CIDR, true, true)
+				err = s.sdk.Blacklist.Add(req.CIDR)
 			} else if req.Type == "whitelist" {
 				port := uint16(0)
 				// Parse optional port (e.g. 1.2.3.4:80 or [::1]:80)
@@ -76,7 +75,11 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					port = pVal
 				}
 
-				err = core.SyncWhitelistMap(r.Context(), s.manager, req.CIDR, port, true, true)
+				if port > 0 {
+					err = s.sdk.Whitelist.AddWithPort(req.CIDR, port)
+				} else {
+					err = s.sdk.Whitelist.Add(req.CIDR, 0)
+				}
 			} else if req.Type == "ip_port_rules" {
 				ipStr, port, action, parseErr := parseIPPortAction(req.CIDR)
 				if parseErr != nil {
@@ -89,7 +92,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					}
 
 					if err == nil {
-						err = core.SyncIPPortRule(r.Context(), s.manager, ipNet.String(), port, action, true)
+						err = s.sdk.Rule.Add(ipNet.String(), port, action)
 					}
 				}
 			}
@@ -100,21 +103,17 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					err = parseErr
 				} else {
 					ipNet, err2 := iputil.ParseCIDR(ipStr)
-
 					if err2 != nil {
 						err = err2
 					}
-
 					if err == nil {
-						err = core.SyncIPPortRule(r.Context(), s.manager, ipNet.String(), port, 0, false)
+						err = s.sdk.Rule.Remove(ipNet.String(), port)
 					}
 				}
-			} else {
-				if req.Type == "blacklist" {
-					err = core.SyncLockMap(r.Context(), s.manager, req.CIDR, false, true)
-				} else {
-					err = core.SyncWhitelistMap(r.Context(), s.manager, req.CIDR, 0, false, true)
-				}
+			} else if req.Type == "blacklist" {
+				err = s.sdk.Blacklist.Remove(req.CIDR)
+			} else if req.Type == "whitelist" {
+				err = s.sdk.Whitelist.Remove(req.CIDR)
 			}
 		}
 
@@ -122,7 +121,6 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
 		w.WriteHeader(http.StatusOK)
 	}
 }
@@ -143,9 +141,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		var err error
 		switch req.Key {
 		case "afxdp":
-			err = core.SyncEnableAFXDP(r.Context(), s.manager, req.Value)
+			err = core.SyncEnableAFXDP(r.Context(), s.sdk.GetManager(), req.Value)
 		case "default_deny":
-			err = core.SyncDefaultDeny(r.Context(), s.manager, req.Value)
+			err = core.SyncDefaultDeny(r.Context(), s.sdk.GetManager(), req.Value)
 		}
 
 		if err != nil {
@@ -179,28 +177,28 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Direction == "map2file" {
-		core.ConfigMu.Lock()
+		types.ConfigMu.Lock()
 		// Reload config inside lock to ensure freshness before writing back
 		// 在锁内重新加载配置，以确保在写回之前的新鲜度
 		cfg, err = types.LoadGlobalConfig(s.configPath)
 		if err != nil {
-			core.ConfigMu.Unlock()
+			types.ConfigMu.Unlock()
 			http.Error(w, "Failed to load config: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		err = s.manager.SyncToFiles(cfg)
+		err = s.sdk.GetManager().SyncToFiles(cfg)
 		if err == nil {
 			err = types.SaveGlobalConfig(s.configPath, cfg)
 		}
-		core.ConfigMu.Unlock()
+		types.ConfigMu.Unlock()
 	} else {
 		// For file2map, we just loaded the config (snapshot).
 		// Even if file changes now, we apply this snapshot.
 		// 对于 file2map，我们刚刚加载了配置（快照）。
 		// 即使文件现在发生变化，我们也应用此快照。
 		overwrite := req.Mode == "overwrite"
-		err = s.manager.SyncFromFiles(cfg, overwrite)
+		err = s.sdk.GetManager().SyncFromFiles(cfg, overwrite)
 	}
 
 	if err != nil {
@@ -214,7 +212,8 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 // handleConntrack returns the list of active network connections.
 func (s *Server) handleConntrack(w http.ResponseWriter, r *http.Request) {
-	entries, err := s.manager.ListAllConntrackEntries()
+	// TODO: Add Conntrack API to SDK
+	entries, err := s.sdk.GetManager().ListAllConntrackEntries()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

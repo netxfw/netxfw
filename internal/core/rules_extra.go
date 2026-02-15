@@ -38,7 +38,7 @@ func SyncIPPortRule(ctx context.Context, xdpMgr XDPManager, ipStr string, port u
 	}
 
 	// Update Config / 更新配置
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
@@ -94,7 +94,7 @@ func SyncIPPortRule(ctx context.Context, xdpMgr XDPManager, ipStr string, port u
 			types.SaveGlobalConfig(configPath, globalCfg)
 		}
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 	return nil
 }
 
@@ -117,7 +117,7 @@ func SyncAllowedPort(ctx context.Context, xdpMgr XDPManager, port uint16, add bo
 	}
 
 	// Update Config / 更新配置
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
@@ -145,7 +145,7 @@ func SyncAllowedPort(ctx context.Context, xdpMgr XDPManager, port uint16, add bo
 			types.SaveGlobalConfig(configPath, globalCfg)
 		}
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 	return nil
 }
 
@@ -169,7 +169,7 @@ func SyncRateLimitRule(ctx context.Context, xdpMgr XDPManager, ip string, rate u
 	}
 
 	// Update Config / 更新配置
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
@@ -218,7 +218,7 @@ func SyncRateLimitRule(ctx context.Context, xdpMgr XDPManager, ip string, rate u
 			types.SaveGlobalConfig(configPath, globalCfg)
 		}
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 	return nil
 }
 
@@ -233,8 +233,8 @@ func SyncAutoBlock(ctx context.Context, mgr XDPManager, enable bool) error {
 	}
 
 	configPath := config.GetConfigPath()
-	ConfigMu.Lock()
-	defer ConfigMu.Unlock()
+	types.ConfigMu.Lock()
+	defer types.ConfigMu.Unlock()
 
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
@@ -258,16 +258,16 @@ func SyncAutoBlockExpiry(ctx context.Context, mgr XDPManager, seconds uint32) er
 	}
 
 	configPath := config.GetConfigPath()
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
 		globalCfg.RateLimit.AutoBlockExpiry = fmt.Sprintf("%ds", seconds)
 		types.SaveGlobalConfig(configPath, globalCfg)
 		log.Infof("🛡️ Auto Block Expiry set to: %d seconds", seconds)
-		ConfigMu.Unlock()
+		types.ConfigMu.Unlock()
 		return nil
 	} else {
-		ConfigMu.Unlock()
+		types.ConfigMu.Unlock()
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 }
@@ -287,7 +287,7 @@ func ClearBlacklist(ctx context.Context, xdpMgr XDPManager) error {
 
 	// Clear persistence file / 清除持久化文件
 	configPath := config.GetConfigPath()
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil && globalCfg.Base.LockListFile != "" {
 		if err := fileutil.AtomicWriteFile(globalCfg.Base.LockListFile, []byte(""), 0644); err == nil {
@@ -296,7 +296,7 @@ func ClearBlacklist(ctx context.Context, xdpMgr XDPManager) error {
 			log.Warnf("⚠️  Failed to clear persistence file: %v", err)
 		}
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 	return nil
 }
 
@@ -325,7 +325,7 @@ func ImportLockListFromFile(ctx context.Context, xdpMgr XDPManager, path string)
 
 	// Prepare persistence update / 准备持久化更新
 	configPath := config.GetConfigPath()
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	globalCfg, _ := types.LoadGlobalConfig(configPath)
 	var persistentLines []string
 	if globalCfg != nil && globalCfg.Base.LockListFile != "" {
@@ -376,7 +376,7 @@ func ImportLockListFromFile(ctx context.Context, xdpMgr XDPManager, path string)
 			log.Infof("📄 Persisted %d rules to %s", len(merged), globalCfg.Base.LockListFile)
 		}
 	}
-	ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 
 	log.Infof("✅ Imported %d rules.", count)
 	return nil

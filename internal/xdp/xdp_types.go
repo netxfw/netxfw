@@ -4,10 +4,9 @@
 package xdp
 
 import (
-	"time"
-
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 // Logger defines the logging interface used by the XDP manager.
@@ -39,8 +38,6 @@ const (
 	configBogonFilter        = 14
 	configAutoBlock          = 15
 	configAutoBlockExpiry    = 16
-	ConfigAIEnabled          = 200
-	ConfigClusterEnabled     = 500
 )
 
 const (
@@ -50,24 +47,12 @@ const (
 	ProgIdxPluginEnd   = 15
 )
 
-/**
- * RateLimitConf matches the BPF struct ratelimit_conf.
- * RateLimitConf 与 BPF 结构体 ratelimit_conf 匹配。
- */
-type RateLimitConf struct {
-	Rate  uint64 // packets per second / 每秒数据包数
-	Burst uint64 // max tokens / 最大令牌数
-}
-
-/**
- * IPPortRule represents an IP+Port rule.
- * IPPortRule 表示一条 IP+端口规则。
- */
-type IPPortRule struct {
-	IP     string
-	Port   uint16
-	Action uint8 // 1=Allow, 2=Deny / 1=允许, 2=拒绝
-}
+// Re-export SDK types for internal use if needed, or just use sdk.X
+type RateLimitConf = sdk.RateLimitConf
+type IPPortRule = sdk.IPPortRule
+type ConntrackEntry = sdk.ConntrackEntry
+type BlockedIP = sdk.BlockedIP
+type DropDetailEntry = sdk.DropDetailEntry
 
 /**
  * Manager handles the lifecycle of eBPF objects and links.
@@ -92,25 +77,6 @@ type Manager struct {
 	dropReasonStats *ebpf.Map
 	passReasonStats *ebpf.Map
 	logger          Logger
-}
-
-/**
- * ConntrackEntry represents a single connection tracking entry.
- * ConntrackEntry 表示单个连接跟踪条目。
- */
-type ConntrackEntry struct {
-	SrcIP    string
-	DstIP    string
-	SrcPort  uint16
-	DstPort  uint16
-	Protocol uint8
-	LastSeen time.Time
-}
-
-type BlockedIP struct {
-	IP        string
-	ExpiresAt uint64
-	RuleValue NetXfwRuleValue
 }
 
 // Map getters / Map 获取器

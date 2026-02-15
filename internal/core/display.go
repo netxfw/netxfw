@@ -325,7 +325,7 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 				}
 			}
 
-			protoStr := func(p uint32) string {
+			protoStr := func(p uint8) string {
 				switch p {
 				case 6:
 					return "TCP"
@@ -392,7 +392,7 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 				}
 			}
 
-			protoStr := func(p uint32) string {
+			protoStr := func(p uint8) string {
 				switch p {
 				case 6:
 					return "TCP"

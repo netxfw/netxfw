@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 type MockManager struct {
@@ -234,8 +235,8 @@ func (m *MockManager) ListWhitelistIPs(limit int, search string) ([]string, int,
 
 // IP Port Rules Operations
 func (m *MockManager) AddIPPortRule(cidr string, port uint16, action uint8) error {
-	key := cidr // Simplified key
-	m.IPPortRulesMap[key] = IPPortRule{IP: cidr, Port: port, Action: action}
+	// key := cidr + "/32" // simplified - REMOVED this assumption
+	m.IPPortRulesMap[cidr] = sdk.IPPortRule{IP: cidr, Port: port, Action: action}
 	return nil
 }
 func (m *MockManager) RemoveIPPortRule(cidr string, port uint16) error {
@@ -243,11 +244,11 @@ func (m *MockManager) RemoveIPPortRule(cidr string, port uint16) error {
 	return nil
 }
 func (m *MockManager) ClearIPPortRules() error {
-	m.IPPortRulesMap = make(map[string]IPPortRule)
+	m.IPPortRulesMap = make(map[string]sdk.IPPortRule)
 	return nil
 }
-func (m *MockManager) ListIPPortRules(isIPv6 bool, limit int, search string) ([]IPPortRule, int, error) {
-	var rules []IPPortRule
+func (m *MockManager) ListIPPortRules(isIPv6 bool, limit int, search string) ([]sdk.IPPortRule, int, error) {
+	var rules []sdk.IPPortRule
 	for _, rule := range m.IPPortRulesMap {
 		rules = append(rules, rule)
 	}
@@ -277,7 +278,7 @@ func (m *MockManager) ListAllowedPorts() ([]uint16, error) {
 
 // Rate Limit Operations
 func (m *MockManager) AddRateLimitRule(cidr string, rate uint64, burst uint64) error {
-	m.RateLimitRules[cidr] = RateLimitConf{Rate: rate, Burst: burst}
+	m.RateLimitRules[cidr] = sdk.RateLimitConf{Rate: rate, Burst: burst}
 	return nil
 }
 func (m *MockManager) RemoveRateLimitRule(cidr string) error {
@@ -285,10 +286,10 @@ func (m *MockManager) RemoveRateLimitRule(cidr string) error {
 	return nil
 }
 func (m *MockManager) ClearRateLimitRules() error {
-	m.RateLimitRules = make(map[string]RateLimitConf)
+	m.RateLimitRules = make(map[string]sdk.RateLimitConf)
 	return nil
 }
-func (m *MockManager) ListRateLimitRules(limit int, search string) (map[string]RateLimitConf, int, error) {
+func (m *MockManager) ListRateLimitRules(limit int, search string) (map[string]sdk.RateLimitConf, int, error) {
 	return m.RateLimitRules, len(m.RateLimitRules), nil
 }
 

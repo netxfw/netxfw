@@ -1,42 +1,40 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/pprof"
 
 	"github.com/livp123/netxfw/internal/config"
-	"github.com/livp123/netxfw/internal/core"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
-	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 // Server represents the API and UI server.
 // Server 代表 API 和 UI 服务器。
 type Server struct {
-	manager    xdp.ManagerInterface
+	sdk        *sdk.SDK
 	port       int
 	configPath string
 }
 
 // NewServer creates a new API and UI server instance.
 // NewServer 创建一个新的 API 和 UI 服务器实例。
-func NewServer(manager xdp.ManagerInterface, port int) *Server {
+func NewServer(s *sdk.SDK, port int) *Server {
 	return &Server{
-		manager:    manager,
+		sdk:        s,
 		port:       port,
 		configPath: config.GetConfigPath(),
 	}
 }
 
-// Start launches the HTTP server for management.
-// Start 启动用于管理的 HTTP 服务器。
-func (s *Server) Start() error {
+// Handler returns the http.Handler for the API and UI.
+// Handler 返回 API 和 UI 的 http.Handler。
+func (s *Server) Handler() http.Handler {
 	log := logger.Get(nil)
 	// Auto-generate token if not configured
 	// 如果未配置 Token，则自动生成
-	core.ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	cfg, err := types.LoadGlobalConfig(s.configPath)
 	if err == nil {
 		if cfg.Web.Token == "" {
@@ -51,7 +49,7 @@ func (s *Server) Start() error {
 			log.Infof("🔑 Using configured Web Token for authentication")
 		}
 	}
-	core.ConfigMu.Unlock()
+	types.ConfigMu.Unlock()
 
 	mux := http.NewServeMux()
 
@@ -75,7 +73,5 @@ func (s *Server) Start() error {
 	// UI (Embedded) / UI（内嵌）
 	mux.HandleFunc("/", s.handleUI)
 
-	addr := fmt.Sprintf(":%d", s.port)
-	log.Infof("🚀 Management API and UI starting on http://localhost%s", addr)
-	return http.ListenAndServe(addr, mux)
+	return mux
 }

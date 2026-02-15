@@ -14,14 +14,9 @@ var ConntrackCmd = &cobra.Command{
 	Long: `Show current connection tracking table`,
 	// Long: 显示当前的连接跟踪表
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
-
 		common.EnsureStandaloneMode()
 
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
@@ -29,7 +24,7 @@ var ConntrackCmd = &cobra.Command{
 
 		// Show conntrack table
 		// 显示连接跟踪表
-		if err := common.ShowConntrack(cmd.Context(), mgr); err != nil {
+		if err := common.ShowConntrack(cmd.Context(), s); err != nil {
 			cmd.PrintErrln(err)
 		}
 	},

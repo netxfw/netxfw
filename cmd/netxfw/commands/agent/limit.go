@@ -25,19 +25,13 @@ var limitAddCmd = &cobra.Command{
 添加 IP 限速规则（每秒包数）`,
 	Args: cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
-
 		common.EnsureStandaloneMode()
 
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		ctx := cmd.Context()
 
 		ip := args[0]
 		rate, err := strconv.ParseUint(args[1], 10, 64)
@@ -50,10 +44,11 @@ var limitAddCmd = &cobra.Command{
 		}
 		// Add rate limit rule
 		// 添加限速规则
-		if err := common.SyncRateLimitRule(ctx, mgr, ip, rate, burst, true); err != nil {
+		if err := s.Rule.AddRateLimitRule(ip, rate, burst); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+		log.Printf("✅ Rate limit rule added for %s: %d/s (burst %d)", ip, rate, burst)
 	},
 }
 
@@ -65,26 +60,22 @@ var limitRemoveCmd = &cobra.Command{
 	// Long: 移除 IP 限速规则
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
-
 		common.EnsureStandaloneMode()
 
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		ctx := cmd.Context()
 
+		ip := args[0]
 		// Remove rate limit rule
 		// 移除限速规则
-		if err := common.SyncRateLimitRule(ctx, mgr, args[0], 0, 0, false); err != nil {
+		if err := s.Rule.RemoveRateLimitRule(ip); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+		log.Printf("✅ Rate limit rule removed for %s", ip)
 	},
 }
 
@@ -95,16 +86,34 @@ var limitListCmd = &cobra.Command{
 	Long: `List all rate limit rules`,
 	// Long: 列出所有限速规则
 	Run: func(cmd *cobra.Command, args []string) {
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
 
-		// Show rate limit rules
-		// 显示限速规则
-		if err := common.ShowRateLimitRules(cmd.Context(), mgr); err != nil {
+		limit := 100
+		search := ""
+
+		if len(args) > 0 {
+			if l, err := strconv.Atoi(args[0]); err == nil {
+				limit = l
+				if len(args) > 1 {
+					search = args[1]
+				}
+			} else {
+				search = args[0]
+			}
+		}
+
+		rules, _, err := s.Rule.ListRateLimitRules(limit, search)
+		if err != nil {
 			cmd.PrintErrln(err)
+		}
+
+		cmd.Printf("Rate Limit Rules (%d):\n", len(rules))
+		for ip, conf := range rules {
+			cmd.Printf("  %s: %d/s (burst %d)\n", ip, conf.Rate, conf.Burst)
 		}
 	},
 }

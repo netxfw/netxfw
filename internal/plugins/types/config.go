@@ -7,11 +7,16 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/livp123/netxfw/internal/utils/fileutil"
 	"gopkg.in/yaml.v3"
 )
+
+// ConfigMu protects concurrent access to the configuration file.
+// ConfigMu 保护对配置文件的并发访问。
+var ConfigMu sync.RWMutex
 
 // DefaultConfigTemplate defines the default configuration file structure with bilingual comments.
 // This template is used to initialize new config files and to repair missing sections in existing files
@@ -237,27 +242,7 @@ type GlobalConfig struct {
 	Capacity  CapacityConfig  `yaml:"capacity"`
 	Logging   LoggingConfig   `yaml:"logging"`
 	AI        AIConfig        `yaml:"ai"`
-}
-
-// ClusterConfig defines the cluster synchronization settings.
-// ClusterConfig 定义集群同步设置。
-type ClusterConfig struct {
-	Enabled bool `yaml:"enabled"`
-}
-
-// AIConfig defines the configuration for AI features.
-// AIConfig 定义 AI 特性的配置。
-type AIConfig struct {
-	Enabled       bool     `yaml:"enabled"`
-	ModelType     string   `yaml:"model_type"`
-	APIKey        string   `yaml:"api_key"`
-	APIEndpoint   string   `yaml:"api_endpoint"`
-	Port          int      `yaml:"port"`
-	Token         string   `yaml:"token"`
-	ReadOnly      bool     `yaml:"read_only"`
-	Cors          []string `yaml:"cors"`
-	EnforceSafety bool     `yaml:"enforce_safety"`
-	AnonymizeLogs bool     `yaml:"anonymize_logs"`
+	MCP       MCPConfig       `yaml:"mcp"`
 }
 
 // LoggingConfig defines the configuration for logging.
@@ -361,6 +346,33 @@ type WebConfig struct {
 	Token   string `yaml:"token"`
 }
 
+// AIConfig defines the configuration for AI features.
+// AIConfig 定义 AI 功能配置。
+type AIConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Port    int    `yaml:"port"`
+	Model   string `yaml:"model"`
+	APIKey  string `yaml:"api_key"`
+	BaseURL string `yaml:"base_url"`
+}
+
+// MCPConfig defines the configuration for Model Context Protocol.
+// MCPConfig 定义模型上下文协议 (MCP) 配置。
+type MCPConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Port    int    `yaml:"port"`
+	Mode    string `yaml:"mode"` // "stdio", "sse"
+}
+
+// ClusterConfig defines the configuration for clustering.
+// ClusterConfig 定义集群配置。
+type ClusterConfig struct {
+	Enabled bool     `yaml:"enabled"`
+	Port    int      `yaml:"port"`
+	Nodes   []string `yaml:"nodes"`
+	Secret  string   `yaml:"secret"`
+}
+
 // CapacityConfig defines the capacity settings for BPF maps.
 // CapacityConfig 定义 BPF Map 的容量设置。
 type CapacityConfig struct {
@@ -457,6 +469,7 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 	cfg := GlobalConfig{
 		Cluster: ClusterConfig{
 			Enabled: false,
+			Port:    11815,
 		},
 		Base: BaseConfig{
 			DefaultDeny:        true,
@@ -501,19 +514,21 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 			MaxAge:     30, // 30 days
 			Compress:   true,
 		},
-		AI: AIConfig{
-			Enabled:       true,
-			ModelType:     "gemini",
-			Port:          11813,
-			ReadOnly:      false,
-			EnforceSafety: true,
-			Cors:          []string{"*"},
-		},
+
 		Web: WebConfig{
 			Port: 11811,
 		},
 		Metrics: MetricsConfig{
 			Port: 11812,
+		},
+		AI: AIConfig{
+			Enabled: false,
+			Port:    11813,
+		},
+		MCP: MCPConfig{
+			Enabled: false,
+			Port:    11814,
+			Mode:    "sse",
 		},
 	}
 

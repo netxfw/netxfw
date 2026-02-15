@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	_ "net/http/pprof"
 	"strconv"
 
 	"github.com/livp123/netxfw/internal/api"
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/core"
+	"github.com/livp123/netxfw/internal/core/engine"
 	"github.com/livp123/netxfw/internal/daemon"
 	"github.com/livp123/netxfw/internal/plugins"
 	"github.com/livp123/netxfw/internal/plugins/types"
@@ -87,23 +89,46 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		}
 	}
 
+	// Create SDK instance once
+	s := sdk.NewSDK(xdp.NewAdapter(manager))
+
 	// Start all plugins to apply configurations / 启动所有插件以应用配置
 	pluginCtx := &sdk.PluginContext{
 		Context: ctx,
-		Manager: xdp.NewAdapter(manager),
+		Manager: s.GetManager(),
 		Config:  globalCfg,
 		Logger:  log,
+		SDK:     s,
 	}
 
+	// 1. Initialize and Start Core Modules / 初始化并启动核心模块
+	coreModules := []engine.CoreModule{
+		&engine.BaseModule{},
+		&engine.ConntrackModule{},
+		&engine.PortModule{},
+		&engine.RateLimitModule{},
+	}
+
+	for _, mod := range coreModules {
+		if err := mod.Init(globalCfg, s, log); err != nil {
+			return fmt.Errorf("❌ Failed to init core module %s: %v", mod.Name(), err)
+		}
+		if err := mod.Start(); err != nil {
+			return fmt.Errorf("❌ Failed to start core module %s: %v", mod.Name(), err)
+		}
+	}
+
+	// 2. Start Extension Plugins / 启动扩展插件
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(pluginCtx); err != nil {
-			log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
+			// Plugins are extensions, log error but don't crash
+			log.Errorf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
 			continue
 		}
+
 		if err := p.Start(pluginCtx); err != nil {
-			log.Warnf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
+			log.Errorf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
 		}
-		defer p.Stop()
 	}
 
 	log.Infof("🚀 XDP program installed successfully and pinned to %s", config.GetPinPath())
@@ -116,7 +141,7 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
  */
 func RunDaemon(ctx context.Context) {
 	core.InitConfiguration(ctx)
-	core.TestConfiguration(ctx)
+	daemon.TestConfiguration(ctx)
 	daemon.Run(ctx, runtime.Mode, nil)
 }
 
@@ -377,8 +402,13 @@ func RunWebServer(ctx context.Context, port int) error {
 
 	// 2. Start API server / 启动 API 服务器
 	adapter := xdp.NewAdapter(manager)
-	server := api.NewServer(adapter, port)
-	if err := server.Start(); err != nil {
+	s := sdk.NewSDK(adapter)
+	server := api.NewServer(s, port)
+
+	addr := fmt.Sprintf(":%d", port)
+	log.Infof("🚀 Management API and UI starting on http://localhost%s", addr)
+
+	if err := http.ListenAndServe(addr, server.Handler()); err != nil {
 		return fmt.Errorf("failed to start web server: %v", err)
 	}
 	return nil

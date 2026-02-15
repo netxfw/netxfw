@@ -18,8 +18,8 @@ func SyncToConfig(ctx context.Context, mgr XDPManager) error {
 	log.Info("🔄 Syncing BPF Maps to Configuration Files...")
 	configPath := config.GetConfigPath()
 
-	ConfigMu.Lock()
-	defer ConfigMu.Unlock()
+	types.ConfigMu.Lock()
+	defer types.ConfigMu.Unlock()
 
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
@@ -49,9 +49,9 @@ func SyncToMap(ctx context.Context, mgr XDPManager) error {
 	log.Info("🔄 Syncing Configuration Files to BPF Maps...")
 	configPath := config.GetConfigPath()
 
-	ConfigMu.Lock()
+	types.ConfigMu.Lock()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
-	ConfigMu.Unlock() // Unlock after reading, SyncFromFiles might take time but maps are safe
+	types.ConfigMu.Unlock() // Unlock after reading, SyncFromFiles might take time but maps are safe
 
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)

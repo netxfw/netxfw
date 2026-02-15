@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/xdp"
 )
 
 // PluginContext provides the environment for a plugin to operate in.
@@ -13,15 +12,23 @@ import (
 // 它封装了 XDP 管理器和全局配置，为插件提供统一的访问点。
 type PluginContext struct {
 	context.Context
+	// Firewall provides access to high-level firewall operations.
+	// Firewall 提供对高级防火墙操作的访问。
+	Firewall Firewall
 	// Manager provides access to low-level XDP operations and BPF maps.
+	// (Internal use only, prefer Firewall for high-level plugins)
 	// Manager 提供对底层 XDP 操作和 BPF Map 的访问。
-	Manager xdp.ManagerInterface
+	// （仅限内部使用，高级插件优先使用 Firewall）
+	Manager ManagerInterface
 	// Config holds the current global configuration snapshot.
 	// Config 保存当前的全局配置快照。
 	Config *types.GlobalConfig
 	// Logger is the standard logger for plugins.
 	// Logger 是插件的标准日志记录器。
 	Logger Logger
+	// SDK provides structured high-level APIs (Blacklist, Whitelist, Rule, etc.).
+	// SDK 提供结构化的高级 API（黑名单、白名单、规则等）。
+	SDK *SDK
 }
 
 // Logger defines the logging interface for plugins.
@@ -80,4 +87,23 @@ type Plugin interface {
 	// Validate 在应用之前检查配置是否有效。
 	// 如果配置无效，它应该返回错误。
 	Validate(config *types.GlobalConfig) error
+
+	// Type returns the type of the plugin (Core or Extension).
+	// Core plugins are required for the system to function.
+	// Type 返回插件的类型（Core 或 Extension）。
+	// Core 插件是系统运行所必需的。
+	Type() PluginType
 }
+
+// PluginType defines the criticality of a plugin.
+// PluginType 定义插件的重要性。
+type PluginType int
+
+const (
+	// PluginTypeCore indicates a critical plugin that must load successfully.
+	// PluginTypeCore 表示必须成功加载的关键插件。
+	PluginTypeCore PluginType = iota
+	// PluginTypeExtension indicates an optional plugin.
+	// PluginTypeExtension 表示可选插件。
+	PluginTypeExtension
+)

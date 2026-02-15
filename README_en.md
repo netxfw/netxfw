@@ -28,7 +28,13 @@
     - **Fragmentation Protection**: Configurable dropping of IP fragments to prevent fragmentation attacks.
     - **SYN Flood Defense**: Apply rate limits specifically to SYN packets to protect legitimate traffic.
 - 📊 **Observability**: Built-in Web UI (default port 11811) and Prometheus Exporter for real-time monitoring of drop rates and active connections.
-- 🧩 **Plugin Architecture**: Support for dynamic loading of third-party plugins via eBPF Tail Calls. See [Plugin Development Guide](docs/plugins/plugins.md) for details.
+- 🧩 **Plugin Architecture (SDK)**:
+    - **Plugin SDK**: Standardized Go interface (`sdk.Plugin`) for easy firewall extension.
+    - **CEL Rule Engine**: Integrated Google CEL for complex JSON/KV parsing and regex matching (`JSON()`, `KV()`, `Match()`).
+    - **Dynamic Loading**: Support for dynamic loading of third-party plugins via eBPF Tail Calls. See [Plugin Development Guide](docs/plugins/plugins.md).
+    - **Inter-Plugin Communication (IPC)**:
+        - **EventBus**: Pub/Sub event bus for decoupled communication (e.g., Log Engine -> AI Analysis).
+        - **KV Store**: Shared in-memory key-value store (`sdk.Store`) for sharing runtime context (e.g., Threat Intel, Trust Scores).
 - 🏗️ **Modular Design**: Structured BPF code (Filter, Ratelimit, Conntrack, Protocols) for clarity and maintainability.
 - 🛠️ **CLI-Driven Control**: Minimalist CLI for dynamic rule and plugin management without service restarts.
 

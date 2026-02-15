@@ -64,11 +64,19 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	}
 
 	// 2. Load ALL Plugins (Agent manages everything) / 加载所有插件（Agent 管理一切）
+	var fw sdk.Firewall
+	if adapter, ok := manager.(sdk.Firewall); ok {
+		fw = adapter
+	}
+
+	s := sdk.NewSDK(manager)
 	pluginCtx := &sdk.PluginContext{
-		Context: ctx,
-		Manager: manager,
-		Config:  globalCfg,
-		Logger:  log,
+		Context:  ctx,
+		Firewall: fw,
+		Manager:  manager,
+		Config:   globalCfg,
+		Logger:   log,
+		SDK:      s,
 	}
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(pluginCtx); err != nil {
@@ -81,20 +89,11 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 		defer p.Stop()
 	}
 
-	// 3. Start Web Server / 启动 Web 服务器
-	if globalCfg.Web.Enabled {
-		go func() {
-			if err := startWebServer(globalCfg, manager); err != nil {
-				log.Errorf("❌ Web server failed: %v", err)
-			}
-		}()
-	}
-
 	// 4. Start Cleanup Loop / 启动清理循环
 	ctxCleanup, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go runCleanupLoop(ctxCleanup, globalCfg)
 
 	log.Info("🛡️ Agent is running.")
-	waitForSignal(ctx, configPath, manager, nil) // nil means reload all / nil 表示重新加载所有内容
+	waitForSignal(ctx, configPath, s, nil, nil) // nil means reload all / nil 表示重新加载所有内容
 }

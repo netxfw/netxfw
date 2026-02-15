@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
 	"github.com/spf13/cobra"
@@ -25,19 +26,13 @@ var securityFragmentsCmd = &cobra.Command{
 启用/禁用丢弃分片数据包`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
-
 		common.EnsureStandaloneMode()
 
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		ctx := cmd.Context()
 
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
@@ -45,10 +40,11 @@ var securityFragmentsCmd = &cobra.Command{
 		}
 		// Toggle drop fragments
 		// 切换丢弃分片
-		if err := common.SyncDropFragments(ctx, mgr, enable); err != nil {
+		if err := s.Security.SetDropFragments(enable); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+		log.Printf("✅ Drop Fragments set to %v", enable)
 	},
 }
 
@@ -60,19 +56,13 @@ var securityStrictTCPCmd = &cobra.Command{
 启用/禁用严格 TCP 标志验证`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
-
 		common.EnsureStandaloneMode()
 
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		ctx := cmd.Context()
 
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
@@ -80,10 +70,11 @@ var securityStrictTCPCmd = &cobra.Command{
 		}
 		// Toggle strict TCP
 		// 切换严格 TCP 检查
-		if err := common.SyncStrictTCP(ctx, mgr, enable); err != nil {
+		if err := s.Security.SetStrictTCP(enable); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+		log.Printf("✅ Strict TCP set to %v", enable)
 	},
 }
 
@@ -95,19 +86,13 @@ var securitySYNLimitCmd = &cobra.Command{
 启用/禁用 SYN Flood 保护`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
-
 		common.EnsureStandaloneMode()
 
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		ctx := cmd.Context()
 
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
@@ -115,10 +100,11 @@ var securitySYNLimitCmd = &cobra.Command{
 		}
 		// Toggle SYN limit
 		// 切换 SYN 限制
-		if err := common.SyncSYNLimit(ctx, mgr, enable); err != nil {
+		if err := s.Security.SetSYNLimit(enable); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+		log.Printf("✅ SYN Limit set to %v", enable)
 	},
 }
 
@@ -130,19 +116,13 @@ var securityBogonCmd = &cobra.Command{
 启用/禁用 Bogon 过滤`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
-
 		common.EnsureStandaloneMode()
 
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		ctx := cmd.Context()
 
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
@@ -150,10 +130,11 @@ var securityBogonCmd = &cobra.Command{
 		}
 		// Toggle Bogon filtering
 		// 切换 Bogon 过滤
-		if err := common.SyncBogonFilter(ctx, mgr, enable); err != nil {
+		if err := s.Security.SetBogonFilter(enable); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+		log.Printf("✅ Bogon filter set to %v", enable)
 	},
 }
 
@@ -165,19 +146,13 @@ var securityAutoBlockCmd = &cobra.Command{
 启用/禁用自动封锁`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
-
 		common.EnsureStandaloneMode()
 
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		ctx := cmd.Context()
 
 		enable, err := strconv.ParseBool(args[0])
 		if err != nil {
@@ -185,10 +160,11 @@ var securityAutoBlockCmd = &cobra.Command{
 		}
 		// Toggle auto-blocking
 		// 切换自动封锁
-		if err := common.SyncAutoBlock(ctx, mgr, enable); err != nil {
+		if err := s.Security.SetAutoBlock(enable); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+		log.Printf("✅ Auto-block set to %v", enable)
 	},
 }
 
@@ -200,19 +176,13 @@ var securityAutoBlockExpiryCmd = &cobra.Command{
 设置自动封锁过期时间（秒）`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
-
 		common.EnsureStandaloneMode()
 
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		ctx := cmd.Context()
 
 		expiry, err := strconv.Atoi(args[0])
 		if err != nil {
@@ -220,10 +190,12 @@ var securityAutoBlockExpiryCmd = &cobra.Command{
 		}
 		// Set auto-block expiry
 		// 设置自动封锁过期时间
-		if err := common.SyncAutoBlockExpiry(ctx, mgr, uint32(expiry)); err != nil {
+		duration := time.Duration(expiry) * time.Second
+		if err := s.Security.SetAutoBlockExpiry(duration); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+		log.Printf("✅ Auto-block expiry set to %v", duration)
 	},
 }
 

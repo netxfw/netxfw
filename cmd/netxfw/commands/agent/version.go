@@ -26,12 +26,15 @@ func init() {
 
 func showVersion(ctx context.Context) {
 	fmt.Printf("netxfw %s\n", version.Version)
-	// Show additional status info if available
-	// 如果可用，显示额外的状态信息
-	if common.ShowStatus != nil {
-		mgr, err := common.GetManager()
+
+	s, err := common.GetSDK()
+	if err == nil {
+		fmt.Println("XDP Status: Running")
+		pass, drops, err := s.Stats.GetCounters()
 		if err == nil {
-			common.ShowStatus(ctx, mgr)
+			fmt.Printf("Drops: %d, Pass: %d\n", drops, pass)
 		}
+	} else {
+		fmt.Println("XDP Status: Not running or accessible")
 	}
 }

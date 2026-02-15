@@ -27,7 +27,7 @@ func main() {
 
 	// Initialize configuration / 初始化配置
 	core.InitConfiguration(ctx)
-	core.TestConfiguration(ctx)
+	daemon.TestConfiguration(ctx)
 
 	// Re-initialize logger from config / 从配置重新初始化日志记录器
 	cfg, err := types.LoadGlobalConfig(config.GetConfigPath())

@@ -25,19 +25,13 @@ var portAddCmd = &cobra.Command{
 	// Long: 将端口添加到全局允许列表
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
-
 		common.EnsureStandaloneMode()
 
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		ctx := cmd.Context()
 
 		if len(args) < 1 {
 			log.Fatal("❌ Missing port number")
@@ -48,10 +42,11 @@ var portAddCmd = &cobra.Command{
 		}
 		// Add allowed port
 		// 添加允许的端口
-		if err := common.SyncAllowedPort(ctx, mgr, uint16(port), true); err != nil {
+		if err := s.Rule.AllowPort(uint16(port)); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+		log.Printf("✅ Port %d added to allowed list", port)
 	},
 }
 
@@ -63,19 +58,13 @@ var portRemoveCmd = &cobra.Command{
 	// Long: 从全局允许列表移除端口
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
-
 		common.EnsureStandaloneMode()
 
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		ctx := cmd.Context()
 
 		port, err := strconv.Atoi(args[0])
 		if err != nil {
@@ -83,10 +72,11 @@ var portRemoveCmd = &cobra.Command{
 		}
 		// Remove allowed port
 		// 移除允许的端口
-		if err := common.SyncAllowedPort(ctx, mgr, uint16(port), false); err != nil {
+		if err := s.Rule.RemoveAllowedPort(uint16(port)); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+		log.Printf("✅ Port %d removed from allowed list", port)
 	},
 }
 

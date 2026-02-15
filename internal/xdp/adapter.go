@@ -7,10 +7,11 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
-// Adapter is a wrapper around Manager to satisfy ManagerInterface.
-// Adapter 是对 Manager 的包装，用于满足 ManagerInterface 接口。
+// Adapter is a wrapper around Manager to satisfy ManagerInterface and sdk.Firewall.
+// Adapter 是对 Manager 的包装，用于满足 ManagerInterface 和 sdk.Firewall 接口。
 type Adapter struct {
 	manager *Manager
 }
@@ -228,6 +229,43 @@ func (a *Adapter) GetWhitelistCount() (int, error) {
 func (a *Adapter) GetConntrackCount() (int, error) {
 	count, err := a.manager.GetConntrackCount()
 	return int(count), err
+}
+
+// sdk.Firewall Implementation
+
+func (a *Adapter) GetStats() (uint64, uint64) {
+	pass, _ := a.manager.GetPassCount()
+	drop, _ := a.manager.GetDropCount()
+	return pass, drop
+}
+
+func (a *Adapter) GetDropLogs() ([]sdk.DropLogEntry, error) {
+	details, err := a.manager.GetDropDetails()
+	if err != nil {
+		return nil, err
+	}
+	logs := make([]sdk.DropLogEntry, len(details))
+	for i, d := range details {
+		logs[i] = sdk.DropLogEntry{
+			Timestamp: d.Timestamp,
+			SrcIP:     d.SrcIP,
+			DstIP:     d.DstIP,
+			SrcPort:   d.SrcPort,
+			DstPort:   d.DstPort,
+			Protocol:  d.Protocol,
+			Reason:    d.Reason,
+			Count:     d.Count,
+			Payload:   d.Payload,
+		}
+	}
+	return logs, nil
+}
+
+func (a *Adapter) BlockIP(cidr string, duration time.Duration) error {
+	if duration == 0 {
+		return a.AddBlacklistIP(cidr)
+	}
+	return a.AddDynamicBlacklistIP(cidr, duration)
 }
 
 func (a *Adapter) Close() error {

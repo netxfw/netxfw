@@ -4,6 +4,8 @@ import (
 	"os"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
+	"github.com/livp123/netxfw/internal/config"
+	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/spf13/cobra"
 )
 
@@ -22,25 +24,25 @@ var syncToConfigCmd = &cobra.Command{
 	Long: `Dump runtime BPF maps to configuration files (config.yaml and rules.deny.txt).`,
 	// Long: 将运行时 BPF Map 转储到配置文件（config.yaml 和 rules.deny.txt）。
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
 		common.EnsureStandaloneMode()
 
-		if common.SyncToConfig == nil {
-			cmd.PrintErrln("❌ common.SyncToConfig function not initialized")
-			os.Exit(1)
-		}
-
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+
+		// Load global config to pass to Sync
+		cfgPath := config.GetConfigPath()
+		cfg, err := types.LoadGlobalConfig(cfgPath)
+		if err != nil {
+			cmd.PrintErrln("Failed to load configuration:", err)
+			os.Exit(1)
+		}
+
 		// Dump maps to config files
 		// 将 map 转储到配置文件
-		if err := common.SyncToConfig(cmd.Context(), mgr); err != nil {
+		if err := s.Sync.ToConfig(cfg); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
@@ -56,25 +58,25 @@ This will overwrite the runtime state with what is defined in the configuration 
 	// Long: 将配置文件（config.yaml 和 rules.deny.txt）应用到运行时 BPF Map。
 	// 这将使用配置文件中定义的内容覆盖运行时状态。
 	Run: func(cmd *cobra.Command, args []string) {
-		if common.EnsureStandaloneMode == nil {
-			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
-			os.Exit(1)
-		}
 		common.EnsureStandaloneMode()
 
-		if common.SyncToMap == nil {
-			cmd.PrintErrln("❌ common.SyncToMap function not initialized")
-			os.Exit(1)
-		}
-
-		mgr, err := common.GetManager()
+		s, err := common.GetSDK()
 		if err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+
+		// Load global config
+		cfgPath := config.GetConfigPath()
+		cfg, err := types.LoadGlobalConfig(cfgPath)
+		if err != nil {
+			cmd.PrintErrln("Failed to load configuration:", err)
+			os.Exit(1)
+		}
+
 		// Load config files to maps
 		// 将配置文件加载到 map
-		if err := common.SyncToMap(cmd.Context(), mgr); err != nil {
+		if err := s.Sync.ToMap(cfg, true); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}

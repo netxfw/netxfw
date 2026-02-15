@@ -34,6 +34,9 @@
     - **Plugin SDK**: 提供标准化的 Go 接口 (`sdk.Plugin`)，允许开发者轻松扩展防火墙功能。
     - **CEL 规则引擎**: 集成 Google CEL 表达式语言，支持对日志进行复杂的 JSON/KV 解析和正则匹配 (`JSON()`, `KV()`, `Match()`)。
     - **动态加载**: 支持通过 eBPF Tail Call 动态加载第三方插件。详情请参考 [插件开发指南](docs/plugins/plugins.md)。
+    - **插件间通信 (IPC)**:
+        - **EventBus**: 基于发布/订阅模式的事件总线，实现插件解耦通信（如日志引擎 -> AI 分析）。
+        - **KV Store**: 共享的内存键值存储 (`sdk.Store`)，用于插件间共享运行时上下文（如威胁情报、信任分）。
 - 🏗️ **模块化设计**：BPF 代码采用模块化结构（Filter, Ratelimit, Conntrack, Protocols），逻辑清晰，易于维护。
 - 🛠️ **命令行控制**：极简的 CLI 操作，支持动态加载规则和插件，无需重启服务。
 
