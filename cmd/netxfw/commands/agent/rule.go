@@ -61,9 +61,8 @@ Examples:
 			ip = host
 			port = int(pVal)
 		} else {
-			// Could not split (e.g. plain IPv4, plain IPv6, or invalid)
-			// Assume it's just an IP address
-			// 无法拆分 (例如纯 IPv4, 纯 IPv6 或无效输入)，假设它只是一个 IP 地址
+			// Could not split (e.g. plain IPv4, plain IPv6, or invalid) / 无法拆分 (例如纯 IPv4, 纯 IPv6 或无效输入)
+			// Assume it's just an IP address / 假设它只是一个 IP 地址
 			ip = input
 			// If input was [IPv6], strip brackets for consistency
 			// 如果输入包含 [IPv6]，去掉方括号
@@ -152,7 +151,9 @@ Examples:
 var ruleIPListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List IP rules",
-	Long:  `List IP-based firewall rules (whitelist and blacklist)`,
+	// Short: 列出 IP 规则
+	Long: `List IP-based firewall rules (whitelist and blacklist)`,
+	// Long: 列出基于 IP 的防火墙规则（白名单和黑名单）
 	Run: func(cmd *cobra.Command, args []string) {
 		mgr, err := common.GetManager()
 		if err != nil {
@@ -189,7 +190,9 @@ var ruleIPListCmd = &cobra.Command{
 var rulePortListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List port rules",
-	Long:  `List port-based firewall rules`,
+	// Short: 列出端口规则
+	Long: `List port-based firewall rules`,
+	// Long: 列出基于端口的防火墙规则
 	Run: func(cmd *cobra.Command, args []string) {
 		mgr, err := common.GetManager()
 		if err != nil {
@@ -222,8 +225,10 @@ var rulePortListCmd = &cobra.Command{
 var ruleRemoveCmd = &cobra.Command{
 	Use:   "remove [flags] <ip> [port|allow|deny]",
 	Short: "Remove a rule",
-	Long:  `Remove a rule for an IP or IP+Port combination`,
-	Args:  cobra.MinimumNArgs(1),
+	// Short: 移除规则
+	Long: `Remove a rule for an IP or IP+Port combination`,
+	// Long: 移除 IP 或 IP+端口组合的规则
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
@@ -292,7 +297,9 @@ var ruleRemoveCmd = &cobra.Command{
 var ruleListCmd = &cobra.Command{
 	Use:   "list [ip|port|lock|allow|rules]",
 	Short: "List rules",
-	Long:  `List firewall rules`,
+	// Short: 列出规则
+	Long: `List firewall rules`,
+	// Long: 列出防火墙规则
 	Run: func(cmd *cobra.Command, args []string) {
 		mgr, err := common.GetManager()
 		if err != nil {
@@ -494,8 +501,10 @@ var ruleListCmd = &cobra.Command{
 var ruleImportCmd = &cobra.Command{
 	Use:   "import [lock|allow|rules] <file>",
 	Short: "Import rules from file",
-	Long:  `Import rules from a file`,
-	Args:  cobra.ExactArgs(2),
+	// Short: 从文件导入规则
+	Long: `Import rules from a file`,
+	// Long: 从文件导入规则
+	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
@@ -539,7 +548,9 @@ var ruleImportCmd = &cobra.Command{
 var ruleClearCmd = &cobra.Command{
 	Use:   "clear",
 	Short: "Clear blacklist",
-	Long:  `Clear all entries from blacklist`,
+	// Short: 清空黑名单
+	Long: `Clear all entries from blacklist`,
+	// Long: 清空黑名单中的所有条目
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")

@@ -12,7 +12,9 @@ import (
 var WebCmd = &cobra.Command{
 	Use:   "web [port]",
 	Short: "Start web interface",
-	Long:  `Start the web management interface (default port 11811)`,
+	// Short: 启动 Web 界面
+	Long: `Start the web management interface (default port 11811)`,
+	// Long: 启动 Web 管理界面（默认端口 11811）
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.RunWebServer == nil {
 			cmd.PrintErrln("❌ common.RunWebServer function not initialized")

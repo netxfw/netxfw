@@ -11,6 +11,7 @@ import (
 
 /**
  * updateConfig updates a global configuration value and increments the config version.
+ * updateConfig 更新全局配置值并递增配置版本。
  */
 func (m *Manager) updateConfig(key uint32, val uint64) error {
 	if err := m.globalConfig.Update(&key, &val, ebpf.UpdateAny); err != nil {
@@ -27,6 +28,7 @@ func (m *Manager) updateConfig(key uint32, val uint64) error {
 
 /**
  * SetDefaultDeny enables or disables the default deny policy.
+ * SetDefaultDeny 启用或禁用默认拒绝策略。
  */
 func (m *Manager) SetDefaultDeny(enable bool) error {
 	var val uint64 = 0
@@ -38,6 +40,7 @@ func (m *Manager) SetDefaultDeny(enable bool) error {
 
 /**
  * SetAllowReturnTraffic enables or disables the automatic allowance of return traffic.
+ * SetAllowReturnTraffic 启用或禁用自动允许回程流量。
  */
 func (m *Manager) SetAllowReturnTraffic(enable bool) error {
 	var val uint64 = 0
@@ -49,6 +52,7 @@ func (m *Manager) SetAllowReturnTraffic(enable bool) error {
 
 /**
  * SetAllowICMP enables or disables the allowance of ICMP traffic.
+ * SetAllowICMP 启用或禁用允许 ICMP 流量。
  */
 func (m *Manager) SetAllowICMP(enable bool) error {
 	var val uint64 = 0
@@ -60,6 +64,7 @@ func (m *Manager) SetAllowICMP(enable bool) error {
 
 /**
  * SetICMPRateLimit sets the ICMP rate limit (packets/sec) and burst.
+ * SetICMPRateLimit 设置 ICMP 速率限制（每秒数据包数）和突发量。
  */
 func (m *Manager) SetICMPRateLimit(rate, burst uint64) error {
 	if err := m.updateConfig(configICMPRate, rate); err != nil {
@@ -70,6 +75,7 @@ func (m *Manager) SetICMPRateLimit(rate, burst uint64) error {
 
 /**
  * SetConntrackTimeout sets the connection tracking timeout in the BPF program.
+ * SetConntrackTimeout 在 BPF 程序中设置连接跟踪超时。
  */
 func (m *Manager) SetConntrackTimeout(timeout time.Duration) error {
 	return m.updateConfig(configConntrackTimeout, uint64(timeout.Nanoseconds()))
@@ -77,6 +83,7 @@ func (m *Manager) SetConntrackTimeout(timeout time.Duration) error {
 
 /**
  * SetConntrack enables or disables the connection tracking.
+ * SetConntrack 启用或禁用连接跟踪。
  */
 func (m *Manager) SetConntrack(enable bool) error {
 	var val uint64 = 0
@@ -88,6 +95,7 @@ func (m *Manager) SetConntrack(enable bool) error {
 
 /**
  * SetStrictProto enables or disables strict protocol enforcement.
+ * SetStrictProto 启用或禁用严格协议强制执行。
  */
 func (m *Manager) SetStrictProto(enable bool) error {
 	var val uint64 = 0
@@ -99,6 +107,7 @@ func (m *Manager) SetStrictProto(enable bool) error {
 
 /**
  * SetDropFragments enables or disables dropping of IP fragments.
+ * SetDropFragments 启用或禁用丢弃 IP 分片。
  */
 func (m *Manager) SetDropFragments(enable bool) error {
 	var val uint64 = 0
@@ -110,6 +119,7 @@ func (m *Manager) SetDropFragments(enable bool) error {
 
 /**
  * SetStrictTCP enables or disables strict TCP flag validation.
+ * SetStrictTCP 启用或禁用严格的 TCP 标志验证。
  */
 func (m *Manager) SetStrictTCP(enable bool) error {
 	var val uint64 = 0
@@ -121,6 +131,7 @@ func (m *Manager) SetStrictTCP(enable bool) error {
 
 /**
  * SetSYNLimit enables or disables SYN-only rate limiting.
+ * SetSYNLimit 启用或禁用仅针对 SYN 的速率限制。
  */
 func (m *Manager) SetSYNLimit(enable bool) error {
 	var val uint64 = 0
@@ -132,6 +143,7 @@ func (m *Manager) SetSYNLimit(enable bool) error {
 
 /**
  * SetEnableRateLimit enables or disables general rate limiting.
+ * SetEnableRateLimit 启用或禁用全局速率限制。
  */
 func (m *Manager) SetEnableRateLimit(enable bool) error {
 	var val uint64 = 0
@@ -143,6 +155,7 @@ func (m *Manager) SetEnableRateLimit(enable bool) error {
 
 /**
  * SetEnableAFXDP enables or disables AF_XDP redirection.
+ * SetEnableAFXDP 启用或禁用 AF_XDP 重定向。
  */
 func (m *Manager) SetEnableAFXDP(enable bool) error {
 	var val uint64 = 0
@@ -154,7 +167,7 @@ func (m *Manager) SetEnableAFXDP(enable bool) error {
 
 /**
  * SetStrictProtocol enables or disables the strict protocol whitelisting (IPv4, IPv6, ARP only).
- * 开启或关闭严格协议白名单模式（仅允许 IPv4, IPv6, ARP）。
+ * SetStrictProtocol 开启或关闭严格协议白名单模式（仅允许 IPv4, IPv6, ARP）。
  */
 func (m *Manager) SetStrictProtocol(enable bool) error {
 	var val uint64 = 0
@@ -166,7 +179,7 @@ func (m *Manager) SetStrictProtocol(enable bool) error {
 
 /**
  * SetBogonFilter enables or disables Bogon IP filtering.
- * 开启或关闭 Bogon IP 过滤。
+ * SetBogonFilter 开启或关闭 Bogon IP 过滤。
  */
 func (m *Manager) SetBogonFilter(enable bool) error {
 	var val uint64 = 0
@@ -178,7 +191,7 @@ func (m *Manager) SetBogonFilter(enable bool) error {
 
 /**
  * SetAutoBlock enables or disables automatic blocking of suspicious IPs.
- * 开启或关闭自动封禁。
+ * SetAutoBlock 开启或关闭自动封禁。
  */
 func (m *Manager) SetAutoBlock(enable bool) error {
 	var val uint64 = 0
@@ -190,8 +203,8 @@ func (m *Manager) SetAutoBlock(enable bool) error {
 
 /**
  * SetAutoBlockExpiry sets the duration after which an automatically blocked IP is unblocked.
- * 设置自动封禁的过期时间。
+ * SetAutoBlockExpiry 设置自动封禁的 IP 解封前的持续时间。
  */
 func (m *Manager) SetAutoBlockExpiry(expiry time.Duration) error {
-	return m.updateConfig(configAutoBlockExpiry, uint64(expiry.Seconds()))
+	return m.updateConfig(configAutoBlockExpiry, uint64(expiry.Nanoseconds()))
 }

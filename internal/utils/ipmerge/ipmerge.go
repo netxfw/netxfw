@@ -8,8 +8,11 @@ import (
 
 // MergeCIDRsWithThreshold works like MergeCIDRs but also promotes smaller CIDRs to a larger subnet
 // (IPv4 /v4Mask, IPv6 /v6Mask) if the number of rules within that subnet meets or exceeds the threshold.
+// MergeCIDRsWithThreshold 与 MergeCIDRs 类似，但如果子网内的规则数量达到或超过阈值，
+// 还会将较小的 CIDR 提升为更大的子网（IPv4 /v4Mask，IPv6 /v6Mask）。
 func MergeCIDRsWithThreshold(cidrs []string, threshold int, v4Mask int, v6Mask int) ([]string, error) {
 	// 1. First run standard merge to remove redundancies and combine adjacent ranges
+	// 1. 首先运行标准合并以消除冗余并合并相邻范围
 	merged, err := MergeCIDRs(cidrs)
 	if err != nil {
 		return nil, err
@@ -20,6 +23,7 @@ func MergeCIDRsWithThreshold(cidrs []string, threshold int, v4Mask int, v6Mask i
 	}
 
 	// Validate masks
+	// 验证掩码
 	if v4Mask < 0 {
 		v4Mask = 0
 	} else if v4Mask > 32 {
@@ -32,6 +36,7 @@ func MergeCIDRsWithThreshold(cidrs []string, threshold int, v4Mask int, v6Mask i
 	}
 
 	// 2. Group by parent subnet
+	// 2. 按父子网分组
 	// Map key: Parent subnet string
 	// Map value: List of child CIDRs that fall into this subnet
 	groups := make(map[string][]string)
@@ -50,12 +55,14 @@ func MergeCIDRsWithThreshold(cidrs []string, threshold int, v4Mask int, v6Mask i
 		}
 
 		// If the prefix is already large enough (shorter length), keep it
+		// 如果前缀已经足够大（长度较短），则保留它
 		if prefix.Bits() <= parentBits {
 			finalCidrs = append(finalCidrs, c)
 			continue
 		}
 
 		// Calculate parent prefix
+		// 计算父前缀
 		addr := prefix.Addr()
 		parent, _ := addr.Prefix(parentBits)
 		parentStr := parent.String()
@@ -64,22 +71,28 @@ func MergeCIDRsWithThreshold(cidrs []string, threshold int, v4Mask int, v6Mask i
 	}
 
 	// 3. Process groups
+	// 3. 处理分组
 	for parent, children := range groups {
 		if len(children) >= threshold {
 			// Promote to parent
+			// 提升为父网段
 			finalCidrs = append(finalCidrs, parent)
 		} else {
 			// Keep children
+			// 保留子网段
 			finalCidrs = append(finalCidrs, children...)
 		}
 	}
 
 	// 4. Run standard merge again to cleanup any newly created adjacencies
+	// 4. 再次运行标准合并以清理任何新创建的相邻项
 	return MergeCIDRs(finalCidrs)
 }
 
 // MergeCIDRs takes a list of CIDR strings (IPv4 and IPv6) and returns a minimized list of CIDRs.
 // It automatically filters out invalid CIDRs/IPs.
+// MergeCIDRs 接收 CIDR 字符串列表（IPv4 和 IPv6）并返回最小化的 CIDR 列表。
+// 它会自动过滤无效的 CIDR/IP。
 func MergeCIDRs(cidrs []string) ([]string, error) {
 	var v4Ranges []ipRange
 	var v6Ranges []ipRange

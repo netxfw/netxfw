@@ -12,6 +12,7 @@ import (
 var SecurityCmd = &cobra.Command{
 	Use:   "security",
 	Short: "Security management commands",
+	// Short: 安全管理命令
 	Long: `Security management commands for netxfw
 netxfw 的安全管理命令`,
 }
@@ -19,6 +20,7 @@ netxfw 的安全管理命令`,
 var securityFragmentsCmd = &cobra.Command{
 	Use:   "fragments [true|false]",
 	Short: "Drop fragmented packets",
+	// Short: 丢弃分片数据包
 	Long: `Enable/disable dropping of fragmented packets
 启用/禁用丢弃分片数据包`,
 	Args: cobra.ExactArgs(1),
@@ -53,6 +55,7 @@ var securityFragmentsCmd = &cobra.Command{
 var securityStrictTCPCmd = &cobra.Command{
 	Use:   "strict-tcp [true|false]",
 	Short: "Strict TCP flag validation",
+	// Short: 严格 TCP 标志验证
 	Long: `Enable/disable strict TCP flag validation
 启用/禁用严格 TCP 标志验证`,
 	Args: cobra.ExactArgs(1),
@@ -87,6 +90,7 @@ var securityStrictTCPCmd = &cobra.Command{
 var securitySYNLimitCmd = &cobra.Command{
 	Use:   "syn-limit [true|false]",
 	Short: "SYN flood protection",
+	// Short: SYN Flood 保护
 	Long: `Enable/disable SYN flood protection
 启用/禁用 SYN Flood 保护`,
 	Args: cobra.ExactArgs(1),
@@ -121,6 +125,7 @@ var securitySYNLimitCmd = &cobra.Command{
 var securityBogonCmd = &cobra.Command{
 	Use:   "bogon [true|false]",
 	Short: "Bogon filtering",
+	// Short: Bogon 过滤
 	Long: `Enable/disable Bogon filtering
 启用/禁用 Bogon 过滤`,
 	Args: cobra.ExactArgs(1),
@@ -155,6 +160,7 @@ var securityBogonCmd = &cobra.Command{
 var securityAutoBlockCmd = &cobra.Command{
 	Use:   "auto-block [true|false]",
 	Short: "Auto-blocking",
+	// Short: 自动封锁
 	Long: `Enable/disable auto-blocking
 启用/禁用自动封锁`,
 	Args: cobra.ExactArgs(1),
@@ -189,6 +195,7 @@ var securityAutoBlockCmd = &cobra.Command{
 var securityAutoBlockExpiryCmd = &cobra.Command{
 	Use:   "auto-block-expiry <seconds>",
 	Short: "Auto-block expiry time",
+	// Short: 自动封锁过期时间
 	Long: `Set auto-block expiry time in seconds
 设置自动封锁过期时间（秒）`,
 	Args: cobra.ExactArgs(1),

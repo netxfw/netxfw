@@ -51,20 +51,22 @@ const (
 )
 
 /**
- * RateLimitConf matches the BPF struct ratelimit_conf
+ * RateLimitConf matches the BPF struct ratelimit_conf.
+ * RateLimitConf 与 BPF 结构体 ratelimit_conf 匹配。
  */
 type RateLimitConf struct {
-	Rate  uint64 // packets per second
-	Burst uint64 // max tokens
+	Rate  uint64 // packets per second / 每秒数据包数
+	Burst uint64 // max tokens / 最大令牌数
 }
 
 /**
- * IPPortRule represents an IP+Port rule
+ * IPPortRule represents an IP+Port rule.
+ * IPPortRule 表示一条 IP+端口规则。
  */
 type IPPortRule struct {
 	IP     string
 	Port   uint16
-	Action uint8 // 1=Allow, 2=Deny
+	Action uint8 // 1=Allow, 2=Deny / 1=允许, 2=拒绝
 }
 
 /**
@@ -94,6 +96,7 @@ type Manager struct {
 
 /**
  * ConntrackEntry represents a single connection tracking entry.
+ * ConntrackEntry 表示单个连接跟踪条目。
  */
 type ConntrackEntry struct {
 	SrcIP    string

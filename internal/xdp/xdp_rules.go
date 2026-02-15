@@ -15,6 +15,7 @@ import (
 
 /**
  * AddIPPortRuleToMap adds an IP+Port rule to the map.
+ * AddIPPortRuleToMap 向 Map 中添加一条 IP+端口规则。
  */
 func AddIPPortRuleToMap(mapPtr *ebpf.Map, ipNet *net.IPNet, port uint16, action uint8, expiresAt *time.Time) error {
 	ones, _ := ipNet.Mask.Size()
@@ -43,6 +44,7 @@ func AddIPPortRuleToMap(mapPtr *ebpf.Map, ipNet *net.IPNet, port uint16, action 
 
 /**
  * AddIPPortRuleToMapString adds an IP+Port rule to the map using CIDR string.
+ * AddIPPortRuleToMapString 使用 CIDR 字符串向 Map 中添加一条 IP+端口规则。
  */
 func AddIPPortRuleToMapString(mapPtr *ebpf.Map, cidr string, port uint16, action uint8) error {
 	ipNet, err := iputil.ParseCIDR(cidr)
@@ -64,6 +66,7 @@ func (m *Manager) AddIPPortRule(ipNet *net.IPNet, port uint16, action uint8, exp
 
 /**
  * RemoveIPPortRuleFromMap removes an IP+Port rule from the map.
+ * RemoveIPPortRuleFromMap 从 Map 中移除一条 IP+端口规则。
  */
 func RemoveIPPortRuleFromMap(mapPtr *ebpf.Map, ipNet *net.IPNet, port uint16) error {
 	ones, _ := ipNet.Mask.Size()
@@ -88,6 +91,7 @@ func RemoveIPPortRuleFromMap(mapPtr *ebpf.Map, ipNet *net.IPNet, port uint16) er
 
 /**
  * RemoveIPPortRuleFromMapString removes an IP+Port rule from the map using CIDR string.
+ * RemoveIPPortRuleFromMapString 使用 CIDR 字符串从 Map 中移除一条 IP+端口规则。
  */
 func RemoveIPPortRuleFromMapString(mapPtr *ebpf.Map, cidr string, port uint16) error {
 	ipNet, err := iputil.ParseCIDR(cidr)
@@ -107,6 +111,7 @@ func (m *Manager) RemoveIPPortRule(ipNet *net.IPNet, port uint16) error {
 
 /**
  * AllowPortToMap adds a port to the allowed ports map.
+ * AllowPortToMap 向允许端口 Map 中添加一个端口。
  */
 func AllowPortToMap(mapPtr *ebpf.Map, port uint16, expiresAt *time.Time) error {
 	// BPF_MAP_TYPE_PERCPU_HASH requires a slice of values for update if we want to set it for all CPUs

@@ -53,18 +53,15 @@ func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 	}
 	cidr := ipNet.String()
 
-	// Use LockList (Static)
-	// 使用 LockList（静态）
+	// Use LockList (Static) / 使用 LockList（静态）
 	mapObj := m.LockList()
 
-	// Reuse existing LockIP helper
-	// 复用现有的 LockIP 辅助函数
+	// Reuse existing LockIP helper / 复用现有的 LockIP 辅助函数
 	if err := LockIP(mapObj, cidr); err != nil {
 		return fmt.Errorf("failed to add to static blacklist %s: %v", cidr, err)
 	}
 
-	// Persist to lock list file if configured
-	// 如果配置了，持久化到锁定列表文件
+	// Persist to lock list file if configured / 如果配置了，持久化到锁定列表文件
 	if persistFile != "" {
 		if err := fileutil.AppendToFile(persistFile, cidr); err != nil {
 			m.logger.Warnf("⚠️ Failed to write to lock list file: %v", err)
@@ -103,8 +100,7 @@ func (m *Manager) RemoveAllowStatic(ipStr string) error {
 // ListWhitelist 返回所有白名单中的 IP/CIDR。
 func (m *Manager) ListWhitelist(isIPv6 bool) ([]string, error) {
 	mapObj := m.Whitelist()
-	// Use 0 limit to get all
-	// 使用 0 限制以获取全部
+	// Use 0 limit to get all / 使用 0 限制以获取全部
 	ips, _, err := ListWhitelistIPs(mapObj, 0, "")
 	return ips, err
 }
@@ -128,8 +124,7 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 			return fmt.Errorf("dyn_lock_list not available")
 		}
 
-		// Use mapped IPv6 for key
-		// 使用映射的 IPv6 作为键
+		// Use mapped IPv6 for key / 使用映射的 IPv6 作为键
 		key := NetXfwIn6Addr{}
 		b := ip.As4()
 		// ::ffff:a.b.c.d
@@ -168,8 +163,10 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 	return nil
 }
 
-// ForceCleanup removes all pinned maps at the specified path.
-// ForceCleanup 删除指定路径下的所有固定 Map。
+/**
+ * ForceCleanup removes all pinned maps at the specified path.
+ * ForceCleanup 删除指定路径下的所有固定 Map。
+ */
 func ForceCleanup(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil
@@ -177,8 +174,10 @@ func ForceCleanup(path string) error {
 	return os.RemoveAll(path)
 }
 
-// MatchesCapacity checks if the current map capacities match the provided config.
-// MatchesCapacity 检查当前的 Map 容量是否与提供的配置匹配。
+/**
+ * MatchesCapacity checks if the current map capacities match the provided config.
+ * MatchesCapacity 检查当前的 Map 容量是否与提供的配置匹配。
+ */
 func (m *Manager) MatchesCapacity(cfg types.CapacityConfig) bool {
 	if cfg.LockList > 0 {
 		if m.lockList == nil || m.lockList.MaxEntries() != uint32(cfg.LockList) {
@@ -288,8 +287,7 @@ func NewManager(cfg types.CapacityConfig, logger Logger) (*Manager, error) {
 		logger:          logger,
 	}
 
-	// Initialize jump table with default protocol handlers
-	// 初始化跳转表，填充默认的协议处理程序
+	// Initialize jump table with default protocol handlers / 初始化跳转表，填充默认的协议处理程序
 	if objs.XdpIpv4 != nil {
 		if err := objs.JmpTable.Update(uint32(ProgIdxIPv4), objs.XdpIpv4, ebpf.UpdateAny); err != nil {
 			return nil, fmt.Errorf("failed to update jmp_table with xdp_ipv4: %w", err)
@@ -329,12 +327,12 @@ func NewManagerFromPins(path string, logger Logger) (*Manager, error) {
 	}
 
 	loadMap := func(name string, fallback *ebpf.Map) *ebpf.Map {
-		m, err := ebpf.LoadPinnedMap(path+"/"+name, nil)
+		mp, err := ebpf.LoadPinnedMap(path+"/"+name, nil)
 		if err != nil {
 			logger.Warnf("⚠️  Could not load pinned %s: %v", name, err)
 			return fallback
 		}
-		return m
+		return mp
 	}
 
 	m.lockList = loadMap(config.MapLockList, objs.LockList)
@@ -371,8 +369,7 @@ func (m *Manager) Attach(interfaces []string) error {
 			continue
 		}
 
-		// Try to atomic update existing XDP link
-		// 尝试原子更新现有的 XDP 链接
+		// Try to atomic update existing XDP link / 尝试原子更新现有的 XDP 链接
 		linkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("link_%s", name))
 		var attached bool
 
@@ -428,8 +425,7 @@ func (m *Manager) Attach(interfaces []string) error {
 			}
 		}
 
-		// Attach TC for egress tracking (required for Conntrack)
-		// 附加 TC 用于出口追踪（连接跟踪 Conntrack 所需）
+		// Attach TC for egress tracking (required for Conntrack) / 附加 TC 用于出口追踪（连接跟踪 Conntrack 所需）
 		// 1. Ensure clsact qdisc exists / 确保 clsact qdisc 存在
 		_ = exec.Command("tc", "qdisc", "add", "dev", name, "clsact").Run()
 
@@ -563,7 +559,7 @@ func (m *Manager) MigrateState(old *Manager) error {
 
 	// Migrate Dynamic Lock List / 迁移动态锁定列表 (Dynamic Lock List)
 	if old.dynLockList != nil && m.dynLockList != nil {
-		var key NetXfwLpmKey
+		var key NetXfwIn6Addr
 		var val NetXfwRuleValue
 		iter := old.dynLockList.Iterate()
 		for iter.Next(&key, &val) {
@@ -622,6 +618,70 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
+	// Migrate Global Config (ARRAY) / 迁移全局配置
+	if old.globalConfig != nil && m.globalConfig != nil {
+		var key uint32
+		var val uint64
+		iter := old.globalConfig.Iterate()
+		for iter.Next(&key, &val) {
+			m.globalConfig.Put(&key, &val)
+		}
+	}
+
+	// Migrate ICMP Limit Map (LRU HASH) / 迁移 ICMP 限制 Map
+	if old.icmpLimitMap != nil && m.icmpLimitMap != nil {
+		var key NetXfwIn6Addr
+		var val NetXfwIcmpStats
+		iter := old.icmpLimitMap.Iterate()
+		for iter.Next(&key, &val) {
+			m.icmpLimitMap.Put(&key, &val)
+		}
+	}
+
+	// Migrate Drop Stats (PERCPU ARRAY) / 迁移拦截统计
+	if old.dropStats != nil && m.dropStats != nil {
+		var key uint32
+		numCPU, _ := ebpf.PossibleCPU()
+		val := make([]uint64, numCPU)
+		iter := old.dropStats.Iterate()
+		for iter.Next(&key, &val) {
+			m.dropStats.Put(&key, &val)
+		}
+	}
+
+	// Migrate Pass Stats (PERCPU ARRAY) / 迁移放行统计
+	if old.passStats != nil && m.passStats != nil {
+		var key uint32
+		numCPU, _ := ebpf.PossibleCPU()
+		val := make([]uint64, numCPU)
+		iter := old.passStats.Iterate()
+		for iter.Next(&key, &val) {
+			m.passStats.Put(&key, &val)
+		}
+	}
+
+	// Migrate Drop Reason Stats (PERCPU HASH) / 迁移详细拦截统计
+	if old.dropReasonStats != nil && m.dropReasonStats != nil {
+		var key NetXfwDropDetailKey
+		numCPU, _ := ebpf.PossibleCPU()
+		val := make([]uint64, numCPU)
+		iter := old.dropReasonStats.Iterate()
+		for iter.Next(&key, &val) {
+			m.dropReasonStats.Put(&key, &val)
+		}
+	}
+
+	// Migrate Pass Reason Stats (PERCPU HASH) / 迁移详细放行统计
+	if old.passReasonStats != nil && m.passReasonStats != nil {
+		var key NetXfwDropDetailKey
+		numCPU, _ := ebpf.PossibleCPU()
+		val := make([]uint64, numCPU)
+		iter := old.passReasonStats.Iterate()
+		for iter.Next(&key, &val) {
+			m.passReasonStats.Put(&key, &val)
+		}
+	}
+
 	return nil
 }
 
@@ -640,8 +700,7 @@ func (m *Manager) LoadPlugin(elfPath string, index int) error {
 		return fmt.Errorf("load plugin spec: %w", err)
 	}
 
-	// For simplicity, we assume the first XDP program found is the plugin
-	// 为了简单起见，我们假设找到的第一个 XDP 程序就是插件
+	// For simplicity, we assume the first XDP program found is the plugin / 为了简单起见，我们假设找到的第一个 XDP 程序就是插件
 	var progSpec *ebpf.ProgramSpec
 	for _, p := range spec.Programs {
 		if p.Type == ebpf.XDP {

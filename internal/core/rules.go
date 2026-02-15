@@ -87,7 +87,7 @@ func SyncLockMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, lock bo
 				log.Infof("📄 Persisted %s to %s (Optimized to %d rules)", cidrStr, filePath, len(merged))
 
 				// Runtime Optimization: Sync BPF with merged list if rules were reduced
-				// 运行时优化：如果规则减少，则同步 BPF 与合并列表
+				// 运行时优化：如果规则减少，则同步 BPF 与合并后的列表
 				if len(merged) < len(lines) {
 					log.Infof("🔄 Optimizing runtime BPF map...")
 				}
@@ -98,6 +98,21 @@ func SyncLockMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, lock bo
 			return fmt.Errorf("failed to unlock %s: %v", cidrStr, err)
 		}
 		log.Infof("🔓 Unlocked: %s", cidrStr)
+
+		// Remove from LockListFile if exists / 如果存在，从 LockListFile 中移除
+		globalCfg, err := types.LoadGlobalConfig(config.GetConfigPath())
+		if err == nil && globalCfg.Base.LockListFile != "" {
+			filePath := globalCfg.Base.LockListFile
+			if fileLines, err := fileutil.ReadLines(filePath); err == nil {
+				var newLines []string
+				for _, line := range fileLines {
+					if line != cidrStr {
+						newLines = append(newLines, line)
+					}
+				}
+				os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0644)
+			}
+		}
 	}
 
 	return nil
@@ -186,26 +201,24 @@ func SyncWhitelistMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, po
 						cidrToAdd = host
 						portToAdd = p
 					}
-					// Re-apply to BPF (idempotent) / 重新应用到 BPF（幂等）
 					xdpMgr.AddWhitelistIP(cidrToAdd, portToAdd)
 				}
 			}
 		}
 	} else {
 		if err := xdpMgr.RemoveWhitelistIP(cidrStr); err != nil {
-			return fmt.Errorf("failed to remove %s: %v", cidrStr, err)
+			return fmt.Errorf("failed to remove %s from whitelist: %v", cidrStr, err)
 		}
 		log.Infof("🔓 Removed from whitelist: %s", cidrStr)
 
-		// Update config / 更新配置
 		if err == nil {
-			newWhitelist := []string{}
-			target := cidrStr
+			entry := cidrStr
 			if port > 0 {
-				target = fmt.Sprintf("%s:%d", cidrStr, port)
+				entry = fmt.Sprintf("%s:%d", cidrStr, port)
 			}
+			newWhitelist := []string{}
 			for _, ip := range globalCfg.Base.Whitelist {
-				if ip != target {
+				if ip != entry && ip != cidrStr && !strings.HasPrefix(ip, cidrStr+":") {
 					newWhitelist = append(newWhitelist, ip)
 				}
 			}
@@ -364,7 +377,7 @@ func ShowLockList(ctx context.Context, xdpMgr XDPManager, limit int, search stri
 		fmt.Printf(" - %s (ExpiresAt: %d)\n", entry.IP, entry.ExpiresAt)
 	}
 
-	// Also check dynamic lock list / 同时检查动态锁定列表
+	// Also check dynamic lock list / 同时检查动态封禁列表
 	dynIps, dynCount, _ := xdpMgr.ListDynamicBlacklistIPs(limit, search)
 	if dynCount > 0 {
 		fmt.Println("\n📋 Dynamic Blacklist Rules:")

@@ -10,7 +10,7 @@ import (
 var askConfirmationReader *bufio.Reader
 
 // SetConfirmationReader sets the reader for confirmation prompts.
-// Useful for testing.
+// SetConfirmationReader 设置确认提示的读取器（主要用于测试）。
 func SetConfirmationReader(r *bufio.Reader) {
 	askConfirmationReader = r
 }

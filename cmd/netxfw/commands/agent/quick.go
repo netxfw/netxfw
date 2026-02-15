@@ -12,8 +12,10 @@ import (
 var QuickBlockCmd = &cobra.Command{
 	Use:   "block <ip>",
 	Short: "Quickly block an IP",
-	Long:  `Quickly block an IP by adding it to the blacklist`,
-	Args:  cobra.ExactArgs(1),
+	// Short: 快速封锁 IP
+	Long: `Quickly block an IP by adding it to the blacklist`,
+	// Long: 通过将其添加到黑名单来快速封锁 IP
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
@@ -41,8 +43,10 @@ var QuickBlockCmd = &cobra.Command{
 var QuickUnlockCmd = &cobra.Command{
 	Use:   "unlock <ip>",
 	Short: "Quickly unblock IP",
-	Long:  `Quickly remove an IP from blacklist`,
-	Args:  cobra.ExactArgs(1),
+	// Short: 快速解封 IP
+	Long: `Quickly remove an IP from blacklist`,
+	// Long: 快速从黑名单中移除 IP
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
@@ -70,8 +74,10 @@ var QuickUnlockCmd = &cobra.Command{
 var QuickAllowCmd = &cobra.Command{
 	Use:   "allow <ip> [port]",
 	Short: "Quickly whitelist IP",
-	Long:  `Quickly whitelist an IP address`,
-	Args:  cobra.RangeArgs(1, 2),
+	// Short: 快速将 IP 加入白名单
+	Long: `Quickly whitelist an IP address`,
+	// Long: 快速将一个 IP 地址加入白名单
+	Args: cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
@@ -107,8 +113,10 @@ var QuickAllowCmd = &cobra.Command{
 var QuickUnallowCmd = &cobra.Command{
 	Use:   "unallow <ip> [port]",
 	Short: "Quickly remove from whitelist",
-	Long:  `Quickly remove an IP from whitelist`,
-	Args:  cobra.RangeArgs(1, 2),
+	// Short: 快速从白名单中移除
+	Long: `Quickly remove an IP from whitelist`,
+	// Long: 快速从白名单中移除一个 IP
+	Args: cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
@@ -144,7 +152,9 @@ var QuickUnallowCmd = &cobra.Command{
 var QuickClearCmd = &cobra.Command{
 	Use:   "clear",
 	Short: "Quickly clear blacklist",
-	Long:  `Quickly clear all entries from blacklist`,
+	// Short: 快速清空黑名单
+	Long: `Quickly clear all entries from blacklist`,
+	// Long: 快速清空黑名单中的所有条目
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")

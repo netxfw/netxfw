@@ -6,6 +6,7 @@ import (
 )
 
 // Run starts the daemon in the specified mode.
+// Run 以指定模式启动守护进程。
 func Run(ctx context.Context, mode string, opts *DaemonOptions) {
 	log := logger.Get(ctx)
 	if opts == nil {

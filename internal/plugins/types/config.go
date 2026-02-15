@@ -220,6 +220,7 @@ logging:
 `
 
 // GlobalConfig represents the top-level configuration structure.
+// GlobalConfig 表示顶级配置结构。
 type GlobalConfig struct {
 	Base      BaseConfig      `yaml:"base"`
 	Web       WebConfig       `yaml:"web"`
@@ -234,10 +235,13 @@ type GlobalConfig struct {
 }
 
 // ClusterConfig defines the cluster synchronization settings.
+// ClusterConfig 定义集群同步设置。
 type ClusterConfig struct {
 	Enabled bool `yaml:"enabled"`
 }
 
+// AIConfig defines the configuration for AI features.
+// AIConfig 定义 AI 特性的配置。
 type AIConfig struct {
 	Enabled       bool     `yaml:"enabled"`
 	ModelType     string   `yaml:"model_type"`
@@ -251,26 +255,40 @@ type AIConfig struct {
 	AnonymizeLogs bool     `yaml:"anonymize_logs"`
 }
 
+// LoggingConfig defines the configuration for logging.
+// LoggingConfig 定义日志配置。
 type LoggingConfig struct {
-	Enabled    bool   `yaml:"enabled"`
-	Level      string `yaml:"level"`       // Log level (debug, info, warn, error)
-	Path       string `yaml:"path"`        // Log file path
-	MaxSize    int    `yaml:"max_size"`    // Max size in MB before rotation
-	MaxBackups int    `yaml:"max_backups"` // Max number of old files to keep
-	MaxAge     int    `yaml:"max_age"`     // Max number of days to keep old files
-	Compress   bool   `yaml:"compress"`    // Whether to compress old files
+	Enabled bool   `yaml:"enabled"`
+	Level   string `yaml:"level"` // Log level (debug, info, warn, error)
+	// Level: 日志级别（debug, info, warn, error）
+	Path string `yaml:"path"` // Log file path
+	// Path: 日志文件路径
+	MaxSize int `yaml:"max_size"` // Max size in MB before rotation
+	// MaxSize: 轮转前的最大大小（MB）
+	MaxBackups int `yaml:"max_backups"` // Max number of old files to keep
+	// MaxBackups: 保留的旧文件最大数量
+	MaxAge int `yaml:"max_age"` // Max number of days to keep old files
+	// MaxAge: 保留旧文件的最大天数
+	Compress bool `yaml:"compress"` // Whether to compress old files
+	// Compress: 是否压缩旧文件
 }
 
+// LogEngineConfig defines the configuration for the log engine.
+// LogEngineConfig 定义日志引擎配置。
 type LogEngineConfig struct {
-	Enabled   bool            `yaml:"enabled"`
-	Workers   int             `yaml:"workers"`
-	MaxWindow int             `yaml:"max_window"` // Max history window in seconds (default 3600)
-	Rules     []LogEngineRule `yaml:"rules"`
+	Enabled   bool `yaml:"enabled"`
+	Workers   int  `yaml:"workers"`
+	MaxWindow int  `yaml:"max_window"` // Max history window in seconds (default 3600)
+	// MaxWindow: 最大历史窗口（秒，默认 3600）
+	Rules []LogEngineRule `yaml:"rules"`
 }
 
+// LogEngineRule defines a rule for the log engine.
+// LogEngineRule 定义日志引擎规则。
 type LogEngineRule struct {
 	ID   string `yaml:"id"`
 	Path string `yaml:"path"` // Optional: File path pattern (glob or substring)
+	// Path: 可选：文件路径模式（glob 或子字符串）
 
 	// Tail Position: "start", "end" (default), "offset"
 	// 读取位置："start" (从头开始), "end" (从末尾开始), "offset" (从上次记录位置开始)
@@ -278,44 +296,68 @@ type LogEngineRule struct {
 
 	Expression string `yaml:"expression"`
 	Action     string `yaml:"action"` // "block", "log"
+	// Action: 执行动作 ("block", "log")
 
 	// Simplified Configuration (alternative to Expression)
-	Keywords    []string `yaml:"keywords"`     // Deprecated: Use Contains instead (AND logic)
-	Contains    []string `yaml:"contains"`     // AND logic: Must contain ALL of these (supports * wildcard)
+	// 简化配置（Expression 的替代方案）
+	Keywords []string `yaml:"keywords"` // Deprecated: Use Contains instead (AND logic)
+	// Keywords: 已弃用：请改用 Contains (AND 逻辑)
+	Contains []string `yaml:"contains"` // AND logic: Must contain ALL of these (supports * wildcard)
+	// Contains: AND 逻辑：必须包含所有这些（支持 * 通配符）
 	AnyContains []string `yaml:"any_contains"` // OR logic: Must contain AT LEAST ONE of these (supports * wildcard)
+	// AnyContains: OR 逻辑：必须包含其中至少一个（支持 * 通配符）
 	NotContains []string `yaml:"not_contains"` // NOT logic: Must NOT contain ANY of these (supports * wildcard)
+	// NotContains: NOT 逻辑：不能包含其中任何一个（支持 * 通配符）
 
 	// Aliases for better UX (User preference)
+	// 为了更好的用户体验提供的别名
 	And []string `yaml:"and"` // Alias for Contains (AND logic)
-	Is  []string `yaml:"is"`  // Alias for Contains (AND logic)
-	Or  []string `yaml:"or"`  // Alias for AnyContains (OR logic)
+	// And: Contains 的别名 (AND 逻辑)
+	Is []string `yaml:"is"` // Alias for Contains (AND logic)
+	// Is: Contains 的别名 (AND 逻辑)
+	Or []string `yaml:"or"` // Alias for AnyContains (OR logic)
+	// Or: AnyContains 的别名 (OR 逻辑)
 	Not []string `yaml:"not"` // Alias for NotContains (NOT logic)
+	// Not: NotContains 的别名 (NOT 逻辑)
 
-	Regex     string `yaml:"regex"`     // Regular expression to match
-	Threshold int    `yaml:"threshold"` // Trigger count
-	Interval  int    `yaml:"interval"`  // Time window in seconds (default 60)
-	TTL       string `yaml:"ttl"`       // Block duration (e.g., "10m", "1h"). Empty or "0" means permanent/static or LRU auto-evict.
+	Regex string `yaml:"regex"` // Regular expression to match
+	// Regex: 正则表达式匹配
+	Threshold int `yaml:"threshold"` // Trigger count
+	// Threshold: 触发阈值
+	Interval int `yaml:"interval"` // Time window in seconds (default 60)
+	// Interval: 时间窗口（秒，默认 60）
+	TTL string `yaml:"ttl"` // Block duration (e.g., "10m", "1h"). Empty or "0" means permanent/static or LRU auto-evict.
+	// TTL: 封禁持续时间（例如 "10m", "1h"）。为空或 "0" 表示永久或 LRU 自动驱逐。
 }
 
+// RateLimitConfig defines the configuration for rate limiting.
+// RateLimitConfig 定义速率限制配置。
 type RateLimitConfig struct {
-	Enabled         bool            `yaml:"enabled"`
-	AutoBlock       bool            `yaml:"auto_block"`
-	AutoBlockExpiry string          `yaml:"auto_block_expiry"` // e.g., "5m", "1h"
-	Rules           []RateLimitRule `yaml:"rules"`
+	Enabled         bool   `yaml:"enabled"`
+	AutoBlock       bool   `yaml:"auto_block"`
+	AutoBlockExpiry string `yaml:"auto_block_expiry"` // e.g., "5m", "1h"
+	// AutoBlockExpiry: 自动封禁过期时间（例如 "5m", "1h"）
+	Rules []RateLimitRule `yaml:"rules"`
 }
 
+// RateLimitRule defines a rate limit rule for a specific IP/CIDR.
+// RateLimitRule 定义特定 IP/CIDR 的速率限制规则。
 type RateLimitRule struct {
 	IP    string `yaml:"ip"`
 	Rate  uint64 `yaml:"rate"`
 	Burst uint64 `yaml:"burst"`
 }
 
+// WebConfig defines the configuration for the web interface.
+// WebConfig 定义 Web 界面配置。
 type WebConfig struct {
 	Enabled bool   `yaml:"enabled"`
 	Port    int    `yaml:"port"`
 	Token   string `yaml:"token"`
 }
 
+// CapacityConfig defines the capacity settings for BPF maps.
+// CapacityConfig 定义 BPF Map 的容量设置。
 type CapacityConfig struct {
 	Conntrack    int `yaml:"conntrack"`
 	LockList     int `yaml:"lock_list"`
@@ -325,33 +367,44 @@ type CapacityConfig struct {
 	AllowedPorts int `yaml:"allowed_ports"`
 }
 
+// BaseConfig defines the base firewall settings.
+// BaseConfig 定义基础防火墙设置。
 type BaseConfig struct {
-	DefaultDeny            bool     `yaml:"default_deny"`
-	AllowReturnTraffic     bool     `yaml:"allow_return_traffic"` // Stateless check (ACK + Port range)
-	AllowICMP              bool     `yaml:"allow_icmp"`
-	Interfaces             []string `yaml:"interfaces"`
-	EnableAFXDP            bool     `yaml:"enable_af_xdp"`
-	StrictProtocol         bool     `yaml:"strict_protocol"`
-	DropFragments          bool     `yaml:"drop_fragments"`
-	StrictTCP              bool     `yaml:"strict_tcp"`
-	SYNLimit               bool     `yaml:"syn_limit"`
-	BogonFilter            bool     `yaml:"bogon_filter"`
-	ICMPRate               uint64   `yaml:"icmp_rate"`  // packets per second
-	ICMPBurst              uint64   `yaml:"icmp_burst"` // max burst
+	DefaultDeny        bool `yaml:"default_deny"`
+	AllowReturnTraffic bool `yaml:"allow_return_traffic"` // Stateless check (ACK + Port range)
+	// AllowReturnTraffic: 无状态检查（ACK + 端口范围）
+	AllowICMP      bool     `yaml:"allow_icmp"`
+	Interfaces     []string `yaml:"interfaces"`
+	EnableAFXDP    bool     `yaml:"enable_af_xdp"`
+	StrictProtocol bool     `yaml:"strict_protocol"`
+	DropFragments  bool     `yaml:"drop_fragments"`
+	StrictTCP      bool     `yaml:"strict_tcp"`
+	SYNLimit       bool     `yaml:"syn_limit"`
+	BogonFilter    bool     `yaml:"bogon_filter"`
+	ICMPRate       uint64   `yaml:"icmp_rate"` // packets per second
+	// ICMPRate: 每秒包数
+	ICMPBurst uint64 `yaml:"icmp_burst"` // max burst
+	// ICMPBurst: 最大突发量
 	Whitelist              []string `yaml:"whitelist"`
 	LockListFile           string   `yaml:"lock_list_file"`
 	LockListBinary         string   `yaml:"lock_list_binary"`
 	LockListMergeThreshold int      `yaml:"lock_list_merge_threshold"` // If > 0, merge IPs into /24 (IPv4) or /64 (IPv6) if count >= threshold
-	LockListV4Mask         int      `yaml:"lock_list_v4_mask"`         // Target mask for IPv4 merging (default 24)
-	LockListV6Mask         int      `yaml:"lock_list_v6_mask"`         // Target mask for IPv6 merging (default 64)
-	BPFPinPath             string   `yaml:"bpf_pin_path"`              // Path to pin BPF maps (override default)
-	EnableExpiry           bool     `yaml:"enable_expiry"`
-	CleanupInterval        string   `yaml:"cleanup_interval"`
-	PersistRules           bool     `yaml:"persist_rules"`
-	EnablePprof            bool     `yaml:"enable_pprof"`
-	PprofPort              int      `yaml:"pprof_port"`
+	// LockListMergeThreshold: 如果 > 0，当数量 >= 阈值时将 IP 合并为子网
+	LockListV4Mask int `yaml:"lock_list_v4_mask"` // Target mask for IPv4 merging (default 24)
+	// LockListV4Mask: IPv4 合并的目标掩码（默认 24）
+	LockListV6Mask int `yaml:"lock_list_v6_mask"` // Target mask for IPv6 merging (default 64)
+	// LockListV6Mask: IPv6 合并的目标掩码（默认 64）
+	BPFPinPath string `yaml:"bpf_pin_path"` // Path to pin BPF maps (override default)
+	// BPFPinPath: 固定 BPF Map 的路径（覆盖默认值）
+	EnableExpiry    bool   `yaml:"enable_expiry"`
+	CleanupInterval string `yaml:"cleanup_interval"`
+	PersistRules    bool   `yaml:"persist_rules"`
+	EnablePprof     bool   `yaml:"enable_pprof"`
+	PprofPort       int    `yaml:"pprof_port"`
 }
 
+// ConntrackConfig defines the configuration for connection tracking.
+// ConntrackConfig 定义连接跟踪配置。
 type ConntrackConfig struct {
 	Enabled    bool   `yaml:"enabled"`
 	MaxEntries int    `yaml:"max_entries"`
@@ -359,6 +412,8 @@ type ConntrackConfig struct {
 	UDPTimeout string `yaml:"udp_timeout"`
 }
 
+// MetricsConfig defines the configuration for metrics collection.
+// MetricsConfig 定义指标收集配置。
 type MetricsConfig struct {
 	Enabled         bool   `yaml:"enabled"`
 	ServerEnabled   bool   `yaml:"server_enabled"`
@@ -370,17 +425,23 @@ type MetricsConfig struct {
 	TextfilePath    string `yaml:"textfile_path"`
 }
 
+// PortConfig defines the configuration for port filtering.
+// PortConfig 定义端口过滤配置。
 type PortConfig struct {
 	AllowedPorts []uint16     `yaml:"allowed_ports"`
 	IPPortRules  []IPPortRule `yaml:"ip_port_rules"`
 }
 
+// IPPortRule defines a filtering rule for a specific IP and port.
+// IPPortRule 定义特定 IP 和端口的过滤规则。
 type IPPortRule struct {
 	IP     string `yaml:"ip"`
 	Port   uint16 `yaml:"port"`
 	Action uint8  `yaml:"action"` // 1: allow, 2: deny
 }
 
+// LoadGlobalConfig loads the configuration from a YAML file.
+// LoadGlobalConfig 从 YAML 文件加载配置。
 func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

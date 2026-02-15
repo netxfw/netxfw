@@ -55,6 +55,7 @@ func Init(cfg types.LoggingConfig) {
 }
 
 // Sync flushes any buffered log entries.
+// Sync 刷新所有缓存的日志条目。
 func Sync() error {
 	if globalLogger != nil {
 		return globalLogger.Sync()
@@ -63,6 +64,7 @@ func Sync() error {
 }
 
 // Get returns the logger from context or global logger
+// Get 从 Context 或全局日志记录器返回 Logger。
 func Get(ctx context.Context) *zap.SugaredLogger {
 	if ctx != nil {
 		if logger, ok := ctx.Value(LoggerKey).(*zap.SugaredLogger); ok {
@@ -78,6 +80,7 @@ func Get(ctx context.Context) *zap.SugaredLogger {
 }
 
 // WithContext adds logger to context
+// WithContext 将 Logger 添加到 Context。
 func WithContext(ctx context.Context, logger *zap.SugaredLogger) context.Context {
 	return context.WithValue(ctx, LoggerKey, logger)
 }

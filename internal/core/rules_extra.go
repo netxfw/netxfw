@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/optimizer"
@@ -218,6 +219,12 @@ func SyncRateLimitRule(ctx context.Context, xdpMgr XDPManager, ip string, rate u
 // SyncAutoBlock 更新配置中的自动封禁设置。
 func SyncAutoBlock(ctx context.Context, mgr XDPManager, enable bool) error {
 	log := logger.Get(ctx)
+
+	// Update Runtime / 更新运行时
+	if err := mgr.SetAutoBlock(enable); err != nil {
+		return fmt.Errorf("failed to update auto-block in BPF: %v", err)
+	}
+
 	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {
@@ -234,6 +241,12 @@ func SyncAutoBlock(ctx context.Context, mgr XDPManager, enable bool) error {
 // SyncAutoBlockExpiry 更新配置中的自动封禁过期时间。
 func SyncAutoBlockExpiry(ctx context.Context, mgr XDPManager, seconds uint32) error {
 	log := logger.Get(ctx)
+
+	// Update Runtime / 更新运行时
+	if err := mgr.SetAutoBlockExpiry(time.Duration(seconds) * time.Second); err != nil {
+		return fmt.Errorf("failed to update auto-block expiry in BPF: %v", err)
+	}
+
 	configPath := config.GetConfigPath()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil {

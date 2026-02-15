@@ -11,6 +11,9 @@ func ReadLines(filePath string) ([]string, error) {
 	if filePath == "" {
 		return nil, nil
 	}
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return nil, nil
+	}
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err

@@ -16,6 +16,7 @@ const (
 	BPFPinPath = "/sys/fs/bpf/netxfw"
 
 	// BPF Map Names
+	// BPF Map 名称，这些名称与 eBPF C 代码中定义的 Map 名称保持一致。
 	MapLockList        = "lock_list"
 	MapDynLockList     = "dyn_lock_list"
 	MapWhitelist       = "whitelist"

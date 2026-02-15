@@ -13,6 +13,7 @@ import (
 )
 
 // handleStats returns the global pass/drop statistics.
+// handleStats 返回全局放行/拦截统计信息。
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	pass, _ := s.manager.GetPassCount()
 	drop, _ := s.manager.GetDropCount()
@@ -25,6 +26,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleRules provides a REST interface for listing, adding, and removing BPF rules.
+// handleRules 提供用于列出、添加和移除 BPF 规则的 REST 接口。
 func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	switch r.Method {
@@ -36,6 +38,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		whitelist, totalWhitelist, _ := s.manager.ListWhitelistIPs(limit, search)
 
 		// Get IP+Port rules (action 1=allow, 2=deny)
+		// 获取 IP+端口规则（action 1=允许, 2=拒绝）
 		ipPortRules, totalIPPort, _ := s.manager.ListIPPortRules(true, limit, search)
 
 		res := map[string]interface{}{
@@ -51,8 +54,8 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodPost:
 		var req struct {
-			Type   string `json:"type"`   // "blacklist" or "whitelist"
-			Action string `json:"action"` // "add" or "remove"
+			Type   string `json:"type"`   // "blacklist" or "whitelist" / "blacklist" 或 "whitelist"
+			Action string `json:"action"` // "add" or "remove" / "add" 或 "remove"
 			CIDR   string `json:"cidr"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -121,7 +124,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Persistence logic
+		// Persistence logic / 持久化逻辑
 		cfg, _ := types.LoadGlobalConfig(s.configPath)
 		if cfg != nil && cfg.Base.PersistRules {
 			if req.Type == "blacklist" {
@@ -153,6 +156,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 					}
 					cfg.Base.Whitelist = newWL
 					// No need to optimize on remove, but saving is needed
+					// 移除时无需优化，但需要保存
 					types.SaveGlobalConfig(s.configPath, cfg)
 				}
 			} else if req.Type == "ip_port_rules" {
@@ -194,6 +198,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleConfig updates runtime configuration parameters.
+// handleConfig 更新运行时配置参数。
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		var req struct {

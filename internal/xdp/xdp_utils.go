@@ -18,6 +18,8 @@ func intToIP(nn uint32) net.IP {
 /**
  * timeToBootNS converts a time.Time pointer to boot time nanoseconds.
  * If the pointer is nil, it returns 0 (no expiry).
+ * timeToBootNS 将 time.Time 指针转换为启动时间纳秒。
+ * 如果指针为 nil，则返回 0（永不过期）。
  */
 func timeToBootNS(t *time.Time) uint64 {
 	if t == nil {

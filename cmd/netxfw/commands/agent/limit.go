@@ -12,6 +12,7 @@ import (
 var LimitCmd = &cobra.Command{
 	Use:   "limit",
 	Short: "Rate limit management",
+	// Short: 限速管理
 	Long: `Rate limit management commands
 限速管理命令`,
 }
@@ -19,6 +20,7 @@ var LimitCmd = &cobra.Command{
 var limitAddCmd = &cobra.Command{
 	Use:   "add <ip> <rate> <burst>",
 	Short: "Add rate limit rule",
+	// Short: 添加限速规则
 	Long: `Add IP rate limit rule (packets per second)
 添加 IP 限速规则（每秒包数）`,
 	Args: cobra.ExactArgs(3),
@@ -58,8 +60,10 @@ var limitAddCmd = &cobra.Command{
 var limitRemoveCmd = &cobra.Command{
 	Use:   "remove <ip>",
 	Short: "Remove rate limit rule",
-	Long:  `Remove IP rate limit rule`,
-	Args:  cobra.ExactArgs(1),
+	// Short: 移除限速规则
+	Long: `Remove IP rate limit rule`,
+	// Long: 移除 IP 限速规则
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
@@ -87,7 +91,9 @@ var limitRemoveCmd = &cobra.Command{
 var limitListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List rate limit rules",
-	Long:  `List all rate limit rules`,
+	// Short: 列出限速规则
+	Long: `List all rate limit rules`,
+	// Long: 列出所有限速规则
 	Run: func(cmd *cobra.Command, args []string) {
 		mgr, err := common.GetManager()
 		if err != nil {

@@ -8,6 +8,7 @@ import (
 )
 
 // Validate checks the configuration for errors.
+// Validate 检查配置是否存在错误。
 func (c *GlobalConfig) Validate() error {
 	if err := c.Base.Validate(); err != nil {
 		return fmt.Errorf("base config error: %w", err)

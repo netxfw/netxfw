@@ -12,14 +12,18 @@ import (
 var PortCmd = &cobra.Command{
 	Use:   "port",
 	Short: "Allowed ports management",
-	Long:  `Allowed ports management commands`,
+	// Short: 允许端口管理
+	Long: `Allowed ports management commands`,
+	// Long: 允许端口管理命令
 }
 
 var portAddCmd = &cobra.Command{
 	Use:   "add <port>",
 	Short: "Add allowed port",
-	Long:  `Add port to global allow list`,
-	Args:  cobra.ExactArgs(1),
+	// Short: 添加允许端口
+	Long: `Add port to global allow list`,
+	// Long: 将端口添加到全局允许列表
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")
@@ -54,8 +58,10 @@ var portAddCmd = &cobra.Command{
 var portRemoveCmd = &cobra.Command{
 	Use:   "remove <port>",
 	Short: "Remove allowed port",
-	Long:  `Remove port from global allow list`,
-	Args:  cobra.ExactArgs(1),
+	// Short: 移除允许端口
+	Long: `Remove port from global allow list`,
+	// Long: 从全局允许列表移除端口
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if common.EnsureStandaloneMode == nil {
 			cmd.PrintErrln("❌ common.EnsureStandaloneMode function not initialized")

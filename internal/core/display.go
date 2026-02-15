@@ -99,51 +99,52 @@ func ShowTopStats(ctx context.Context, xdpMgr XDPManager, limit int, sortBy stri
 		Drop  uint64
 		Total uint64
 	}
-	statsMap := make(map[string]*IpStats)
+	agg := make(map[string]*IpStats)
 
-	for _, d := range dropDetails {
-		if _, ok := statsMap[d.SrcIP]; !ok {
-			statsMap[d.SrcIP] = &IpStats{IP: d.SrcIP}
+	// 3. Process Drop Stats / 3. 处理丢弃统计
+	for _, s := range dropDetails {
+		if _, ok := agg[s.SrcIP]; !ok {
+			agg[s.SrcIP] = &IpStats{IP: s.SrcIP}
 		}
-		statsMap[d.SrcIP].Drop += d.Count
-		statsMap[d.SrcIP].Total += d.Count
+		agg[s.SrcIP].Drop += s.Count
+		agg[s.SrcIP].Total += s.Count
 	}
 
-	for _, p := range passDetails {
-		if _, ok := statsMap[p.SrcIP]; !ok {
-			statsMap[p.SrcIP] = &IpStats{IP: p.SrcIP}
+	// 4. Process Pass Stats / 4. 处理通过统计
+	for _, s := range passDetails {
+		if _, ok := agg[s.SrcIP]; !ok {
+			agg[s.SrcIP] = &IpStats{IP: s.SrcIP}
 		}
-		statsMap[p.SrcIP].Pass += p.Count
-		statsMap[p.SrcIP].Total += p.Count
+		agg[s.SrcIP].Pass += s.Count
+		agg[s.SrcIP].Total += s.Count
 	}
 
-	// 3. Convert to Slice / 转换为切片
+	// 5. Convert to slice and sort / 5. 转换为切片并排序
 	var statsList []*IpStats
-	for _, s := range statsMap {
+	for _, s := range agg {
 		statsList = append(statsList, s)
 	}
 
-	// 4. Sort / 排序
 	sort.Slice(statsList, func(i, j int) bool {
 		if sortBy == "drop" {
 			return statsList[i].Drop > statsList[j].Drop
+		} else if sortBy == "pass" {
+			return statsList[i].Pass > statsList[j].Pass
 		}
 		return statsList[i].Total > statsList[j].Total
 	})
 
-	// 5. Display / 显示
-	fmt.Printf("📊 Top %d IPs by %s (Total Traffic/Drops)\n", limit, sortBy)
-	fmt.Printf("%-40s %-15s %-15s %-15s\n", "Source IP", "Total Packets", "Pass", "Drop")
-	fmt.Println(strings.Repeat("-", 90))
+	// 6. Print / 6. 打印
+	fmt.Printf("\n%-20s | %-12s | %-12s | %-12s\n", "IP ADDRESS", "PASS (PKTS)", "DROP (PKTS)", "TOTAL (PKTS)")
+	fmt.Println(strings.Repeat("-", 65))
 
-	count := 0
-	for _, s := range statsList {
-		if count >= limit {
+	for i, s := range statsList {
+		if i >= limit {
 			break
 		}
-		fmt.Printf("%-40s %-15d %-15d %-15d\n", s.IP, s.Total, s.Pass, s.Drop)
-		count++
+		fmt.Printf("%-20s | %-12d | %-12d | %-12d\n", s.IP, s.Pass, s.Drop, s.Total)
 	}
+
 	return nil
 }
 
@@ -167,7 +168,7 @@ func ShowConntrack(ctx context.Context, xdpMgr XDPManager) error {
 	fmt.Println(strings.Repeat("-", 110))
 
 	// Sort entries for better display / 排序条目以获得更好的显示效果
-	// In a real scenario, we might want to group by src/dst
+	// In a real scenario, we might want to group by src/dst / 在实际场景中，我们可能希望按源/目的分组
 	for _, e := range entries {
 		proto := fmt.Sprintf("%d", e.Protocol)
 		if e.Protocol == 6 {
@@ -288,7 +289,7 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 			fmt.Printf("   %-20s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
 			fmt.Printf("   %s\n", strings.Repeat("-", 90))
 
-			// Simple map to string / 简单的原因映射
+			// Simple map to string / 简单原因映射
 			reasonStr := func(r uint32) string {
 				switch r {
 				case 0:
@@ -512,7 +513,7 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 		fmt.Printf("🚀 Global Rate Limiting: %s\n", status)
 	}
 
-	// Check attached interfaces / 检查附加接口
+	// Check attached interfaces / 检查已附加的接口
 	fmt.Println("\n🔗 Attached Interfaces:")
 	files, _ := os.ReadDir(config.GetPinPath())
 	attachedCount := 0

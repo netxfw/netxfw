@@ -12,7 +12,9 @@ import (
 var VersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
-	Long:  `Show the current version of netxfw`,
+	// Short: 显示版本信息
+	Long: `Show the current version of netxfw`,
+	// Long: 显示 netxfw 的当前版本
 	Run: func(cmd *cobra.Command, args []string) {
 		showVersion(cmd.Context())
 	},

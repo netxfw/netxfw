@@ -31,10 +31,12 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 
 	m.logger.Infof("🔄 Syncing rules from %s and config to BPF maps...", cfg.Base.LockListFile)
 
-	// 1. Sync Whitelist from config to maps / 从配置同步白名单到 Map
+	// 1. Sync Whitelist from config to maps / 1. 从配置同步白名单到 Map
 	for _, rule := range cfg.Base.Whitelist {
 		cidr := rule
 		port := uint16(0)
+		// Basic parsing for IP:Port in whitelist strings
+		// 对白名单字符串中的 IP:Port 进行基本解析
 		if strings.Contains(rule, ":") && !strings.Contains(rule, "[") && !strings.Contains(rule, "/") {
 			parts := strings.Split(rule, ":")
 			if len(parts) == 2 {
@@ -53,7 +55,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 2. Read and parse rules.deny.txt / 读取并解析 rules.deny.txt
+	// 2. Read and parse rules.deny.txt / 2. 读取并解析 rules.deny.txt
 	file, err := os.Open(cfg.Base.LockListFile)
 	if err != nil {
 		return fmt.Errorf("failed to open lock list file: %w", err)
@@ -64,6 +66,8 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
+		// Skip empty lines and comments
+		// 跳过空行和注释
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -92,7 +96,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		})
 	}
 
-	// 2. Update BPF Maps / 更新 BPF Map
+	// 3. Update BPF Maps / 3. 更新 BPF Map
 	for _, r := range records {
 		var targetMap *ebpf.Map
 		targetMap = m.lockList
@@ -106,7 +110,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 3. Sync IP+Port rules from config to maps / 从配置同步 IP+端口规则到 Map
+	// 4. Sync IP+Port rules from config to maps / 4. 从配置同步 IP+端口规则到 Map
 	for _, rule := range cfg.Port.IPPortRules {
 		_, ipNet, err := net.ParseCIDR(rule.IP)
 		if err != nil {
@@ -126,14 +130,14 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 4. Sync allowed ports from config to maps / 从配置同步允许端口到 Map
+	// 5. Sync allowed ports from config to maps / 5. 从配置同步允许端口到 Map
 	for _, port := range cfg.Port.AllowedPorts {
 		if err := m.AllowPort(port, nil); err != nil {
 			m.logger.Warnf("⚠️  Failed to allow port %d: %v", port, err)
 		}
 	}
 
-	// 5. Sync rate limit rules from config to maps / 从配置同步速率限制规则到 Map
+	// 6. Sync rate limit rules from config to maps / 6. 从配置同步速率限制规则到 Map
 	for _, rule := range cfg.RateLimit.Rules {
 		_, ipNet, err := net.ParseCIDR(rule.IP)
 		if err != nil {
@@ -153,7 +157,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 6. Sync Global Config from config to maps / 从配置同步全局设置到 Map
+	// 7. Sync Global Config from config to maps / 7. 从配置同步全局设置到 Map
 	m.SetDefaultDeny(cfg.Base.DefaultDeny)
 	m.SetAllowReturnTraffic(cfg.Base.AllowReturnTraffic)
 	m.SetAllowICMP(cfg.Base.AllowICMP)
@@ -174,8 +178,8 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 7. (Optional) Update binary cache for fast loading on restart
-	// 7. （可选）更新二进制缓存以便在重启时快速加载
+	// 8. (Optional) Update binary cache for fast loading on restart
+	// 8. （可选）更新二进制缓存以便在重启时快速加载
 	go m.UpdateBinaryCache(cfg, records)
 
 	return nil

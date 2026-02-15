@@ -22,6 +22,10 @@ func IsIPv6(ipStr string) bool {
 // If it's already a CIDR, it returns the canonical form (e.g. 1.2.3.4/32 -> 1.2.3.4/32).
 // Returns the original string if parsing fails.
 // NormalizeCIDR 确保 IP 字符串采用 CIDR 格式。
+// 它解析字符串以确保其为有效的 CIDR 或 IP。
+// 如果是单个 IP，则追加 /32 (IPv4) 或 /128 (IPv6)。
+// 如果已经是 CIDR，则返回规范形式（例如 1.2.3.4/32 -> 1.2.3.4/32）。
+// 如果解析失败，则返回原始字符串。
 func NormalizeCIDR(ipStr string) string {
 	ipNet, err := ParseCIDR(ipStr)
 	if err == nil {

@@ -79,7 +79,7 @@ func SyncToMap(ctx context.Context, mgr XDPManager) error {
 		log.Errorf("⚠️  Failed to clear whitelist: %v", err)
 	}
 
-	// Reload rules
+	// Reload rules / 重新加载规则
 	for _, ip := range globalCfg.Base.Whitelist {
 		var port uint16
 		cidr := ip
@@ -137,6 +137,7 @@ func SyncToMap(ctx context.Context, mgr XDPManager) error {
 // Helpers / 辅助函数
 
 func importLockListFromFile(ctx context.Context, mgr XDPManager, filePath string) error {
+	// Read file content / 读取文件内容
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
@@ -157,6 +158,7 @@ func importLockListFromFile(ctx context.Context, mgr XDPManager, filePath string
 func syncBlacklistToConfig(ctx context.Context, mgr XDPManager, cfg *types.GlobalConfig) {
 	log := logger.Get(ctx)
 
+	// List blocked IPs / 列出被阻止的 IP
 	ips, _, err := mgr.ListBlacklistIPs(0, "")
 	if err != nil {
 		log.Errorf("⚠️  Failed to list blocked IPs: %v", err)
@@ -175,6 +177,7 @@ func syncBlacklistToConfig(ctx context.Context, mgr XDPManager, cfg *types.Globa
 		ipStrings = append(ipStrings, ip.IP)
 	}
 
+	// Sort for consistency / 排序以保持一致性
 	sort.Strings(ipStrings)
 
 	if cfg.Base.LockListFile != "" {

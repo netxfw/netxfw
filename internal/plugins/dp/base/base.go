@@ -28,11 +28,15 @@ func (p *BasePlugin) Name() string {
 	return "base"
 }
 
+// Init initializes the plugin with configuration.
+// Init 使用配置初始化插件。
 func (p *BasePlugin) Init(ctx *sdk.PluginContext) error {
 	p.config = &ctx.Config.Base
 	return nil
 }
 
+// Reload reloads the plugin configuration.
+// Reload 重新加载插件配置。
 func (p *BasePlugin) Reload(ctx *sdk.PluginContext) error {
 	ctx.Logger.Infof("🔄 [BasePlugin] Reloading configuration (Full Sync)...")
 	if err := p.Init(ctx); err != nil {
@@ -41,11 +45,15 @@ func (p *BasePlugin) Reload(ctx *sdk.PluginContext) error {
 	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
+// Start starts the plugin.
+// Start 启动插件。
 func (p *BasePlugin) Start(ctx *sdk.PluginContext) error {
 	ctx.Logger.Infof("🚀 [BasePlugin] Starting...")
 	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
+// Sync synchronizes the configuration to BPF maps.
+// Sync 将配置同步到 BPF Map。
 func (p *BasePlugin) Sync(manager xdp.ManagerInterface, logger sdk.Logger) error {
 	if p.config == nil {
 		return nil

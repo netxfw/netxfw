@@ -93,7 +93,7 @@ func (m *Manager) GetPassDetails() ([]DropDetailEntry, error) {
 func GetPassDetailsFromMap(m *ebpf.Map) ([]DropDetailEntry, error) {
 	var results []DropDetailEntry
 	var key NetXfwDropDetailKey
-	var values []uint64
+	var values []uint64 // PERCPU value is a slice of uint64 / PERCPU 值是 uint64 切片
 
 	iter := m.Iterate()
 	for iter.Next(&key, &values) {

@@ -18,11 +18,15 @@ func (p *RateLimitPlugin) Name() string {
 	return "ratelimit"
 }
 
+// Init initializes the plugin with configuration.
+// Init 使用配置初始化插件。
 func (p *RateLimitPlugin) Init(ctx *sdk.PluginContext) error {
 	p.config = &ctx.Config.RateLimit
 	return nil
 }
 
+// Reload reloads the plugin configuration.
+// Reload 重新加载插件配置。
 func (p *RateLimitPlugin) Reload(ctx *sdk.PluginContext) error {
 	ctx.Logger.Infof("🔄 [RateLimitPlugin] Reloading configuration (Full Sync)...")
 	if err := p.Init(ctx); err != nil {
@@ -31,19 +35,27 @@ func (p *RateLimitPlugin) Reload(ctx *sdk.PluginContext) error {
 	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
+// Start starts the plugin.
+// Start 启动插件。
 func (p *RateLimitPlugin) Start(ctx *sdk.PluginContext) error {
 	ctx.Logger.Infof("🚀 [RateLimitPlugin] Starting...")
 	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
+// Stop stops the plugin.
+// Stop 停止插件。
 func (p *RateLimitPlugin) Stop() error {
 	return nil
 }
 
+// DefaultConfig returns the default configuration for the plugin.
+// DefaultConfig 返回插件的默认配置。
 func (p *RateLimitPlugin) DefaultConfig() interface{} {
 	return types.RateLimitConfig{}
 }
 
+// Sync synchronizes the configuration to BPF maps.
+// Sync 将配置同步到 BPF Map。
 func (p *RateLimitPlugin) Sync(manager xdp.ManagerInterface, logger sdk.Logger) error {
 	if p.config == nil {
 		return nil

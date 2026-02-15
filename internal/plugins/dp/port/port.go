@@ -10,6 +10,7 @@ import (
 )
 
 // PortPlugin implements a plugin that manages IP+Port rules.
+// PortPlugin 实现了一个管理 IP+端口规则的插件。
 type PortPlugin struct {
 	config *types.PortConfig
 }
@@ -18,11 +19,15 @@ func (p *PortPlugin) Name() string {
 	return "port"
 }
 
+// Init initializes the plugin with configuration.
+// Init 使用配置初始化插件。
 func (p *PortPlugin) Init(ctx *sdk.PluginContext) error {
 	p.config = &ctx.Config.Port
 	return nil
 }
 
+// Reload reloads the plugin configuration.
+// Reload 重新加载插件配置。
 func (p *PortPlugin) Reload(ctx *sdk.PluginContext) error {
 	ctx.Logger.Infof("🔄 [PortPlugin] Reloading port configuration (Full Sync)...")
 	if err := p.Init(ctx); err != nil {
@@ -31,12 +36,15 @@ func (p *PortPlugin) Reload(ctx *sdk.PluginContext) error {
 	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
+// Start starts the plugin.
+// Start 启动插件。
 func (p *PortPlugin) Start(ctx *sdk.PluginContext) error {
 	ctx.Logger.Infof("🚀 [PortPlugin] Starting...")
 	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
 // Sync synchronizes the current configuration with the BPF maps (Add/Remove)
+// Sync 将当前配置与 BPF Map 同步（添加/删除）。
 func (p *PortPlugin) Sync(manager xdp.ManagerInterface, logger sdk.Logger) error {
 	if p.config == nil {
 		return nil

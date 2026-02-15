@@ -16,11 +16,15 @@ func (p *ConntrackPlugin) Name() string {
 	return "conntrack"
 }
 
+// Init initializes the plugin with configuration.
+// Init 使用配置初始化插件。
 func (p *ConntrackPlugin) Init(ctx *sdk.PluginContext) error {
 	p.config = &ctx.Config.Conntrack
 	return nil
 }
 
+// Reload reloads the plugin configuration.
+// Reload 重新加载插件配置。
 func (p *ConntrackPlugin) Reload(ctx *sdk.PluginContext) error {
 	ctx.Logger.Infof("🔄 [ConntrackPlugin] Reloading configuration (Full Sync)...")
 	if err := p.Init(ctx); err != nil {
@@ -29,15 +33,21 @@ func (p *ConntrackPlugin) Reload(ctx *sdk.PluginContext) error {
 	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
+// Start starts the plugin.
+// Start 启动插件。
 func (p *ConntrackPlugin) Start(ctx *sdk.PluginContext) error {
 	ctx.Logger.Infof("🚀 [ConntrackPlugin] Starting...")
 	return p.Sync(ctx.Manager, ctx.Logger)
 }
 
+// Stop stops the plugin.
+// Stop 停止插件。
 func (p *ConntrackPlugin) Stop() error {
 	return nil
 }
 
+// DefaultConfig returns the default configuration for the plugin.
+// DefaultConfig 返回插件的默认配置。
 func (p *ConntrackPlugin) DefaultConfig() interface{} {
 	return types.ConntrackConfig{
 		Enabled:    true,
@@ -47,6 +57,8 @@ func (p *ConntrackPlugin) DefaultConfig() interface{} {
 	}
 }
 
+// Sync synchronizes the configuration to BPF maps.
+// Sync 将配置同步到 BPF Map。
 func (p *ConntrackPlugin) Sync(manager xdp.ManagerInterface, logger sdk.Logger) error {
 	if p.config == nil {
 		return nil

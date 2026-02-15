@@ -60,11 +60,15 @@ func (p *MetricsPlugin) Name() string {
 	return "metrics"
 }
 
+// Init initializes the plugin with configuration.
+// Init 使用配置初始化插件。
 func (p *MetricsPlugin) Init(ctx *sdk.PluginContext) error {
 	p.config = &ctx.Config.Metrics
 	return nil
 }
 
+// Reload reloads the plugin configuration.
+// Reload 重新加载插件配置。
 func (p *MetricsPlugin) Reload(ctx *sdk.PluginContext) error {
 	ctx.Logger.Infof("🔄 [Metrics] Reloading configuration...")
 	if err := p.Stop(); err != nil {
@@ -74,6 +78,8 @@ func (p *MetricsPlugin) Reload(ctx *sdk.PluginContext) error {
 	return p.Start(ctx)
 }
 
+// Start starts the plugin.
+// Start 启动插件。
 func (p *MetricsPlugin) Start(ctx *sdk.PluginContext) error {
 	if !p.config.Enabled {
 		ctx.Logger.Infof("📊 Metrics plugin is disabled via config.")

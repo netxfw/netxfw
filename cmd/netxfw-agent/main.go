@@ -13,34 +13,31 @@ import (
 )
 
 func main() {
-	// Initialize logger with defaults (stdout)
+	// Initialize logger with defaults (stdout) / 使用默认值初始化日志记录器（标准输出）
 	logger.Init(types.LoggingConfig{Enabled: true, Level: "info"})
 	defer logger.Sync()
 
 	l := logger.Get(nil)
 	l.Infof("Starting netxfw-agent %s (Control Plane Daemon)...", version.Version)
 
-	// Set runtime mode
-	// 设置运行模式
+	// Set runtime mode / 设置运行模式
 	runtime.Mode = "agent"
 	ctx := context.Background()
 	ctx = logger.WithContext(ctx, l)
 
-	// Initialize configuration
-	// 初始化配置
+	// Initialize configuration / 初始化配置
 	core.InitConfiguration(ctx)
 	core.TestConfiguration(ctx)
 
-	// Re-initialize logger from config
+	// Re-initialize logger from config / 从配置重新初始化日志记录器
 	cfg, err := types.LoadGlobalConfig(config.GetConfigPath())
 	if err == nil {
 		logger.Init(cfg.Logging)
-		// Update context with new logger instance
+		// Update context with new logger instance / 使用新的日志记录器实例更新上下文
 		ctx = logger.WithContext(ctx, logger.Get(nil))
 		logger.Get(ctx).Infof("Logging re-initialized from config")
 	}
 
-	// Run the daemon logic directly
-	// 直接运行守护进程逻辑
+	// Run the daemon logic directly / 直接运行守护进程逻辑
 	daemon.Run(ctx, runtime.Mode, nil)
 }

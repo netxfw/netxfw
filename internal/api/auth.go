@@ -14,6 +14,7 @@ import (
 )
 
 // TokenClaims represents the payload of the JWT-like token
+// TokenClaims 代表类似 JWT 的令牌负载
 type TokenClaims struct {
 	Role string `json:"role"`
 	Exp  int64  `json:"exp"`
@@ -21,6 +22,7 @@ type TokenClaims struct {
 }
 
 // signToken creates a signed token string
+// signToken 创建一个已签名的令牌字符串
 func signToken(claims TokenClaims, secret string) (string, error) {
 	header := `{"alg":"HS256","typ":"JWT"}`
 	headerEnc := base64.RawURLEncoding.EncodeToString([]byte(header))
@@ -42,6 +44,7 @@ func signToken(claims TokenClaims, secret string) (string, error) {
 }
 
 // verifyToken checks the signature and expiration of the token
+// verifyToken 检查令牌的签名和过期时间
 func verifyToken(tokenString string, secret string) (*TokenClaims, error) {
 	parts := strings.Split(tokenString, ".")
 	if len(parts) != 3 {
@@ -78,6 +81,7 @@ func verifyToken(tokenString string, secret string) (*TokenClaims, error) {
 }
 
 // withAuth is a middleware for token-based authentication (Supports Bearer Token & Legacy Query Param)
+// withAuth 是用于基于令牌认证的中间件（支持 Bearer Token 和旧查询参数）
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg, err := types.LoadGlobalConfig(s.configPath)
@@ -87,6 +91,7 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 		}
 
 		// 1. Check Authorization Header (Bearer <Token>)
+		// 1. 检查授权头（Bearer <Token>）
 		authHeader := r.Header.Get("Authorization")
 		if strings.HasPrefix(authHeader, "Bearer ") {
 			token := strings.TrimPrefix(authHeader, "Bearer ")
@@ -98,6 +103,7 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 		}
 
 		// 2. Check Legacy Query Param / Header (Backwards Compatibility)
+		// 2. 检查旧查询参数/头部（向后兼容性）
 		token := r.Header.Get("X-NetXFW-Token")
 		if token == "" {
 			token = r.URL.Query().Get("token")
@@ -113,6 +119,7 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 }
 
 // handleLogin exchanges the master token/password for a session JWT
+// handleLogin 将主令牌/密码交换为会话 JWT
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)

@@ -9,6 +9,8 @@ import (
 	"github.com/livp123/netxfw/internal/utils/iputil"
 )
 
+// generateRandomToken generates a random hex string of given length.
+// generateRandomToken 生成给定长度的随机十六进制字符串。
 func generateRandomToken(length int) string {
 	b := make([]byte, length)
 	if _, err := rand.Read(b); err != nil {
@@ -17,6 +19,8 @@ func generateRandomToken(length int) string {
 	return hex.EncodeToString(b)
 }
 
+// parseIPPortAction parses an input string into IP, port and action.
+// parseIPPortAction 将输入字符串解析为 IP、端口和动作。
 func parseIPPortAction(input string) (string, uint16, uint8, error) {
 	// Format: IP:Port:Action or [IP]:Port:Action
 	// 格式: IP:Port:Action 或 [IP]:Port:Action

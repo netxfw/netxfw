@@ -7,7 +7,8 @@ import (
 	"github.com/livp123/netxfw/internal/utils/iputil"
 )
 
-// NewLpmKey creates a NetXfwLpmKey from a CIDR string
+// NewLpmKey creates a NetXfwLpmKey from a CIDR string.
+// NewLpmKey 从 CIDR 字符串创建一个 NetXfwLpmKey。
 func NewLpmKey(cidr string) (NetXfwLpmKey, error) {
 	ipNet, err := iputil.ParseCIDR(cidr)
 	if err != nil {
@@ -31,7 +32,8 @@ func NewLpmKey(cidr string) (NetXfwLpmKey, error) {
 	return key, nil
 }
 
-// NewLpmIpPortKey creates a NetXfwLpmIpPortKey from a CIDR string and port
+// NewLpmIpPortKey creates a NetXfwLpmIpPortKey from a CIDR string and port.
+// NewLpmIpPortKey 从 CIDR 字符串和端口创建一个 NetXfwLpmIpPortKey。
 func NewLpmIpPortKey(cidr string, port uint16) (NetXfwLpmIpPortKey, error) {
 	ipNet, err := iputil.ParseCIDR(cidr)
 	if err != nil {

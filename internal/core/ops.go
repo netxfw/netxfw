@@ -137,6 +137,8 @@ func HandlePluginCommand(ctx context.Context, args []string) error {
 
 	switch args[0] {
 	case "load":
+		// Load a plugin ELF file into a specific slot in the prog_array
+		// 将插件 ELF 文件加载到 prog_array 中的特定插槽
 		if len(args) < 3 {
 			return fmt.Errorf("Usage: netxfw plugin load <path_to_elf> <index (2-15)>")
 		}
@@ -149,6 +151,8 @@ func HandlePluginCommand(ctx context.Context, args []string) error {
 			return fmt.Errorf("failed to load plugin: %v", err)
 		}
 	case "remove":
+		// Remove a plugin from a specific slot
+		// 从特定插槽中移除插件
 		if len(args) < 2 {
 			return fmt.Errorf("Usage: netxfw plugin remove <index (2-15)>")
 		}
@@ -188,19 +192,27 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 		log.Infof("ℹ️  Detaching from specific interfaces: %v", interfaces)
 	} else {
 		fullUnload = true
-		// Collect all potential interfaces to detach from / 收集所有可能的分离接口
+		// Collect all potential interfaces to detach from
+		// 收集所有可能的分离接口
 		uniqueInterfaces := make(map[string]bool)
 
-		// 1. Get physical interfaces / 获取物理接口
+		// 1. Get physical interfaces / 1. 获取物理接口
 		if phyInterfaces, err := xdp.GetPhysicalInterfaces(); err == nil {
 			for _, iface := range phyInterfaces {
 				uniqueInterfaces[iface] = true
 			}
 		}
 
-		// 2. Get configured interfaces / 获取已配置的接口
+		// 2. Get interfaces from config / 2. 从配置获取接口
 		for _, iface := range globalCfg.Base.Interfaces {
 			uniqueInterfaces[iface] = true
+		}
+
+		// 3. Get currently attached interfaces from pins / 3. 从固定路径获取当前已附加的接口
+		if attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath()); err == nil {
+			for _, iface := range attachedIfaces {
+				uniqueInterfaces[iface] = true
+			}
 		}
 
 		for iface := range uniqueInterfaces {
@@ -216,16 +228,16 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 	defer manager.Close()
 
 	if err := manager.Detach(interfaces); err != nil {
-		log.Warnf("⚠️  Failed to detach from some interfaces: %v", err)
+		log.Warnf("⚠️  Some interfaces could not be detached: %v", err)
 	}
 
 	if fullUnload {
 		if err := manager.Unpin(config.GetPinPath()); err != nil {
-			log.Warnf("⚠️  Failed to unpin maps: %v", err)
+			log.Warnf("⚠️  Could not unpin all maps: %v", err)
 		}
-		log.Infof("✅ XDP program removed successfully.")
+		log.Info("✅ XDP driver removed and maps unpinned.")
 	} else {
-		log.Infof("✅ XDP program detached from specified interfaces.")
+		log.Infof("✅ XDP driver detached from %v", interfaces)
 	}
 	return nil
 }
@@ -306,14 +318,13 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 			return fmt.Errorf("failed to create new XDP manager: %v", err)
 		}
 
-		// Migrate state from old maps to new maps
-		// 将状态从旧 Map 迁移到新 Map
+		// Migrate state from old maps to new maps / 将状态从旧 Map 迁移到新 Map
 		if err := newManager.MigrateState(oldManager); err != nil {
 			log.Warnf("⚠️  State migration partial or failed: %v", err)
 		}
 		oldManager.Close()
 
-		// Update pins and attach
+		// Update pins and attach / 更新固定路径并附加
 		if err := newManager.Pin(config.GetPinPath()); err != nil {
 			return fmt.Errorf("failed to pin new maps: %v", err)
 		}
@@ -321,7 +332,7 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 			return fmt.Errorf("failed to attach new XDP program: %v", err)
 		}
 
-		// Sync plugins to new manager
+		// Sync plugins to new manager / 将插件同步到新管理器
 		newAdapter := xdp.NewAdapter(newManager)
 		newCtx := &sdk.PluginContext{
 			Context: ctx,
@@ -329,23 +340,24 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 			Config:  globalCfg,
 			Logger:  log,
 		}
+
 		for _, p := range plugins.GetPlugins() {
 			if err := p.Init(newCtx); err != nil {
 				log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
-				continue
 			}
-			if err := p.Start(newCtx); err != nil {
-				log.Warnf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
+			if err := p.Reload(newCtx); err != nil {
+				log.Warnf("⚠️  Failed to reload plugin %s: %v", p.Name(), err)
 			}
 		}
-		newManager.Close()
-	} else {
-		log.Info("ℹ️  No existing pinned maps found, performing fresh install.")
-		return InstallXDP(ctx, cliInterfaces)
+
+		log.Info("🚀 Full hot-reload with state migration completed successfully.")
+		return nil
 	}
 
-	log.Info("🚀 XDP program reloaded successfully.")
-	return nil
+	// 3. Fallback: If no old manager found, perform a clean install
+	// 3. 回退方案：如果未发现旧管理器，则执行全新安装
+	log.Info("ℹ️  No existing XDP program found. Performing clean install...")
+	return InstallXDP(ctx, cliInterfaces)
 }
 
 /**
@@ -378,5 +390,6 @@ func RunWebServer(ctx context.Context, port int) error {
 func UnloadXDP() {
 	log.Println("👋 Unloading XDP and cleaning up...")
 	// Cleanup is handled by the server process on exit.
+	// 卸载和清理通常在服务器进程退出时处理。
 	log.Println("Please stop the running 'load xdp' server (e.g., Ctrl+C) to trigger cleanup.")
 }

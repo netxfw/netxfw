@@ -66,6 +66,7 @@ func CheckConflict(mapPtr *ebpf.Map, cidrStr string, isWhitelistMap bool) (bool,
 }
 
 // IsIPInMap checks if a CIDR exists in the map.
+// IsIPInMap 检查 CIDR 是否存在于 Map 中。
 func IsIPInMap(mapPtr *ebpf.Map, cidrStr string) (bool, error) {
 	conflict, _ := CheckConflict(mapPtr, cidrStr, false)
 	return conflict, nil
