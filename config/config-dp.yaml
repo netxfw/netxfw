@@ -171,6 +171,11 @@ capacity:
   whitelist: 65536
   ip_port_rules: 65536
   allowed_ports: 1024
+  # Stats Map Capacity (per minute) / 统计 Map 容量（每分钟）
+  # Used for top IP / top port analysis with LRU_HASH auto-eviction
+  # 用于 top IP / top port 分析，使用 LRU_HASH 自动淘汰
+  drop_reason_stats: 1000000  # 1 million entries / 100 万条目
+  pass_reason_stats: 1000000  # 1 million entries / 100 万条目
 mcp:
   enabled: false
   port: 11812

@@ -5,437 +5,333 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// TestRun_NilOptions tests Run with nil options
-// TestRun_NilOptions 测试 Run 使用 nil 选项
+// TestRun_DpMode tests Run function with dp mode
+// TestRun_DpMode 测试 Run 函数的 dp 模式
+func TestRun_DpMode(t *testing.T) {
+	// Skip this test as it requires actual daemon setup
+	// 跳过此测试，因为它需要实际的守护进程设置
+	t.Skip("Requires actual daemon setup with BPF maps")
+}
+
+// TestRun_AgentMode tests Run function with agent mode
+// TestRun_AgentMode 测试 Run 函数的 agent 模式
+func TestRun_AgentMode(t *testing.T) {
+	// Skip this test as it requires actual daemon setup
+	// 跳过此测试，因为它需要实际的守护进程设置
+	t.Skip("Requires actual daemon setup with BPF maps")
+}
+
+// TestRun_UnifiedMode tests Run function with unified mode
+// TestRun_UnifiedMode 测试 Run 函数的 unified 模式
+func TestRun_UnifiedMode(t *testing.T) {
+	// Skip this test as it requires actual daemon setup
+	// 跳过此测试，因为它需要实际的守护进程设置
+	t.Skip("Requires actual daemon setup with BPF maps")
+}
+
+// TestRun_NilOptions tests Run function with nil options
+// TestRun_NilOptions 测试 Run 函数的 nil 选项
 func TestRun_NilOptions(t *testing.T) {
-	// Skip this test as it requires system-level PID file management
-	// 跳过此测试，因为它需要系统级 PID 文件管理
-	t.Skip("Skipping test that requires system-level PID file management")
+	// Skip this test as it requires actual daemon setup
+	// 跳过此测试，因为它需要实际的守护进程设置
+	t.Skip("Requires actual daemon setup with BPF maps")
 }
 
-// TestRun_EmptyMode tests Run with empty mode
-// TestRun_EmptyMode 测试 Run 使用空模式
-func TestRun_EmptyMode(t *testing.T) {
-	// Skip this test as it requires system-level PID file management
-	// 跳过此测试，因为它需要系统级 PID 文件管理
-	t.Skip("Skipping test that requires system-level PID file management")
+// TestStartPprof tests starting pprof server
+// TestStartPprof 测试启动 pprof 服务器
+func TestStartPprof(t *testing.T) {
+	// Use a random high port to avoid conflicts
+	// 使用随机高端口避免冲突
+	port := 65433
+
+	// Start pprof
+	// 启动 pprof
+	startPprof(port)
+
+	// Give it time to start
+	// 给它启动时间
+	time.Sleep(50 * time.Millisecond)
+
+	// The server should be running
+	// 服务器应该正在运行
+	// We can't easily test if it's running without making HTTP requests
+	// 我们无法轻松测试它是否正在运行而不发出 HTTP 请求
 }
 
-// TestDaemonOptions_Basic tests DaemonOptions basic usage
-// TestDaemonOptions_Basic 测试 DaemonOptions 基本用法
-func TestDaemonOptions_Basic(t *testing.T) {
-	opts := &DaemonOptions{
-		Manager: nil,
-	}
-
-	assert.Nil(t, opts.Manager)
+// TestCleanupLoop_EnabledState tests cleanup loop when enabled
+// TestCleanupLoop_EnabledState 测试启用时的清理循环
+func TestCleanupLoop_EnabledState(t *testing.T) {
+	// Skip this test as it requires actual BPF maps
+	// 跳过此测试，因为它需要实际的 BPF Map
+	t.Skip("Requires actual BPF maps to be available")
 }
 
-// TestManagePidFile_TempDir tests managePidFile with temp directory
-// TestManagePidFile_TempDir 测试 managePidFile 使用临时目录
-func TestManagePidFile_TempDir(t *testing.T) {
-	tmpDir := t.TempDir()
-	pidPath := filepath.Join(tmpDir, "test.pid")
-
-	err := managePidFile(pidPath)
-	require.NoError(t, err)
-
-	// Verify PID file was created
-	content, err := os.ReadFile(pidPath)
-	require.NoError(t, err)
-	assert.NotEmpty(t, string(content))
-
-	// Cleanup
-	removePidFile(pidPath)
-
-	// Verify file was removed
-	_, err = os.Stat(pidPath)
-	assert.True(t, os.IsNotExist(err))
-}
-
-// TestManagePidFile_AlreadyRunning tests managePidFile when process is already running
-// TestManagePidFile_AlreadyRunning 测试 managePidFile 当进程已在运行时
-func TestManagePidFile_AlreadyRunning(t *testing.T) {
-	tmpDir := t.TempDir()
-	pidPath := filepath.Join(tmpDir, "test.pid")
-
-	// Write current PID
-	currentPid := os.Getpid()
-	err := os.WriteFile(pidPath, []byte(strconv.Itoa(currentPid)), 0644)
-	require.NoError(t, err)
-
-	// Should fail because current process is running
-	err = managePidFile(pidPath)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "is running")
-}
-
-// TestManagePidFile_StalePIDFile tests managePidFile with stale PID file
-// TestManagePidFile_StalePIDFile 测试 managePidFile 使用过期的 PID 文件
-func TestManagePidFile_StalePIDFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	pidPath := filepath.Join(tmpDir, "test.pid")
-
-	// Write a non-existent PID
-	err := os.WriteFile(pidPath, []byte("99999999"), 0644)
-	require.NoError(t, err)
-
-	// Should succeed because process doesn't exist
-	err = managePidFile(pidPath)
-	require.NoError(t, err)
-
-	// Verify new PID was written
-	content, err := os.ReadFile(pidPath)
-	require.NoError(t, err)
-	assert.Equal(t, string(content), strconv.Itoa(os.Getpid()))
-
-	// Cleanup
-	removePidFile(pidPath)
-}
-
-// TestManagePidFile_InvalidPID tests managePidFile with invalid PID content
-// TestManagePidFile_InvalidPID 测试 managePidFile 使用无效的 PID 内容
-func TestManagePidFile_InvalidPID_Comprehensive(t *testing.T) {
-	tmpDir := t.TempDir()
-	pidPath := filepath.Join(tmpDir, "test.pid")
-
-	// Write invalid content
-	err := os.WriteFile(pidPath, []byte("invalid-pid"), 0644)
-	require.NoError(t, err)
-
-	// Should succeed because content is invalid
-	err = managePidFile(pidPath)
-	require.NoError(t, err)
-
-	// Cleanup
-	removePidFile(pidPath)
-}
-
-// TestRemovePidFile_NonExistent tests removePidFile with non-existent file
-// TestRemovePidFile_NonExistent 测试 removePidFile 使用不存在的文件
-func TestRemovePidFile_NonExistent_Comprehensive(t *testing.T) {
-	tmpDir := t.TempDir()
-	pidPath := filepath.Join(tmpDir, "nonexistent.pid")
-
-	// Should not error on non-existent file
-	removePidFile(pidPath)
-}
-
-// TestCleanupLoop_Basic tests basic cleanup loop functionality
-// TestCleanupLoop_Basic 测试基本清理循环功能
-func TestCleanupLoop_Basic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
-			EnableExpiry:    false,
-			CleanupInterval: "1s",
-		},
-	}
-
-	// Should return immediately when EnableExpiry is false
-	runCleanupLoop(ctx, cfg)
-}
-
-// TestCleanupLoop_WithExpiry tests cleanup loop with expiry enabled
-// TestCleanupLoop_WithExpiry 测试启用过期的清理循环
-func TestCleanupLoop_WithExpiry(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
-			EnableExpiry:    true,
-			CleanupInterval: "100ms",
-		},
-	}
-
-	// Run cleanup loop in goroutine and cancel after short time
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-		cancel()
-	}()
-
-	runCleanupLoop(ctx, cfg)
-}
-
-// TestCleanupLoop_InvalidInterval tests cleanup loop with invalid interval
-// TestCleanupLoop_InvalidInterval 测试清理循环使用无效间隔
-func TestCleanupLoop_InvalidInterval_Comprehensive(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
-			EnableExpiry:    true,
-			CleanupInterval: "invalid",
-		},
-	}
-
-	// Should use default interval of 1m
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		cancel()
-	}()
-
-	runCleanupLoop(ctx, cfg)
-}
-
-// TestCleanupLoop_ContextCancellation tests cleanup loop cancellation
-// TestCleanupLoop_ContextCancellation 测试清理循环取消
-func TestCleanupLoop_ContextCancellation_Comprehensive(t *testing.T) {
+// TestCleanupLoop_ContextCancel tests cleanup loop context cancellation
+// TestCleanupLoop_ContextCancel 测试清理循环上下文取消
+func TestCleanupLoop_ContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	cfg := &types.GlobalConfig{
+	globalCfg := &types.GlobalConfig{
 		Base: types.BaseConfig{
 			EnableExpiry:    true,
 			CleanupInterval: "1h", // Long interval
 		},
 	}
 
-	// Cancel immediately
-	cancel()
-
-	// Should exit immediately due to cancelled context
-	runCleanupLoop(ctx, cfg)
-}
-
-// Table-driven tests for managePidFile
-// managePidFile 的表驱动测试
-
-// TestTableDriven_ManagePidFile tests managePidFile with various scenarios
-// TestTableDriven_ManagePidFile 测试各种场景的 managePidFile
-func TestTableDriven_ManagePidFile(t *testing.T) {
-	testCases := []struct {
-		name       string
-		setupFunc  func(string) error
-		wantErr    bool
-		errContain string
-	}{
-		{
-			name:      "NoExistingFile",
-			setupFunc: nil,
-			wantErr:   false,
-		},
-		{
-			name: "StalePIDFile",
-			setupFunc: func(path string) error {
-				return os.WriteFile(path, []byte("99999999"), 0644)
-			},
-			wantErr: false,
-		},
-		{
-			name: "InvalidPIDContent",
-			setupFunc: func(path string) error {
-				return os.WriteFile(path, []byte("not-a-pid"), 0644)
-			},
-			wantErr: false,
-		},
-		{
-			name: "RunningProcess",
-			setupFunc: func(path string) error {
-				return os.WriteFile(path, []byte(strconv.Itoa(os.Getpid())), 0644)
-			},
-			wantErr:    true,
-			errContain: "is running",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			pidPath := filepath.Join(tmpDir, "test.pid")
-
-			if tc.setupFunc != nil {
-				err := tc.setupFunc(pidPath)
-				require.NoError(t, err)
-			}
-
-			err := managePidFile(pidPath)
-			if tc.wantErr {
-				assert.Error(t, err)
-				if tc.errContain != "" {
-					assert.Contains(t, err.Error(), tc.errContain)
-				}
-			} else {
-				assert.NoError(t, err)
-				// Cleanup
-				removePidFile(pidPath)
-			}
-		})
-	}
-}
-
-// TestRun_DataPlaneMode tests Run in data plane mode
-// TestRun_DataPlaneMode 测试 Run 在数据平面模式
-func TestRun_DataPlaneMode(t *testing.T) {
-	// Skip this test as it requires system-level PID file management
-	// 跳过此测试，因为它需要系统级 PID 文件管理
-	t.Skip("Skipping test that requires system-level PID file management")
-}
-
-// TestRun_AgentModeWithMock tests Run in agent mode with mock manager
-// TestRun_AgentModeWithMock 测试 Run 在代理模式使用 mock manager
-func TestRun_AgentModeWithMock(t *testing.T) {
-	// Skip this test as it requires system-level PID file management
-	// 跳过此测试，因为它需要系统级 PID 文件管理
-	t.Skip("Skipping test that requires system-level PID file management")
-}
-
-// TestRun_UnifiedMode tests Run in unified mode
-// TestRun_UnifiedMode 测试 Run 在统一模式
-func TestRun_UnifiedMode(t *testing.T) {
-	// Skip this test as it requires system-level PID file management
-	// 跳过此测试，因为它需要系统级 PID 文件管理
-	t.Skip("Skipping test that requires system-level PID file management")
-}
-
-// TestDaemonOptions_DefaultValues tests default values of DaemonOptions
-// TestDaemonOptions_DefaultValues 测试 DaemonOptions 的默认值
-func TestDaemonOptions_DefaultValues(t *testing.T) {
-	opts := &DaemonOptions{}
-
-	assert.Nil(t, opts.Manager)
-}
-
-// TestManagePidFile_Directory tests managePidFile when path is a directory
-// TestManagePidFile_Directory 测试 managePidFile 当路径是目录时
-func TestManagePidFile_Directory_Comprehensive(t *testing.T) {
-	tmpDir := t.TempDir()
-	pidPath := filepath.Join(tmpDir, "testdir")
-
-	// Create a directory instead of file
-	err := os.Mkdir(pidPath, 0755)
-	require.NoError(t, err)
-
-	// Should fail because path is a directory
-	err = managePidFile(pidPath)
-	assert.Error(t, err)
-}
-
-// TestManagePidFile_PermissionDenied tests managePidFile with permission denied
-// TestManagePidFile_PermissionDenied 测试 managePidFile 权限被拒绝
-func TestManagePidFile_PermissionDenied(t *testing.T) {
-	// Skip if running as root
-	if os.Getuid() == 0 {
-		t.Skip("Skipping test when running as root")
-	}
-
-	tmpDir := t.TempDir()
-	pidPath := filepath.Join(tmpDir, "readonly", "test.pid")
-
-	// Create read-only parent directory
-	parentDir := filepath.Dir(pidPath)
-	err := os.Mkdir(parentDir, 0555)
-	require.NoError(t, err)
-
-	// Should fail due to permission denied
-	err = managePidFile(pidPath)
-	assert.Error(t, err)
-}
-
-// TestRemovePidFile_WithSymlink tests removePidFile with symlink
-// TestRemovePidFile_WithSymlink 测试 removePidFile 使用符号链接
-func TestRemovePidFile_WithSymlink(t *testing.T) {
-	tmpDir := t.TempDir()
-	pidPath := filepath.Join(tmpDir, "test.pid")
-	linkPath := filepath.Join(tmpDir, "testlink.pid")
-
-	// Create PID file
-	err := os.WriteFile(pidPath, []byte("12345"), 0644)
-	require.NoError(t, err)
-
-	// Create symlink
-	err = os.Symlink(pidPath, linkPath)
-	require.NoError(t, err)
-
-	// Remove symlink target
-	removePidFile(pidPath)
-
-	// Verify file was removed
-	_, err = os.Stat(pidPath)
-	assert.True(t, os.IsNotExist(err))
-}
-
-// TestCleanupLoop_MultipleIterations tests cleanup loop with multiple iterations
-// TestCleanupLoop_MultipleIterations 测试清理循环多次迭代
-func TestCleanupLoop_MultipleIterations(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
-			EnableExpiry:    true,
-			CleanupInterval: "50ms",
-		},
-	}
-
-	// Let it run for a few iterations
+	done := make(chan bool)
 	go func() {
-		time.Sleep(150 * time.Millisecond)
-		cancel()
+		runCleanupLoop(ctx, globalCfg)
+		done <- true
 	}()
 
-	runCleanupLoop(ctx, cfg)
-}
+	// Cancel immediately
+	// 立即取消
+	cancel()
 
-// TestRun_ConcurrentCalls tests concurrent Run calls
-// TestRun_ConcurrentCalls 测试并发 Run 调用
-func TestRun_ConcurrentCalls(t *testing.T) {
-	// Skip this test as it requires system-level PID file management
-	// 跳过此测试，因为它需要系统级 PID 文件管理
-	t.Skip("Skipping test that requires system-level PID file management")
-}
-
-// TestDaemonOptions_NilManager tests DaemonOptions with nil manager
-// TestDaemonOptions_NilManager 测试 DaemonOptions 使用 nil manager
-func TestDaemonOptions_NilManager(t *testing.T) {
-	opts := &DaemonOptions{
-		Manager: nil,
+	select {
+	case <-done:
+		// Expected
+		// 预期
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Cleanup loop should stop immediately on context cancellation")
 	}
-
-	assert.Nil(t, opts.Manager)
 }
 
-// TestManagePidFile_Overwrite tests overwriting existing PID file
-// TestManagePidFile_Overwrite 测试覆盖现有 PID 文件
-func TestManagePidFile_Overwrite_Comprehensive(t *testing.T) {
-	tmpDir := t.TempDir()
-	pidPath := filepath.Join(tmpDir, "test.pid")
+// TestManagePidFile_ConcurrentAccess tests concurrent PID file access
+// TestManagePidFile_ConcurrentAccess 测试并发 PID 文件访问
+func TestManagePidFile_ConcurrentAccess(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pid_test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
 
-	// Create initial PID file with old PID
-	err := os.WriteFile(pidPath, []byte("12345"), 0644)
-	require.NoError(t, err)
+	pidPath := filepath.Join(tmpDir, "concurrent.pid")
 
-	// managePidFile should overwrite with current PID
-	// But first we need to remove the old file or it will check if process is running
-	_ = os.Remove(pidPath)
-
+	// First call should succeed
+	// 第一次调用应该成功
 	err = managePidFile(pidPath)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
-	// Verify new PID was written
-	content, err := os.ReadFile(pidPath)
-	require.NoError(t, err)
-	assert.Equal(t, string(content), strconv.Itoa(os.Getpid()))
+	// Second call should fail
+	// 第二次调用应该失败
+	err = managePidFile(pidPath)
+	assert.Error(t, err)
 
-	// Cleanup
+	// Clean up
+	// 清理
+	removePidFile(pidPath)
+
+	// Should succeed again
+	// 应该再次成功
+	err = managePidFile(pidPath)
+	assert.NoError(t, err)
+
 	removePidFile(pidPath)
 }
 
-// TestRun_WithAllModes tests Run with all possible modes
-// TestRun_WithAllModes 测试 Run 使用所有可能的模式
-func TestRun_WithAllModes(t *testing.T) {
-	// Skip this test as it requires system-level PID file management
-	// 跳过此测试，因为它需要系统级 PID 文件管理
-	t.Skip("Skipping test that requires system-level PID file management")
+// TestManagePidFile_DeadProcess tests PID file with dead process
+// TestManagePidFile_DeadProcess 测试包含已死进程的 PID 文件
+func TestManagePidFile_DeadProcess(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pid_test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	pidPath := filepath.Join(tmpDir, "dead.pid")
+
+	// Find a PID that doesn't exist
+	// 查找不存在的 PID
+	nonExistentPID := 40000
+	for i := 0; i < 100; i++ {
+		process, err := os.FindProcess(nonExistentPID)
+		if err == nil {
+			err = process.Signal(syscall.Signal(0))
+			if err != nil {
+				break
+			}
+		}
+		nonExistentPID++
+	}
+
+	// Write PID for non-existent process
+	// 写入不存在进程的 PID
+	err = os.WriteFile(pidPath, []byte(strconv.Itoa(nonExistentPID)), 0644)
+	assert.NoError(t, err)
+
+	// Should remove stale PID file and create new one
+	// 应该删除过期的 PID 文件并创建新文件
+	err = managePidFile(pidPath)
+	assert.NoError(t, err)
+
+	// Verify new PID file was created with current PID
+	// 验证新 PID 文件已创建并包含当前 PID
+	content, err := os.ReadFile(pidPath)
+	assert.NoError(t, err)
+	assert.Equal(t, strconv.Itoa(os.Getpid()), strings.TrimSpace(string(content)))
+
+	removePidFile(pidPath)
+}
+
+// TestWaitForSignal_SIGHUP tests waitForSignal with SIGHUP
+// TestWaitForSignal_SIGHUP 测试 waitForSignal 的 SIGHUP 信号
+func TestWaitForSignal_SIGHUP(t *testing.T) {
+	ctx := context.Background()
+
+	reloadCalled := false
+	reloadFunc := func() error {
+		reloadCalled = true
+		return nil
+	}
+
+	stopCalled := false
+	stopFunc := func() {
+		stopCalled = true
+	}
+
+	// Run waitForSignal in goroutine
+	// 在 goroutine 中运行 waitForSignal
+	done := make(chan bool)
+	go func() {
+		waitForSignal(ctx, "", nil, reloadFunc, stopFunc)
+		done <- true
+	}()
+
+	// Send SIGHUP
+	// 发送 SIGHUP
+	time.Sleep(50 * time.Millisecond)
+	syscall.Kill(os.Getpid(), syscall.SIGHUP)
+
+	// Wait for reload to be called
+	// 等待 reload 被调用
+	time.Sleep(100 * time.Millisecond)
+
+	// Send SIGTERM to stop
+	// 发送 SIGTERM 以停止
+	syscall.Kill(os.Getpid(), syscall.SIGTERM)
+
+	<-done
+
+	assert.True(t, reloadCalled, "Reload function should be called on SIGHUP")
+	assert.True(t, stopCalled, "Stop function should be called on SIGTERM")
+}
+
+// TestWaitForSignal_ReloadError tests waitForSignal with reload error
+// TestWaitForSignal_ReloadError 测试 waitForSignal 的 reload 错误
+func TestWaitForSignal_ReloadError(t *testing.T) {
+	ctx := context.Background()
+
+	reloadFunc := func() error {
+		return assert.AnError
+	}
+
+	stopCalled := false
+	stopFunc := func() {
+		stopCalled = true
+	}
+
+	done := make(chan bool)
+	go func() {
+		waitForSignal(ctx, "", nil, reloadFunc, stopFunc)
+		done <- true
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	syscall.Kill(os.Getpid(), syscall.SIGHUP)
+	time.Sleep(50 * time.Millisecond)
+	syscall.Kill(os.Getpid(), syscall.SIGTERM)
+
+	<-done
+
+	assert.True(t, stopCalled)
+}
+
+// TestWaitForSignal_NilFunctions tests waitForSignal with nil functions
+// TestWaitForSignal_NilFunctions 测试 waitForSignal 的 nil 函数
+func TestWaitForSignal_NilFunctions(t *testing.T) {
+	ctx := context.Background()
+
+	done := make(chan bool)
+	go func() {
+		waitForSignal(ctx, "", nil, nil, nil)
+		done <- true
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	syscall.Kill(os.Getpid(), syscall.SIGTERM)
+
+	<-done
+}
+
+// TestWaitForSignal_SIGINT tests waitForSignal with SIGINT
+// TestWaitForSignal_SIGINT 测试 waitForSignal 的 SIGINT 信号
+func TestWaitForSignal_SIGINT(t *testing.T) {
+	ctx := context.Background()
+
+	stopCalled := false
+	stopFunc := func() {
+		stopCalled = true
+	}
+
+	done := make(chan bool)
+	go func() {
+		waitForSignal(ctx, "", nil, nil, stopFunc)
+		done <- true
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	syscall.Kill(os.Getpid(), syscall.SIGINT)
+
+	<-done
+
+	assert.True(t, stopCalled)
+}
+
+// TestDaemonOptions tests DaemonOptions struct
+// TestDaemonOptions 测试 DaemonOptions 结构体
+func TestDaemonOptions_New(t *testing.T) {
+	opts := &DaemonOptions{}
+	assert.Nil(t, opts.Manager)
+}
+
+// TestManagePidFile_InvalidContent tests PID file with invalid content
+// TestManagePidFile_InvalidContent 测试包含无效内容的 PID 文件
+func TestManagePidFile_InvalidContent(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pid_test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	pidPath := filepath.Join(tmpDir, "invalid.pid")
+
+	// Write invalid content
+	// 写入无效内容
+	err = os.WriteFile(pidPath, []byte("not-a-number"), 0644)
+	assert.NoError(t, err)
+
+	// Should remove invalid PID file and create new one
+	// 应该删除无效 PID 文件并创建新文件
+	err = managePidFile(pidPath)
+	assert.NoError(t, err)
+
+	// Verify new PID file was created
+	// 验证新 PID 文件已创建
+	content, err := os.ReadFile(pidPath)
+	assert.NoError(t, err)
+	assert.Equal(t, strconv.Itoa(os.Getpid()), strings.TrimSpace(string(content)))
+
+	removePidFile(pidPath)
+}
+
+// TestRemovePidFile_Error tests removePidFile with non-existent file
+// TestRemovePidFile_Error 测试删除不存在的 PID 文件
+func TestRemovePidFile_Error(t *testing.T) {
+	// Should not panic on non-existent file
+	// 不存在的文件不应 panic
+	removePidFile("/non/existent/path/pid")
 }

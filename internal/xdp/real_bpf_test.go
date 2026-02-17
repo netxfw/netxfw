@@ -773,3 +773,272 @@ func TestRealBPF_SyncOperations(t *testing.T) {
 	// 此测试被跳过，因为它需要有效的 GlobalConfig
 	t.Log("SyncToFiles test skipped - requires valid GlobalConfig")
 }
+
+// TestRealBPF_AdapterMapGetters tests adapter map getter methods
+// TestRealBPF_AdapterMapGetters 测试适配器 Map 获取方法
+func TestRealBPF_AdapterMapGetters(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	log := logger.Get(context.Background())
+	pinPath := config.GetPinPath()
+
+	mgr, err := NewManagerFromPins(pinPath, log)
+	if err != nil {
+		t.Skipf("Skipping test: no existing BPF pins found: %v", err)
+	}
+	defer mgr.Close()
+
+	adapter := NewAdapter(mgr)
+	require.NotNil(t, adapter)
+
+	// Test map getters
+	// 测试 Map 获取器
+	assert.NotNil(t, adapter.LockList())
+	assert.NotNil(t, adapter.DynLockList())
+	assert.NotNil(t, adapter.Whitelist())
+	assert.NotNil(t, adapter.IPPortRules())
+	assert.NotNil(t, adapter.AllowedPorts())
+	assert.NotNil(t, adapter.RateLimitConfig())
+	assert.NotNil(t, adapter.GlobalConfig())
+	assert.NotNil(t, adapter.ConntrackMap())
+}
+
+// TestRealBPF_AdvancedConfigMethods tests advanced configuration methods
+// TestRealBPF_AdvancedConfigMethods 测试高级配置方法
+func TestRealBPF_AdvancedConfigMethods(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	log := logger.Get(context.Background())
+	pinPath := config.GetPinPath()
+
+	mgr, err := NewManagerFromPins(pinPath, log)
+	if err != nil {
+		t.Skipf("Skipping test: no existing BPF pins found: %v", err)
+	}
+	defer mgr.Close()
+
+	adapter := NewAdapter(mgr)
+
+	// Test advanced configuration methods
+	// 测试高级配置方法
+	err = adapter.SetAutoBlock(true)
+	assert.NoError(t, err, "SetAutoBlock should not error")
+
+	err = adapter.SetAutoBlockExpiry(time.Hour)
+	assert.NoError(t, err, "SetAutoBlockExpiry should not error")
+
+	err = adapter.SetConntrackTimeout(time.Hour)
+	assert.NoError(t, err, "SetConntrackTimeout should not error")
+
+	err = adapter.SetStrictProtocol(true)
+	assert.NoError(t, err, "SetStrictProtocol should not error")
+
+	err = adapter.SetICMPRateLimit(100, 200)
+	assert.NoError(t, err, "SetICMPRateLimit should not error")
+}
+
+// TestRealBPF_AdapterStatsMethods tests adapter stats methods
+// TestRealBPF_AdapterStatsMethods 测试适配器统计方法
+func TestRealBPF_AdapterStatsMethods(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	log := logger.Get(context.Background())
+	pinPath := config.GetPinPath()
+
+	mgr, err := NewManagerFromPins(pinPath, log)
+	if err != nil {
+		t.Skipf("Skipping test: no existing BPF pins found: %v", err)
+	}
+	defer mgr.Close()
+
+	adapter := NewAdapter(mgr)
+
+	// Test stats methods
+	// 测试统计方法
+	pass, drop := adapter.GetStats()
+	t.Logf("Stats: pass=%d, drop=%d", pass, drop)
+
+	lockedCount, err := adapter.GetLockedIPCount()
+	require.NoError(t, err)
+	t.Logf("Locked IP count: %d", lockedCount)
+
+	whitelistCount, err := adapter.GetWhitelistCount()
+	require.NoError(t, err)
+	t.Logf("Whitelist count: %d", whitelistCount)
+
+	conntrackCount, err := adapter.GetConntrackCount()
+	require.NoError(t, err)
+	t.Logf("Conntrack count: %d", conntrackCount)
+}
+
+// TestRealBPF_AdapterDropLogs tests adapter drop logs method
+// TestRealBPF_AdapterDropLogs 测试适配器拦截日志方法
+func TestRealBPF_AdapterDropLogs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	log := logger.Get(context.Background())
+	pinPath := config.GetPinPath()
+
+	mgr, err := NewManagerFromPins(pinPath, log)
+	if err != nil {
+		t.Skipf("Skipping test: no existing BPF pins found: %v", err)
+	}
+	defer mgr.Close()
+
+	adapter := NewAdapter(mgr)
+
+	// Get drop logs
+	// 获取拦截日志
+	dropLogs, err := adapter.GetDropLogs()
+	require.NoError(t, err)
+	t.Logf("Drop logs count: %d", len(dropLogs))
+}
+
+// TestRealBPF_AdapterBlockIP tests adapter BlockIP method
+// TestRealBPF_AdapterBlockIP 测试适配器 BlockIP 方法
+func TestRealBPF_AdapterBlockIP(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	log := logger.Get(context.Background())
+	pinPath := config.GetPinPath()
+
+	mgr, err := NewManagerFromPins(pinPath, log)
+	if err != nil {
+		t.Skipf("Skipping test: no existing BPF pins found: %v", err)
+	}
+	defer mgr.Close()
+
+	adapter := NewAdapter(mgr)
+
+	testIP := "10.255.254.50/32"
+	testIPDynamic := "10.255.254.51" // Dynamic blacklist uses plain IP, not CIDR
+	// 动态黑名单使用纯 IP，而不是 CIDR
+
+	// Block IP permanently
+	// 永久封锁 IP
+	err = adapter.BlockIP(testIP, 0)
+	require.NoError(t, err, "BlockIP should not error")
+
+	// Verify blocked
+	// 验证已封锁
+	contains, err := adapter.IsIPInBlacklist(testIP)
+	require.NoError(t, err)
+	assert.True(t, contains)
+
+	// Unblock
+	// 解封
+	err = adapter.RemoveBlacklistIP(testIP)
+	require.NoError(t, err)
+
+	// Block IP with duration (uses dynamic blacklist which expects plain IP)
+	// 封锁 IP 带持续时间（使用动态黑名单，期望纯 IP）
+	err = adapter.BlockIP(testIPDynamic, time.Hour)
+	require.NoError(t, err, "BlockIP with duration should not error")
+}
+
+// TestRealBPF_AdapterClearOperations tests adapter clear operations
+// TestRealBPF_AdapterClearOperations 测试适配器清除操作
+func TestRealBPF_AdapterClearOperations(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	log := logger.Get(context.Background())
+	pinPath := config.GetPinPath()
+
+	mgr, err := NewManagerFromPins(pinPath, log)
+	if err != nil {
+		t.Skipf("Skipping test: no existing BPF pins found: %v", err)
+	}
+	defer mgr.Close()
+
+	adapter := NewAdapter(mgr)
+
+	// Add some test data
+	// 添加一些测试数据
+	testIP := "10.255.253.1/32"
+	err = adapter.AddWhitelistIP(testIP, 0)
+	require.NoError(t, err)
+
+	// Clear whitelist
+	// 清除白名单
+	err = adapter.ClearWhitelist()
+	require.NoError(t, err, "ClearWhitelist should not error")
+
+	// Add IP port rule
+	// 添加 IP 端口规则
+	err = adapter.AddIPPortRule(testIP, 9999, 1)
+	require.NoError(t, err)
+
+	// Clear IP port rules
+	// 清除 IP 端口规则
+	err = adapter.ClearIPPortRules()
+	require.NoError(t, err, "ClearIPPortRules should not error")
+
+	// Allow port
+	// 允许端口
+	err = adapter.AllowPort(9999)
+	require.NoError(t, err)
+
+	// Clear allowed ports
+	// 清除允许端口
+	err = adapter.ClearAllowedPorts()
+	require.NoError(t, err, "ClearAllowedPorts should not error")
+
+	// Add rate limit rule
+	// 添加速率限制规则
+	err = adapter.AddRateLimitRule("10.255.253.0/24", 1000, 2000)
+	require.NoError(t, err)
+
+	// Clear rate limit rules
+	// 清除速率限制规则
+	err = adapter.ClearRateLimitRules()
+	require.NoError(t, err, "ClearRateLimitRules should not error")
+}
+
+// TestRealBPF_AdapterListOperations tests adapter list operations
+// TestRealBPF_AdapterListOperations 测试适配器列表操作
+func TestRealBPF_AdapterListOperations(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	log := logger.Get(context.Background())
+	pinPath := config.GetPinPath()
+
+	mgr, err := NewManagerFromPins(pinPath, log)
+	if err != nil {
+		t.Skipf("Skipping test: no existing BPF pins found: %v", err)
+	}
+	defer mgr.Close()
+
+	adapter := NewAdapter(mgr)
+
+	// List conntrack entries
+	// 列出连接跟踪条目
+	entries, err := adapter.ListAllConntrackEntries()
+	require.NoError(t, err)
+	t.Logf("Conntrack entries: %d", len(entries))
+
+	// List drop details
+	// 列出拦截详情
+	dropDetails, err := adapter.GetDropDetails()
+	require.NoError(t, err)
+	t.Logf("Drop details: %d", len(dropDetails))
+
+	// List pass details
+	// 列出放行详情
+	passDetails, err := adapter.GetPassDetails()
+	require.NoError(t, err)
+	t.Logf("Pass details: %d", len(passDetails))
+}

@@ -53,22 +53,19 @@ func GetPassDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
 }
 
 /**
- * GetDetailsFromMap retrieves detailed statistics from a given PERCPU HASH map.
- * GetDetailsFromMap 从给定的 PERCPU HASH Map 中获取详细统计信息.
+ * GetDetailsFromMap retrieves detailed statistics from a given LRU HASH map.
+ * GetDetailsFromMap 从给定的 LRU HASH Map 中获取详细统计信息.
+ * Note: Changed from PERCPU_HASH to LRU_HASH for auto-eviction support.
+ * 注意：从 PERCPU_HASH 改为 LRU_HASH 以支持自动淘汰。
  */
 func GetDetailsFromMap(m *ebpf.Map, mapName string) ([]sdk.DropDetailEntry, error) {
 	var results []sdk.DropDetailEntry
 	var key NetXfwDropDetailKey
-	var values []uint64 // PERCPU value is a slice of uint64 / PERCPU 值是 uint64 切片
+	var value uint64 // LRU_HASH value is a single uint64 / LRU_HASH 值是单个 uint64
 
 	iter := m.Iterate()
-	for iter.Next(&key, &values) {
-		var totalCount uint64
-		for _, v := range values {
-			totalCount += v
-		}
-
-		if totalCount > 0 {
+	for iter.Next(&key, &value) {
+		if value > 0 {
 			var srcIP string
 			isMappedIPv4 := key.SrcIp.In6U.U6Addr8[10] == 0xff && key.SrcIp.In6U.U6Addr8[11] == 0xff
 			if isMappedIPv4 {
@@ -82,7 +79,7 @@ func GetDetailsFromMap(m *ebpf.Map, mapName string) ([]sdk.DropDetailEntry, erro
 				Protocol: uint8(key.Protocol),
 				SrcIP:    srcIP,
 				DstPort:  key.DstPort,
-				Count:    totalCount,
+				Count:    value,
 			})
 		}
 	}

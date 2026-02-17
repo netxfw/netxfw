@@ -382,6 +382,10 @@ type CapacityConfig struct {
 	Whitelist    int `yaml:"whitelist"`
 	IPPortRules  int `yaml:"ip_port_rules"`
 	AllowedPorts int `yaml:"allowed_ports"`
+	// Stats map capacities (per minute capacity for top IP/port analysis)
+	// 统计 Map 容量（每分钟容量，用于 top IP/端口分析）
+	DropReasonStats int `yaml:"drop_reason_stats"` // Drop reason stats map size / 丢弃原因统计 Map 大小
+	PassReasonStats int `yaml:"pass_reason_stats"` // Pass reason stats map size / 通过原因统计 Map 大小
 }
 
 // BaseConfig defines the base firewall settings.
@@ -500,11 +504,13 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 			Workers: 4,
 		},
 		Capacity: CapacityConfig{
-			Conntrack:    100000,
-			LockList:     2000000,
-			Whitelist:    65536,
-			IPPortRules:  65536,
-			AllowedPorts: 1024,
+			Conntrack:       100000,
+			LockList:        2000000,
+			Whitelist:       65536,
+			IPPortRules:     65536,
+			AllowedPorts:    1024,
+			DropReasonStats: 1000000, // 1 million entries per minute / 每分钟 100 万条目
+			PassReasonStats: 1000000, // 1 million entries per minute / 每分钟 100 万条目
 		},
 		Logging: LoggingConfig{
 			Enabled:    false,

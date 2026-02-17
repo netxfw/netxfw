@@ -87,6 +87,13 @@ struct drop_detail_key {
 #define LPM_MAP_SIZE 100000
 #define LOCK_LIST_SIZE 2000000
 
+// Stats Map Sizes (per minute capacity)
+// 统计 Map 大小（每分钟容量）
+// Default: 1 million entries per minute for high-traffic scenarios
+// 默认：每分钟 100 万条目，适用于高流量场景
+#define DROP_STATS_SIZE 1000000
+#define PASS_STATS_SIZE 1000000
+
 // Unified Conntrack Map
 // 统一连接跟踪 Map
 struct {
@@ -143,11 +150,13 @@ struct {
     __type(value, __u64);
 } drop_stats SEC(".maps");
 
-// Unified Drop Reason Stats (Per-CPU Hash) - Detailed stats
-// 统一丢弃原因统计 (Per-CPU Hash) - 详细统计
+// Unified Drop Reason Stats (LRU HASH) - Detailed stats with auto-eviction
+// 统一丢弃原因统计 (LRU HASH) - 详细统计，自动淘汰旧条目
+// Supports top IP / top port analysis with bounded memory
+// 支持带内存限制的 top IP / top port 分析
 struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-    __uint(max_entries, 65536);
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, DROP_STATS_SIZE);
     __type(key, struct drop_detail_key);
     __type(value, __u64);
 } drop_reason_stats SEC(".maps");
@@ -161,11 +170,13 @@ struct {
     __type(value, __u64);
 } pass_stats SEC(".maps");
 
-// Unified Pass Reason Stats (Per-CPU Hash) - Detailed stats
-// 统一通过原因统计 (Per-CPU Hash) - 详细统计
+// Unified Pass Reason Stats (LRU HASH) - Detailed stats with auto-eviction
+// 统一通过原因统计 (LRU HASH) - 详细统计，自动淘汰旧条目
+// Supports top IP / top port analysis with bounded memory
+// 支持带内存限制的 top IP / top port 分析
 struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-    __uint(max_entries, 65536);
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, PASS_STATS_SIZE);
     __type(key, struct drop_detail_key);
     __type(value, __u64);
 } pass_reason_stats SEC(".maps");
