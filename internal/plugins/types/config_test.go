@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -389,13 +390,113 @@ func TestMCPConfig_Fields(t *testing.T) {
 // TestClusterConfig_Fields 测试 ClusterConfig 字段赋值
 func TestClusterConfig_Fields(t *testing.T) {
 	cfg := ClusterConfig{
-		Enabled: true,
-		Port:    11815,
-		Nodes:   []string{"node1:11815", "node2:11815"},
-		Secret:  "cluster-secret",
+		Enabled:    true,
+		ConfigPath: "cluster.yaml",
 	}
 
 	assert.True(t, cfg.Enabled)
-	assert.Equal(t, 11815, cfg.Port)
-	assert.Len(t, cfg.Nodes, 2)
+	assert.Equal(t, "cluster.yaml", cfg.ConfigPath)
+}
+
+// TestCleanDeprecatedClusterFields tests removing deprecated cluster fields
+// TestCleanDeprecatedClusterFields 测试移除已弃用的集群字段
+func TestCleanDeprecatedClusterFields(t *testing.T) {
+	// Config with deprecated fields
+	// 包含已弃用字段的配置
+	configWithDeprecated := `
+cluster:
+  enabled: false
+  configpath: cluster.yaml
+  port: 11815
+  nodes:
+    - "node1:11815"
+    - "node2:11815"
+  secret: "my-secret"
+base:
+  default_deny: true
+`
+
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(configWithDeprecated), &node)
+	assert.NoError(t, err)
+
+	// Clean deprecated fields
+	// 清理已弃用字段
+	CleanDeprecatedClusterFields(&node)
+
+	// Marshal back to string
+	// 序列化回字符串
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	err = enc.Encode(&node)
+	assert.NoError(t, err)
+
+	result := buf.String()
+
+	// Verify deprecated fields are removed
+	// 验证已弃用字段已移除
+	assert.Contains(t, result, "enabled: false")
+	assert.Contains(t, result, "configpath: cluster.yaml")
+	assert.NotContains(t, result, "port: 11815")
+	assert.NotContains(t, result, "nodes:")
+	assert.NotContains(t, result, "secret:")
+
+	// Verify other fields are preserved
+	// 验证其他字段保留
+	assert.Contains(t, result, "base:")
+	assert.Contains(t, result, "default_deny: true")
+}
+
+// TestSaveGlobalConfig_CleansDeprecatedFields tests that SaveGlobalConfig cleans deprecated fields
+// TestSaveGlobalConfig_CleansDeprecatedFields 测试 SaveGlobalConfig 清理已弃用字段
+func TestSaveGlobalConfig_CleansDeprecatedFields(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "config_test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	// Create config with deprecated cluster fields
+	// 创建包含已弃用集群字段的配置
+	initialContent := `
+cluster:
+  enabled: false
+  configpath: cluster.yaml
+  port: 11815
+  nodes:
+    - "node1:11815"
+  secret: "old-secret"
+base:
+  default_deny: false
+`
+	err = os.WriteFile(configPath, []byte(initialContent), 0644)
+	assert.NoError(t, err)
+
+	// Save config (should clean deprecated fields)
+	// 保存配置（应清理已弃用字段）
+	cfg := &GlobalConfig{
+		Cluster: ClusterConfig{
+			Enabled:    false,
+			ConfigPath: "cluster.yaml",
+		},
+		Base: BaseConfig{
+			DefaultDeny: true,
+		},
+	}
+
+	err = SaveGlobalConfig(configPath, cfg)
+	assert.NoError(t, err)
+
+	// Read file and verify deprecated fields are removed
+	// 读取文件并验证已弃用字段已移除
+	content, err := os.ReadFile(configPath)
+	assert.NoError(t, err)
+	contentStr := string(content)
+
+	assert.Contains(t, contentStr, "enabled: false")
+	assert.Contains(t, contentStr, "configpath: cluster.yaml")
+	assert.NotContains(t, contentStr, "port: 11815")
+	assert.NotContains(t, contentStr, "nodes:")
+	assert.NotContains(t, contentStr, "secret:")
 }

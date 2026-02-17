@@ -32,19 +32,23 @@ func (m *MockStatsAPI) GetPassDetails() ([]sdk.DropDetailEntry, error) {
 	return args.Get(0).([]sdk.DropDetailEntry), args.Error(1)
 }
 
-// MockConntrackAPI is a mock implementation of the ConntrackAPI interface
+// MockConntrackAPI is a mock implementation of the ConntrackAPI interface.
+// MockConntrackAPI 是 ConntrackAPI 接口的 mock 实现。
 type MockConntrackAPI struct {
 	mock.Mock
 }
 
-func (m *MockConntrackAPI) GetConntrackCount() (int, error) {
+func (m *MockConntrackAPI) List() ([]sdk.ConntrackEntry, error) {
 	args := m.Called()
-	return args.Int(0), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]sdk.ConntrackEntry), args.Error(1)
 }
 
-func (m *MockConntrackAPI) ListConntrackEntries() ([]sdk.ConntrackEntry, error) {
+func (m *MockConntrackAPI) Count() (int, error) {
 	args := m.Called()
-	return args.Get(0).([]sdk.ConntrackEntry), args.Error(1)
+	return args.Int(0), args.Error(1)
 }
 
 // MockSecurityAPI is a mock implementation of the SecurityAPI interface

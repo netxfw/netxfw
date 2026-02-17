@@ -150,11 +150,11 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 
 	// Show drop statistics
 	// 显示丢弃统计
-	showDropStatistics(s, drops, pass)
+	showDropStatistics(s.Stats, drops, pass)
 
 	// Show pass statistics
 	// 显示通过统计
-	showPassStatistics(s, pass, drops)
+	showPassStatistics(s.Stats, pass, drops)
 
 	// Map statistics
 	// Map 统计
@@ -171,9 +171,16 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 	return nil
 }
 
+// StatsAPI interface for statistics operations (for testing and decoupling)
+// StatsAPI 统计操作接口（用于测试和解耦）
+type StatsAPI interface {
+	GetDropDetails() ([]sdk.DropDetailEntry, error)
+	GetPassDetails() ([]sdk.DropDetailEntry, error)
+}
+
 // showDropStatistics displays drop statistics with percentages
 // showDropStatistics 显示带百分比的丢弃统计
-func showDropStatistics(s *sdk.SDK, drops, pass uint64) {
+func showDropStatistics(s StatsAPI, drops, pass uint64) {
 	totalPackets := pass + drops
 	dropPercent := float64(0)
 	if totalPackets > 0 {
@@ -183,7 +190,7 @@ func showDropStatistics(s *sdk.SDK, drops, pass uint64) {
 
 	// Show detailed drop stats
 	// 显示详细丢弃统计
-	dropDetails, err := s.Stats.GetDropDetails()
+	dropDetails, err := s.GetDropDetails()
 	if err == nil && len(dropDetails) > 0 {
 		// Sort by count descending
 		// 按计数降序排序
@@ -248,7 +255,7 @@ func showDropReasonSummary(dropDetails []sdk.DropDetailEntry, drops uint64) {
 
 // showPassStatistics displays pass statistics with percentages
 // showPassStatistics 显示带百分比的通过统计
-func showPassStatistics(s *sdk.SDK, pass, drops uint64) {
+func showPassStatistics(s StatsAPI, pass, drops uint64) {
 	totalPackets := pass + drops
 	passPercent := float64(0)
 	if totalPackets > 0 {
@@ -258,7 +265,7 @@ func showPassStatistics(s *sdk.SDK, pass, drops uint64) {
 
 	// Show detailed pass stats
 	// 显示详细通过统计
-	passDetails, err := s.Stats.GetPassDetails()
+	passDetails, err := s.GetPassDetails()
 	if err == nil && len(passDetails) > 0 {
 		// Sort by count descending
 		// 按计数降序排序

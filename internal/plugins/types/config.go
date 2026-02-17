@@ -25,8 +25,10 @@ const DefaultConfigTemplate = `# NetXFW Configuration File / NetXFW 配置文件
 #
 
 # Cluster Configuration / 集群配置
+# Default cluster config file path / 默认集群配置文件路径
 cluster:
   enabled: false
+  configpath: "cluster.yaml"
 
 # Base Configuration / 基础配置
 base:
@@ -133,15 +135,17 @@ web:
   token: ""
 
 # Metrics Configuration / 监控指标配置
+# When metrics.enabled = false, metrics are served via web server at /metrics path
+# 当 metrics.enabled = false 时，指标通过 web 服务器的 /metrics 路径提供
 metrics:
   enabled: false
-  server_enabled: true
+  server_enabled: false
   port: 11812
   push_enabled: false
   push_gateway_addr: ""
   push_interval: "15s"
   textfile_enabled: false
-  textfile_path: "/var/lib/node_exporter/netxfw.prom"
+  textfile_path: ""
 
 
 # Port Configuration / 端口配置
@@ -366,11 +370,12 @@ type MCPConfig struct {
 
 // ClusterConfig defines the configuration for clustering.
 // ClusterConfig 定义集群配置。
+// For standalone mode, only enabled and configpath are used.
+// For cluster mode, detailed config is read from the configpath file.
+// 单机版只使用 enabled 和 configpath，集群版从 configpath 文件读取详细配置。
 type ClusterConfig struct {
-	Enabled bool     `yaml:"enabled"`
-	Port    int      `yaml:"port"`
-	Nodes   []string `yaml:"nodes"`
-	Secret  string   `yaml:"secret"`
+	Enabled    bool   `yaml:"enabled"`    // Enable cluster mode / 启用集群模式
+	ConfigPath string `yaml:"configpath"` // Path to cluster config file / 集群配置文件路径
 }
 
 // CapacityConfig defines the capacity settings for BPF maps.
@@ -472,8 +477,8 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 	// Initialize with defaults / 使用默认值初始化
 	cfg := GlobalConfig{
 		Cluster: ClusterConfig{
-			Enabled: false,
-			Port:    11815,
+			Enabled:    false,
+			ConfigPath: "cluster.yaml",
 		},
 		Base: BaseConfig{
 			DefaultDeny:        true,
@@ -525,7 +530,9 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 			Port: 11811,
 		},
 		Metrics: MetricsConfig{
-			Port: 11812,
+			Enabled:       false,
+			ServerEnabled: false,
+			Port:          11812,
 		},
 		AI: AIConfig{
 			Enabled: false,
@@ -686,7 +693,11 @@ func SaveGlobalConfig(path string, cfg *GlobalConfig) error {
 	if readErr == nil {
 		var fileNode yaml.Node
 		if unmarshalErr := yaml.Unmarshal(fileData, &fileNode); unmarshalErr == nil {
-			// 3. Merge new config INTO file config (preserving comments)
+			// 3. Clean deprecated cluster fields BEFORE merge (to remove old fields)
+			// 在合并之前清理已弃用的集群字段（以移除旧字段）
+			CleanDeprecatedClusterFields(&fileNode)
+
+			// 4. Merge new config INTO file config (preserving comments)
 			MergeYamlNodes(&fileNode, &newNode)
 
 			// Encode back
@@ -706,6 +717,7 @@ func SaveGlobalConfig(path string, cfg *GlobalConfig) error {
 
 // MergeYamlNodes updates target (existing file) with source (new config).
 // It preserves comments from target where possible.
+// For cluster config, it removes deprecated fields (port, nodes, secret) that are no longer in the struct.
 func MergeYamlNodes(target, source *yaml.Node) {
 	if target.Kind == yaml.DocumentNode {
 		if source.Kind == yaml.DocumentNode {
@@ -770,6 +782,61 @@ func MergeYamlNodes(target, source *yaml.Node) {
 	}
 
 	target.Content = newContent
+}
+
+// CleanDeprecatedClusterFields removes deprecated cluster fields from the config file.
+// This is called during config save to clean up old fields that are no longer in the struct.
+// CleanDeprecatedClusterFields 从配置文件中移除已弃用的集群字段。
+// 这在配置保存期间调用，用于清理结构体中不再存在的旧字段。
+func CleanDeprecatedClusterFields(target *yaml.Node) {
+	if target.Kind == yaml.DocumentNode && len(target.Content) > 0 {
+		CleanDeprecatedClusterFields(target.Content[0])
+		return
+	}
+
+	if target.Kind != yaml.MappingNode {
+		return
+	}
+
+	// Find cluster key in target
+	clusterIdx := -1
+	for i := 0; i < len(target.Content); i += 2 {
+		if target.Content[i].Value == "cluster" {
+			clusterIdx = i + 1
+			break
+		}
+	}
+
+	if clusterIdx == -1 {
+		return
+	}
+
+	clusterNode := target.Content[clusterIdx]
+	if clusterNode.Kind != yaml.MappingNode {
+		return
+	}
+
+	// Deprecated fields to remove / 要移除的已弃用字段
+	deprecatedFields := map[string]bool{
+		"port":     true,
+		"nodes":    true,
+		"secret":   true,
+		"node_id":  true,
+		"election": true,
+		"sync":     true,
+		"failover": true,
+	}
+
+	// Filter out deprecated fields / 过滤掉已弃用字段
+	var newContent []*yaml.Node
+	for i := 0; i < len(clusterNode.Content); i += 2 {
+		key := clusterNode.Content[i].Value
+		if !deprecatedFields[key] {
+			newContent = append(newContent, clusterNode.Content[i], clusterNode.Content[i+1])
+		}
+	}
+
+	clusterNode.Content = newContent
 }
 
 // cleanupBackups keeps only the latest N backup files.

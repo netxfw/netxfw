@@ -2,21 +2,8 @@ package sdk
 
 import "time"
 
-// SecurityAPI defines methods for security configuration.
-// SecurityAPI 定义了安全配置的方法。
-type SecurityAPI interface {
-	SetDefaultDeny(enable bool) error
-	SetEnableAFXDP(enable bool) error
-	SetDropFragments(enable bool) error
-	SetStrictTCP(enable bool) error
-	SetSYNLimit(enable bool) error
-	SetConntrack(enable bool) error
-	SetConntrackTimeout(timeout time.Duration) error
-	SetBogonFilter(enable bool) error
-	SetAutoBlock(enable bool) error
-	SetAutoBlockExpiry(duration time.Duration) error
-}
-
+// securityImpl implements SecurityAPI interface.
+// securityImpl 实现 SecurityAPI 接口。
 type securityImpl struct {
 	mgr ManagerInterface
 }

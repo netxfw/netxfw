@@ -112,6 +112,15 @@ func NewManager(cfg types.CapacityConfig, logger Logger) (*Manager, error) {
 	// 从 bpf2go 生成的对象初始化 Map 引用
 	manager.initMapReferences(&objs)
 
+	// Initialize statistics cache / 初始化统计缓存
+	manager.statsCache = NewStatsCache(manager)
+
+	// Initialize incremental updater / 初始化增量更新器
+	manager.incrementalUpdater = NewIncrementalUpdater(manager)
+
+	// Initialize performance statistics tracker / 初始化性能统计跟踪器
+	manager.perfStats = NewPerformanceStats()
+
 	// Initialize jump table with default protocol handlers / 初始化跳转表，填充默认的协议处理程序
 	if objs.XdpIpv4 != nil {
 		if err := objs.JmpTable.Update(uint32(ProgIdxIPv4), objs.XdpIpv4, ebpf.UpdateAny); err != nil {
@@ -239,6 +248,15 @@ func NewManagerFromPins(path string, logger Logger) (*Manager, error) {
 	}
 	m.initMapReferences(&objs)
 
+	// Initialize statistics cache / 初始化统计缓存
+	m.statsCache = NewStatsCache(m)
+
+	// Initialize incremental updater / 初始化增量更新器
+	m.incrementalUpdater = NewIncrementalUpdater(m)
+
+	// Initialize performance statistics tracker / 初始化性能统计跟踪器
+	m.perfStats = NewPerformanceStats()
+
 	return m, nil
 }
 
@@ -253,4 +271,10 @@ func (m *Manager) Close() error {
 	// 我们不再在此处自动关闭链接，以保持其持久性。
 	// 链接现在已被固定，应通过 Detach 或手动管理。
 	return err
+}
+
+// GetHealthChecker returns a health checker for this manager.
+// GetHealthChecker 返回此管理器的健康检查器。
+func (m *Manager) GetHealthChecker() *HealthChecker {
+	return NewHealthChecker(m)
 }

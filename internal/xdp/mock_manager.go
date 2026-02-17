@@ -27,6 +27,32 @@ type MockManager struct {
 	DropFragments   bool
 }
 
+// MockConfigSnapshot represents a snapshot of the mock configuration state.
+// MockConfigSnapshot 表示 mock 配置状态的快照。
+type MockConfigSnapshot struct {
+	DefaultDeny     bool
+	StrictTCP       bool
+	SYNLimit        bool
+	BogonFilter     bool
+	EnableAFXDP     bool
+	EnableRateLimit bool
+	DropFragments   bool
+}
+
+// GetConfigSnapshot returns a snapshot of the current configuration state.
+// GetConfigSnapshot 返回当前配置状态的快照。
+func (m *MockManager) GetConfigSnapshot() MockConfigSnapshot {
+	return MockConfigSnapshot{
+		DefaultDeny:     m.DefaultDeny,
+		StrictTCP:       m.StrictTCP,
+		SYNLimit:        m.SYNLimit,
+		BogonFilter:     m.BogonFilter,
+		EnableAFXDP:     m.EnableAFXDP,
+		EnableRateLimit: m.EnableRateLimit,
+		DropFragments:   m.DropFragments,
+	}
+}
+
 // Sync Operations
 func (m *MockManager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	if overwrite {
@@ -306,5 +332,12 @@ func (m *MockManager) GetPassCount() (uint64, error)              { return 0, ni
 func (m *MockManager) GetLockedIPCount() (int, error)             { return len(m.Blacklist), nil }
 func (m *MockManager) GetWhitelistCount() (int, error)            { return len(m.WhitelistMap), nil }
 func (m *MockManager) GetConntrackCount() (int, error)            { return 0, nil }
+func (m *MockManager) InvalidateStatsCache()                      {}
+
+// PerfStats returns a mock performance stats tracker.
+// PerfStats 返回模拟的性能统计跟踪器。
+func (m *MockManager) PerfStats() interface{} {
+	return NewPerformanceStats()
+}
 
 func (m *MockManager) Close() error { return nil }

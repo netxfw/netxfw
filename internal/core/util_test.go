@@ -10,95 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// MockXDPManager is a mock implementation of XDPManager for testing
-// MockXDPManager 是用于测试的 XDPManager 模拟实现
-type MockXDPManager struct {
-	blacklist       map[string]bool
-	whitelist       map[string]bool
-	defaultDeny     bool
-	enableAFXDP     bool
-	enableRateLimit bool
-	dropFragments   bool
-	strictTCP       bool
-	synLimit        bool
-	bogonFilter     bool
-}
-
-// NewMockXDPManager creates a new mock XDP manager
-// NewMockXDPManager 创建新的模拟 XDP 管理器
-func NewMockXDPManager() *MockXDPManager {
-	return &MockXDPManager{
-		blacklist: make(map[string]bool),
-		whitelist: make(map[string]bool),
-	}
-}
-
-// Implement XDPManager interface methods
-// 实现 XDPManager 接口方法
-
-func (m *MockXDPManager) AddBlacklistIP(cidr string) error {
-	m.blacklist[cidr] = true
-	return nil
-}
-
-func (m *MockXDPManager) RemoveBlacklistIP(cidr string) error {
-	delete(m.blacklist, cidr)
-	return nil
-}
-
-func (m *MockXDPManager) IsIPInBlacklist(cidr string) (bool, error) {
-	return m.blacklist[cidr], nil
-}
-
-func (m *MockXDPManager) AddWhitelistIP(cidr string, port uint16) error {
-	m.whitelist[cidr] = true
-	return nil
-}
-
-func (m *MockXDPManager) RemoveWhitelistIP(cidr string) error {
-	delete(m.whitelist, cidr)
-	return nil
-}
-
-func (m *MockXDPManager) IsIPInWhitelist(cidr string) (bool, error) {
-	return m.whitelist[cidr], nil
-}
-
-func (m *MockXDPManager) SetDefaultDeny(enable bool) error {
-	m.defaultDeny = enable
-	return nil
-}
-
-func (m *MockXDPManager) SetEnableAFXDP(enable bool) error {
-	m.enableAFXDP = enable
-	return nil
-}
-
-func (m *MockXDPManager) SetEnableRateLimit(enable bool) error {
-	m.enableRateLimit = enable
-	return nil
-}
-
-func (m *MockXDPManager) SetDropFragments(enable bool) error {
-	m.dropFragments = enable
-	return nil
-}
-
-func (m *MockXDPManager) SetStrictTCP(enable bool) error {
-	m.strictTCP = enable
-	return nil
-}
-
-func (m *MockXDPManager) SetSYNLimit(enable bool) error {
-	m.synLimit = enable
-	return nil
-}
-
-func (m *MockXDPManager) SetBogonFilter(enable bool) error {
-	m.bogonFilter = enable
-	return nil
-}
-
 // TestAskConfirmation_Yes tests confirmation with yes response
 // TestAskConfirmation_Yes 测试 yes 响应的确认
 func TestAskConfirmation_Yes(t *testing.T) {
@@ -141,7 +52,7 @@ func TestSetConfirmationReader(t *testing.T) {
 // TestMockXDPManager_BlacklistOperations tests blacklist operations
 // TestMockXDPManager_BlacklistOperations 测试黑名单操作
 func TestMockXDPManager_BlacklistOperations(t *testing.T) {
-	mgr := NewMockXDPManager()
+	mgr := xdp.NewMockManager()
 
 	// Test AddBlacklistIP
 	// 测试 AddBlacklistIP
@@ -167,7 +78,7 @@ func TestMockXDPManager_BlacklistOperations(t *testing.T) {
 // TestMockXDPManager_WhitelistOperations tests whitelist operations
 // TestMockXDPManager_WhitelistOperations 测试白名单操作
 func TestMockXDPManager_WhitelistOperations(t *testing.T) {
-	mgr := NewMockXDPManager()
+	mgr := xdp.NewMockManager()
 
 	// Test AddWhitelistIP
 	// 测试 AddWhitelistIP
@@ -193,49 +104,49 @@ func TestMockXDPManager_WhitelistOperations(t *testing.T) {
 // TestMockXDPManager_ConfigOperations tests config operations
 // TestMockXDPManager_ConfigOperations 测试配置操作
 func TestMockXDPManager_ConfigOperations(t *testing.T) {
-	mgr := NewMockXDPManager()
+	mgr := xdp.NewMockManager()
 
 	// Test SetDefaultDeny
 	// 测试 SetDefaultDeny
 	err := mgr.SetDefaultDeny(true)
 	assert.NoError(t, err)
-	assert.True(t, mgr.defaultDeny)
+	assert.True(t, mgr.DefaultDeny)
 
 	// Test SetEnableAFXDP
 	// 测试 SetEnableAFXDP
 	err = mgr.SetEnableAFXDP(true)
 	assert.NoError(t, err)
-	assert.True(t, mgr.enableAFXDP)
+	assert.True(t, mgr.EnableAFXDP)
 
 	// Test SetEnableRateLimit
 	// 测试 SetEnableRateLimit
 	err = mgr.SetEnableRateLimit(true)
 	assert.NoError(t, err)
-	assert.True(t, mgr.enableRateLimit)
+	assert.True(t, mgr.EnableRateLimit)
 
 	// Test SetDropFragments
 	// 测试 SetDropFragments
 	err = mgr.SetDropFragments(true)
 	assert.NoError(t, err)
-	assert.True(t, mgr.dropFragments)
+	assert.True(t, mgr.DropFragments)
 
 	// Test SetStrictTCP
 	// 测试 SetStrictTCP
 	err = mgr.SetStrictTCP(true)
 	assert.NoError(t, err)
-	assert.True(t, mgr.strictTCP)
+	assert.True(t, mgr.StrictTCP)
 
 	// Test SetSYNLimit
 	// 测试 SetSYNLimit
 	err = mgr.SetSYNLimit(true)
 	assert.NoError(t, err)
-	assert.True(t, mgr.synLimit)
+	assert.True(t, mgr.SYNLimit)
 
 	// Test SetBogonFilter
 	// 测试 SetBogonFilter
 	err = mgr.SetBogonFilter(true)
 	assert.NoError(t, err)
-	assert.True(t, mgr.bogonFilter)
+	assert.True(t, mgr.BogonFilter)
 }
 
 // TestSyncDefaultDeny tests SyncDefaultDeny function

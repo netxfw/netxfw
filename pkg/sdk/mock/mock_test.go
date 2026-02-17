@@ -62,26 +62,26 @@ func TestMockStatsAPI(t *testing.T) {
 func TestMockConntrackAPI(t *testing.T) {
 	m := new(MockConntrackAPI)
 
-	// Test GetConntrackCount
-	// 测试 GetConntrackCount
-	m.On("GetConntrackCount").Return(100, nil)
-	count, err := m.GetConntrackCount()
+	// Test Count
+	// 测试 Count
+	m.On("Count").Return(100, nil)
+	count, err := m.Count()
 	if err != nil {
-		t.Errorf("GetConntrackCount should not error: %v", err)
+		t.Errorf("Count should not error: %v", err)
 	}
 	if count != 100 {
-		t.Errorf("GetConntrackCount returned %d, expected 100", count)
+		t.Errorf("Count returned %d, expected 100", count)
 	}
 
-	// Test ListConntrackEntries
-	// 测试 ListConntrackEntries
-	m.On("ListConntrackEntries").Return([]sdk.ConntrackEntry{}, nil)
-	entries, err := m.ListConntrackEntries()
+	// Test List
+	// 测试 List
+	m.On("List").Return([]sdk.ConntrackEntry{}, nil)
+	entries, err := m.List()
 	if err != nil {
-		t.Errorf("ListConntrackEntries should not error: %v", err)
+		t.Errorf("List should not error: %v", err)
 	}
 	if entries == nil {
-		t.Error("ListConntrackEntries should return non-nil slice")
+		t.Error("List should return non-nil slice")
 	}
 }
 

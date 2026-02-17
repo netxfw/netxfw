@@ -15,13 +15,20 @@
 | `conntrack` | None | Views the current active connection tracking table in the kernel |
 | `rule add` | `<IP> [port] <allow/deny>` | Adds an IP or IP+Port rule |
 | `rule list` | `rules / conntrack` | Lists rules or connections |
+| `rule import` | `[type] <file>` | Import rules (text/JSON/YAML) |
+| `rule export` | `<file> [--format]` | Exports rules to file (JSON/YAML/CSV supported) |
 | `limit add` | `<IP> <rate> <burst>` | Sets PPS rate limit for a specific IP |
 | `limit remove`| `<IP>` | Removes a rate limit rule |
 | `limit list` | None | Lists all rate limit rules |
 | `lock` | `<IP>` | Shortcut: Globally bans a specific IP |
 | `allow` | `<IP> [port]` | Shortcut: Adds an IP to the whitelist |
 | `system sync` | `to-config / to-map` | Syncs memory rules to config file, or loads rules from config to memory |
-| `rule import` | `deny <file>` | Batch imports IP blacklist from a file |
+| `system status`| None | Views system status and statistics |
+| `perf show` | None | Shows all performance statistics |
+| `perf latency` | None | Shows map operation latency statistics |
+| `perf cache` | None | Shows cache hit rate statistics |
+| `perf traffic` | None | Shows real-time traffic statistics |
+| `perf reset` | None | Resets performance statistics counters |
 | `web` | `start / stop` | Manages the Web Console service |
 
 ---
@@ -127,13 +134,20 @@ Supports bidirectional synchronization between memory state (BPF Maps) and the c
   ```
 
 ### 8. Batch Import (import)
-Supports batch importing IP blacklist rules from a text file. Supports IPv4 and IPv6, and automatically identifies and handles CIDR subnets.
+Supports importing rules from text files or structured files (JSON/YAML).
 
+#### Text Format Import
 ```bash
-# Import blacklist from blacklist.txt
+# Import blacklist (one IP or subnet per line)
 sudo netxfw rule import deny blacklist.txt
+
+# Import whitelist (one IP or subnet per line)
+sudo netxfw rule import allow whitelist.txt
+
+# Import IP+Port rules (format: IP:Port:Action per line)
+sudo netxfw rule import rules ipport.txt
 ```
-**File Format Example**:
+**Text File Format Example**:
 ```text
 # One IP or subnet per line
 1.2.3.4
@@ -141,7 +155,76 @@ sudo netxfw rule import deny blacklist.txt
 2001:db8::1
 ```
 
-### 9. Plugin Management (plugin)
+#### JSON/YAML Format Import
+Supports importing structured files exported by `rule export`, enabling a complete backup and restore workflow.
+
+```bash
+# Import all rules from JSON file
+sudo netxfw rule import all rules.json
+
+# Import all rules from YAML file
+sudo netxfw rule import all rules.yaml
+```
+**JSON File Format Example**:
+```json
+{
+  "blacklist": [
+    {"type": "blacklist", "ip": "10.0.0.1"},
+    {"type": "blacklist", "ip": "192.168.0.0/24"}
+  ],
+  "whitelist": [
+    {"type": "whitelist", "ip": "127.0.0.1/32"}
+  ],
+  "ipport_rules": [
+    {"type": "ipport", "ip": "192.168.1.1", "port": 80, "action": "allow"},
+    {"type": "ipport", "ip": "10.0.0.2", "port": 443, "action": "deny"}
+  ]
+}
+```
+
+### 9. Rule Export (export)
+Supports exporting all current firewall rules to JSON, YAML, or CSV format files.
+
+```bash
+# Export to JSON format (default)
+sudo netxfw rule export rules.json
+
+# Export to YAML format
+sudo netxfw rule export rules.yaml --format yaml
+
+# Export to CSV format
+sudo netxfw rule export rules.csv --format csv
+```
+**Export contents include**:
+- Blacklist entries
+- Whitelist entries
+- IP+Port rules
+
+### 10. Performance Monitoring (perf)
+Provides real-time performance monitoring, including map operation latency, cache hit rates, and traffic statistics.
+
+```bash
+# Show all performance statistics
+sudo netxfw perf show
+
+# Show map operation latency statistics
+sudo netxfw perf latency
+
+# Show cache hit rate statistics
+sudo netxfw perf cache
+
+# Show real-time traffic statistics
+sudo netxfw perf traffic
+
+# Reset performance statistics counters
+sudo netxfw perf reset
+```
+**Performance statistics include**:
+- **Map Operation Latency**: Records latency statistics for various BPF map operations (read/write/delete/iterate)
+- **Cache Hit Rate**: Statistics for global stats, drop details, pass details, map counts cache hits
+- **Real-time Traffic**: Displays current/peak/average PPS, BPS, drop rates and other traffic metrics
+
+### 11. Plugin Management (plugin)
 Allows dynamic extension of packet processing logic without stopping the firewall.
 - **Load Plugin**:
   ```bash

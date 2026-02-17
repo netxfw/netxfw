@@ -358,6 +358,60 @@ type GlobalStats struct {
 	PassEstablished uint64 // Passed: established connection / 通过：已建立连接
 }
 
+// GetCachedGlobalStats returns cached global statistics.
+// GetCachedGlobalStats 返回缓存的全局统计信息。
+func (m *Manager) GetCachedGlobalStats() (*GlobalStats, error) {
+	if m.statsCache == nil {
+		return m.GetGlobalStats()
+	}
+	return m.statsCache.GetGlobalStats()
+}
+
+// GetCachedDropDetails returns cached drop details.
+// GetCachedDropDetails 返回缓存的丢弃详情。
+func (m *Manager) GetCachedDropDetails() ([]sdk.DropDetailEntry, error) {
+	if m.statsCache == nil {
+		return m.GetDropDetails()
+	}
+	return m.statsCache.GetDropDetails()
+}
+
+// GetCachedPassDetails returns cached pass details.
+// GetCachedPassDetails 返回缓存的通过详情。
+func (m *Manager) GetCachedPassDetails() ([]sdk.DropDetailEntry, error) {
+	if m.statsCache == nil {
+		return m.GetPassDetails()
+	}
+	return m.statsCache.GetPassDetails()
+}
+
+// GetCachedMapCounts returns cached map entry counts.
+// GetCachedMapCounts 返回缓存的 Map 条目计数。
+func (m *Manager) GetCachedMapCounts() (MapCounts, error) {
+	if m.statsCache == nil {
+		blacklist, _ := m.GetLockedIPCount()
+		whitelist, _ := m.GetWhitelistCount()
+		conntrack, _ := m.GetConntrackCount()
+		dynamicBlacklist, _ := m.GetDynLockListCount()
+		return MapCounts{
+			Blacklist:        blacklist,
+			Whitelist:        whitelist,
+			Conntrack:        conntrack,
+			DynamicBlacklist: dynamicBlacklist,
+			UpdatedAt:        time.Now(),
+		}, nil
+	}
+	return m.statsCache.GetMapCounts()
+}
+
+// InvalidateStatsCache clears the statistics cache.
+// InvalidateStatsCache 清除统计缓存。
+func (m *Manager) InvalidateStatsCache() {
+	if m.statsCache != nil {
+		m.statsCache.InvalidateAll()
+	}
+}
+
 // Helper function for case-insensitive contains
 // 用于不区分大小写包含的辅助函数
 func containsIgnoreCase(s, substr string) bool {

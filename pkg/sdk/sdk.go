@@ -15,17 +15,26 @@ type SDK struct {
 	EventBus  EventBus
 	Store     KVStore
 	mgr       ManagerInterface
-	// Future extensions: Logger, Metrics, Config, Health
 }
 
 // KVStore defines a simple key-value store for inter-plugin communication.
 // KVStore 为插件间通信定义了一个简单的键值存储。
 type KVStore interface {
+	// Set stores a value for a key.
+	// Set 为键存储值。
 	Set(key string, value interface{})
+
+	// Get retrieves a value for a key.
+	// Get 检索键的值。
 	Get(key string) (interface{}, bool)
+
+	// Delete removes a key.
+	// Delete 移除键。
 	Delete(key string)
 }
 
+// kvStoreImpl implements KVStore interface.
+// kvStoreImpl 实现 KVStore 接口。
 type kvStoreImpl struct {
 	data sync.Map
 }

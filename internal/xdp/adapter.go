@@ -239,6 +239,18 @@ func (a *Adapter) GetConntrackCount() (int, error) {
 	return int(count), err
 }
 
+// InvalidateStatsCache clears the statistics cache.
+// InvalidateStatsCache 清除统计缓存。
+func (a *Adapter) InvalidateStatsCache() {
+	a.manager.InvalidateStatsCache()
+}
+
+// PerfStats returns the performance statistics tracker.
+// PerfStats 返回性能统计跟踪器。
+func (a *Adapter) PerfStats() interface{} {
+	return a.manager.PerfStats()
+}
+
 // sdk.Firewall Implementation
 
 func (a *Adapter) GetStats() (uint64, uint64) {

@@ -1,0 +1,60 @@
+# NetXFW Cluster Configuration File / NetXFW 集群配置文件
+# This file is used when cluster.enabled = true in config-agent.yaml
+# 当 config-agent.yaml 中 cluster.enabled = true 时使用此文件
+
+# Cluster Node Configuration / 集群节点配置
+cluster:
+  # Local node ID (optional, auto-generated if not set)
+  # 本地节点 ID（可选，未设置时自动生成）
+  node_id: ""
+
+  # Cluster communication port / 集群通信端口
+  port: 11815
+
+  # Cluster secret for authentication / 集群认证密钥
+  # Must be the same across all nodes / 所有节点必须相同
+  secret: "your-cluster-secret-key"
+
+  # Cluster nodes list / 集群节点列表
+  # Format: "host:port" or "ip:port"
+  # 格式："host:port" 或 "ip:port"
+  nodes:
+    - "192.168.1.10:11815"
+    - "192.168.1.11:11815"
+    - "192.168.1.12:11815"
+
+  # Leader election configuration / 领导选举配置
+  election:
+    # Enable leader election / 启用领导选举
+    enabled: true
+    # Election timeout in seconds / 选举超时时间（秒）
+    timeout: 5
+    # Heartbeat interval in seconds / 心跳间隔（秒）
+    heartbeat: 1
+
+  # Data synchronization configuration / 数据同步配置
+  sync:
+    # Sync interval in seconds / 同步间隔（秒）
+    interval: 10
+    # Enable rule synchronization / 启用规则同步
+    rules: true
+    # Enable blacklist synchronization / 启用黑名单同步
+    blacklist: true
+    # Enable whitelist synchronization / 启用白名单同步
+    whitelist: true
+    # Enable conntrack synchronization / 启用连接跟踪同步
+    conntrack: false
+
+  # Failover configuration / 故障转移配置
+  failover:
+    # Enable automatic failover / 启用自动故障转移
+    enabled: true
+    # Failover timeout in seconds / 故障转移超时时间（秒）
+    timeout: 30
+
+# Logging configuration for cluster / 集群日志配置
+logging:
+  # Log level: debug, info, warn, error / 日志级别
+  level: info
+  # Log file path / 日志文件路径
+  path: "/var/log/netxfw/cluster.log"

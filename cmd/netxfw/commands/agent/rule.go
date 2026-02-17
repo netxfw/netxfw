@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -9,7 +11,9 @@ import (
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
 	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/livp123/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var RuleCmd = &cobra.Command{
@@ -553,8 +557,21 @@ var ruleImportCmd = &cobra.Command{
 	Use:   "import [lock|allow|rules] <file>",
 	Short: "Import rules from file",
 	// Short: 从文件导入规则
-	Long: `Import rules from a file`,
-	// Long: 从文件导入规则
+	Long: `Import rules from a file. Supports multiple formats:
+  - Text format (default): One IP per line for lock/allow, IP:Port:Action for rules
+  - JSON format: Auto-detected from .json extension, compatible with 'rule export' output
+  - YAML format: Auto-detected from .yaml/.yml extension, compatible with 'rule export' output
+
+Examples:
+  netxfw rule import deny blacklist.txt        # Text format: one IP per line
+  netxfw rule import allow whitelist.txt       # Text format: one IP per line
+  netxfw rule import rules ipport.txt          # Text format: IP:Port:Action per line
+  netxfw rule import all rules.json            # JSON format: import all rule types
+  netxfw rule import all rules.yaml            # YAML format: import all rule types`,
+	// Long: 从文件导入规则。支持多种格式：
+	//   - 文本格式（默认）：lock/allow 每行一个 IP，rules 每行 IP:Port:Action
+	//   - JSON 格式：从 .json 扩展名自动检测，与 'rule export' 输出兼容
+	//   - YAML 格式：从 .yaml/.yml 扩展名自动检测，与 'rule export' 输出兼容
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		common.EnsureStandaloneMode()
@@ -564,14 +581,32 @@ var ruleImportCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		// Context is still useful if we refactor Import functions to use SDK, or pass SDK to them.
-		// For now, let's keep using common helpers but we need to update them or adapt here.
-		// Since Import functions in common package use XDPManager, and we have SDK which has Manager.
-		// We can get Manager from SDK.
 
 		ruleType := args[0]
 		filePath := args[1]
 
+		// Auto-detect format from file extension
+		// 从文件扩展名自动检测格式
+		lowerPath := strings.ToLower(filePath)
+		isJSON := strings.HasSuffix(lowerPath, ".json")
+		isYAML := strings.HasSuffix(lowerPath, ".yaml") || strings.HasSuffix(lowerPath, ".yml")
+
+		if isJSON || isYAML {
+			// JSON/YAML format import - ruleType should be "all"
+			// JSON/YAML 格式导入 - ruleType 应该是 "all"
+			if ruleType != "all" {
+				cmd.PrintErrln("❌ For JSON/YAML imports, use: netxfw rule import all <file>")
+				os.Exit(1)
+			}
+			if err := importFromStructuredFile(s, filePath, isJSON); err != nil {
+				cmd.PrintErrln(err)
+				os.Exit(1)
+			}
+			return
+		}
+
+		// Text format import
+		// 文本格式导入
 		switch ruleType {
 		case "lock", "deny":
 			if err := common.ImportLockListFromFile(s, filePath); err != nil {
@@ -589,9 +624,91 @@ var ruleImportCmd = &cobra.Command{
 				os.Exit(1)
 			}
 		default:
-			cmd.PrintErrln("❌ Unknown rule type. Use: lock (or deny), allow, or rules")
+			cmd.PrintErrln("❌ Unknown rule type. Use: lock (or deny), allow, rules, or all (for JSON/YAML)")
 		}
 	},
+}
+
+// importFromStructuredFile imports rules from JSON or YAML file.
+// importFromStructuredFile 从 JSON 或 YAML 文件导入规则。
+func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var importData ExportData
+	if isJSON {
+		if err := json.Unmarshal(data, &importData); err != nil {
+			return fmt.Errorf("failed to parse JSON: %w", err)
+		}
+	} else {
+		if err := yaml.Unmarshal(data, &importData); err != nil {
+			return fmt.Errorf("failed to parse YAML: %w", err)
+		}
+	}
+
+	var addedBlacklist, addedWhitelist, addedIPPort int
+	var failedBlacklist, failedWhitelist, failedIPPort int
+
+	// Import blacklist
+	// 导入黑名单
+	for _, rule := range importData.Blacklist {
+		if rule.IP == "" {
+			continue
+		}
+		if err := s.Blacklist.Add(rule.IP); err != nil {
+			fmt.Printf("⚠️  Failed to add blacklist %s: %v\n", rule.IP, err)
+			failedBlacklist++
+		} else {
+			addedBlacklist++
+		}
+	}
+
+	// Import whitelist
+	// 导入白名单
+	for _, rule := range importData.Whitelist {
+		if rule.IP == "" {
+			continue
+		}
+		var port uint16
+		if rule.Port > 0 {
+			port = uint16(rule.Port)
+		}
+		if err := s.Whitelist.Add(rule.IP, port); err != nil {
+			fmt.Printf("⚠️  Failed to add whitelist %s: %v\n", rule.IP, err)
+			failedWhitelist++
+		} else {
+			addedWhitelist++
+		}
+	}
+
+	// Import IP+Port rules
+	// 导入 IP+端口规则
+	for _, rule := range importData.IPPort {
+		if rule.IP == "" || rule.Port == 0 {
+			continue
+		}
+		action := uint8(2) // Deny default
+		if rule.Action == "allow" {
+			action = 1
+		}
+		if err := s.Rule.AddIPPortRule(rule.IP, uint16(rule.Port), action); err != nil {
+			fmt.Printf("⚠️  Failed to add IP+Port rule %s:%d: %v\n", rule.IP, rule.Port, err)
+			failedIPPort++
+		} else {
+			addedIPPort++
+		}
+	}
+
+	// Print summary
+	// 打印摘要
+	fmt.Println("✅ Import completed:")
+	fmt.Printf("   Blacklist: %d added, %d failed\n", addedBlacklist, failedBlacklist)
+	fmt.Printf("   Whitelist: %d added, %d failed\n", addedWhitelist, failedWhitelist)
+	fmt.Printf("   IP+Port:   %d added, %d failed\n", addedIPPort, failedIPPort)
+
+	return nil
 }
 
 var ruleClearCmd = &cobra.Command{
@@ -617,11 +734,194 @@ var ruleClearCmd = &cobra.Command{
 	},
 }
 
+// ExportRule represents a single rule for export
+// ExportRule 表示导出的单条规则
+type ExportRule struct {
+	Type   string `json:"type" yaml:"type"`                         // "blacklist", "whitelist", "ipport"
+	IP     string `json:"ip" yaml:"ip"`                             // IP address or CIDR
+	Port   int    `json:"port,omitempty" yaml:"port,omitempty"`     // Port number (for ipport rules)
+	Action string `json:"action,omitempty" yaml:"action,omitempty"` // "allow" or "deny" (for ipport rules)
+}
+
+// ExportData represents the complete export structure
+// ExportData 表示完整的导出结构
+type ExportData struct {
+	Blacklist []ExportRule `json:"blacklist" yaml:"blacklist"`
+	Whitelist []ExportRule `json:"whitelist" yaml:"whitelist"`
+	IPPort    []ExportRule `json:"ipport_rules" yaml:"ipport_rules"`
+}
+
+var ruleExportCmd = &cobra.Command{
+	Use:   "export <file> [--format json|yaml|csv]",
+	Short: "Export rules to file",
+	// Short: 导出规则到文件
+	Long: `Export all firewall rules to a file in JSON, YAML, or CSV format.
+Examples:
+  netxfw rule export rules.json
+  netxfw rule export rules.yaml --format yaml
+  netxfw rule export rules.csv --format csv`,
+	// Long: 将所有防火墙规则导出为 JSON、YAML 或 CSV 格式的文件。
+	Args: cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		common.EnsureStandaloneMode()
+
+		s, err := common.GetSDK()
+		if err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+
+		filePath := args[0]
+		format, _ := cmd.Flags().GetString("format")
+
+		// Auto-detect format from file extension if not specified
+		// 如果未指定，从文件扩展名自动检测格式
+		if format == "" {
+			if strings.HasSuffix(strings.ToLower(filePath), ".json") {
+				format = "json"
+			} else if strings.HasSuffix(strings.ToLower(filePath), ".yaml") || strings.HasSuffix(strings.ToLower(filePath), ".yml") {
+				format = "yaml"
+			} else if strings.HasSuffix(strings.ToLower(filePath), ".csv") {
+				format = "csv"
+			} else {
+				format = "json" // default
+			}
+		}
+
+		// Collect all rules
+		// 收集所有规则
+		exportData := ExportData{}
+
+		// Get blacklist
+		// 获取黑名单
+		blacklist, _, err := s.Blacklist.List(100000, "")
+		if err != nil {
+			cmd.PrintErrln("Failed to get blacklist:", err)
+			os.Exit(1)
+		}
+		for _, entry := range blacklist {
+			exportData.Blacklist = append(exportData.Blacklist, ExportRule{
+				Type: "blacklist",
+				IP:   entry.IP,
+			})
+		}
+
+		// Get whitelist
+		// 获取白名单
+		whitelist, _, err := s.Whitelist.List(100000, "")
+		if err != nil {
+			cmd.PrintErrln("Failed to get whitelist:", err)
+			os.Exit(1)
+		}
+		for _, ip := range whitelist {
+			exportData.Whitelist = append(exportData.Whitelist, ExportRule{
+				Type: "whitelist",
+				IP:   ip,
+			})
+		}
+
+		// Get IP+Port rules
+		// 获取 IP+端口规则
+		ipportRules, _, err := s.Rule.ListIPPortRules(100000, "")
+		if err != nil {
+			cmd.PrintErrln("Failed to get IP+Port rules:", err)
+			os.Exit(1)
+		}
+		for _, rule := range ipportRules {
+			action := "deny"
+			if rule.Action == 1 {
+				action = "allow"
+			}
+			exportData.IPPort = append(exportData.IPPort, ExportRule{
+				Type:   "ipport",
+				IP:     rule.IP,
+				Port:   int(rule.Port),
+				Action: action,
+			})
+		}
+
+		// Export based on format
+		// 根据格式导出
+		var data []byte
+		switch format {
+		case "yaml":
+			data, err = yaml.Marshal(exportData)
+		case "csv":
+			data, err = exportToCSV(exportData)
+		default: // json
+			data, err = json.MarshalIndent(exportData, "", "  ")
+		}
+
+		if err != nil {
+			cmd.PrintErrln("Failed to marshal export data:", err)
+			os.Exit(1)
+		}
+
+		// Write to file
+		// 写入文件
+		if err := os.WriteFile(filePath, data, 0644); err != nil {
+			cmd.PrintErrln("Failed to write file:", err)
+			os.Exit(1)
+		}
+
+		totalRules := len(exportData.Blacklist) + len(exportData.Whitelist) + len(exportData.IPPort)
+		cmd.Printf("✅ Exported %d rules to %s (format: %s)\n", totalRules, filePath, format)
+		cmd.Printf("   Blacklist: %d entries\n", len(exportData.Blacklist))
+		cmd.Printf("   Whitelist: %d entries\n", len(exportData.Whitelist))
+		cmd.Printf("   IP+Port:   %d entries\n", len(exportData.IPPort))
+	},
+}
+
+// exportToCSV exports rules to CSV format
+// exportToCSV 将规则导出为 CSV 格式
+func exportToCSV(data ExportData) ([]byte, error) {
+	var buf strings.Builder
+	writer := csv.NewWriter(&buf)
+
+	// Write header
+	// 写入表头
+	if err := writer.Write([]string{"type", "ip", "port", "action"}); err != nil {
+		return nil, err
+	}
+
+	// Write blacklist
+	// 写入黑名单
+	for _, rule := range data.Blacklist {
+		if err := writer.Write([]string{rule.Type, rule.IP, "", ""}); err != nil {
+			return nil, err
+		}
+	}
+
+	// Write whitelist
+	// 写入白名单
+	for _, rule := range data.Whitelist {
+		if err := writer.Write([]string{rule.Type, rule.IP, "", ""}); err != nil {
+			return nil, err
+		}
+	}
+
+	// Write IP+Port rules
+	// 写入 IP+端口规则
+	for _, rule := range data.IPPort {
+		if err := writer.Write([]string{rule.Type, rule.IP, strconv.Itoa(rule.Port), rule.Action}); err != nil {
+			return nil, err
+		}
+	}
+
+	writer.Flush()
+	return []byte(buf.String()), writer.Error()
+}
+
 func init() {
 	// Add commands to ruleCmd
 	RuleCmd.AddCommand(ruleAddCmd)
 	RuleCmd.AddCommand(ruleRemoveCmd)
 	RuleCmd.AddCommand(ruleListCmd)
 	RuleCmd.AddCommand(ruleImportCmd)
+	RuleCmd.AddCommand(ruleExportCmd)
 	RuleCmd.AddCommand(ruleClearCmd)
+
+	// Add flags for export command
+	// 为导出命令添加标志
+	ruleExportCmd.Flags().StringP("format", "f", "", "Export format: json, yaml, csv (default: auto-detect from file extension)")
 }

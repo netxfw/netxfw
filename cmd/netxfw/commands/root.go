@@ -70,6 +70,7 @@ func init() {
 	RootCmd.AddCommand(agent.QuickUnallowCmd)
 	RootCmd.AddCommand(agent.QuickClearCmd)
 	RootCmd.AddCommand(agent.SystemCmd)
+	RootCmd.AddCommand(agent.PerfCmd)
 	RootCmd.AddCommand(agent.VersionCmd)
 
 	// Register DP commands

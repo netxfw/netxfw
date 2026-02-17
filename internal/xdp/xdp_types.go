@@ -64,31 +64,40 @@ type DropDetailEntry = sdk.DropDetailEntry
  * Manager 负责 eBPF 对象和链路的生命周期管理。
  */
 type Manager struct {
-	objs     NetXfwObjects
-	links    []link.Link
-	logger   Logger
+	objs   NetXfwObjects
+	links  []link.Link
+	logger Logger
 
 	// Core maps / 核心 Map
-	conntrackMap     *ebpf.Map // Connection tracking / 连接跟踪
-	ratelimitMap     *ebpf.Map // Rate limit (config + state combined) / 速率限制（配置 + 状态合并）
-	staticBlacklist  *ebpf.Map // Static blacklist (persistent) / 静态黑名单（持久化）
-	dynamicBlacklist *ebpf.Map // Dynamic blacklist (auto-expiry) / 动态黑名单（自动过期）
+	conntrackMap      *ebpf.Map // Connection tracking / 连接跟踪
+	ratelimitMap      *ebpf.Map // Rate limit (config + state combined) / 速率限制（配置 + 状态合并）
+	staticBlacklist   *ebpf.Map // Static blacklist (persistent) / 静态黑名单（持久化）
+	dynamicBlacklist  *ebpf.Map // Dynamic blacklist (auto-expiry) / 动态黑名单（自动过期）
 	criticalBlacklist *ebpf.Map // Critical blacklist (highest priority) / 危机封锁（最高优先级）
-	whitelist        *ebpf.Map // Whitelist / 白名单
-	ruleMap          *ebpf.Map // IP+Port rules / IP+端口规则
-	statsGlobalMap   *ebpf.Map // Global statistics / 全局统计
-	topDropMap       *ebpf.Map // Top drop statistics / Top 丢弃统计
-	topPassMap       *ebpf.Map // Top pass statistics / Top 通过统计
-	globalConfig     *ebpf.Map // Global configuration / 全局配置
-	jmpTable         *ebpf.Map // Program jump table / 程序跳转表
-	xskMap           *ebpf.Map // AF_XDP socket map / AF_XDP socket 映射
+	whitelist         *ebpf.Map // Whitelist / 白名单
+	ruleMap           *ebpf.Map // IP+Port rules / IP+端口规则
+	statsGlobalMap    *ebpf.Map // Global statistics / 全局统计
+	topDropMap        *ebpf.Map // Top drop statistics / Top 丢弃统计
+	topPassMap        *ebpf.Map // Top pass statistics / Top 通过统计
+	globalConfig      *ebpf.Map // Global configuration / 全局配置
+	jmpTable          *ebpf.Map // Program jump table / 程序跳转表
+	xskMap            *ebpf.Map // AF_XDP socket map / AF_XDP socket 映射
+
+	// Statistics cache / 统计缓存
+	statsCache *StatsCache
+
+	// Incremental updater for config changes / 配置变更的增量更新器
+	incrementalUpdater *IncrementalUpdater
+
+	// Performance statistics tracker / 性能统计跟踪器
+	perfStats *PerformanceStats
 
 	// Backward compatibility aliases (deprecated) / 向后兼容别名（已弃用）
 	// These will be removed in a future version / 这些将在未来版本中移除
-	lockList         *ebpf.Map // Deprecated: use staticBlacklist / 已弃用：使用 staticBlacklist
-	dynLockList      *ebpf.Map // Deprecated: use dynamicBlacklist / 已弃用：使用 dynamicBlacklist
-	dropReasonStats  *ebpf.Map // Deprecated: use topDropMap / 已弃用：使用 topDropMap
-	passReasonStats  *ebpf.Map // Deprecated: use topPassMap / 已弃用：使用 topPassMap
+	lockList        *ebpf.Map // Deprecated: use staticBlacklist / 已弃用：使用 staticBlacklist
+	dynLockList     *ebpf.Map // Deprecated: use dynamicBlacklist / 已弃用：使用 dynamicBlacklist
+	dropReasonStats *ebpf.Map // Deprecated: use topDropMap / 已弃用：使用 topDropMap
+	passReasonStats *ebpf.Map // Deprecated: use topPassMap / 已弃用：使用 topPassMap
 }
 
 // Map getters / Map 获取器
@@ -169,6 +178,24 @@ func (m *Manager) JmpTable() *ebpf.Map {
 // XskMap 返回 AF_XDP socket Map。
 func (m *Manager) XskMap() *ebpf.Map {
 	return m.xskMap
+}
+
+// StatsCache returns the statistics cache.
+// StatsCache 返回统计缓存。
+func (m *Manager) StatsCache() *StatsCache {
+	return m.statsCache
+}
+
+// IncrementalUpdater returns the incremental updater.
+// IncrementalUpdater 返回增量更新器。
+func (m *Manager) IncrementalUpdater() *IncrementalUpdater {
+	return m.incrementalUpdater
+}
+
+// PerfStats returns the performance statistics tracker.
+// PerfStats 返回性能统计跟踪器。
+func (m *Manager) PerfStats() interface{} {
+	return m.perfStats
 }
 
 // Backward compatibility getters (deprecated) / 向后兼容获取器（已弃用）

@@ -15,13 +15,20 @@
 | `conntrack` | 无 | 查看当前内核中的活跃连接追踪表 |
 | `rule add` | `<IP> [port] <allow/deny>` | 添加 IP 或 IP+端口 规则 |
 | `rule list` | `rules / conntrack` | 查看规则列表或连接列表 |
+| `rule import` | `[type] <file>` | 导入规则（支持文本/JSON/YAML） |
+| `rule export` | `<file> [--format]` | 导出规则到文件（支持 JSON/YAML/CSV） |
 | `limit add` | `<IP> <rate> <burst>` | 为指定 IP 设置 PPS 限速 |
 | `limit remove`| `<IP>` | 移除限速规则 |
 | `limit list` | 无 | 查看所有限速规则 |
 | `lock` | `<IP>` | 快捷命令：全局封禁指定 IP |
 | `allow` | `<IP> [port]` | 快捷命令：将 IP 加入白名单 |
 | `system sync` | `to-config / to-map` | 同步内存规则到配置文件，或从配置文件加载到内存 |
-| `rule import` | `deny <file>` | 批量导入 IP 黑名单文件 |
+| `system status`| 无 | 查看系统状态和统计信息 |
+| `perf show` | 无 | 显示所有性能统计信息 |
+| `perf latency` | 无 | 显示 Map 操作延迟统计 |
+| `perf cache` | 无 | 显示缓存命中率统计 |
+| `perf traffic` | 无 | 显示实时流量统计 |
+| `perf reset` | 无 | 重置性能统计计数器 |
 | `web` | `start / stop` | 管理 Web 控制台服务 |
 
 ---
@@ -127,13 +134,20 @@ sudo netxfw reload xdp
   ```
 
 ### 8. 批量导入 (import)
-支持从文本文件批量导入 IP 黑名单规则。支持 IPv4 和 IPv6，会自动识别并处理 CIDR 网段。
+支持从文本文件或结构化文件（JSON/YAML）批量导入规则。
 
+#### 文本格式导入
 ```bash
-# 从 blacklist.txt 导入黑名单
+# 导入黑名单（每行一个 IP 或网段）
 sudo netxfw rule import deny blacklist.txt
+
+# 导入白名单（每行一个 IP 或网段）
+sudo netxfw rule import allow whitelist.txt
+
+# 导入 IP+端口规则（每行格式：IP:Port:Action）
+sudo netxfw rule import rules ipport.txt
 ```
-**文件格式示例**：
+**文本文件格式示例**：
 ```text
 # 每行一个 IP 或网段
 1.2.3.4
@@ -141,7 +155,76 @@ sudo netxfw rule import deny blacklist.txt
 2001:db8::1
 ```
 
-### 9. 插件管理 (plugin)
+#### JSON/YAML 格式导入
+支持导入 `rule export` 导出的结构化文件，实现规则备份与恢复的完整闭环。
+
+```bash
+# 从 JSON 文件导入所有规则
+sudo netxfw rule import all rules.json
+
+# 从 YAML 文件导入所有规则
+sudo netxfw rule import all rules.yaml
+```
+**JSON 文件格式示例**：
+```json
+{
+  "blacklist": [
+    {"type": "blacklist", "ip": "10.0.0.1"},
+    {"type": "blacklist", "ip": "192.168.0.0/24"}
+  ],
+  "whitelist": [
+    {"type": "whitelist", "ip": "127.0.0.1/32"}
+  ],
+  "ipport_rules": [
+    {"type": "ipport", "ip": "192.168.1.1", "port": 80, "action": "allow"},
+    {"type": "ipport", "ip": "10.0.0.2", "port": 443, "action": "deny"}
+  ]
+}
+```
+
+### 9. 规则导出 (export)
+支持将当前所有防火墙规则导出为 JSON、YAML 或 CSV 格式的文件。
+
+```bash
+# 导出为 JSON 格式（默认）
+sudo netxfw rule export rules.json
+
+# 导出为 YAML 格式
+sudo netxfw rule export rules.yaml --format yaml
+
+# 导出为 CSV 格式
+sudo netxfw rule export rules.csv --format csv
+```
+**导出内容包含**：
+- 黑名单列表
+- 白名单列表
+- IP+端口规则
+
+### 10. 性能监控 (perf)
+提供实时性能监控功能，包括 Map 操作延迟、缓存命中率和流量统计。
+
+```bash
+# 显示所有性能统计信息
+sudo netxfw perf show
+
+# 显示 Map 操作延迟统计
+sudo netxfw perf latency
+
+# 显示缓存命中率统计
+sudo netxfw perf cache
+
+# 显示实时流量统计
+sudo netxfw perf traffic
+
+# 重置性能统计计数器
+sudo netxfw perf reset
+```
+**性能统计包含**：
+- **Map 操作延迟**：记录各类 BPF Map 操作的延迟统计（读/写/删除/迭代）
+- **缓存命中率**：统计全局统计、丢弃详情、通过详情、Map 计数等缓存命中情况
+- **实时流量**：显示当前/峰值/平均 PPS、BPS、丢弃率等流量指标
+
+### 11. 插件管理 (plugin)
 允许在不停止防火墙的情况下，动态扩展数据包处理逻辑。
 - **加载插件**：
   ```bash

@@ -1,17 +1,7 @@
 package sdk
 
-// ConntrackAPI defines methods for connection tracking operations.
-// ConntrackAPI 定义了连接跟踪操作的方法。
-type ConntrackAPI interface {
-	// List returns all active connections.
-	// List 返回所有活动连接。
-	List() ([]ConntrackEntry, error)
-
-	// Count returns the number of active connections.
-	// Count 返回活动连接的数量。
-	Count() (int, error)
-}
-
+// conntrackImpl implements ConntrackAPI interface.
+// conntrackImpl 实现 ConntrackAPI 接口。
 type conntrackImpl struct {
 	mgr ManagerInterface
 }

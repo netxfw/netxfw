@@ -93,6 +93,9 @@ func (s *Server) Handler() http.Handler {
 	// Health check endpoint
 	// 健康检查端点
 	mux.HandleFunc("/healthz", s.handleHealthz)
+	mux.HandleFunc("/health", s.handleHealth)
+	mux.HandleFunc("/health/maps", s.handleHealthMaps)
+	mux.HandleFunc("/health/map", s.handleHealthMap)
 
 	// Version endpoint
 	// 版本端点
@@ -105,6 +108,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/sync", s.handleSync)
 	mux.HandleFunc("/api/conntrack", s.handleConntrack)
+
+	// Performance monitoring API routes
+	// 性能监控 API 路由
+	mux.HandleFunc("/api/perf", s.handlePerfStats)
+	mux.HandleFunc("/api/perf/latency", s.handlePerfLatency)
+	mux.HandleFunc("/api/perf/cache", s.handlePerfCache)
+	mux.HandleFunc("/api/perf/traffic", s.handlePerfTraffic)
+	mux.HandleFunc("/api/perf/reset", s.handlePerfReset)
 
 	// UI Route
 	// UI 路由

@@ -2,8 +2,11 @@
 #
 
 # Cluster Configuration / 集群配置
+# Default cluster config file path / 默认集群配置文件路径
 cluster:
   enabled: false
+  configpath: "cluster.yaml"
+
 # Base Configuration / 基础配置
 base:
   # Default Deny Policy: If true, all traffic not explicitly allowed is dropped.
@@ -71,21 +74,26 @@ base:
   # Pprof Port: Port for pprof server (localhost only).
   # Pprof 端口：pprof 服务器端口（仅限本地主机）。
   pprof_port: 6060
+
 # Web Server Configuration / Web 服务器配置
 web:
   enabled: false
-  port: 0
+  port: 11811
   token: ""
+
 # Metrics Configuration / 监控指标配置
+# When metrics.enabled = false, metrics are served via web server at /metrics path
+# 当 metrics.enabled = false 时，指标通过 web 服务器的 /metrics 路径提供
 metrics:
   enabled: false
-  server_enabled: true
+  server_enabled: false
   port: 11812
   push_enabled: false
   push_gateway_addr: ""
   push_interval: 1m
   textfile_enabled: false
   textfile_path: ""
+
 # Port Configuration / 端口配置
 port:
   # Allowed Ports: List of allowed destination ports (TCP/UDP).
@@ -98,21 +106,15 @@ port:
   ip_port_rules:
     - ip: 0.0.0.0/0
       port: 7070
-      action: 2
-      # Example / 示例:
-      # - ip: "192.168.1.100"
-      #   port: 80
-      #   action: 1  # 1: Allow, 2: Deny
-  # Example / 示例:
-  # - ip: "192.168.1.100"
-  #   port: 80
-  #   action: 1  # 1: Allow, 2: Deny
+      action: 2  # 1: Allow, 2: Deny
+
 # Conntrack Configuration / 连接跟踪配置
 conntrack:
   enabled: true
   max_entries: 100000
   tcp_timeout: 1h
   udp_timeout: 5m
+
 # Rate Limit Configuration / 速率限制配置
 rate_limit:
   enabled: false
@@ -125,12 +127,11 @@ rate_limit:
   # - ip: "10.0.0.0/24"
   #   rate: 1000
   #   burst: 2000
+
 # Log Engine Configuration / 日志引擎配置
 log_engine:
   enabled: true
   workers: 4
-  # files: [] # Deprecated: Files are now automatically detected from rules
-  # 弃用：文件列表现在根据规则自动检测
 
   rules:
     # 1. Non-Root User Login Attempt -> Block Immediately
@@ -138,33 +139,18 @@ log_engine:
     - id: "block_non_root_strict"
       path: "/var/log/auth.log"
       expression: '(log("password for") || log("Invalid user")) && !log("root")'
-      action: 2 # Static Block
+      action: 2  # Static Block
 
     # 2. Root User Failed Login -> Block after 2 failures (on 3rd attempt)
     # 2. Root 用户登录失败 -> 2次失败后封禁（第3次尝试时）
     - id: "block_root_failed"
       path: "/var/log/auth.log"
       expression: 'log("Failed") && log("root") && time(60) > 2'
-      action: 2 # Static Block
-  # Example 1: SSH Brute Force Protection / 示例 1：SSH 防爆破
-  # - id: "ssh_brute_force"
-  #   path: "/var/log/auth.log"
-  #   # Expression Syntax / 表达式语法:
-  #   # log("pattern")  -> Case-insensitive match / 不区分大小写匹配
-  #   # logE("pattern") -> Case-sensitive match (Exact) / 区分大小写匹配 (精确)
-  #   # time(seconds)   -> Count occurrences in last N seconds / 过去 N 秒内的计数
-  #   #   expression: 'log("Failed password") && log("root") && time(60) > 5'
-  #   #   action: "block"   # Actions: 0="log", 1="block" (dynamic), 2="static" (permanent)
-  #   #   ttl: "10m"        # Block duration / 封禁时长
-# Example 2: Nginx 404 Flood / 示例 2：Nginx 404 洪水攻击
-# - id: "nginx_404_flood"
-#   path: "/var/log/nginx/access.log"
-#   expression: 'log(" 404 ") && time(10) > 20'
-#   action: "block"
-#   ttl: "1h"
+      action: 2  # Static Block
 
 # Capacity Configuration / 容量配置
 # Adjust these based on your system memory and requirements.
+# 根据您的系统内存和需求进行调整。
 capacity:
   lock_list: 2000000
   dyn_lock_list: 0
@@ -176,21 +162,31 @@ capacity:
   # 用于 top IP / top port 分析，使用 LRU_HASH 自动淘汰
   drop_reason_stats: 1000000  # 1 million entries / 100 万条目
   pass_reason_stats: 1000000  # 1 million entries / 100 万条目
+
+# MCP Configuration / MCP 配置
 mcp:
   enabled: false
-  port: 11812
-  token: a5b841911227b9b6ed4f4ead4221346e
-  read_only: false
-  cors: []
-  webhook_url: ""
-  alert_threshold: 0
-  enforce_safety: false
-  anonymize_logs: false
+  port: 11814
+  mode: sse  # "stdio" or "sse"
+
+# AI Configuration / AI 配置
 ai:
   enabled: false
-  model_type: ""
-  auto_defense: false
-  check_interval: ""
-  tinyml:
-    enabled: false
-    threshold: 0
+  port: 11813
+  model: ""
+  api_key: ""
+  base_url: ""
+
+# Logging Configuration / 日志配置
+logging:
+  enabled: false
+  # Log file path / 日志文件路径
+  path: "/var/log/netxfw/agent.log"
+  # Max size in MB before rotation / 轮转前的最大大小 (MB)
+  max_size: 10
+  # Max number of old files to keep / 保留的旧文件最大数量
+  max_backups: 3
+  # Max number of days to keep old files / 保留旧文件的最大天数
+  max_age: 30
+  # Whether to compress old files / 是否压缩旧文件
+  compress: true

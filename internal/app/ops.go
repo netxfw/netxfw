@@ -337,8 +337,31 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 		if oldManager.MatchesCapacity(globalCfg.Capacity) {
 			log.Info("⚡ Capacity unchanged. Performing incremental hot-reload...")
 
-			// Apply new configurations to existing maps
-			// 将新配置应用到现有 Map
+			// Load old configuration for diff comparison
+			// 加载旧配置用于差异比较
+			oldCfg := cfgManager.GetConfig()
+
+			// Use incremental updater to compute and apply changes
+			// 使用增量更新器计算并应用变更
+			updater := oldManager.IncrementalUpdater()
+			if updater != nil {
+				diff, diffErr := updater.ComputeDiff(oldCfg, globalCfg)
+				if diffErr != nil {
+					log.Warnf("⚠️  Failed to compute config diff: %v", diffErr)
+				} else if diff.HasChanges() {
+					log.Infof("📊 Config changes detected: %s", diff.Summary())
+					if err := updater.ApplyDiff(diff); err != nil {
+						log.Warnf("⚠️  Incremental update had errors: %v", err)
+					} else {
+						log.Info("✅ Incremental config update applied successfully")
+					}
+				} else {
+					log.Info("ℹ️  No config changes detected")
+				}
+			}
+
+			// Apply new configurations to existing maps via plugins
+			// 通过插件将新配置应用到现有 Map
 			for _, p := range plugins.GetPlugins() {
 				if err := p.Init(pluginCtx); err != nil {
 					log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
