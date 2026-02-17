@@ -139,15 +139,24 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
         }
     }
 
-    // 1. Whitelist (Unified)
-    // 1. 白名单（统一）
+    // 1. Critical Blacklist (highest priority, emergency blocks)
+    // 1. 危机黑名单（最高优先级，紧急封锁）
+    struct rule_value *critical = bpf_map_lookup_elem(&critical_blacklist, &ip6->saddr);
+    if (unlikely(critical)) {
+        __sync_fetch_and_add(&critical->counter, 1);
+        update_drop_stats_with_reason(DROP_REASON_BLACKLIST, next_proto, &ip6->saddr, dest_port);
+        return XDP_DROP;
+    }
+
+    // 2. Whitelist (Unified)
+    // 2. 白名单（统一）
     if (unlikely(is_whitelisted(&ip6->saddr, dest_port))) {
         update_pass_stats_with_reason(PASS_REASON_WHITELIST, next_proto, &ip6->saddr, dest_port);
         return XDP_PASS;
     }
 
-    // 2. Lock list (Unified)
-    // 2. 锁定列表（统一）
+    // 3. Blacklist (static + dynamic)
+    // 3. 黑名单（静态 + 动态）
     struct rule_value *cnt = get_blacklist_stats(&ip6->saddr);
     if (unlikely(cnt)) {
         __sync_fetch_and_add(&cnt->counter, 1);
@@ -155,8 +164,8 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
         return XDP_DROP;
     }
 
-    // 2.5 Rate limit & SYN Flood protection (Unified)
-    // 2.5 速率限制和 SYN Flood 保护（统一）
+    // 4. Rate limit & SYN Flood protection (Unified)
+    // 4. 速率限制和 SYN Flood 保护（统一）
     if (likely(cached_ratelimit_enabled == 1)) {
         int is_syn = (next_proto == IPPROTO_TCP && (tcp_flags & 0x02));
         
@@ -168,8 +177,8 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
         }
     }
 
-    // 3. Conntrack (Unified)
-    // 3. 连接跟踪（统一）
+    // 5. Conntrack (Unified)
+    // 5. 连接跟踪（统一）
     if (likely(cached_ct_enabled == 1)) {
         struct ct_key look_key = {
             .src_ip = ip6->daddr, 
@@ -185,8 +194,8 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
         }
     }
 
-    // 4. IP+Port rules (Unified)
-    // 4. IP+端口规则（统一）
+    // 6. IP+Port rules (Unified)
+    // 6. IP+端口规则（统一）
     if (dest_port > 0) {
         int rule_action = check_ip_port_rule(&ip6->saddr, dest_port);
         if (unlikely(rule_action == 1)) {
@@ -199,8 +208,8 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
         }
     }
 
-    // 5. ICMPv6
-    // 5. ICMPv6
+    // 7. ICMPv6
+    // 7. ICMPv6
     if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6 && cached_allow_icmp == 1)) {
         if (likely(check_icmp_limit(cached_icmp_rate, cached_icmp_burst))) {
             update_pass_stats_with_reason(PASS_REASON_WHITELIST, next_proto, &ip6->saddr, dest_port);
@@ -210,8 +219,8 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
         return XDP_DROP;
     }
 
-    // 6. Return traffic
-    // 6. 返回流量
+    // 8. Return traffic
+    // 8. 返回流量
     if (unlikely(cached_allow_return == 1 && cached_ct_enabled == 0)) {
         if (ip6->nexthdr == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
@@ -225,8 +234,8 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
         }
     }
 
-    // 7. Default Deny / Port Whitelist
-    // 7. 默认拒绝 / 端口白名单
+    // 9. Default Deny / Port Whitelist
+    // 9. 默认拒绝 / 端口白名单
     if (likely(dest_port > 0 && cached_default_deny == 1)) {
         if (likely(bpf_map_lookup_elem(&allowed_ports, &dest_port))) {
             update_pass_stats_with_reason(PASS_REASON_WHITELIST, next_proto, &ip6->saddr, dest_port);
