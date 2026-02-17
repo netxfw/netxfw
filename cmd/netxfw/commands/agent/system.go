@@ -241,7 +241,12 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 
 	// Show drop statistics
 	// 显示丢弃统计
-	fmt.Printf("\n📊 Global Drop Count: %d packets \n", drops)
+	totalPackets := pass + drops
+	dropPercent := float64(0)
+	if totalPackets > 0 {
+		dropPercent = float64(drops) / float64(totalPackets) * 100
+	}
+	fmt.Printf("\n📊 Global Drop Count: %d packets (%.2f%%)\n", drops, dropPercent)
 
 	// Show detailed drop stats
 	// 显示详细丢弃统计
@@ -261,17 +266,22 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 		}
 
 		fmt.Println("\n   🚫 Top Drops by Reason & Source:")
-		fmt.Printf("   %-20s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
-		fmt.Printf("   %s\n", strings.Repeat("-", 90))
+		fmt.Printf("   %-20s %-8s %-40s %-8s %-10s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count", "Percent")
+		fmt.Printf("   %s\n", strings.Repeat("-", 100))
 
 		for i := 0; i < maxShow; i++ {
 			d := dropDetails[i]
-			fmt.Printf("   %-20s %-8s %-40s %-8d %d\n",
+			percent := float64(0)
+			if drops > 0 {
+				percent = float64(d.Count) / float64(drops) * 100
+			}
+			fmt.Printf("   %-20s %-8s %-40s %-8d %-10d %.2f%%\n",
 				dropReasonToString(d.Reason),
 				protocolToString(d.Protocol),
 				d.SrcIP,
 				d.DstPort,
-				d.Count)
+				d.Count,
+				percent)
 		}
 		if len(dropDetails) > 10 {
 			fmt.Printf("   ... and more\n")
@@ -287,14 +297,22 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 		if len(dropReasonSummary) > 0 {
 			fmt.Println("\n   📈 Drop Reason Summary:")
 			for reason, count := range dropReasonSummary {
-				fmt.Printf("      %s: %d\n", reason, count)
+				percent := float64(0)
+				if drops > 0 {
+					percent = float64(count) / float64(drops) * 100
+				}
+				fmt.Printf("      %s: %d (%.2f%%)\n", reason, count, percent)
 			}
 		}
 	}
 
 	// Show pass statistics
 	// 显示通过统计
-	fmt.Printf("\n📊 Global Pass Count: %d packets \n", pass)
+	passPercent := float64(0)
+	if totalPackets > 0 {
+		passPercent = float64(pass) / float64(totalPackets) * 100
+	}
+	fmt.Printf("\n📊 Global Pass Count: %d packets (%.2f%%)\n", pass, passPercent)
 
 	// Show detailed pass stats
 	// 显示详细通过统计
@@ -314,17 +332,22 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 		}
 
 		fmt.Println("\n   ✅ Top Allowed by Reason & Source:")
-		fmt.Printf("   %-20s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
-		fmt.Printf("   %s\n", strings.Repeat("-", 90))
+		fmt.Printf("   %-20s %-8s %-40s %-8s %-10s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count", "Percent")
+		fmt.Printf("   %s\n", strings.Repeat("-", 100))
 
 		for i := 0; i < maxShow; i++ {
 			d := passDetails[i]
-			fmt.Printf("   %-20s %-8s %-40s %-8d %d\n",
+			percent := float64(0)
+			if pass > 0 {
+				percent = float64(d.Count) / float64(pass) * 100
+			}
+			fmt.Printf("   %-20s %-8s %-40s %-8d %-10d %.2f%%\n",
 				passReasonToString(d.Reason),
 				protocolToString(d.Protocol),
 				d.SrcIP,
 				d.DstPort,
-				d.Count)
+				d.Count,
+				percent)
 		}
 		if len(passDetails) > 10 {
 			fmt.Printf("   ... and more\n")
@@ -340,7 +363,11 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 		if len(passReasonSummary) > 0 {
 			fmt.Println("\n   📈 Pass Reason Summary:")
 			for reason, count := range passReasonSummary {
-				fmt.Printf("      %s: %d\n", reason, count)
+				percent := float64(0)
+				if pass > 0 {
+					percent = float64(count) / float64(pass) * 100
+				}
+				fmt.Printf("      %s: %d (%.2f%%)\n", reason, count, percent)
 			}
 		}
 	}
