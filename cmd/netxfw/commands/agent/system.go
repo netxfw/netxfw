@@ -100,6 +100,24 @@ var systemLoadCmd = &cobra.Command{
 	},
 }
 
+var systemReloadCmd = &cobra.Command{
+	Use:   "reload",
+	Short: "Hot-reload XDP program with new configuration",
+	// Short: 使用新配置热重载 XDP 程序
+	Long: `Hot-reload XDP program: applies new configuration without dropping connections.
+Supports capacity changes with state migration.`,
+	// Long: 热重载 XDP 程序：应用新配置而不中断连接。支持容量变更时的状态迁移。
+	Run: func(cmd *cobra.Command, args []string) {
+		common.EnsureStandaloneMode()
+
+		if err := app.ReloadXDP(cmd.Context(), interfaces); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+		fmt.Println("✅ XDP program reloaded successfully")
+	},
+}
+
 func init() {
 	SystemCmd.AddCommand(systemInitCmd)
 	SystemCmd.AddCommand(systemStatusCmd)
@@ -108,6 +126,9 @@ func init() {
 
 	systemLoadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to attach XDP to")
 	SystemCmd.AddCommand(systemLoadCmd)
+
+	systemReloadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to attach XDP to")
+	SystemCmd.AddCommand(systemReloadCmd)
 }
 
 func showStatus(ctx context.Context, s *sdk.SDK) error {
