@@ -17,99 +17,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Drop reason codes / 丢弃原因码
-const (
-	DROP_REASON_UNKNOWN     = 0
-	DROP_REASON_INVALID     = 1
-	DROP_REASON_PROTOCOL    = 2
-	DROP_REASON_BLACKLIST   = 3
-	DROP_REASON_RATELIMIT   = 4
-	DROP_REASON_STRICT_TCP  = 5
-	DROP_REASON_DEFAULT     = 6
-	DROP_REASON_LAND_ATTACK = 7
-	DROP_REASON_BOGON       = 8
-	DROP_REASON_FRAGMENT    = 9
-	DROP_REASON_BAD_HEADER  = 10
-	DROP_REASON_TCP_FLAGS   = 11
-	DROP_REASON_SPOOF       = 12
-)
-
-// Pass reason codes / 通过原因码
-const (
-	PASS_REASON_UNKNOWN   = 100
-	PASS_REASON_WHITELIST = 101
-	PASS_REASON_RETURN    = 102
-	PASS_REASON_CONNTRACK = 103
-	PASS_REASON_DEFAULT   = 104
-)
-
-// dropReasonToString maps drop reason codes to human-readable strings
-// dropReasonToString 将丢弃原因码映射为可读字符串
-func dropReasonToString(reason uint32) string {
-	switch reason {
-	case DROP_REASON_BLACKLIST:
-		return "BLACKLIST"
-	case DROP_REASON_RATELIMIT:
-		return "RATELIMIT"
-	case DROP_REASON_DEFAULT:
-		return "DEFAULT_DENY"
-	case DROP_REASON_INVALID:
-		return "INVALID"
-	case DROP_REASON_PROTOCOL:
-		return "PROTOCOL"
-	case DROP_REASON_STRICT_TCP:
-		return "STRICT_TCP"
-	case DROP_REASON_LAND_ATTACK:
-		return "LAND_ATTACK"
-	case DROP_REASON_BOGON:
-		return "BOGON"
-	case DROP_REASON_FRAGMENT:
-		return "FRAGMENT"
-	case DROP_REASON_BAD_HEADER:
-		return "BAD_HEADER"
-	case DROP_REASON_TCP_FLAGS:
-		return "TCP_FLAGS"
-	case DROP_REASON_SPOOF:
-		return "SPOOF"
-	default:
-		return "UNKNOWN"
-	}
-}
-
-// passReasonToString maps pass reason codes to human-readable strings
-// passReasonToString 将通过原因码映射为可读字符串
-func passReasonToString(reason uint32) string {
-	switch reason {
-	case PASS_REASON_WHITELIST:
-		return "WHITELIST"
-	case PASS_REASON_RETURN:
-		return "RETURN"
-	case PASS_REASON_CONNTRACK:
-		return "CONNTRACK"
-	case PASS_REASON_DEFAULT:
-		return "DEFAULT"
-	default:
-		return "UNKNOWN"
-	}
-}
-
-// protocolToString maps protocol numbers to human-readable strings
-// protocolToString 将协议号映射为可读字符串
-func protocolToString(proto uint8) string {
-	switch proto {
-	case 6:
-		return "TCP"
-	case 17:
-		return "UDP"
-	case 1:
-		return "ICMP"
-	case 58:
-		return "ICMPv6"
-	default:
-		return fmt.Sprintf("%d", proto)
-	}
-}
-
 var SystemCmd = &cobra.Command{
 	Use:   "system",
 	Short: "System management commands",
@@ -226,6 +133,8 @@ func init() {
 	SystemCmd.AddCommand(systemReloadCmd)
 }
 
+// showStatus displays the system status including statistics and configuration
+// showStatus 显示系统状态，包括统计信息和配置
 func showStatus(ctx context.Context, s *sdk.SDK) error {
 	fmt.Println("✅ XDP Program Status: Loaded and Running")
 
@@ -241,6 +150,30 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 
 	// Show drop statistics
 	// 显示丢弃统计
+	showDropStatistics(s, drops, pass)
+
+	// Show pass statistics
+	// 显示通过统计
+	showPassStatistics(s, pass, drops)
+
+	// Map statistics
+	// Map 统计
+	showMapStatistics(mgr)
+
+	// Load configuration for policy display
+	// 加载配置以显示策略
+	showPolicyConfiguration()
+
+	// Show attached interfaces
+	// 显示已附加的接口
+	showAttachedInterfaces()
+
+	return nil
+}
+
+// showDropStatistics displays drop statistics with percentages
+// showDropStatistics 显示带百分比的丢弃统计
+func showDropStatistics(s *sdk.SDK, drops, pass uint64) {
 	totalPackets := pass + drops
 	dropPercent := float64(0)
 	if totalPackets > 0 {
@@ -289,25 +222,34 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 
 		// Show drop reason summary
 		// 显示丢弃原因汇总
-		dropReasonSummary := make(map[string]uint64)
-		for _, d := range dropDetails {
-			reason := dropReasonToString(d.Reason)
-			dropReasonSummary[reason] += d.Count
-		}
-		if len(dropReasonSummary) > 0 {
-			fmt.Println("\n   📈 Drop Reason Summary:")
-			for reason, count := range dropReasonSummary {
-				percent := float64(0)
-				if drops > 0 {
-					percent = float64(count) / float64(drops) * 100
-				}
-				fmt.Printf("      %s: %d (%.2f%%)\n", reason, count, percent)
+		showDropReasonSummary(dropDetails, drops)
+	}
+}
+
+// showDropReasonSummary displays a summary of drop reasons
+// showDropReasonSummary 显示丢弃原因汇总
+func showDropReasonSummary(dropDetails []sdk.DropDetailEntry, drops uint64) {
+	dropReasonSummary := make(map[string]uint64)
+	for _, d := range dropDetails {
+		reason := dropReasonToString(d.Reason)
+		dropReasonSummary[reason] += d.Count
+	}
+	if len(dropReasonSummary) > 0 {
+		fmt.Println("\n   📈 Drop Reason Summary:")
+		for reason, count := range dropReasonSummary {
+			percent := float64(0)
+			if drops > 0 {
+				percent = float64(count) / float64(drops) * 100
 			}
+			fmt.Printf("      %s: %d (%.2f%%)\n", reason, count, percent)
 		}
 	}
+}
 
-	// Show pass statistics
-	// 显示通过统计
+// showPassStatistics displays pass statistics with percentages
+// showPassStatistics 显示带百分比的通过统计
+func showPassStatistics(s *sdk.SDK, pass, drops uint64) {
+	totalPackets := pass + drops
 	passPercent := float64(0)
 	if totalPackets > 0 {
 		passPercent = float64(pass) / float64(totalPackets) * 100
@@ -355,25 +297,33 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 
 		// Show pass reason summary
 		// 显示通过原因汇总
-		passReasonSummary := make(map[string]uint64)
-		for _, d := range passDetails {
-			reason := passReasonToString(d.Reason)
-			passReasonSummary[reason] += d.Count
-		}
-		if len(passReasonSummary) > 0 {
-			fmt.Println("\n   📈 Pass Reason Summary:")
-			for reason, count := range passReasonSummary {
-				percent := float64(0)
-				if pass > 0 {
-					percent = float64(count) / float64(pass) * 100
-				}
-				fmt.Printf("      %s: %d (%.2f%%)\n", reason, count, percent)
+		showPassReasonSummary(passDetails, pass)
+	}
+}
+
+// showPassReasonSummary displays a summary of pass reasons
+// showPassReasonSummary 显示通过原因汇总
+func showPassReasonSummary(passDetails []sdk.DropDetailEntry, pass uint64) {
+	passReasonSummary := make(map[string]uint64)
+	for _, d := range passDetails {
+		reason := passReasonToString(d.Reason)
+		passReasonSummary[reason] += d.Count
+	}
+	if len(passReasonSummary) > 0 {
+		fmt.Println("\n   📈 Pass Reason Summary:")
+		for reason, count := range passReasonSummary {
+			percent := float64(0)
+			if pass > 0 {
+				percent = float64(count) / float64(pass) * 100
 			}
+			fmt.Printf("      %s: %d (%.2f%%)\n", reason, count, percent)
 		}
 	}
+}
 
-	// Map statistics
-	// Map 统计
+// showMapStatistics displays BPF map statistics
+// showMapStatistics 显示 BPF Map 统计
+func showMapStatistics(mgr sdk.ManagerInterface) {
 	fmt.Println()
 	fmt.Println("📦 Map Statistics:")
 
@@ -403,109 +353,117 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 	// 速率限制规则
 	rateLimitRules, _, _ := mgr.ListRateLimitRules(0, "")
 	fmt.Printf("   └─ ⏱️  Rate Limit Rules: %d\n", len(rateLimitRules))
+}
 
-	// Load configuration for policy display
-	// 加载配置以显示策略
+// showPolicyConfiguration displays policy configuration
+// showPolicyConfiguration 显示策略配置
+func showPolicyConfiguration() {
 	cfgManager := config.GetConfigManager()
-	if err := cfgManager.LoadConfig(); err == nil {
-		cfg := cfgManager.GetConfig()
-		if cfg != nil {
-			fmt.Println()
-			fmt.Println("⚙️  Policy Configuration:")
-
-			// Default deny policy
-			// 默认拒绝策略
-			if cfg.Base.DefaultDeny {
-				fmt.Println("   ├─ 🛡️  Default Deny: Enabled (Deny by default)")
-			} else {
-				fmt.Println("   ├─ 🛡️  Default Deny: Disabled (Allow by default)")
-			}
-
-			// Return traffic
-			// 回程流量
-			if cfg.Base.AllowReturnTraffic {
-				fmt.Println("   ├─ 🔄 Allow Return Traffic: Enabled")
-			} else {
-				fmt.Println("   ├─ 🔄 Allow Return Traffic: Disabled")
-			}
-
-			// ICMP
-			// ICMP
-			if cfg.Base.AllowICMP {
-				fmt.Println("   ├─ 🏓 Allow ICMP (Ping): Enabled")
-			} else {
-				fmt.Println("   ├─ 🏓 Allow ICMP (Ping): Disabled")
-			}
-
-			// Strict TCP
-			// 严格 TCP
-			if cfg.Base.StrictTCP {
-				fmt.Println("   ├─ 🔒 Strict TCP: Enabled")
-			} else {
-				fmt.Println("   ├─ 🔒 Strict TCP: Disabled")
-			}
-
-			// SYN Limit
-			// SYN 限制
-			if cfg.Base.SYNLimit {
-				fmt.Println("   ├─ 🚧 SYN Flood Protection: Enabled")
-			} else {
-				fmt.Println("   ├─ 🚧 SYN Flood Protection: Disabled")
-			}
-
-			// Bogon Filter
-			// Bogon 过滤
-			if cfg.Base.BogonFilter {
-				fmt.Println("   ├─ 🌐 Bogon Filter: Enabled")
-			} else {
-				fmt.Println("   ├─ 🌐 Bogon Filter: Disabled")
-			}
-
-			// Connection tracking
-			// 连接跟踪
-			if cfg.Conntrack.Enabled {
-				fmt.Println("   ├─ 🕵️  Connection Tracking: Enabled")
-				if cfg.Conntrack.TCPTimeout != "" {
-					fmt.Printf("   │     └─ TCP Timeout: %s\n", cfg.Conntrack.TCPTimeout)
-				}
-				if cfg.Conntrack.UDPTimeout != "" {
-					fmt.Printf("   │     └─ UDP Timeout: %s\n", cfg.Conntrack.UDPTimeout)
-				}
-			} else {
-				fmt.Println("   ├─ 🕵️  Connection Tracking: Disabled")
-			}
-
-			// Rate limiting
-			// 速率限制
-			if cfg.RateLimit.Enabled {
-				fmt.Println("   ├─ 🚀 Rate Limiting: Enabled")
-				if cfg.RateLimit.AutoBlock {
-					fmt.Printf("   │     └─ Auto Block: Enabled (Expiry: %s)\n", cfg.RateLimit.AutoBlockExpiry)
-				}
-			} else {
-				fmt.Println("   ├─ 🚀 Rate Limiting: Disabled")
-			}
-
-			// Log Engine
-			// 日志引擎
-			if cfg.LogEngine.Enabled {
-				fmt.Printf("   ├─ 📝 Log Engine: Enabled (%d rules)\n", len(cfg.LogEngine.Rules))
-			} else {
-				fmt.Println("   ├─ � Log Engine: Disabled")
-			}
-
-			// Web Interface
-			// Web 界面
-			if cfg.Web.Enabled {
-				fmt.Printf("   └─ 🌐 Web Interface: Enabled (Port: %d)\n", cfg.Web.Port)
-			} else {
-				fmt.Println("   └─ 🌐 Web Interface: Disabled")
-			}
-		}
+	if err := cfgManager.LoadConfig(); err != nil {
+		return
 	}
 
-	// Show attached interfaces
-	// 显示已附加的接口
+	cfg := cfgManager.GetConfig()
+	if cfg == nil {
+		return
+	}
+
+	fmt.Println()
+	fmt.Println("⚙️  Policy Configuration:")
+
+	// Default deny policy
+	// 默认拒绝策略
+	if cfg.Base.DefaultDeny {
+		fmt.Println("   ├─ 🛡️  Default Deny: Enabled (Deny by default)")
+	} else {
+		fmt.Println("   ├─ 🛡️  Default Deny: Disabled (Allow by default)")
+	}
+
+	// Return traffic
+	// 回程流量
+	if cfg.Base.AllowReturnTraffic {
+		fmt.Println("   ├─ 🔄 Allow Return Traffic: Enabled")
+	} else {
+		fmt.Println("   ├─ 🔄 Allow Return Traffic: Disabled")
+	}
+
+	// ICMP
+	// ICMP
+	if cfg.Base.AllowICMP {
+		fmt.Println("   ├─ 🏓 Allow ICMP (Ping): Enabled")
+	} else {
+		fmt.Println("   ├─ 🏓 Allow ICMP (Ping): Disabled")
+	}
+
+	// Strict TCP
+	// 严格 TCP
+	if cfg.Base.StrictTCP {
+		fmt.Println("   ├─ 🔒 Strict TCP: Enabled")
+	} else {
+		fmt.Println("   ├─ 🔒 Strict TCP: Disabled")
+	}
+
+	// SYN Limit
+	// SYN 限制
+	if cfg.Base.SYNLimit {
+		fmt.Println("   ├─ 🚧 SYN Flood Protection: Enabled")
+	} else {
+		fmt.Println("   ├─ 🚧 SYN Flood Protection: Disabled")
+	}
+
+	// Bogon Filter
+	// Bogon 过滤
+	if cfg.Base.BogonFilter {
+		fmt.Println("   ├─ 🌐 Bogon Filter: Enabled")
+	} else {
+		fmt.Println("   ├─ 🌐 Bogon Filter: Disabled")
+	}
+
+	// Connection tracking
+	// 连接跟踪
+	if cfg.Conntrack.Enabled {
+		fmt.Println("   ├─ 🕵️  Connection Tracking: Enabled")
+		if cfg.Conntrack.TCPTimeout != "" {
+			fmt.Printf("   │     └─ TCP Timeout: %s\n", cfg.Conntrack.TCPTimeout)
+		}
+		if cfg.Conntrack.UDPTimeout != "" {
+			fmt.Printf("   │     └─ UDP Timeout: %s\n", cfg.Conntrack.UDPTimeout)
+		}
+	} else {
+		fmt.Println("   ├─ 🕵️  Connection Tracking: Disabled")
+	}
+
+	// Rate limiting
+	// 速率限制
+	if cfg.RateLimit.Enabled {
+		fmt.Println("   ├─ 🚀 Rate Limiting: Enabled")
+		if cfg.RateLimit.AutoBlock {
+			fmt.Printf("   │     └─ Auto Block: Enabled (Expiry: %s)\n", cfg.RateLimit.AutoBlockExpiry)
+		}
+	} else {
+		fmt.Println("   ├─ 🚀 Rate Limiting: Disabled")
+	}
+
+	// Log Engine
+	// 日志引擎
+	if cfg.LogEngine.Enabled {
+		fmt.Printf("   ├─ 📝 Log Engine: Enabled (%d rules)\n", len(cfg.LogEngine.Rules))
+	} else {
+		fmt.Println("   ├─ 📝 Log Engine: Disabled")
+	}
+
+	// Web Interface
+	// Web 界面
+	if cfg.Web.Enabled {
+		fmt.Printf("   └─ 🌐 Web Interface: Enabled (Port: %d)\n", cfg.Web.Port)
+	} else {
+		fmt.Println("   └─ 🌐 Web Interface: Disabled")
+	}
+}
+
+// showAttachedInterfaces displays attached network interfaces
+// showAttachedInterfaces 显示已附加的网络接口
+func showAttachedInterfaces() {
 	fmt.Println("\n🔗 Attached Interfaces:")
 	attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
 	if err == nil && len(attachedIfaces) > 0 {
@@ -515,6 +473,4 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 	} else {
 		fmt.Println("  - None")
 	}
-
-	return nil
 }
