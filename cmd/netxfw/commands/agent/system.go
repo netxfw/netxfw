@@ -133,33 +133,116 @@ func init() {
 
 func showStatus(ctx context.Context, s *sdk.SDK) error {
 	fmt.Println("✅ XDP Program Status: Loaded and Running")
+	fmt.Println()
 
-	// Get stats
+	// Get global stats
+	// 获取全局统计
 	pass, drops, err := s.Stats.GetCounters()
 	if err != nil {
 		fmt.Printf("⚠️  Could not retrieve statistics: %v\n", err)
 	} else {
-		fmt.Printf("📊 Global Drop Count: %d packets\n", drops)
-		fmt.Printf("📊 Global Pass Count: %d packets\n", pass)
+		fmt.Println("📊 Global Statistics:")
+		fmt.Printf("   ├─ Total Packets Processed: %d\n", pass+drops)
+		fmt.Printf("   ├─ Passed Packets: %d\n", pass)
+		fmt.Printf("   └─ Dropped Packets: %d\n", drops)
+	}
 
-		// Show detailed drop stats
-		details, err := s.Stats.GetDropDetails()
-		if err == nil && len(details) > 0 {
-			// Sort by count descending
-			sort.Slice(details, func(i, j int) bool {
-				return details[i].Count > details[j].Count
-			})
+	// Get map counts
+	// 获取 Map 条目数
+	fmt.Println()
+	fmt.Println("📦 Map Statistics:")
 
-			fmt.Println("\n   🚫 Top Drops by Reason & Source:")
-			fmt.Printf("   %-20s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
-			fmt.Printf("   %s\n", strings.Repeat("-", 90))
+	mgr := s.GetManager()
 
-			for _, d := range details {
-				fmt.Printf("   %-20d %-8d %-40s %-8d %d\n", d.Reason, d.Protocol, d.SrcIP, d.DstPort, d.Count)
-			}
-		} else if err != nil {
-			fmt.Printf("⚠️  Could not retrieve detailed drop statistics: %v\n", err)
+	// Blacklist count
+	// 黑名单条目数
+	blacklistCount, err := mgr.GetLockedIPCount()
+	if err == nil {
+		fmt.Printf("   ├─ Blacklist Entries: %d\n", blacklistCount)
+	}
+
+	// Dynamic blacklist count
+	// 动态黑名单条目数
+	dynBlacklist, _, err := mgr.ListDynamicBlacklistIPs(0, "")
+	if err == nil {
+		fmt.Printf("   ├─ Dynamic Blacklist Entries: %d\n", len(dynBlacklist))
+	}
+
+	// Whitelist count
+	// 白名单条目数
+	whitelistCount, err := mgr.GetWhitelistCount()
+	if err == nil {
+		fmt.Printf("   ├─ Whitelist Entries: %d\n", whitelistCount)
+	}
+
+	// Conntrack count
+	// 连接跟踪条目数
+	conntrackCount, err := mgr.GetConntrackCount()
+	if err == nil {
+		fmt.Printf("   └─ Conntrack Entries: %d\n", conntrackCount)
+	}
+
+	// Show detailed drop stats
+	// 显示详细丢弃统计
+	dropDetails, err := s.Stats.GetDropDetails()
+	if err == nil && len(dropDetails) > 0 {
+		// Sort by count descending
+		// 按计数降序排序
+		sort.Slice(dropDetails, func(i, j int) bool {
+			return dropDetails[i].Count > dropDetails[j].Count
+		})
+
+		// Limit to top 10
+		// 限制显示前 10 条
+		maxShow := 10
+		if len(dropDetails) < maxShow {
+			maxShow = len(dropDetails)
+		}
+
+		fmt.Println()
+		fmt.Printf("🚫 Top %d Drops by Reason & Source:\n", maxShow)
+		fmt.Printf("   %-8s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
+		fmt.Printf("   %s\n", strings.Repeat("-", 80))
+
+		for i := 0; i < maxShow; i++ {
+			d := dropDetails[i]
+			fmt.Printf("   %-8d %-8d %-40s %-8d %d\n", d.Reason, d.Protocol, d.SrcIP, d.DstPort, d.Count)
+		}
+		if len(dropDetails) > 10 {
+			fmt.Printf("   ... and %d more entries\n", len(dropDetails)-10)
 		}
 	}
+
+	// Show detailed pass stats
+	// 显示详细通过统计
+	passDetails, err := s.Stats.GetPassDetails()
+	if err == nil && len(passDetails) > 0 {
+		// Sort by count descending
+		// 按计数降序排序
+		sort.Slice(passDetails, func(i, j int) bool {
+			return passDetails[i].Count > passDetails[j].Count
+		})
+
+		// Limit to top 10
+		// 限制显示前 10 条
+		maxShow := 10
+		if len(passDetails) < maxShow {
+			maxShow = len(passDetails)
+		}
+
+		fmt.Println()
+		fmt.Printf("✅ Top %d Pass by Reason & Source:\n", maxShow)
+		fmt.Printf("   %-8s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
+		fmt.Printf("   %s\n", strings.Repeat("-", 80))
+
+		for i := 0; i < maxShow; i++ {
+			d := passDetails[i]
+			fmt.Printf("   %-8d %-8d %-40s %-8d %d\n", d.Reason, d.Protocol, d.SrcIP, d.DstPort, d.Count)
+		}
+		if len(passDetails) > 10 {
+			fmt.Printf("   ... and %d more entries\n", len(passDetails)-10)
+		}
+	}
+
 	return nil
 }
