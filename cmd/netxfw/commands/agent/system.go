@@ -276,6 +276,20 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 		if len(dropDetails) > 10 {
 			fmt.Printf("   ... and more\n")
 		}
+
+		// Show drop reason summary
+		// 显示丢弃原因汇总
+		dropReasonSummary := make(map[string]uint64)
+		for _, d := range dropDetails {
+			reason := dropReasonToString(d.Reason)
+			dropReasonSummary[reason] += d.Count
+		}
+		if len(dropReasonSummary) > 0 {
+			fmt.Println("\n   📈 Drop Reason Summary:")
+			for reason, count := range dropReasonSummary {
+				fmt.Printf("      %s: %d\n", reason, count)
+			}
+		}
 	}
 
 	// Show pass statistics
@@ -315,18 +329,53 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 		if len(passDetails) > 10 {
 			fmt.Printf("   ... and more\n")
 		}
+
+		// Show pass reason summary
+		// 显示通过原因汇总
+		passReasonSummary := make(map[string]uint64)
+		for _, d := range passDetails {
+			reason := passReasonToString(d.Reason)
+			passReasonSummary[reason] += d.Count
+		}
+		if len(passReasonSummary) > 0 {
+			fmt.Println("\n   📈 Pass Reason Summary:")
+			for reason, count := range passReasonSummary {
+				fmt.Printf("      %s: %d\n", reason, count)
+			}
+		}
 	}
 
 	// Map statistics
 	// Map 统计
+	fmt.Println()
+	fmt.Println("📦 Map Statistics:")
+
 	blacklistCount, _ := mgr.GetLockedIPCount()
-	fmt.Printf("\n🔒 Locked IP Count: %d addresses\n", blacklistCount)
+	fmt.Printf("   ├─ 🔒 Blacklist Entries: %d\n", blacklistCount)
+
+	dynBlacklist, _, _ := mgr.ListDynamicBlacklistIPs(0, "")
+	fmt.Printf("   ├─ 🔒 Dynamic Blacklist: %d\n", len(dynBlacklist))
 
 	whitelistCount, _ := mgr.GetWhitelistCount()
-	fmt.Printf("⚪ Whitelist Count: %d addresses\n", whitelistCount)
+	fmt.Printf("   ├─ ⚪ Whitelist Entries: %d\n", whitelistCount)
 
 	conntrackCount, _ := mgr.GetConntrackCount()
-	fmt.Printf("🕵️  Active Connections: %d\n", conntrackCount)
+	fmt.Printf("   ├─ 🕵️  Active Connections: %d\n", conntrackCount)
+
+	// IP+Port rules
+	// IP+端口规则
+	ipPortRules, _, _ := mgr.ListIPPortRules(false, 0, "")
+	fmt.Printf("   ├─ 📋 IP+Port Rules: %d\n", len(ipPortRules))
+
+	// Allowed ports
+	// 允许端口
+	allowedPorts, _ := mgr.ListAllowedPorts()
+	fmt.Printf("   ├─ 🔓 Allowed Ports: %d\n", len(allowedPorts))
+
+	// Rate limit rules
+	// 速率限制规则
+	rateLimitRules, _, _ := mgr.ListRateLimitRules(0, "")
+	fmt.Printf("   └─ ⏱️  Rate Limit Rules: %d\n", len(rateLimitRules))
 
 	// Load configuration for policy display
 	// 加载配置以显示策略
@@ -334,50 +383,96 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 	if err := cfgManager.LoadConfig(); err == nil {
 		cfg := cfgManager.GetConfig()
 		if cfg != nil {
+			fmt.Println()
+			fmt.Println("⚙️  Policy Configuration:")
+
 			// Default deny policy
 			// 默认拒绝策略
 			if cfg.Base.DefaultDeny {
-				fmt.Println("🛡️  Default Deny Policy: Enabled (Deny by default)")
+				fmt.Println("   ├─ 🛡️  Default Deny: Enabled (Deny by default)")
 			} else {
-				fmt.Println("🛡️  Default Deny Policy: Disabled (Allow by default)")
+				fmt.Println("   ├─ 🛡️  Default Deny: Disabled (Allow by default)")
 			}
 
 			// Return traffic
 			// 回程流量
 			if cfg.Base.AllowReturnTraffic {
-				fmt.Println("🔄 Allow Return Traffic: Enabled")
+				fmt.Println("   ├─ 🔄 Allow Return Traffic: Enabled")
 			} else {
-				fmt.Println("🔄 Allow Return Traffic: Disabled")
+				fmt.Println("   ├─ 🔄 Allow Return Traffic: Disabled")
 			}
 
 			// ICMP
 			// ICMP
 			if cfg.Base.AllowICMP {
-				fmt.Println("🏓 Allow ICMP (Ping): Enabled")
+				fmt.Println("   ├─ 🏓 Allow ICMP (Ping): Enabled")
 			} else {
-				fmt.Println("🏓 Allow ICMP (Ping): Disabled")
+				fmt.Println("   ├─ 🏓 Allow ICMP (Ping): Disabled")
+			}
+
+			// Strict TCP
+			// 严格 TCP
+			if cfg.Base.StrictTCP {
+				fmt.Println("   ├─ 🔒 Strict TCP: Enabled")
+			} else {
+				fmt.Println("   ├─ 🔒 Strict TCP: Disabled")
+			}
+
+			// SYN Limit
+			// SYN 限制
+			if cfg.Base.SYNLimit {
+				fmt.Println("   ├─ 🚧 SYN Flood Protection: Enabled")
+			} else {
+				fmt.Println("   ├─ 🚧 SYN Flood Protection: Disabled")
+			}
+
+			// Bogon Filter
+			// Bogon 过滤
+			if cfg.Base.BogonFilter {
+				fmt.Println("   ├─ 🌐 Bogon Filter: Enabled")
+			} else {
+				fmt.Println("   ├─ 🌐 Bogon Filter: Disabled")
 			}
 
 			// Connection tracking
 			// 连接跟踪
 			if cfg.Conntrack.Enabled {
-				fmt.Printf("🕵️  Connection Tracking: Enabled\n")
+				fmt.Println("   ├─ 🕵️  Connection Tracking: Enabled")
 				if cfg.Conntrack.TCPTimeout != "" {
-					fmt.Printf("   └─ TCP Timeout: %s\n", cfg.Conntrack.TCPTimeout)
+					fmt.Printf("   │     └─ TCP Timeout: %s\n", cfg.Conntrack.TCPTimeout)
 				}
 				if cfg.Conntrack.UDPTimeout != "" {
-					fmt.Printf("   └─ UDP Timeout: %s\n", cfg.Conntrack.UDPTimeout)
+					fmt.Printf("   │     └─ UDP Timeout: %s\n", cfg.Conntrack.UDPTimeout)
 				}
 			} else {
-				fmt.Println("🕵️  Connection Tracking: Disabled")
+				fmt.Println("   ├─ 🕵️  Connection Tracking: Disabled")
 			}
 
 			// Rate limiting
 			// 速率限制
 			if cfg.RateLimit.Enabled {
-				fmt.Println("🚀 Global Rate Limiting: Enabled")
+				fmt.Println("   ├─ 🚀 Rate Limiting: Enabled")
+				if cfg.RateLimit.AutoBlock {
+					fmt.Printf("   │     └─ Auto Block: Enabled (Expiry: %s)\n", cfg.RateLimit.AutoBlockExpiry)
+				}
 			} else {
-				fmt.Println("🚀 Global Rate Limiting: Disabled")
+				fmt.Println("   ├─ 🚀 Rate Limiting: Disabled")
+			}
+
+			// Log Engine
+			// 日志引擎
+			if cfg.LogEngine.Enabled {
+				fmt.Printf("   ├─ 📝 Log Engine: Enabled (%d rules)\n", len(cfg.LogEngine.Rules))
+			} else {
+				fmt.Println("   ├─ � Log Engine: Disabled")
+			}
+
+			// Web Interface
+			// Web 界面
+			if cfg.Web.Enabled {
+				fmt.Printf("   └─ 🌐 Web Interface: Enabled (Port: %d)\n", cfg.Web.Port)
+			} else {
+				fmt.Println("   └─ 🌐 Web Interface: Disabled")
 			}
 		}
 	}
