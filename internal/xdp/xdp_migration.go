@@ -3,10 +3,6 @@
 
 package xdp
 
-import (
-	"github.com/cilium/ebpf"
-)
-
 /**
  * MigrateState copies all entries from an old manager's maps to this manager's maps.
  * This is used for hot-reloading to preserve conntrack state and rules.
@@ -23,23 +19,33 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate Lock List / 迁移锁定列表 (Lock List)
-	if old.lockList != nil && m.lockList != nil {
+	// Migrate Static Blacklist / 迁移静态黑名单 (Static Blacklist)
+	if old.staticBlacklist != nil && m.staticBlacklist != nil {
 		var key NetXfwLpmKey
 		var val NetXfwRuleValue
-		iter := old.lockList.Iterate()
+		iter := old.staticBlacklist.Iterate()
 		for iter.Next(&key, &val) {
-			m.lockList.Put(&key, &val)
+			m.staticBlacklist.Put(&key, &val)
 		}
 	}
 
-	// Migrate Dynamic Lock List / 迁移动态锁定列表 (Dynamic Lock List)
-	if old.dynLockList != nil && m.dynLockList != nil {
+	// Migrate Dynamic Blacklist / 迁移动态黑名单 (Dynamic Blacklist)
+	if old.dynamicBlacklist != nil && m.dynamicBlacklist != nil {
 		var key NetXfwIn6Addr
 		var val NetXfwRuleValue
-		iter := old.dynLockList.Iterate()
+		iter := old.dynamicBlacklist.Iterate()
 		for iter.Next(&key, &val) {
-			m.dynLockList.Put(&key, &val)
+			m.dynamicBlacklist.Put(&key, &val)
+		}
+	}
+
+	// Migrate Critical Blacklist / 迁移危机封锁 (Critical Blacklist)
+	if old.criticalBlacklist != nil && m.criticalBlacklist != nil {
+		var key NetXfwIn6Addr
+		var val NetXfwRuleValue
+		iter := old.criticalBlacklist.Iterate()
+		for iter.Next(&key, &val) {
+			m.criticalBlacklist.Put(&key, &val)
 		}
 	}
 
@@ -53,44 +59,23 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate IP+Port Rules / 迁移 IP+端口规则 (IP+Port Rules)
-	if old.ipPortRules != nil && m.ipPortRules != nil {
+	// Migrate Rule Map (IP+Port Rules) / 迁移规则 Map (IP+端口规则)
+	if old.ruleMap != nil && m.ruleMap != nil {
 		var key NetXfwLpmIpPortKey
 		var val NetXfwRuleValue
-		iter := old.ipPortRules.Iterate()
+		iter := old.ruleMap.Iterate()
 		for iter.Next(&key, &val) {
-			m.ipPortRules.Put(&key, &val)
+			m.ruleMap.Put(&key, &val)
 		}
 	}
 
-	// Migrate Allowed Ports (PERCPU HASH) / 迁移允许端口 (Allowed Ports)
-	if old.allowedPorts != nil && m.allowedPorts != nil {
-		var key uint16
-		numCPU, _ := ebpf.PossibleCPU()
-		val := make([]NetXfwRuleValue, numCPU)
-		iter := old.allowedPorts.Iterate()
-		for iter.Next(&key, &val) {
-			m.allowedPorts.Put(&key, &val)
-		}
-	}
-
-	// Migrate Rate Limit Config (LPM TRIE) / 迁移速率限制配置 (Rate Limit Config)
-	if old.ratelimitConfig != nil && m.ratelimitConfig != nil {
-		var key NetXfwLpmKey
-		var val NetXfwRatelimitConf
-		iter := old.ratelimitConfig.Iterate()
-		for iter.Next(&key, &val) {
-			m.ratelimitConfig.Put(&key, &val)
-		}
-	}
-
-	// Migrate Rate Limit State (LRU HASH) / 迁移速率限制状态 (Rate Limit State)
-	if old.ratelimitState != nil && m.ratelimitState != nil {
+	// Migrate Rate Limit Map (config + state combined) / 迁移速率限制 Map（配置 + 状态合并）
+	if old.ratelimitMap != nil && m.ratelimitMap != nil {
 		var key NetXfwIn6Addr
 		var val NetXfwRatelimitStats
-		iter := old.ratelimitState.Iterate()
+		iter := old.ratelimitMap.Iterate()
 		for iter.Next(&key, &val) {
-			m.ratelimitState.Put(&key, &val)
+			m.ratelimitMap.Put(&key, &val)
 		}
 	}
 
@@ -104,59 +89,30 @@ func (m *Manager) MigrateState(old *Manager) error {
 		}
 	}
 
-	// Migrate ICMP Limit Map (LRU HASH) / 迁移 ICMP 限制 Map
-	if old.icmpLimitMap != nil && m.icmpLimitMap != nil {
-		var key NetXfwIn6Addr
-		var val NetXfwIcmpStats
-		iter := old.icmpLimitMap.Iterate()
-		for iter.Next(&key, &val) {
-			m.icmpLimitMap.Put(&key, &val)
-		}
-	}
-
-	// Migrate Drop Stats (PERCPU ARRAY) / 迁移拦截统计
-	if old.dropStats != nil && m.dropStats != nil {
-		var key uint32
-		numCPU, _ := ebpf.PossibleCPU()
-		val := make([]uint64, numCPU)
-		iter := old.dropStats.Iterate()
-		for iter.Next(&key, &val) {
-			m.dropStats.Put(&key, &val)
-		}
-	}
-
-	// Migrate Pass Stats (PERCPU ARRAY) / 迁移放行统计
-	if old.passStats != nil && m.passStats != nil {
-		var key uint32
-		numCPU, _ := ebpf.PossibleCPU()
-		val := make([]uint64, numCPU)
-		iter := old.passStats.Iterate()
-		for iter.Next(&key, &val) {
-			m.passStats.Put(&key, &val)
-		}
-	}
-
-	// Migrate Drop Reason Stats (PERCPU HASH) / 迁移详细拦截统计
-	if old.dropReasonStats != nil && m.dropReasonStats != nil {
+	// Migrate Top Drop Map (LRU HASH) / 迁移 Top 丢弃统计 Map
+	if old.topDropMap != nil && m.topDropMap != nil {
 		var key NetXfwDropDetailKey
-		numCPU, _ := ebpf.PossibleCPU()
-		val := make([]uint64, numCPU)
-		iter := old.dropReasonStats.Iterate()
+		var val uint64
+		iter := old.topDropMap.Iterate()
 		for iter.Next(&key, &val) {
-			m.dropReasonStats.Put(&key, &val)
+			m.topDropMap.Put(&key, &val)
 		}
 	}
 
-	// Migrate Pass Reason Stats (PERCPU HASH) / 迁移详细放行统计
-	if old.passReasonStats != nil && m.passReasonStats != nil {
+	// Migrate Top Pass Map (LRU HASH) / 迁移 Top 通过统计 Map
+	if old.topPassMap != nil && m.topPassMap != nil {
 		var key NetXfwDropDetailKey
-		numCPU, _ := ebpf.PossibleCPU()
-		val := make([]uint64, numCPU)
-		iter := old.passReasonStats.Iterate()
+		var val uint64
+		iter := old.topPassMap.Iterate()
 		for iter.Next(&key, &val) {
-			m.passReasonStats.Put(&key, &val)
+			m.topPassMap.Put(&key, &val)
 		}
 	}
+
+	// Migrate Stats Global Map (PERCPU ARRAY) / 迁移全局统计 Map
+	// Note: statsGlobalMap not yet generated by bpf2go
+	// 注意：statsGlobalMap 尚未由 bpf2go 生成
+	_ = old.statsGlobalMap // Avoid unused variable warning / 避免未使用变量警告
 
 	return nil
 }

@@ -112,7 +112,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	// 3. Update BPF Maps / 3. 更新 BPF Map
 	for _, r := range records {
 		var targetMap *ebpf.Map
-		targetMap = m.lockList
+		targetMap = m.staticBlacklist
 
 		if targetMap == nil {
 			continue
@@ -268,7 +268,7 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 	}
 
 	// 2. List all blocked IPs / 列出所有封禁的 IP
-	ips, _, err := ListBlockedIPs(m.lockList, false, 0, "")
+	ips, _, err := ListBlockedIPs(m.staticBlacklist, false, 0, "")
 	if err != nil {
 		return err
 	}
@@ -385,7 +385,7 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 // ClearMaps clears all rules from blacklist and whitelist maps.
 // ClearMaps 清除黑名单和白名单 Map 中的所有规则。
 func (m *Manager) ClearMaps() {
-	maps := []*ebpf.Map{m.lockList, m.whitelist, m.ipPortRules}
+	maps := []*ebpf.Map{m.staticBlacklist, m.dynamicBlacklist, m.criticalBlacklist, m.whitelist, m.ruleMap}
 	for _, emap := range maps {
 		if emap == nil {
 			continue

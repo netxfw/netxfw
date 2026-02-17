@@ -59,12 +59,6 @@ func (m *Manager) Attach(interfaces []string) error {
 			}
 
 			for _, mode := range modes {
-				// Using Pin-less link or simply not storing the link object if we want it to persist.
-				// However, in cilium/ebpf, if the link object is closed, the program is detached.
-				// To keep it persistent, we need to PIN the link or use Raw attach.
-				// 使用不带固定点的链接，或者如果我们希望它持久化，则根本不存储链接对象。
-				// 然而，在 cilium/ebpf 中，如果链接对象被关闭，程序将被卸载。
-				// 为了保持持久性，我们需要固定（PIN）链接或使用原始挂载。
 				l, err := link.AttachXDP(link.XDPOptions{
 					Program:   m.objs.XdpFirewall,
 					Interface: iface.Index,
@@ -144,9 +138,6 @@ func (m *Manager) Detach(interfaces []string) error {
 		l, err := link.LoadPinnedLink(linkPath, nil)
 		if err != nil {
 			m.logger.Warnf("⚠️  No pinned link found for %s, trying manual detach...", name)
-			// Fallback: try to detach using interface index if possible,
-			// but usually unpinning the persistent link is enough.
-			// 备选方案：如果可能，尝试使用接口索引进行分离，但通常取消固定持久链接就足够了。
 			continue
 		}
 		if err := l.Close(); err != nil {
@@ -225,20 +216,38 @@ func (m *Manager) Pin(path string) error {
 		}
 	}
 
-	pinMap(m.lockList, config.MapLockList)
-	pinMap(m.dynLockList, config.MapDynLockList)
-	pinMap(m.whitelist, config.MapWhitelist)
-	pinMap(m.allowedPorts, config.MapAllowedPorts)
-	pinMap(m.ipPortRules, config.MapIPPortRules)
-	pinMap(m.globalConfig, config.MapGlobalConfig)
-	pinMap(m.dropStats, config.MapDropStats)
-	pinMap(m.dropReasonStats, config.MapDropReasonStats)
-	pinMap(m.icmpLimitMap, config.MapICMPLimit)
-	pinMap(m.conntrackMap, config.MapConntrack)
-	pinMap(m.passStats, config.MapPassStats)
-	pinMap(m.passReasonStats, config.MapPassReasonStats)
-	pinMap(m.ratelimitConfig, config.MapRatelimitConfig)
-	pinMap(m.ratelimitState, config.MapRatelimitState)
+	// Pin core maps using bpf2go generated names (for compatibility)
+	// 使用 bpf2go 生成的名称固定核心 Map（为了兼容性）
+	pinMap(m.conntrackMap, "conntrack_map")
+	pinMap(m.staticBlacklist, "lock_list")      // bpf2go name
+	pinMap(m.dynamicBlacklist, "dyn_lock_list") // bpf2go name
+	pinMap(m.whitelist, "whitelist")
+	pinMap(m.ruleMap, "ip_port_rules")        // bpf2go name
+	pinMap(m.topDropMap, "drop_reason_stats") // bpf2go name
+	pinMap(m.topPassMap, "pass_reason_stats") // bpf2go name
+	pinMap(m.globalConfig, "global_config")
+	pinMap(m.jmpTable, "jmp_table")
+	pinMap(m.xskMap, "xsk_map")
+
+	// Pin additional bpf2go generated maps / 固定额外的 bpf2go 生成的 Map
+	if m.objs.AllowedPorts != nil {
+		pinMap(m.objs.AllowedPorts, "allowed_ports")
+	}
+	if m.objs.DropStats != nil {
+		pinMap(m.objs.DropStats, "drop_stats")
+	}
+	if m.objs.PassStats != nil {
+		pinMap(m.objs.PassStats, "pass_stats")
+	}
+	if m.objs.RatelimitConfig != nil {
+		pinMap(m.objs.RatelimitConfig, "ratelimit_config")
+	}
+	if m.objs.RatelimitState != nil {
+		pinMap(m.objs.RatelimitState, "ratelimit_state")
+	}
+	if m.objs.IcmpLimitMap != nil {
+		pinMap(m.objs.IcmpLimitMap, "icmp_limit_map")
+	}
 
 	return nil
 }
@@ -246,24 +255,31 @@ func (m *Manager) Pin(path string) error {
 // Unpin removes maps from the filesystem.
 // Unpin 从文件系统中移除 Map。
 func (m *Manager) Unpin(path string) error {
-	_ = m.lockList.Unpin()
-	if m.dynLockList != nil {
-		_ = m.dynLockList.Unpin()
+	// Unpin core maps / 取消固定核心 Map
+	unpinMap := func(ebpfMap *ebpf.Map) {
+		if ebpfMap != nil {
+			_ = ebpfMap.Unpin()
+		}
 	}
-	_ = m.whitelist.Unpin()
-	_ = m.allowedPorts.Unpin()
-	_ = m.ipPortRules.Unpin()
-	_ = m.globalConfig.Unpin()
-	_ = m.dropStats.Unpin()
-	if m.dropReasonStats != nil {
-		_ = m.dropReasonStats.Unpin()
-	}
-	_ = m.icmpLimitMap.Unpin()
-	_ = m.conntrackMap.Unpin()
-	if m.passStats != nil {
-		_ = m.passStats.Unpin()
-	}
-	_ = m.ratelimitConfig.Unpin()
-	_ = m.ratelimitState.Unpin()
+
+	unpinMap(m.conntrackMap)
+	unpinMap(m.staticBlacklist)
+	unpinMap(m.dynamicBlacklist)
+	unpinMap(m.whitelist)
+	unpinMap(m.ruleMap)
+	unpinMap(m.topDropMap)
+	unpinMap(m.topPassMap)
+	unpinMap(m.globalConfig)
+	unpinMap(m.jmpTable)
+	unpinMap(m.xskMap)
+
+	// Unpin additional bpf2go generated maps / 取消固定额外的 bpf2go 生成的 Map
+	unpinMap(m.objs.AllowedPorts)
+	unpinMap(m.objs.DropStats)
+	unpinMap(m.objs.PassStats)
+	unpinMap(m.objs.RatelimitConfig)
+	unpinMap(m.objs.RatelimitState)
+	unpinMap(m.objs.IcmpLimitMap)
+
 	return os.RemoveAll(path)
 }

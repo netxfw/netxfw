@@ -184,7 +184,7 @@ func AddIPPortRuleToMapString(mapPtr *ebpf.Map, cidr string, port uint16, action
  * action: 1 表示允许，2 表示拒绝
  */
 func (m *Manager) AddIPPortRule(ipNet *net.IPNet, port uint16, action uint8, expiresAt *time.Time) error {
-	return AddIPPortRuleToMap(m.ipPortRules, ipNet, port, action, expiresAt)
+	return AddIPPortRuleToMap(m.ruleMap, ipNet, port, action, expiresAt)
 }
 
 /**
@@ -229,7 +229,7 @@ func RemoveIPPortRuleFromMapString(mapPtr *ebpf.Map, cidr string, port uint16) e
  * RemoveIPPortRule 移除 IP+端口规则。
  */
 func (m *Manager) RemoveIPPortRule(ipNet *net.IPNet, port uint16) error {
-	return RemoveIPPortRuleFromMap(m.ipPortRules, ipNet, port)
+	return RemoveIPPortRuleFromMap(m.ruleMap, ipNet, port)
 }
 
 /**
@@ -259,9 +259,17 @@ func AllowPortToMap(mapPtr *ebpf.Map, port uint16, expiresAt *time.Time) error {
 /**
  * AllowPort adds a port to the allowed ports list.
  * AllowPort 向允许端口列表添加一个端口。
+ * Note: allowed_ports is now merged into rule_map with port-only rules.
+ * 注意：allowed_ports 现在已合并到 rule_map 中作为仅端口规则。
  */
 func (m *Manager) AllowPort(port uint16, expiresAt *time.Time) error {
-	return AllowPortToMap(m.allowedPorts, port, expiresAt)
+	// Use ruleMap with empty IP (0.0.0.0/0) for port-only rules
+	// 使用 ruleMap 配合空 IP (0.0.0.0/0) 表示仅端口规则
+	_, ipNet, _ := net.ParseCIDR("0.0.0.0/0")
+	if ipNet == nil {
+		return fmt.Errorf("failed to create default IP network")
+	}
+	return AddIPPortRuleToMap(m.ruleMap, ipNet, port, 1, expiresAt) // action=1 for allow
 }
 
 /**
@@ -274,9 +282,17 @@ func RemovePortFromMap(mapPtr *ebpf.Map, port uint16) error {
 /**
  * RemovePort removes a port from the allowed ports list.
  * RemovePort 从允许端口列表中移除一个端口。
+ * Note: allowed_ports is now merged into rule_map with port-only rules.
+ * 注意：allowed_ports 现在已合并到 rule_map 中作为仅端口规则。
  */
 func (m *Manager) RemovePort(port uint16) error {
-	return RemovePortFromMap(m.allowedPorts, port)
+	// Use ruleMap with empty IP (0.0.0.0/0) for port-only rules
+	// 使用 ruleMap 配合空 IP (0.0.0.0/0) 表示仅端口规则
+	_, ipNet, _ := net.ParseCIDR("0.0.0.0/0")
+	if ipNet == nil {
+		return fmt.Errorf("failed to create default IP network")
+	}
+	return RemoveIPPortRuleFromMap(m.ruleMap, ipNet, port)
 }
 
 /* ListIPPortRulesFromMap iterates over the map and returns structured rules.
@@ -337,7 +353,7 @@ func ListIPPortRulesFromMap(mapPtr *ebpf.Map, limit int, search string) ([]IPPor
  */
 func (m *Manager) ListIPPortRules(isIPv6 bool, limit int, search string) (map[string]string, int, error) {
 	rulesMap := make(map[string]string)
-	rulesSlice, count, err := ListIPPortRulesFromMap(m.ipPortRules, limit, search)
+	rulesSlice, count, err := ListIPPortRulesFromMap(m.ruleMap, limit, search)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -387,9 +403,33 @@ func ListAllowedPortsFromMap(mapPtr *ebpf.Map) ([]uint16, error) {
 /**
  * ListAllowedPorts retrieves all globally allowed ports.
  * ListAllowedPorts 获取所有全局允许的端口。
+ * Note: allowed_ports is now merged into rule_map with port-only rules.
+ * 注意：allowed_ports 现在已合并到 rule_map 中作为仅端口规则。
  */
 func (m *Manager) ListAllowedPorts() ([]uint16, error) {
-	return ListAllowedPortsFromMap(m.allowedPorts)
+	// Port-only rules in ruleMap have IP=0.0.0.0/0
+	// ruleMap 中的仅端口规则 IP=0.0.0.0/0
+	var ports []uint16
+	if m.ruleMap == nil {
+		return ports, nil
+	}
+
+	iter := m.ruleMap.Iterate()
+	var key NetXfwLpmIpPortKey
+	var val NetXfwRuleValue
+
+	for iter.Next(&key, &val) {
+		// Check if this is a port-only rule (IP prefix = 0)
+		// 检查是否为仅端口规则（IP 前缀 = 0）
+		if key.Prefixlen == 0 || (key.Prefixlen == 96 && key.Ip.In6U.U6Addr8[10] == 0xff && key.Ip.In6U.U6Addr8[11] == 0xff) {
+			// This is a port-only rule (0.0.0.0/0)
+			// 这是仅端口规则 (0.0.0.0/0)
+			if val.Counter == 1 { // action=allow
+				ports = append(ports, key.Port)
+			}
+		}
+	}
+	return ports, iter.Err()
 }
 
 /**
@@ -437,9 +477,20 @@ func AddRateLimitRuleToMapString(configMap *ebpf.Map, cidr string, rate, burst u
 /**
  * AddRateLimitRule adds a rate limit rule for an IP.
  * AddRateLimitRule 为 IP 添加速率限制规则。
+ * Note: ratelimit_config and ratelimit_state are now merged into ratelimit_map.
+ * 注意：ratelimit_config 和 ratelimit_state 现在已合并到 ratelimit_map。
  */
 func (m *Manager) AddRateLimitRule(ipNet *net.IPNet, rate, burst uint64) error {
-	return AddRateLimitRuleToMap(m.ratelimitConfig, ipNet, rate, burst)
+	// Use ratelimitMap if available (new unified map), otherwise fallback to old maps
+	// 如果可用，使用 ratelimitMap（新的统一 Map），否则回退到旧 Map
+	if m.ratelimitMap != nil {
+		// TODO: Implement unified rate limit map logic
+		// 待实现：统一速率限制 Map 逻辑
+		return fmt.Errorf("unified ratelimit map not yet implemented")
+	}
+	// Fallback: use old separate config map (bpf2go generated)
+	// 回退：使用旧的分离配置 Map（bpf2go 生成）
+	return AddRateLimitRuleToMap(m.objs.RatelimitConfig, ipNet, rate, burst)
 }
 
 /**
@@ -500,9 +551,20 @@ func RemoveRateLimitRuleFromMapsString(configMap, stateMap *ebpf.Map, cidr strin
 /**
  * RemoveRateLimitRule removes a rate limit rule.
  * RemoveRateLimitRule 移除速率限制规则。
+ * Note: ratelimit_config and ratelimit_state are now merged into ratelimit_map.
+ * 注意：ratelimit_config 和 ratelimit_state 现在已合并到 ratelimit_map。
  */
 func (m *Manager) RemoveRateLimitRule(ipNet *net.IPNet) error {
-	return RemoveRateLimitRuleFromMaps(m.ratelimitConfig, m.ratelimitState, ipNet)
+	// Use ratelimitMap if available (new unified map), otherwise fallback to old maps
+	// 如果可用，使用 ratelimitMap（新的统一 Map），否则回退到旧 Map
+	if m.ratelimitMap != nil {
+		// TODO: Implement unified rate limit map logic
+		// 待实现：统一速率限制 Map 逻辑
+		return fmt.Errorf("unified ratelimit map not yet implemented")
+	}
+	// Fallback: use old separate maps (bpf2go generated)
+	// 回退：使用旧的分离 Map（bpf2go 生成）
+	return RemoveRateLimitRuleFromMaps(m.objs.RatelimitConfig, m.objs.RatelimitState, ipNet)
 }
 
 /**
@@ -559,9 +621,20 @@ func ListRateLimitRulesFromMap(mapPtr *ebpf.Map, limit int, search string) (map[
 /**
  * ListRateLimitRules returns all configured rate limit rules.
  * ListRateLimitRules 返回所有配置的速率限制规则。
+ * Note: ratelimit_config and ratelimit_state are now merged into ratelimit_map.
+ * 注意：ratelimit_config 和 ratelimit_state 现在已合并到 ratelimit_map。
  */
 func (m *Manager) ListRateLimitRules(limit int, search string) (map[string]RateLimitConf, int, error) {
-	return ListRateLimitRulesFromMap(m.ratelimitConfig, limit, search)
+	// Use ratelimitMap if available (new unified map), otherwise fallback to old maps
+	// 如果可用，使用 ratelimitMap（新的统一 Map），否则回退到旧 Map
+	if m.ratelimitMap != nil {
+		// TODO: Implement unified rate limit map logic
+		// 待实现：统一速率限制 Map 逻辑
+		return nil, 0, fmt.Errorf("unified ratelimit map not yet implemented")
+	}
+	// Fallback: use old separate config map (bpf2go generated)
+	// 回退：使用旧的分离配置 Map（bpf2go 生成）
+	return ListRateLimitRulesFromMap(m.objs.RatelimitConfig, limit, search)
 }
 
 /**
