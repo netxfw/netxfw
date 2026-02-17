@@ -55,10 +55,12 @@ func GetPassDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
 /**
  * GetTopStatsFromMap retrieves detailed statistics from a LRU HASH map.
  * GetTopStatsFromMap 从 LRU HASH Map 获取详细统计信息。
+ * Uses unified top_stats_key struct.
+ * 使用统一的 top_stats_key 结构体。
  */
 func GetTopStatsFromMap(m *ebpf.Map, mapName string) ([]sdk.DropDetailEntry, error) {
 	var results []sdk.DropDetailEntry
-	var key NetXfwDropDetailKey
+	var key NetXfwTopStatsKey
 	var value uint64
 
 	iter := m.Iterate()
@@ -89,34 +91,23 @@ func GetTopStatsFromMap(m *ebpf.Map, mapName string) ([]sdk.DropDetailEntry, err
 }
 
 /**
- * GetStats retrieves the total pass and drop counts from drop_stats and pass_stats maps.
- * GetStats 从 drop_stats 和 pass_stats Map 获取总的通过和丢弃计数。
- * Note: Uses existing bpf2go generated maps until stats_global_map is generated.
- * 注意：使用现有的 bpf2go 生成的 Map，直到 stats_global_map 被生成。
+ * GetStats retrieves the total pass and drop counts from stats_global_map.
+ * GetStats 从 stats_global_map 获取总的通过和丢弃计数。
+ * Uses unified stats_global struct.
+ * 使用统一的 stats_global 结构体。
  */
 func (m *Manager) GetStats() (uint64, uint64) {
 	var totalPass, totalDrop uint64
 
-	// Use existing drop_stats and pass_stats maps (bpf2go generated)
-	// 使用现有的 drop_stats 和 pass_stats Map（bpf2go 生成）
-	if m.objs.DropStats != nil {
-		var key uint32 = 0
-		var stats []uint64
-		if err := m.objs.DropStats.Lookup(&key, &stats); err == nil {
-			for _, s := range stats {
-				totalDrop += s
-			}
-		}
+	if m.statsGlobalMap == nil {
+		return 0, 0
 	}
 
-	if m.objs.PassStats != nil {
-		var key uint32 = 0
-		var stats []uint64
-		if err := m.objs.PassStats.Lookup(&key, &stats); err == nil {
-			for _, s := range stats {
-				totalPass += s
-			}
-		}
+	var key uint32 = 0
+	var stats NetXfwStatsGlobal
+	if err := m.statsGlobalMap.Lookup(&key, &stats); err == nil {
+		totalPass = stats.TotalPass
+		totalDrop = stats.TotalDrop
 	}
 
 	return totalPass, totalDrop
@@ -141,43 +132,35 @@ func GetMapCount(m *ebpf.Map) (int, error) {
 }
 
 /**
- * GetDropCount retrieves global drop statistics from drop_stats map.
- * GetDropCount 从 drop_stats Map 获取全局丢弃统计信息。
+ * GetDropCount retrieves global drop statistics from stats_global_map.
+ * GetDropCount 从 stats_global_map 获取全局丢弃统计信息。
  */
 func (m *Manager) GetDropCount() (uint64, error) {
-	if m.objs.DropStats == nil {
+	if m.statsGlobalMap == nil {
 		return 0, nil
 	}
 	var key uint32 = 0
-	var stats []uint64
-	if err := m.objs.DropStats.Lookup(&key, &stats); err != nil {
+	var stats NetXfwStatsGlobal
+	if err := m.statsGlobalMap.Lookup(&key, &stats); err != nil {
 		return 0, err
 	}
-	var total uint64
-	for _, s := range stats {
-		total += s
-	}
-	return total, nil
+	return stats.TotalDrop, nil
 }
 
 /**
- * GetPassCount retrieves global pass statistics from pass_stats map.
- * GetPassCount 从 pass_stats Map 获取全局通过统计信息。
+ * GetPassCount retrieves global pass statistics from stats_global_map.
+ * GetPassCount 从 stats_global_map 获取全局通过统计信息。
  */
 func (m *Manager) GetPassCount() (uint64, error) {
-	if m.objs.PassStats == nil {
+	if m.statsGlobalMap == nil {
 		return 0, nil
 	}
 	var key uint32 = 0
-	var stats []uint64
-	if err := m.objs.PassStats.Lookup(&key, &stats); err != nil {
+	var stats NetXfwStatsGlobal
+	if err := m.statsGlobalMap.Lookup(&key, &stats); err != nil {
 		return 0, err
 	}
-	var total uint64
-	for _, s := range stats {
-		total += s
-	}
-	return total, nil
+	return stats.TotalPass, nil
 }
 
 /**
@@ -268,37 +251,38 @@ func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
 }
 
 /**
- * GetGlobalStats retrieves all global statistics from drop_stats and pass_stats maps.
- * GetGlobalStats 从 drop_stats 和 pass_stats Map 获取所有全局统计信息。
- * Note: Uses existing bpf2go generated maps until stats_global_map is generated.
- * 注意：使用现有的 bpf2go 生成的 Map，直到 stats_global_map 被生成。
+ * GetGlobalStats retrieves all global statistics from stats_global_map.
+ * GetGlobalStats 从 stats_global_map 获取所有全局统计信息。
+ * Uses unified stats_global struct.
+ * 使用统一的 stats_global 结构体。
  */
 func (m *Manager) GetGlobalStats() (*GlobalStats, error) {
 	result := &GlobalStats{}
 
-	// Use existing drop_stats and pass_stats maps (bpf2go generated)
-	// 使用现有的 drop_stats 和 pass_stats Map（bpf2go 生成）
-	if m.objs.DropStats != nil {
-		var key uint32 = 0
-		var stats []uint64
-		if err := m.objs.DropStats.Lookup(&key, &stats); err == nil {
-			for _, s := range stats {
-				result.TotalDrop += s
-			}
-		}
+	if m.statsGlobalMap == nil {
+		return result, nil
 	}
 
-	if m.objs.PassStats != nil {
-		var key uint32 = 0
-		var stats []uint64
-		if err := m.objs.PassStats.Lookup(&key, &stats); err == nil {
-			for _, s := range stats {
-				result.TotalPass += s
-			}
-		}
+	var key uint32 = 0
+	var stats NetXfwStatsGlobal
+	if err := m.statsGlobalMap.Lookup(&key, &stats); err != nil {
+		return result, err
 	}
 
-	result.TotalPackets = result.TotalPass + result.TotalDrop
+	result.TotalPackets = stats.TotalPackets
+	result.TotalPass = stats.TotalPass
+	result.TotalDrop = stats.TotalDrop
+	result.DropBlacklist = stats.DropBlacklist
+	result.DropNoRule = stats.DropNoRule
+	result.DropInvalid = stats.DropInvalid
+	result.DropRateLimit = stats.DropRateLimit
+	result.DropSynFlood = stats.DropSynFlood
+	result.DropIcmpLimit = stats.DropIcmpLimit
+	result.DropPortBlocked = stats.DropPortBlocked
+	result.PassWhitelist = stats.PassWhitelist
+	result.PassRule = stats.PassRule
+	result.PassReturn = stats.PassReturn
+	result.PassEstablished = stats.PassEstablished
 
 	return result, nil
 }

@@ -288,5 +288,18 @@ struct {
 #define dyn_lock_list    dynamic_blacklist
 #define drop_reason_stats top_drop_map
 #define pass_reason_stats top_pass_map
+#define allowed_ports    rule_map
+#define ip_port_rules    rule_map
+#define ratelimit_config ratelimit_map
+#define ratelimit_state  ratelimit_map
+#define pass_stats       stats_global_map
+#define drop_stats       stats_global_map
+#define icmp_limit_map   stats_global_map
+#define packet_counter   stats_global_map
+
+// Backward compatibility struct aliases
+// 向后兼容结构体别名
+#define drop_detail_key  top_stats_key
+#define icmp_stats       ratelimit_value
 
 #endif // __NETXFW_MAPS_H

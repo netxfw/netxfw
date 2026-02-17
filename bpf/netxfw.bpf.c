@@ -47,12 +47,12 @@ __u64 cached_auto_block_expiry = 0;
 // 检查并刷新配置的辅助函数
 static __always_inline void check_config_refresh() {
     __u32 key = 0;
-    __u64 *counter_ptr = bpf_map_lookup_elem(&packet_counter, &key);
-    if (counter_ptr) {
+    struct stats_global *stats = bpf_map_lookup_elem(&stats_global_map, &key);
+    if (stats) {
         // Optimization: No atomic needed for PERCPU_ARRAY
         // 优化：PERCPU_ARRAY 不需要原子操作
-        *counter_ptr += 1;
-        if (unlikely(*counter_ptr % CONFIG_REFRESH_INTERVAL == 0)) {
+        stats->total_packets += 1;
+        if (unlikely(stats->total_packets % CONFIG_REFRESH_INTERVAL == 0)) {
             refresh_config();
         }
     }

@@ -216,38 +216,21 @@ func (m *Manager) Pin(path string) error {
 		}
 	}
 
-	// Pin core maps using bpf2go generated names (for compatibility)
-	// 使用 bpf2go 生成的名称固定核心 Map（为了兼容性）
+	// Pin core maps using new unified names
+	// 使用新的统一名称固定核心 Map
 	pinMap(m.conntrackMap, "conntrack_map")
-	pinMap(m.staticBlacklist, "lock_list")      // bpf2go name
-	pinMap(m.dynamicBlacklist, "dyn_lock_list") // bpf2go name
+	pinMap(m.staticBlacklist, "static_blacklist")
+	pinMap(m.dynamicBlacklist, "dynamic_blacklist")
+	pinMap(m.criticalBlacklist, "critical_blacklist")
 	pinMap(m.whitelist, "whitelist")
-	pinMap(m.ruleMap, "ip_port_rules")        // bpf2go name
-	pinMap(m.topDropMap, "drop_reason_stats") // bpf2go name
-	pinMap(m.topPassMap, "pass_reason_stats") // bpf2go name
+	pinMap(m.ruleMap, "rule_map")
+	pinMap(m.topDropMap, "top_drop_map")
+	pinMap(m.topPassMap, "top_pass_map")
+	pinMap(m.statsGlobalMap, "stats_global_map")
+	pinMap(m.ratelimitMap, "ratelimit_map")
 	pinMap(m.globalConfig, "global_config")
 	pinMap(m.jmpTable, "jmp_table")
 	pinMap(m.xskMap, "xsk_map")
-
-	// Pin additional bpf2go generated maps / 固定额外的 bpf2go 生成的 Map
-	if m.objs.AllowedPorts != nil {
-		pinMap(m.objs.AllowedPorts, "allowed_ports")
-	}
-	if m.objs.DropStats != nil {
-		pinMap(m.objs.DropStats, "drop_stats")
-	}
-	if m.objs.PassStats != nil {
-		pinMap(m.objs.PassStats, "pass_stats")
-	}
-	if m.objs.RatelimitConfig != nil {
-		pinMap(m.objs.RatelimitConfig, "ratelimit_config")
-	}
-	if m.objs.RatelimitState != nil {
-		pinMap(m.objs.RatelimitState, "ratelimit_state")
-	}
-	if m.objs.IcmpLimitMap != nil {
-		pinMap(m.objs.IcmpLimitMap, "icmp_limit_map")
-	}
 
 	return nil
 }
@@ -265,21 +248,16 @@ func (m *Manager) Unpin(path string) error {
 	unpinMap(m.conntrackMap)
 	unpinMap(m.staticBlacklist)
 	unpinMap(m.dynamicBlacklist)
+	unpinMap(m.criticalBlacklist)
 	unpinMap(m.whitelist)
 	unpinMap(m.ruleMap)
 	unpinMap(m.topDropMap)
 	unpinMap(m.topPassMap)
+	unpinMap(m.statsGlobalMap)
+	unpinMap(m.ratelimitMap)
 	unpinMap(m.globalConfig)
 	unpinMap(m.jmpTable)
 	unpinMap(m.xskMap)
-
-	// Unpin additional bpf2go generated maps / 取消固定额外的 bpf2go 生成的 Map
-	unpinMap(m.objs.AllowedPorts)
-	unpinMap(m.objs.DropStats)
-	unpinMap(m.objs.PassStats)
-	unpinMap(m.objs.RatelimitConfig)
-	unpinMap(m.objs.RatelimitState)
-	unpinMap(m.objs.IcmpLimitMap)
 
 	return os.RemoveAll(path)
 }

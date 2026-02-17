@@ -109,10 +109,10 @@ func TestNetXfwRuleValue_Action(t *testing.T) {
 	}
 }
 
-// TestNetXfwDropDetailKey_Fields tests drop detail key fields
-// TestNetXfwDropDetailKey_Fields 测试拦截详情键字段
-func TestNetXfwDropDetailKey_Fields(t *testing.T) {
-	key := NetXfwDropDetailKey{
+// TestNetXfwTopStatsKey_Fields tests top stats key fields
+// TestNetXfwTopStatsKey_Fields 测试 Top 统计键字段
+func TestNetXfwTopStatsKey_Fields(t *testing.T) {
+	key := NetXfwTopStatsKey{
 		Reason:   1,
 		Protocol: 6,
 		DstPort:  80,

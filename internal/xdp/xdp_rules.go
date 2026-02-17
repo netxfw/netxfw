@@ -433,142 +433,123 @@ func (m *Manager) ListAllowedPorts() ([]uint16, error) {
 }
 
 /**
- * AddRateLimitRuleToMap adds a rate limit rule to the map.
+ * AddRateLimitRuleToMap adds a rate limit rule to the unified ratelimit map.
+ * AddRateLimitRuleToMap 向统一的速率限制 Map 添加规则。
+ * Note: Uses unified ratelimit_map with NetXfwIn6Addr key and NetXfwRatelimitValue value.
+ * 注意：使用统一的 ratelimit_map，键为 NetXfwIn6Addr，值为 NetXfwRatelimitValue。
  */
-func AddRateLimitRuleToMap(configMap *ebpf.Map, ipNet *net.IPNet, rate, burst uint64) error {
-	ones, _ := ipNet.Mask.Size()
-	var key NetXfwLpmKey
+func AddRateLimitRuleToMap(ratelimitMap *ebpf.Map, ipNet *net.IPNet, rate, burst uint64) error {
+	// For unified ratelimit_map, we use IP address as key (not LPM)
+	// 对于统一的 ratelimit_map，我们使用 IP 地址作为键（不是 LPM）
+	ip := ipNet.IP
+	var key NetXfwIn6Addr
 
-	ip4 := ipNet.IP.To4()
+	ip4 := ip.To4()
 	if ip4 != nil {
-		// IPv4-mapped IPv6
-		key.Prefixlen = uint32(96 + ones)
-		key.Data.In6U.U6Addr8[10] = 0xff
-		key.Data.In6U.U6Addr8[11] = 0xff
-		copy(key.Data.In6U.U6Addr8[12:], ip4)
+		// IPv4-mapped IPv6: ::ffff:a.b.c.d
+		// IPv4 映射的 IPv6：::ffff:a.b.c.d
+		key.In6U.U6Addr8[10] = 0xff
+		key.In6U.U6Addr8[11] = 0xff
+		copy(key.In6U.U6Addr8[12:], ip4)
 	} else {
 		// Native IPv6
-		ip6 := ipNet.IP.To16()
+		// 原生 IPv6
+		ip6 := ip.To16()
 		if ip6 == nil {
 			return fmt.Errorf("invalid IP address")
 		}
-		key.Prefixlen = uint32(ones)
-		copy(key.Data.In6U.U6Addr8[:], ip6)
+		copy(key.In6U.U6Addr8[:], ip6)
 	}
 
-	val := NetXfwRatelimitConf{
-		Rate:  rate,
-		Burst: burst,
+	val := NetXfwRatelimitValue{
+		Rate:          rate,
+		Burst:         burst,
+		ConfigVersion: 1,
+		LastTime:      0,
+		Tokens:        burst,
 	}
-	return configMap.Update(&key, &val, ebpf.UpdateAny)
+	return ratelimitMap.Update(&key, &val, ebpf.UpdateAny)
 }
 
 /**
  * AddRateLimitRuleToMapString adds a rate limit rule using CIDR string.
  */
-func AddRateLimitRuleToMapString(configMap *ebpf.Map, cidr string, rate, burst uint64) error {
+func AddRateLimitRuleToMapString(ratelimitMap *ebpf.Map, cidr string, rate, burst uint64) error {
 	ipNet, err := iputil.ParseCIDR(cidr)
 	if err != nil {
 		return fmt.Errorf("invalid CIDR: %v", err)
 	}
-	return AddRateLimitRuleToMap(configMap, ipNet, rate, burst)
+	return AddRateLimitRuleToMap(ratelimitMap, ipNet, rate, burst)
 }
 
 /**
  * AddRateLimitRule adds a rate limit rule for an IP.
  * AddRateLimitRule 为 IP 添加速率限制规则。
- * Note: ratelimit_config and ratelimit_state are now merged into ratelimit_map.
- * 注意：ratelimit_config 和 ratelimit_state 现在已合并到 ratelimit_map。
+ * Note: Uses unified ratelimit_map (config + state combined).
+ * 注意：使用统一的 ratelimit_map（配置 + 状态合并）。
  */
 func (m *Manager) AddRateLimitRule(ipNet *net.IPNet, rate, burst uint64) error {
-	// Use ratelimitMap if available (new unified map), otherwise fallback to old maps
-	// 如果可用，使用 ratelimitMap（新的统一 Map），否则回退到旧 Map
-	if m.ratelimitMap != nil {
-		// TODO: Implement unified rate limit map logic
-		// 待实现：统一速率限制 Map 逻辑
-		return fmt.Errorf("unified ratelimit map not yet implemented")
+	if m.ratelimitMap == nil {
+		return fmt.Errorf("ratelimit map not initialized")
 	}
-	// Fallback: use old separate config map (bpf2go generated)
-	// 回退：使用旧的分离配置 Map（bpf2go 生成）
-	return AddRateLimitRuleToMap(m.objs.RatelimitConfig, ipNet, rate, burst)
+	return AddRateLimitRuleToMap(m.ratelimitMap, ipNet, rate, burst)
 }
 
 /**
- * RemoveRateLimitRuleFromMaps removes a rate limit rule from config and state maps.
+ * RemoveRateLimitRuleFromMap removes a rate limit rule from the unified map.
+ * RemoveRateLimitRuleFromMap 从统一的 Map 移除速率限制规则。
  */
-func RemoveRateLimitRuleFromMaps(configMap, stateMap *ebpf.Map, ipNet *net.IPNet) error {
-	ones, _ := ipNet.Mask.Size()
-	var key NetXfwLpmKey
+func RemoveRateLimitRuleFromMap(ratelimitMap *ebpf.Map, ipNet *net.IPNet) error {
+	ip := ipNet.IP
+	var key NetXfwIn6Addr
 
-	ip4 := ipNet.IP.To4()
+	ip4 := ip.To4()
 	if ip4 != nil {
-		// IPv4-mapped IPv6
-		key.Prefixlen = uint32(96 + ones)
-		key.Data.In6U.U6Addr8[10] = 0xff
-		key.Data.In6U.U6Addr8[11] = 0xff
-		copy(key.Data.In6U.U6Addr8[12:], ip4)
-
-		// Cleanup state
-		if stateMap != nil {
-			var stateKey NetXfwIn6Addr
-			stateKey.In6U.U6Addr8[10] = 0xff
-			stateKey.In6U.U6Addr8[11] = 0xff
-			copy(stateKey.In6U.U6Addr8[12:], ip4)
-			_ = stateMap.Delete(&stateKey)
-		}
-
+		// IPv4-mapped IPv6: ::ffff:a.b.c.d
+		// IPv4 映射的 IPv6：::ffff:a.b.c.d
+		key.In6U.U6Addr8[10] = 0xff
+		key.In6U.U6Addr8[11] = 0xff
+		copy(key.In6U.U6Addr8[12:], ip4)
 	} else {
 		// Native IPv6
-		ip6 := ipNet.IP.To16()
+		// 原生 IPv6
+		ip6 := ip.To16()
 		if ip6 == nil {
 			return fmt.Errorf("invalid IP address")
 		}
-		key.Prefixlen = uint32(ones)
-		copy(key.Data.In6U.U6Addr8[:], ip6)
-
-		// Cleanup state
-		if stateMap != nil {
-			var stateKey NetXfwIn6Addr
-			copy(stateKey.In6U.U6Addr8[:], ip6)
-			_ = stateMap.Delete(&stateKey)
-		}
+		copy(key.In6U.U6Addr8[:], ip6)
 	}
 
-	return configMap.Delete(&key)
+	return ratelimitMap.Delete(&key)
 }
 
 /**
- * RemoveRateLimitRuleFromMapsString removes a rate limit rule using CIDR string.
+ * RemoveRateLimitRuleFromMapString removes a rate limit rule using CIDR string.
  */
-func RemoveRateLimitRuleFromMapsString(configMap, stateMap *ebpf.Map, cidr string) error {
+func RemoveRateLimitRuleFromMapString(ratelimitMap *ebpf.Map, cidr string) error {
 	ipNet, err := iputil.ParseCIDR(cidr)
 	if err != nil {
 		return fmt.Errorf("invalid CIDR: %v", err)
 	}
-	return RemoveRateLimitRuleFromMaps(configMap, stateMap, ipNet)
+	return RemoveRateLimitRuleFromMap(ratelimitMap, ipNet)
 }
 
 /**
  * RemoveRateLimitRule removes a rate limit rule.
  * RemoveRateLimitRule 移除速率限制规则。
- * Note: ratelimit_config and ratelimit_state are now merged into ratelimit_map.
- * 注意：ratelimit_config 和 ratelimit_state 现在已合并到 ratelimit_map。
+ * Note: Uses unified ratelimit_map (config + state combined).
+ * 注意：使用统一的 ratelimit_map（配置 + 状态合并）。
  */
 func (m *Manager) RemoveRateLimitRule(ipNet *net.IPNet) error {
-	// Use ratelimitMap if available (new unified map), otherwise fallback to old maps
-	// 如果可用，使用 ratelimitMap（新的统一 Map），否则回退到旧 Map
-	if m.ratelimitMap != nil {
-		// TODO: Implement unified rate limit map logic
-		// 待实现：统一速率限制 Map 逻辑
-		return fmt.Errorf("unified ratelimit map not yet implemented")
+	if m.ratelimitMap == nil {
+		return fmt.Errorf("ratelimit map not initialized")
 	}
-	// Fallback: use old separate maps (bpf2go generated)
-	// 回退：使用旧的分离 Map（bpf2go 生成）
-	return RemoveRateLimitRuleFromMaps(m.objs.RatelimitConfig, m.objs.RatelimitState, ipNet)
+	return RemoveRateLimitRuleFromMap(m.ratelimitMap, ipNet)
 }
 
 /**
- * ListRateLimitRulesFromMap returns all configured rate limit rules from the map.
+ * ListRateLimitRulesFromMap returns all configured rate limit rules from the unified map.
+ * ListRateLimitRulesFromMap 从统一的 Map 返回所有配置的速率限制规则。
  */
 func ListRateLimitRulesFromMap(mapPtr *ebpf.Map, limit int, search string) (map[string]RateLimitConf, int, error) {
 	rules := make(map[string]RateLimitConf)
@@ -579,28 +560,25 @@ func ListRateLimitRulesFromMap(mapPtr *ebpf.Map, limit int, search string) (map[
 	}
 
 	iter := mapPtr.Iterate()
-	var key NetXfwLpmKey
-	var val NetXfwRatelimitConf
+	var key NetXfwIn6Addr
+	var val NetXfwRatelimitValue
 
 	for iter.Next(&key, &val) {
 		var ipStr string
-		var prefixLen uint32
 
-		isMappedIPv4 := key.Data.In6U.U6Addr8[10] == 0xff && key.Data.In6U.U6Addr8[11] == 0xff
+		// Check for IPv4-mapped address
+		// 检查是否为 IPv4 映射地址
+		isMappedIPv4 := key.In6U.U6Addr8[10] == 0xff && key.In6U.U6Addr8[11] == 0xff
 
 		if isMappedIPv4 {
-			ip := net.IP(key.Data.In6U.U6Addr8[12:])
+			ip := net.IP(key.In6U.U6Addr8[12:])
 			ipStr = ip.String()
-			prefixLen = key.Prefixlen - 96
 		} else {
-			ip := net.IP(key.Data.In6U.U6Addr8[:])
+			ip := net.IP(key.In6U.U6Addr8[:])
 			ipStr = ip.String()
-			prefixLen = key.Prefixlen
 		}
 
-		fullStr := fmt.Sprintf("%s/%d", ipStr, prefixLen)
-
-		if search != "" && !strings.Contains(fullStr, search) {
+		if search != "" && !strings.Contains(ipStr, search) {
 			continue
 		}
 
@@ -609,7 +587,7 @@ func ListRateLimitRulesFromMap(mapPtr *ebpf.Map, limit int, search string) (map[
 			continue
 		}
 
-		rules[fullStr] = RateLimitConf{
+		rules[ipStr] = RateLimitConf{
 			Rate:  val.Rate,
 			Burst: val.Burst,
 		}
@@ -621,20 +599,14 @@ func ListRateLimitRulesFromMap(mapPtr *ebpf.Map, limit int, search string) (map[
 /**
  * ListRateLimitRules returns all configured rate limit rules.
  * ListRateLimitRules 返回所有配置的速率限制规则。
- * Note: ratelimit_config and ratelimit_state are now merged into ratelimit_map.
- * 注意：ratelimit_config 和 ratelimit_state 现在已合并到 ratelimit_map。
+ * Note: Uses unified ratelimit_map (config + state combined).
+ * 注意：使用统一的 ratelimit_map（配置 + 状态合并）。
  */
 func (m *Manager) ListRateLimitRules(limit int, search string) (map[string]RateLimitConf, int, error) {
-	// Use ratelimitMap if available (new unified map), otherwise fallback to old maps
-	// 如果可用，使用 ratelimitMap（新的统一 Map），否则回退到旧 Map
-	if m.ratelimitMap != nil {
-		// TODO: Implement unified rate limit map logic
-		// 待实现：统一速率限制 Map 逻辑
-		return nil, 0, fmt.Errorf("unified ratelimit map not yet implemented")
+	if m.ratelimitMap == nil {
+		return nil, 0, fmt.Errorf("ratelimit map not initialized")
 	}
-	// Fallback: use old separate config map (bpf2go generated)
-	// 回退：使用旧的分离配置 Map（bpf2go 生成）
-	return ListRateLimitRulesFromMap(m.objs.RatelimitConfig, limit, search)
+	return ListRateLimitRulesFromMap(m.ratelimitMap, limit, search)
 }
 
 /**
@@ -676,17 +648,24 @@ func ClearBlacklistMap(m *ebpf.Map) error {
 }
 
 /**
- * ClearRateLimitMap clears the rate limit config map.
+ * ClearRateLimitMap clears the rate limit map.
+ * ClearRateLimitMap 清除速率限制 Map。
  */
 func ClearRateLimitMap(m *ebpf.Map) error {
 	if m == nil {
 		return nil
 	}
-	var val NetXfwRatelimitConf
-	keys, err := collectLpmKeys(m, &val)
-	if err != nil {
+	var keys []NetXfwIn6Addr
+	var key NetXfwIn6Addr
+	var val NetXfwRatelimitValue
+	iter := m.Iterate()
+	for iter.Next(&key, &val) {
+		keys = append(keys, key)
+	}
+	if err := iter.Err(); err != nil {
 		return err
 	}
+
 	for _, k := range keys {
 		_ = m.Delete(k)
 	}

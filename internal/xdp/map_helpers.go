@@ -75,15 +75,20 @@ func RemoveAllowedPort(m *ebpf.Map, port uint16) error {
 
 // AddRateLimitRule adds a rate limit rule.
 // AddRateLimitRule 添加一条速率限制规则。
-func AddRateLimitRule(m *ebpf.Map, cidrStr string, rate uint64, burst uint64) error {
-	key, err := NewLpmKey(cidrStr)
+// Note: Uses unified ratelimit_map with ratelimit_value (config + state combined)
+// 注意：使用统一的 ratelimit_map 配合 ratelimit_value（配置 + 状态合并）
+func AddRateLimitRule(m *ebpf.Map, ipStr string, rate uint64, burst uint64) error {
+	key, err := NewIPv6Key(ipStr)
 	if err != nil {
-		return fmt.Errorf("invalid IP or CIDR: %s", cidrStr)
+		return fmt.Errorf("invalid IP: %s", ipStr)
 	}
 
-	val := NetXfwRatelimitConf{
-		Rate:  rate,
-		Burst: burst,
+	val := NetXfwRatelimitValue{
+		Rate:          rate,
+		Burst:         burst,
+		ConfigVersion: 1,
+		LastTime:      0,
+		Tokens:        burst,
 	}
 
 	return m.Update(&key, &val, ebpf.UpdateAny)
