@@ -610,6 +610,10 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 
 // updateYamlNode recursively adds keys from defaultNode to fileNode if they are missing.
 // Returns true if any change was made.
+// updateYamlNode 递归地将 defaultNode 中缺失的键添加到 fileNode。
+// 如果进行了任何更改，则返回 true。
+//
+//nolint:unused
 func updateYamlNode(fileNode, defaultNode *yaml.Node) bool {
 	if fileNode.Kind == yaml.DocumentNode && defaultNode.Kind == yaml.DocumentNode {
 		return updateYamlNode(fileNode.Content[0], defaultNode.Content[0])
@@ -639,18 +643,22 @@ func updateYamlNode(fileNode, defaultNode *yaml.Node) bool {
 			// We append the nodes directly.
 			fileNode.Content = append(fileNode.Content, keyNode, valNode)
 			modified = true
-		} else {
+		} else if fileValNode.Kind == yaml.MappingNode && valNode.Kind == yaml.MappingNode {
 			// Key exists, recurse if both are mappings
-			if fileValNode.Kind == yaml.MappingNode && valNode.Kind == yaml.MappingNode {
-				if updateYamlNode(fileValNode, valNode) {
-					modified = true
-				}
+			if updateYamlNode(fileValNode, valNode) {
+				modified = true
 			}
 		}
 	}
 	return modified
 }
 
+// hasMissingKeys checks if file is missing keys from full.
+// Deprecated: logic moved to updateYamlNode
+// hasMissingKeys 检查 file 是否缺少 full 中的键。
+// 已弃用：逻辑已移至 updateYamlNode
+//
+//nolint:unused
 func hasMissingKeys(full, file map[string]interface{}) bool {
 	// Deprecated: logic moved to updateYamlNode
 	return false
@@ -663,15 +671,15 @@ func SaveGlobalConfig(path string, cfg *GlobalConfig) error {
 		return err
 	}
 	var newNode yaml.Node
-	if err := yaml.Unmarshal(data, &newNode); err != nil {
-		return err
+	if unmarshalErr := yaml.Unmarshal(data, &newNode); unmarshalErr != nil {
+		return unmarshalErr
 	}
 
 	// 2. Read existing file to Node (if exists)
-	fileData, err := os.ReadFile(path)
-	if err == nil {
+	fileData, readErr := os.ReadFile(path)
+	if readErr == nil {
 		var fileNode yaml.Node
-		if err := yaml.Unmarshal(fileData, &fileNode); err == nil {
+		if unmarshalErr := yaml.Unmarshal(fileData, &fileNode); unmarshalErr == nil {
 			// 3. Merge new config INTO file config (preserving comments)
 			MergeYamlNodes(&fileNode, &newNode)
 
@@ -679,8 +687,8 @@ func SaveGlobalConfig(path string, cfg *GlobalConfig) error {
 			var buf bytes.Buffer
 			enc := yaml.NewEncoder(&buf)
 			enc.SetIndent(2)
-			if err := enc.Encode(&fileNode); err != nil {
-				return err
+			if encodeErr := enc.Encode(&fileNode); encodeErr != nil {
+				return encodeErr
 			}
 			return fileutil.AtomicWriteFile(path, buf.Bytes(), 0644)
 		}

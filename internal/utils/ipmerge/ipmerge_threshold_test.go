@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// TestMergeCIDRsWithThreshold tests CIDR merging with threshold
+// TestMergeCIDRsWithThreshold 测试带阈值的 CIDR 合并
 func TestMergeCIDRsWithThreshold(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -59,22 +61,9 @@ func TestMergeCIDRsWithThreshold(t *testing.T) {
 			}
 
 			// Normalization for comparison (sort)
+			// 排序以便比较
 			sort.Strings(got)
 			sort.Strings(tt.want)
-
-			// Adjust expectation for the first case if needed
-			// Let's rely on standard MergeCIDRs behavior for "want" in complex cases
-			// But for simple cases above, manual verification is fine.
-
-			// Actually for case 1: 1.2.3.1, 1.2.3.2, 1.2.3.3.
-			// 1.2.3.2 (..10) and 1.2.3.3 (..11) -> 1.2.3.2/31.
-			// 1.2.3.1 is separate.
-			// So "1.2.3.1/32", "1.2.3.2/31" is correct.
-			if tt.threshold == 0 && len(tt.want) == 3 {
-				// Fix expectation for the first test case dynamically
-				// Or just update the test case struct above.
-				// I'll update the struct.
-			}
 
 			// Check logic
 			if !compareCIDRs(got, tt.want) {
@@ -84,6 +73,8 @@ func TestMergeCIDRsWithThreshold(t *testing.T) {
 	}
 }
 
+// TestMergeCIDRsWithCustomMasks tests CIDR merging with custom masks
+// TestMergeCIDRsWithCustomMasks 测试带自定义掩码的 CIDR 合并
 func TestMergeCIDRsWithCustomMasks(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -126,6 +117,8 @@ func TestMergeCIDRsWithCustomMasks(t *testing.T) {
 	}
 }
 
+// compareCIDRs compares two slices of CIDRs
+// compareCIDRs 比较两个 CIDR 切片
 func compareCIDRs(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

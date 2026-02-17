@@ -26,7 +26,8 @@ func runUnified(ctx context.Context) {
 
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
-		log.Fatalf("❌ Failed to load global config: %v", err)
+		log.Errorf("❌ Failed to load global config: %v", err)
+		return
 	}
 
 	// Initialize Logging / 初始化日志
@@ -114,7 +115,7 @@ func runUnified(ctx context.Context) {
 		if err := p.Start(pluginCtx); err != nil {
 			log.Warnf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
 		}
-		defer p.Stop()
+		defer func() { _ = p.Stop() }()
 	}
 
 	// 5. Start Cleanup Loop / 启动清理循环

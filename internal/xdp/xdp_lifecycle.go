@@ -75,8 +75,8 @@ func (m *Manager) Attach(interfaces []string) error {
 					// Pin the link to filesystem to make it persistent after process exit
 					// 将链接固定到文件系统，使其在进程退出后保持持久
 					_ = os.Remove(linkPath) // Remove old link pin if exists / 如果存在旧的链接固定点，则将其删除
-					if err := l.Pin(linkPath); err != nil {
-						m.logger.Warnf("⚠️  Failed to pin link on %s: %v", name, err)
+					if pinErr := l.Pin(linkPath); pinErr != nil {
+						m.logger.Warnf("⚠️  Failed to pin link on %s: %v", name, pinErr)
 						l.Close()
 						continue
 					}
@@ -109,21 +109,21 @@ func (m *Manager) Attach(interfaces []string) error {
 		}
 
 		if !tcAttached {
-			tcLink, err := link.AttachTCX(link.TCXOptions{
+			tcLink, attachErr := link.AttachTCX(link.TCXOptions{
 				Program:   m.objs.TcEgress,
 				Interface: iface.Index,
 				Attach:    ebpf.AttachTCXEgress,
 			})
-			if err == nil {
+			if attachErr == nil {
 				_ = os.Remove(tcLinkPath)
-				if err := tcLink.Pin(tcLinkPath); err != nil {
-					m.logger.Warnf("⚠️  Failed to pin TC link on %s: %v", name, err)
+				if pinErr := tcLink.Pin(tcLinkPath); pinErr != nil {
+					m.logger.Warnf("⚠️  Failed to pin TC link on %s: %v", name, pinErr)
 					tcLink.Close()
 				} else {
 					m.logger.Infof("✅ Attached TC Egress on %s and pinned link", name)
 				}
 			} else {
-				m.logger.Warnf("⚠️  Failed to attach TC Egress on %s: %v (Conntrack will not work for this interface)", name, err)
+				m.logger.Warnf("⚠️  Failed to attach TC Egress on %s: %v (Conntrack will not work for this interface)", name, attachErr)
 			}
 		}
 

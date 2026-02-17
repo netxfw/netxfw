@@ -285,6 +285,18 @@ func (le *LogEngine) UpdateConfig(cfg types.LogEngineConfig) error {
 	return nil
 }
 
+// RuleEngine returns the rule engine instance.
+// RuleEngine 返回规则引擎实例。
+func (le *LogEngine) RuleEngine() *RuleEngine {
+	return le.ruleEngine
+}
+
+// Counter returns the counter instance.
+// Counter 返回计数器实例。
+func (le *LogEngine) Counter() *Counter {
+	return le.counter
+}
+
 // collectFiles aggregates files from explicit list and rules.
 // It returns a map of filename -> tail_position.
 func (le *LogEngine) collectFiles() map[string]string {

@@ -26,7 +26,12 @@ func Init(cfg types.LoggingConfig) {
 	if cfg.Enabled && cfg.Path != "" {
 		// Create directory if not exists
 		dir := filepath.Dir(cfg.Path)
-		_ = os.MkdirAll(dir, 0755)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			// Log to stdout if we can't create the directory
+			// 如果无法创建目录，则输出到 stdout
+			globalLogger = zap.NewExample().Sugar()
+			globalLogger.Warnf("⚠️  Failed to create log directory: %v", err)
+		}
 
 		rotator := &lumberjack.Logger{
 			Filename:   cfg.Path,
@@ -73,7 +78,11 @@ func Get(ctx context.Context) *zap.SugaredLogger {
 	}
 	if globalLogger == nil {
 		// Fallback to basic stdout logger if not initialized
-		l, _ := zap.NewDevelopment()
+		l, err := zap.NewDevelopment()
+		if err != nil {
+			// Ultimate fallback: use example logger
+			return zap.NewExample().Sugar()
+		}
 		return l.Sugar()
 	}
 	return globalLogger

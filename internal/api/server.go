@@ -10,12 +10,24 @@ import (
 	"github.com/livp123/netxfw/pkg/sdk"
 )
 
-// Server represents the API and UI server.
-// Server 代表 API 和 UI 服务器。
+// Server represents the API and UI server instance.
+// Server 表示 API 和 UI 服务器实例。
 type Server struct {
 	sdk        *sdk.SDK
 	port       int
 	configPath string
+}
+
+// Sdk returns the SDK instance associated with this server.
+// Sdk 返回与此服务器关联的 SDK 实例。
+func (s *Server) Sdk() *sdk.SDK {
+	return s.sdk
+}
+
+// Port returns the port number of the server.
+// Port 返回服务器的端口号。
+func (s *Server) Port() int {
+	return s.port
 }
 
 // NewServer creates a new API and UI server instance.
@@ -35,43 +47,78 @@ func (s *Server) Handler() http.Handler {
 	// Auto-generate token if not configured
 	// 如果未配置 Token，则自动生成
 	types.ConfigMu.Lock()
-	cfg, err := types.LoadGlobalConfig(s.configPath)
-	if err == nil {
-		if cfg.Web.Token == "" {
-			token := generateRandomToken(16)
-			cfg.Web.Token = token
-			cfg.Web.Enabled = true
-			cfg.Web.Port = s.port
-			types.SaveGlobalConfig(s.configPath, cfg)
-			log.Infof("🔑 No Web Token configured. Automatically generated a new one: %s", token)
-			log.Infof("📝 Token has been saved to %s", s.configPath)
-		} else {
-			log.Infof("🔑 Using configured Web Token for authentication")
-		}
+
+	// Load config using the new config manager
+	cfgManager := config.GetConfigManager()
+	err := cfgManager.LoadConfig()
+	if err != nil {
+		log.Errorf("Failed to load config: %v", err)
+		types.ConfigMu.Unlock()
+		return nil
 	}
+
+	cfg := cfgManager.GetConfig()
+	if cfg == nil {
+		log.Error("Config is nil after loading")
+		types.ConfigMu.Unlock()
+		return nil
+	}
+
+	if cfg.Web.Token == "" {
+		token := generateRandomToken(16)
+		cfg.Web.Token = token
+		cfg.Web.Enabled = true
+		cfg.Web.Port = s.port
+
+		// Update config in the manager
+		cfgManager.UpdateConfig(cfg)
+
+		// Save config using the new config manager
+		if err := cfgManager.SaveConfig(); err != nil {
+			log.Errorf("Failed to save config: %v", err)
+			types.ConfigMu.Unlock()
+			return nil
+		}
+
+		log.Infof("🔑 No Web Token configured. Automatically generated a new one: %s", token)
+		log.Infof("📝 Token has been saved to %s", s.configPath)
+	} else {
+		log.Infof("🔑 Using configured Web Token for authentication")
+	}
+
 	types.ConfigMu.Unlock()
 
 	mux := http.NewServeMux()
 
-	// Auth & Login / 认证与登录
-	mux.HandleFunc("/api/login", s.handleLogin)
+	// Health check endpoint
+	// 健康检查端点
+	mux.HandleFunc("/healthz", s.handleHealthz)
 
-	// API Endpoints with Token Auth / 带有 Token 认证的 API 端点
-	mux.Handle("/api/stats", s.withAuth(http.HandlerFunc(s.handleStats)))
-	mux.Handle("/api/rules", s.withAuth(http.HandlerFunc(s.handleRules)))
-	mux.Handle("/api/config", s.withAuth(http.HandlerFunc(s.handleConfig)))
-	mux.Handle("/api/sync", s.withAuth(http.HandlerFunc(s.handleSync)))
-	mux.Handle("/api/conntrack", s.withAuth(http.HandlerFunc(s.handleConntrack)))
+	// Version endpoint
+	// 版本端点
+	mux.HandleFunc("/version", s.handleVersion)
 
-	// Pprof Endpoints (Protected) / Pprof 端点（受保护）
-	mux.Handle("/debug/pprof/", s.withAuth(http.HandlerFunc(pprof.Index)))
-	mux.Handle("/debug/pprof/cmdline", s.withAuth(http.HandlerFunc(pprof.Cmdline)))
-	mux.Handle("/debug/pprof/profile", s.withAuth(http.HandlerFunc(pprof.Profile)))
-	mux.Handle("/debug/pprof/symbol", s.withAuth(http.HandlerFunc(pprof.Symbol)))
-	mux.Handle("/debug/pprof/trace", s.withAuth(http.HandlerFunc(pprof.Trace)))
+	// API Routes
+	// API 路由
+	mux.HandleFunc("/api/stats", s.handleStats)
+	mux.HandleFunc("/api/rules", s.handleRules)
+	mux.HandleFunc("/api/config", s.handleConfig)
+	mux.HandleFunc("/api/sync", s.handleSync)
+	mux.HandleFunc("/api/conntrack", s.handleConntrack)
 
-	// UI (Embedded) / UI（内嵌）
+	// UI Route
+	// UI 路由
 	mux.HandleFunc("/", s.handleUI)
+
+	// Pprof routes for debugging (only if enabled in config)
+	// 调试用 Pprof 路由（仅在配置中启用时）
+	if cfg.Base.EnablePprof {
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 
 	return mux
 }

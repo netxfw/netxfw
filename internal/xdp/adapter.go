@@ -234,8 +234,14 @@ func (a *Adapter) GetConntrackCount() (int, error) {
 // sdk.Firewall Implementation
 
 func (a *Adapter) GetStats() (uint64, uint64) {
-	pass, _ := a.manager.GetPassCount()
-	drop, _ := a.manager.GetDropCount()
+	pass, err := a.manager.GetPassCount()
+	if err != nil {
+		a.manager.logger.Warnf("⚠️  Failed to get pass count: %v", err)
+	}
+	drop, err := a.manager.GetDropCount()
+	if err != nil {
+		a.manager.logger.Warnf("⚠️  Failed to get drop count: %v", err)
+	}
 	return pass, drop
 }
 

@@ -58,19 +58,25 @@ func (m *PortModule) Sync() error {
 		// Remove
 		for port := range existingPorts {
 			if !desiredPorts[port] {
-				m.manager.RemoveAllowedPort(port)
+				if err := m.manager.RemoveAllowedPort(port); err != nil {
+					m.logger.Warnf("⚠️ [Port] Failed to remove port %d: %v", port, err)
+				}
 			}
 		}
 		// Add
 		for port := range desiredPorts {
 			if !existingPorts[port] {
-				m.manager.AllowPort(port)
+				if err := m.manager.AllowPort(port); err != nil {
+					m.logger.Warnf("⚠️ [Port] Failed to allow port %d: %v", port, err)
+				}
 			}
 		}
 	}
 
 	// 2. Sync IP+Port Rules (Simplified logic for migration)
-	m.manager.ClearIPPortRules()
+	if err := m.manager.ClearIPPortRules(); err != nil {
+		m.logger.Warnf("⚠️ [Port] Failed to clear IP+Port rules: %v", err)
+	}
 	for _, rule := range m.config.IPPortRules {
 		if err := m.manager.AddIPPortRule(rule.IP, rule.Port, rule.Action); err != nil {
 			m.logger.Warnf("⚠️ [Port] Failed to add rule %s:%d: %v", rule.IP, rule.Port, err)

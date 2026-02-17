@@ -30,11 +30,11 @@ type MockManager struct {
 // Sync Operations
 func (m *MockManager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	if overwrite {
-		m.ClearBlacklist()
-		m.ClearWhitelist()
-		m.ClearIPPortRules()
-		m.ClearAllowedPorts()
-		m.ClearRateLimitRules()
+		_ = m.ClearBlacklist()
+		_ = m.ClearWhitelist()
+		_ = m.ClearIPPortRules()
+		_ = m.ClearAllowedPorts()
+		_ = m.ClearRateLimitRules()
 	}
 
 	// Sync Whitelist from config

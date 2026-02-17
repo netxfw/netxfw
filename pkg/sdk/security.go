@@ -5,6 +5,8 @@ import "time"
 // SecurityAPI defines methods for security configuration.
 // SecurityAPI 定义了安全配置的方法。
 type SecurityAPI interface {
+	SetDefaultDeny(enable bool) error
+	SetEnableAFXDP(enable bool) error
 	SetDropFragments(enable bool) error
 	SetStrictTCP(enable bool) error
 	SetSYNLimit(enable bool) error
@@ -17,6 +19,14 @@ type SecurityAPI interface {
 
 type securityImpl struct {
 	mgr ManagerInterface
+}
+
+func (s *securityImpl) SetDefaultDeny(enable bool) error {
+	return s.mgr.SetDefaultDeny(enable)
+}
+
+func (s *securityImpl) SetEnableAFXDP(enable bool) error {
+	return s.mgr.SetEnableAFXDP(enable)
 }
 
 func (s *securityImpl) SetDropFragments(enable bool) error {

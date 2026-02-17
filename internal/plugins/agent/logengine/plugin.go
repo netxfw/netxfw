@@ -54,7 +54,9 @@ func (p *LogEnginePlugin) Reload(ctx *sdk.PluginContext) error {
 
 	if p.engine == nil {
 		// Was disabled, now enabled
-		p.Init(ctx)
+		if err := p.Init(ctx); err != nil {
+			return err
+		}
 		return p.Start(ctx)
 	}
 

@@ -16,14 +16,20 @@ import (
 func SyncToConfig(ctx context.Context, mgr XDPManager) error {
 	log := logger.Get(ctx)
 	log.Info("🔄 Syncing BPF Maps to Configuration Files...")
-	configPath := config.GetConfigPath()
 
 	types.ConfigMu.Lock()
 	defer types.ConfigMu.Unlock()
 
-	globalCfg, err := types.LoadGlobalConfig(configPath)
+	// Use the config manager to load the configuration
+	cfgManager := config.GetConfigManager()
+	err := cfgManager.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
+	}
+
+	globalCfg := cfgManager.GetConfig()
+	if globalCfg == nil {
+		return fmt.Errorf("config is nil after loading")
 	}
 
 	// Use XDP Manager's SyncToFiles implementation to ensure consistency
@@ -32,8 +38,9 @@ func SyncToConfig(ctx context.Context, mgr XDPManager) error {
 		return fmt.Errorf("failed to sync maps to files: %v", err)
 	}
 
-	// Save final config / 保存最终配置
-	if err := types.SaveGlobalConfig(configPath, globalCfg); err != nil {
+	// Update config in manager and save using the manager
+	cfgManager.UpdateConfig(globalCfg)
+	if err := cfgManager.SaveConfig(); err != nil {
 		return fmt.Errorf("failed to save config: %v", err)
 	}
 	log.Info("✅ Configuration files updated successfully.")
@@ -47,14 +54,20 @@ func SyncToConfig(ctx context.Context, mgr XDPManager) error {
 func SyncToMap(ctx context.Context, mgr XDPManager) error {
 	log := logger.Get(ctx)
 	log.Info("🔄 Syncing Configuration Files to BPF Maps...")
-	configPath := config.GetConfigPath()
 
 	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
+	// Use the config manager to load the configuration
+	cfgManager := config.GetConfigManager()
+	err := cfgManager.LoadConfig()
 	types.ConfigMu.Unlock() // Unlock after reading, SyncFromFiles might take time but maps are safe
 
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
+	}
+
+	globalCfg := cfgManager.GetConfig()
+	if globalCfg == nil {
+		return fmt.Errorf("config is nil after loading")
 	}
 
 	// Use XDP Manager's SyncFromFiles implementation

@@ -1,9 +1,10 @@
 package logengine_test
 
 import (
-	"github.com/livp123/netxfw/internal/plugins/agent/logengine"
 	"net/netip"
 	"testing"
+
+	"github.com/livp123/netxfw/internal/plugins/agent/logengine"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
 )

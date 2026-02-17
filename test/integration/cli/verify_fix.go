@@ -1,3 +1,12 @@
+//go:build ignore
+
+// Package main contains CLI verification tests.
+// Package main 包含 CLI 验证测试。
+//
+// This file is excluded from normal builds and tests.
+// Use: go run verify_fix.go
+// 此文件从正常构建和测试中排除。
+// 使用方法: go run verify_fix.go
 package main
 
 import (
@@ -7,6 +16,8 @@ import (
 	"strings"
 )
 
+// runCmd executes the netxfw binary with given arguments.
+// runCmd 使用给定参数执行 netxfw 二进制文件。
 func runCmd(args ...string) string {
 	binPath := os.Getenv("NETXFW_BIN")
 	if binPath == "" {

@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/core/engine"
@@ -25,9 +26,17 @@ func runDataPlane(ctx context.Context) {
 	}
 	defer removePidFile(pidPath)
 
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err != nil {
-		log.Fatalf("❌ Failed to load global config from %s: %v", configPath, err)
+	// Use the config manager to load the configuration
+	cfgManager := config.GetConfigManager()
+	if err := cfgManager.LoadConfig(); err != nil {
+		log.Errorf("❌ Failed to load global config from %s: %v", configPath, err)
+		return
+	}
+
+	globalCfg := cfgManager.GetConfig()
+	if globalCfg == nil {
+		log.Errorf("❌ Config is nil after loading from %s", configPath)
+		return
 	}
 
 	// Initialize Logging (Global init might be redundant if done in main, but keeps compatibility)
@@ -40,10 +49,11 @@ func runDataPlane(ctx context.Context) {
 		log.Info("ℹ️  Creating new XDP manager...")
 		manager, err = xdp.NewManager(globalCfg.Capacity, log)
 		if err != nil {
-			log.Fatalf("❌ Failed to create XDP manager: %v", err)
+			log.Errorf("❌ Failed to create XDP manager: %v", err)
+			return
 		}
-		if err := manager.Pin(pinPath); err != nil {
-			log.Warnf("⚠️  Failed to pin maps: %v", err)
+		if pinErr := manager.Pin(pinPath); pinErr != nil {
+			log.Warnf("⚠️  Failed to pin maps: %v", pinErr)
 		}
 	}
 	defer manager.Close()
@@ -100,10 +110,17 @@ func runDataPlane(ctx context.Context) {
 
 	reloadFunc := func() error {
 		types.ConfigMu.RLock()
-		newCfg, err := types.LoadGlobalConfig(configPath)
-		types.ConfigMu.RUnlock()
+		// Use the config manager to reload the configuration
+		err := cfgManager.LoadConfig()
 		if err != nil {
+			types.ConfigMu.RUnlock()
 			return err
+		}
+
+		newCfg := cfgManager.GetConfig()
+		types.ConfigMu.RUnlock()
+		if newCfg == nil {
+			return fmt.Errorf("config is nil after reloading")
 		}
 
 		// Reload Core Modules

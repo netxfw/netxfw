@@ -1,14 +1,26 @@
+//go:build ignore
+
+// Package main contains hybrid approval verification tests.
+// Package main 包含混合审批验证测试。
+//
+// This file is excluded from normal builds and tests.
+// Use: go run verify_hybrid_approval.go
+// 此文件从正常构建和测试中排除。
+// 使用方法: go run verify_hybrid_approval.go
 package main
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+
 	"time"
 )
 
+// baseURL is the base URL for the API server.
+// baseURL 是 API 服务器的基础 URL。
 const baseURL = "http://localhost:11818/api"
 
 func main() {
@@ -29,6 +41,8 @@ func main() {
 	fmt.Println("\n✅ Hybrid Approval tests completed.")
 }
 
+// testManualAutoActive tests manual add with auto_active=true.
+// testManualAutoActive 测试手动添加且 auto_active=true。
 func testManualAutoActive() {
 	fmt.Println("\n--- Scenario 1: Manual Add with AutoActive=true ---")
 	// 场景 1：手动添加，AutoActive=true
@@ -41,6 +55,8 @@ func testManualAutoActive() {
 	fmt.Printf("Response: %s\n", resp)
 }
 
+// testExternalAutoActive tests external alert with auto_active=true.
+// testExternalAutoActive 测试外部告警且 auto_active=true。
 func testExternalAutoActive() {
 	fmt.Println("\n--- Scenario 2: External Alert with AutoActive=true ---")
 	// 场景 2：外部告警，AutoActive=true
@@ -55,6 +71,8 @@ func testExternalAutoActive() {
 	fmt.Printf("Response: %s\n", resp)
 }
 
+// testManualPending tests manual add with auto_active=false (pending approval).
+// testManualPending 测试手动添加且 auto_active=false（待审批）。
 func testManualPending() {
 	fmt.Println("\n--- Scenario 3: Manual Add with AutoActive=false (Pending) ---")
 	// 场景 3：手动添加，AutoActive=false（待审批）
@@ -67,11 +85,18 @@ func testManualPending() {
 	fmt.Printf("Response: %s\n", resp)
 }
 
-// post is a helper function to send POST requests to the API
-// post 是一个向 API 发送 POST 请求的辅助函数
+// post is a helper function to send POST requests to the API.
+// post 是一个向 API 发送 POST 请求的辅助函数。
 func post(path string, data interface{}) string {
-	b, _ := json.Marshal(data)
-	req, _ := http.NewRequest("POST", baseURL+path, bytes.NewBuffer(b))
+	b, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Sprintf("JSON marshal error: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", baseURL+path, bytes.NewBuffer(b))
+	if err != nil {
+		return fmt.Sprintf("Request creation error: %v", err)
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	// Note: In a real test we'd need a token if Auth is enabled.
@@ -85,6 +110,10 @@ func post(path string, data interface{}) string {
 		return fmt.Sprintf("Error: %v", err)
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Sprintf("Read body error: %v", err)
+	}
 	return string(body)
 }

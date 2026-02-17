@@ -260,24 +260,24 @@ func ShowRateLimitRules(ctx context.Context, xdpMgr XDPManager) error {
  */
 func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 	log := logger.Get(ctx)
-	_, err := types.LoadGlobalConfig(config.GetConfigPath())
-	if err != nil {
+	_, loadErr := types.LoadGlobalConfig(config.GetConfigPath())
+	if loadErr != nil {
 		// Log but continue, maybe config file is missing but XDP is running
-		log.Warnf("⚠️  Could not load global config: %v", err)
+		log.Warnf("⚠️  Could not load global config: %v", loadErr)
 	}
 
 	fmt.Println("✅ XDP Program Status: Loaded and Running")
 
 	// Get drop stats / 获取丢弃统计
-	drops, err := xdpMgr.GetDropCount()
-	if err != nil {
-		fmt.Printf("⚠️  Could not retrieve drop statistics: %v\n", err)
+	drops, dropErr := xdpMgr.GetDropCount()
+	if dropErr != nil {
+		fmt.Printf("⚠️  Could not retrieve drop statistics: %v\n", dropErr)
 	} else {
 		fmt.Printf("📊 Global Drop Count: %d packets\n", drops)
 
 		// Show detailed drop stats / 显示详细的丢弃统计
-		details, err := xdpMgr.GetDropDetails()
-		if err == nil && len(details) > 0 {
+		details, detailErr := xdpMgr.GetDropDetails()
+		if detailErr == nil && len(details) > 0 {
 			// Sort by count descending / 按计数降序排序
 			sort.Slice(details, func(i, j int) bool {
 				return details[i].Count > details[j].Count
@@ -357,15 +357,15 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 	}
 
 	// Get pass stats / 获取通过统计
-	passes, err := xdpMgr.GetPassCount()
-	if err != nil {
-		fmt.Printf("⚠️  Could not retrieve pass statistics: %v\n", err)
+	passes, passErr := xdpMgr.GetPassCount()
+	if passErr != nil {
+		fmt.Printf("⚠️  Could not retrieve pass statistics: %v\n", passErr)
 	} else {
 		fmt.Printf("📊 Global Pass Count: %d packets\n", passes)
 
 		// Show detailed pass stats / 显示详细的通过统计
-		details, err := xdpMgr.GetPassDetails()
-		if err == nil && len(details) > 0 {
+		details, detailErr := xdpMgr.GetPassDetails()
+		if detailErr == nil && len(details) > 0 {
 			// Sort by count descending / 按计数降序排序
 			sort.Slice(details, func(i, j int) bool {
 				return details[i].Count > details[j].Count
@@ -436,86 +436,93 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 	}
 
 	// Get conntrack count / 获取连接跟踪计数
-	ctCount, err := xdpMgr.GetConntrackCount()
-	if err == nil {
+	ctCount, ctErr := xdpMgr.GetConntrackCount()
+	if ctErr == nil {
 		fmt.Printf("🕵️  Active Connections: %d\n", ctCount)
 	}
 
 	// Check default deny policy / 检查默认拒绝策略
 	var key uint32 = 0 // CONFIG_DEFAULT_DENY
 	var val uint64
-	if err := xdpMgr.GlobalConfig().Lookup(&key, &val); err == nil {
-		status := "Disabled (Allow by default)"
-		if val == 1 {
-			status = "Enabled (Deny by default)"
+	globalConfig := xdpMgr.GlobalConfig()
+	if globalConfig != nil {
+		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
+			status := "Disabled (Allow by default)"
+			if val == 1 {
+				status = "Enabled (Deny by default)"
+			}
+			fmt.Printf("🛡️  Default Deny Policy: %s\n", status)
 		}
-		fmt.Printf("🛡️  Default Deny Policy: %s\n", status)
-	}
 
-	// Check allow return traffic / 检查允许返回流量
-	key = 1 // CONFIG_ALLOW_RETURN_TRAFFIC
-	if err := xdpMgr.GlobalConfig().Lookup(&key, &val); err == nil {
-		status := "Disabled"
-		if val == 1 {
-			status = "Enabled"
+		// Check allow return traffic / 检查允许返回流量
+		key = 1 // CONFIG_ALLOW_RETURN_TRAFFIC
+		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
+			status := "Disabled"
+			if val == 1 {
+				status = "Enabled"
+			}
+			fmt.Printf("🔄 Allow Return Traffic: %s\n", status)
 		}
-		fmt.Printf("🔄 Allow Return Traffic: %s\n", status)
-	}
 
-	// Check allow ICMP / 检查允许 ICMP
-	key = 2 // CONFIG_ALLOW_ICMP
-	if err := xdpMgr.GlobalConfig().Lookup(&key, &val); err == nil {
-		status := "Disabled"
-		if val == 1 {
-			status = "Enabled"
-		}
-		fmt.Printf("🏓 Allow ICMP (Ping): %s\n", status)
+		// Check allow ICMP / 检查允许 ICMP
+		key = 2 // CONFIG_ALLOW_ICMP
+		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
+			status := "Disabled"
+			if val == 1 {
+				status = "Enabled"
+			}
+			fmt.Printf("🏓 Allow ICMP (Ping): %s\n", status)
 
-		if val == 1 {
-			// Check rate limits / 检查速率限制
-			var rate, burst uint64
-			kRate := uint32(5)  // CONFIG_ICMP_RATE
-			kBurst := uint32(6) // CONFIG_ICMP_BURST
-			if err := xdpMgr.GlobalConfig().Lookup(&kRate, &rate); err == nil {
-				if err := xdpMgr.GlobalConfig().Lookup(&kBurst, &burst); err == nil {
-					fmt.Printf("   ├─ Rate Limit: %d packets/sec\n", rate)
-					fmt.Printf("   └─ Burst Limit: %d packets\n", burst)
+			if val == 1 {
+				// Check rate limits / 检查速率限制
+				var rate, burst uint64
+				kRate := uint32(5)  // CONFIG_ICMP_RATE
+				kBurst := uint32(6) // CONFIG_ICMP_BURST
+				if rateErr := globalConfig.Lookup(&kRate, &rate); rateErr == nil {
+					if burstErr := globalConfig.Lookup(&kBurst, &burst); burstErr == nil {
+						fmt.Printf("   ├─ Rate Limit: %d packets/sec\n", rate)
+						fmt.Printf("   └─ Burst Limit: %d packets\n", burst)
+					}
 				}
 			}
 		}
-	}
 
-	// Check conntrack / 检查连接跟踪
-	key = 3 // CONFIG_ENABLE_CONNTRACK
-	if err := xdpMgr.GlobalConfig().Lookup(&key, &val); err == nil {
-		status := "Disabled"
-		if val == 1 {
-			status = "Enabled"
-		}
-		fmt.Printf("🕵️  Connection Tracking: %s\n", status)
+		// Check conntrack / 检查连接跟踪
+		key = 3 // CONFIG_ENABLE_CONNTRACK
+		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
+			status := "Disabled"
+			if val == 1 {
+				status = "Enabled"
+			}
+			fmt.Printf("🕵️  Connection Tracking: %s\n", status)
 
-		if val == 1 {
-			kTimeout := uint32(4) // CONFIG_CONNTRACK_TIMEOUT
-			var timeoutNs uint64
-			if err := xdpMgr.GlobalConfig().Lookup(&kTimeout, &timeoutNs); err == nil {
-				fmt.Printf("   └─ Idle Timeout: %v\n", time.Duration(timeoutNs))
+			if val == 1 {
+				kTimeout := uint32(4) // CONFIG_CONNTRACK_TIMEOUT
+				var timeoutNs uint64
+				if timeoutErr := globalConfig.Lookup(&kTimeout, &timeoutNs); timeoutErr == nil {
+					fmt.Printf("   └─ Idle Timeout: %v\n", time.Duration(timeoutNs))
+				}
 			}
 		}
-	}
 
-	// Check global ratelimit / 检查全局速率限制
-	key = 10 // CONFIG_ENABLE_RATELIMIT
-	if err := xdpMgr.GlobalConfig().Lookup(&key, &val); err == nil {
-		status := "Disabled"
-		if val == 1 {
-			status = "Enabled"
+		// Check global ratelimit / 检查全局速率限制
+		key = 10 // CONFIG_ENABLE_RATELIMIT
+		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
+			status := "Disabled"
+			if val == 1 {
+				status = "Enabled"
+			}
+			fmt.Printf("🚀 Global Rate Limiting: %s\n", status)
 		}
-		fmt.Printf("🚀 Global Rate Limiting: %s\n", status)
 	}
 
 	// Check attached interfaces / 检查已附加的接口
 	fmt.Println("\n🔗 Attached Interfaces:")
-	files, _ := os.ReadDir(config.GetPinPath())
+	files, readErr := os.ReadDir(config.GetPinPath())
+	if readErr != nil {
+		fmt.Println(" - Unable to read pin path")
+		return nil
+	}
 	attachedCount := 0
 	for _, f := range files {
 		if strings.HasPrefix(f.Name(), "link_") {

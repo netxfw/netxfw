@@ -64,7 +64,13 @@ func MergeCIDRsWithThreshold(cidrs []string, threshold int, v4Mask int, v6Mask i
 		// Calculate parent prefix
 		// 计算父前缀
 		addr := prefix.Addr()
-		parent, _ := addr.Prefix(parentBits)
+		parent, err := addr.Prefix(parentBits)
+		if err != nil {
+			// If we can't calculate parent prefix, keep the original CIDR
+			// 如果无法计算父前缀，保留原始 CIDR
+			finalCidrs = append(finalCidrs, c)
+			continue
+		}
 		parentStr := parent.String()
 
 		groups[parentStr] = append(groups[parentStr], c)
@@ -198,22 +204,21 @@ func prefixLastIP(p netip.Prefix) netip.Addr {
 			}
 		}
 		return netip.AddrFrom4(ip4)
-	} else {
-		// IPv6
-		ip6 := start.As16()
-		hostBits := 128 - bits
-		for i := 0; i < 16; i++ {
-			if hostBits > (15-i)*8 {
-				shift := 0
-				if hostBits < (15-i+1)*8 {
-					shift = (15-i+1)*8 - hostBits
-				}
-				mask := byte(0xFF >> shift)
-				ip6[i] |= mask
-			}
-		}
-		return netip.AddrFrom16(ip6)
 	}
+	// IPv6
+	ip6 := start.As16()
+	hostBitsV6 := 128 - bits
+	for i := 0; i < 16; i++ {
+		if hostBitsV6 > (15-i)*8 {
+			shift := 0
+			if hostBitsV6 < (15-i+1)*8 {
+				shift = (15-i+1)*8 - hostBitsV6
+			}
+			mask := byte(0xFF >> shift)
+			ip6[i] |= mask
+		}
+	}
+	return netip.AddrFrom16(ip6)
 }
 
 func mergeRanges(ranges []ipRange) []ipRange {
@@ -382,7 +387,7 @@ func countTrailingZeros32(x uint32) int {
 		x >>= 2
 	}
 	if (x & 0x00000001) == 0 {
-		n += 1
+		n++
 	}
 	return n
 }
@@ -413,7 +418,7 @@ func countTrailingZeros64(x uint64) int {
 		x >>= 2
 	}
 	if (x & 0x1) == 0 {
-		n += 1
+		n++
 	}
 	return n
 }

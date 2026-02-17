@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/config"
 )
 
 // TokenClaims represents the payload of the JWT-like token
@@ -84,11 +84,17 @@ func verifyToken(tokenString string, secret string) (*TokenClaims, error) {
 // withAuth 是用于基于令牌认证的中间件（支持 Bearer Token 和旧查询参数）
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		types.ConfigMu.RLock()
-		cfg, err := types.LoadGlobalConfig(s.configPath)
-		types.ConfigMu.RUnlock()
+		// Use the config manager to load the configuration
+		cfgManager := config.GetConfigManager()
+		err := cfgManager.LoadConfig()
 		if err != nil {
 			http.Error(w, "Config Error", http.StatusInternalServerError)
+			return
+		}
+
+		cfg := cfgManager.GetConfig()
+		if cfg == nil {
+			http.Error(w, "Config is nil", http.StatusInternalServerError)
 			return
 		}
 
@@ -136,11 +142,17 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	types.ConfigMu.RLock()
-	cfg, err := types.LoadGlobalConfig(s.configPath)
-	types.ConfigMu.RUnlock()
+	// Use the config manager to load the configuration
+	cfgManager := config.GetConfigManager()
+	err := cfgManager.LoadConfig()
 	if err != nil {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+
+	cfg := cfgManager.GetConfig()
+	if cfg == nil {
+		http.Error(w, "Config is nil", http.StatusInternalServerError)
 		return
 	}
 
@@ -163,7 +175,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"token": signedToken,
-	})
+	}); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }

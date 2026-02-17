@@ -20,48 +20,7 @@ func (m *Manager) GetDropDetails() ([]sdk.DropDetailEntry, error) {
 	if m.dropReasonStats == nil {
 		return nil, nil
 	}
-	return GetDropDetailsFromMap(m.dropReasonStats)
-}
-
-/**
- * GetDropDetailsFromMap retrieves detailed drop statistics from a given map.
- * GetDropDetailsFromMap 从给定的 Map 中获取详细的拦截统计信息.
- */
-func GetDropDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
-	var results []sdk.DropDetailEntry
-	var key NetXfwDropDetailKey
-	var values []uint64 // PERCPU value is a slice of uint64 / PERCPU 值是 uint64 切片
-
-	iter := m.Iterate()
-	for iter.Next(&key, &values) {
-		var totalCount uint64
-		for _, v := range values {
-			totalCount += v
-		}
-
-		if totalCount > 0 {
-			var srcIP string
-			isMappedIPv4 := key.SrcIp.In6U.U6Addr8[10] == 0xff && key.SrcIp.In6U.U6Addr8[11] == 0xff
-			if isMappedIPv4 {
-				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[12:]).String()
-			} else {
-				srcIP = net.IP(key.SrcIp.In6U.U6Addr8[:]).String()
-			}
-
-			results = append(results, sdk.DropDetailEntry{
-				Reason:   key.Reason,
-				Protocol: uint8(key.Protocol),
-				SrcIP:    srcIP,
-				DstPort:  key.DstPort,
-				Count:    totalCount,
-			})
-		}
-	}
-	if err := iter.Err(); err != nil {
-		return nil, fmt.Errorf("iterate drop reason stats: %w", err)
-	}
-
-	return results, nil
+	return GetDetailsFromMap(m.dropReasonStats, "drop reason stats")
 }
 
 /**
@@ -72,14 +31,32 @@ func (m *Manager) GetPassDetails() ([]sdk.DropDetailEntry, error) {
 	if m.passReasonStats == nil {
 		return nil, nil
 	}
-	return GetPassDetailsFromMap(m.passReasonStats)
+	return GetDetailsFromMap(m.passReasonStats, "pass reason stats")
+}
+
+/**
+ * GetDropDetailsFromMap retrieves detailed drop statistics from a given map.
+ * GetDropDetailsFromMap 从给定的 Map 中获取详细的拦截统计信息.
+ * Deprecated: Use GetDetailsFromMap instead.
+ */
+func GetDropDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
+	return GetDetailsFromMap(m, "drop reason stats")
 }
 
 /**
  * GetPassDetailsFromMap retrieves detailed pass statistics from a given map.
  * GetPassDetailsFromMap 从给定的 Map 中获取详细的放行统计信息.
+ * Deprecated: Use GetDetailsFromMap instead.
  */
 func GetPassDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
+	return GetDetailsFromMap(m, "pass reason stats")
+}
+
+/**
+ * GetDetailsFromMap retrieves detailed statistics from a given PERCPU HASH map.
+ * GetDetailsFromMap 从给定的 PERCPU HASH Map 中获取详细统计信息.
+ */
+func GetDetailsFromMap(m *ebpf.Map, mapName string) ([]sdk.DropDetailEntry, error) {
 	var results []sdk.DropDetailEntry
 	var key NetXfwDropDetailKey
 	var values []uint64 // PERCPU value is a slice of uint64 / PERCPU 值是 uint64 切片
@@ -110,7 +87,7 @@ func GetPassDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
 		}
 	}
 	if err := iter.Err(); err != nil {
-		return nil, fmt.Errorf("iterate pass reason stats: %w", err)
+		return nil, fmt.Errorf("iterate %s: %w", mapName, err)
 	}
 
 	return results, nil

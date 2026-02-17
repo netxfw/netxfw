@@ -96,7 +96,7 @@ var limitListCmd = &cobra.Command{
 		search := ""
 
 		if len(args) > 0 {
-			if l, err := strconv.Atoi(args[0]); err == nil {
+			if l, parseErr := strconv.Atoi(args[0]); parseErr == nil {
 				limit = l
 				if len(args) > 1 {
 					search = args[1]

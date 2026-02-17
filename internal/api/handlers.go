@@ -6,10 +6,31 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/livp123/netxfw/internal/core"
+	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/livp123/netxfw/internal/version"
 )
+
+// handleHealthz returns the health status of the service.
+// handleHealthz 返回服务的健康状态。
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status": "ok",
+	})
+}
+
+// handleVersion returns the version information of the service.
+// handleVersion 返回服务的版本信息。
+func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"version": version.Version,
+	})
+}
 
 // handleStats returns the global pass/drop statistics.
 // handleStats 返回全局放行/拦截统计信息。
@@ -17,7 +38,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	pass, drop, _ := s.sdk.Stats.GetCounters()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]uint64{
+	_ = json.NewEncoder(w).Encode(map[string]uint64{
 		"pass": pass,
 		"drop": drop,
 	})
@@ -48,7 +69,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 			"totalIPPort":    totalIPPort,
 			"limit":          limit,
 		}
-		json.NewEncoder(w).Encode(res)
+		_ = json.NewEncoder(w).Encode(res)
 
 	case http.MethodPost:
 		var req struct {
@@ -141,9 +162,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		var err error
 		switch req.Key {
 		case "afxdp":
-			err = core.SyncEnableAFXDP(r.Context(), s.sdk.GetManager(), req.Value)
+			err = s.sdk.Security.SetEnableAFXDP(req.Value)
 		case "default_deny":
-			err = core.SyncDefaultDeny(r.Context(), s.sdk.GetManager(), req.Value)
+			err = s.sdk.Security.SetDefaultDeny(req.Value)
 		}
 
 		if err != nil {
@@ -170,26 +191,42 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, err := types.LoadGlobalConfig(s.configPath)
+	// Use the config manager to load the configuration
+	cfgManager := config.GetConfigManager()
+	err := cfgManager.LoadConfig()
 	if err != nil {
 		http.Error(w, "Failed to load config: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	cfg := cfgManager.GetConfig()
+	if cfg == nil {
+		http.Error(w, "Failed to get config from manager", http.StatusInternalServerError)
+		return
+	}
+
 	if req.Direction == "map2file" {
 		types.ConfigMu.Lock()
-		// Reload config inside lock to ensure freshness before writing back
-		// 在锁内重新加载配置，以确保在写回之前的新鲜度
-		cfg, err = types.LoadGlobalConfig(s.configPath)
+		// Reload config using the config manager inside lock to ensure freshness before writing back
+		// 在锁内使用配置管理器重新加载配置，以确保在写回之前的新鲜度
+		err = cfgManager.LoadConfig()
 		if err != nil {
 			types.ConfigMu.Unlock()
-			http.Error(w, "Failed to load config: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Failed to reload config: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		cfg = cfgManager.GetConfig()
+		if cfg == nil {
+			types.ConfigMu.Unlock()
+			http.Error(w, "Failed to get config from manager", http.StatusInternalServerError)
 			return
 		}
 
-		err = s.sdk.GetManager().SyncToFiles(cfg)
+		err = s.sdk.Sync.ToConfig(cfg)
 		if err == nil {
-			err = types.SaveGlobalConfig(s.configPath, cfg)
+			// Update config in manager and save using the manager
+			cfgManager.UpdateConfig(cfg)
+			err = cfgManager.SaveConfig()
 		}
 		types.ConfigMu.Unlock()
 	} else {
@@ -198,7 +235,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		// 对于 file2map，我们刚刚加载了配置（快照）。
 		// 即使文件现在发生变化，我们也应用此快照。
 		overwrite := req.Mode == "overwrite"
-		err = s.sdk.GetManager().SyncFromFiles(cfg, overwrite)
+		err = s.sdk.Sync.ToMap(cfg, overwrite)
 	}
 
 	if err != nil {
@@ -212,8 +249,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 // handleConntrack returns the list of active network connections.
 func (s *Server) handleConntrack(w http.ResponseWriter, r *http.Request) {
-	// TODO: Add Conntrack API to SDK
-	entries, err := s.sdk.GetManager().ListAllConntrackEntries()
+	entries, err := s.sdk.Conntrack.List()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -237,7 +273,7 @@ func (s *Server) handleConntrack(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {

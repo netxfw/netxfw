@@ -81,21 +81,19 @@ func (c *Counter) Inc(ip netip.Addr) {
 
 	shard.Lock()
 	stats, ok := shard.counts[ip]
-	if !ok {
-		stats = c.statsPool.Get().(*ipStats)
-		// Initialize or Reset stats
-		if cap(stats.buckets) < c.maxWindowSeconds {
-			stats.buckets = make([]uint16, c.maxWindowSeconds)
-		} else {
-			stats.buckets = stats.buckets[:c.maxWindowSeconds]
-			for i := range stats.buckets {
-				stats.buckets[i] = 0
-			}
+	if !ok || stats == nil {
+		stats = &ipStats{
+			buckets: make([]uint16, c.maxWindowSeconds),
 		}
-
 		stats.lastUnixTime = now
 		stats.lastIdx = int(now % mw)
 		shard.counts[ip] = stats
+	} else {
+		// Ensure buckets is initialized for existing stats
+		// 确保现有 stats 的 buckets 已初始化
+		if stats.buckets == nil || len(stats.buckets) < c.maxWindowSeconds {
+			stats.buckets = make([]uint16, c.maxWindowSeconds)
+		}
 	}
 
 	idx := int(now % mw)
@@ -171,6 +169,12 @@ func (c *Counter) Count(ip netip.Addr, windowSeconds int) int {
 	}
 
 	return total
+}
+
+// MaxWindowSeconds returns the maximum window size in seconds.
+// MaxWindowSeconds 返回最大窗口大小（秒）。
+func (c *Counter) MaxWindowSeconds() int {
+	return c.maxWindowSeconds
 }
 
 // Cleanup removes old entries to prevent memory leak.

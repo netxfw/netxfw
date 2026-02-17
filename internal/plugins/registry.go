@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"github.com/livp123/netxfw/internal/plugins/agent/logengine"
+	"github.com/livp123/netxfw/internal/plugins/agent/metrics"
 	"github.com/livp123/netxfw/internal/plugins/agent/web"
 )
 
@@ -10,6 +11,7 @@ var (
 	// registry 包含所有已注册的插件。
 	registry = []Plugin{
 		&logengine.LogEnginePlugin{},
+		&metrics.MetricsPlugin{},
 		&web.WebPlugin{},
 	}
 )

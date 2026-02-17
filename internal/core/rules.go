@@ -39,19 +39,19 @@ func SyncLockMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, lock bo
 
 		// Re-check conflict inside lock to handle race conditions
 		// 在锁内重新检查冲突以处理竞态条件
-		if conflict, err := xdpMgr.IsIPInWhitelist(cidrStr); err == nil && conflict {
+		if conflict, checkErr := xdpMgr.IsIPInWhitelist(cidrStr); checkErr == nil && conflict {
 			// Remove from whitelist / 从白名单移除
-			if err := xdpMgr.RemoveWhitelistIP(cidrStr); err != nil {
-				log.Warnf("⚠️  Failed to remove from whitelist: %v", err)
+			if removeErr := xdpMgr.RemoveWhitelistIP(cidrStr); removeErr != nil {
+				log.Warnf("⚠️  Failed to remove from whitelist: %v", removeErr)
 			} else {
 				log.Infof("🔓 Removed %s from whitelist", cidrStr)
 				// Update config immediately / 立即更新配置
-				globalCfg, err := types.LoadGlobalConfig(config.GetConfigPath())
-				if err == nil {
+				globalCfg, loadErr := types.LoadGlobalConfig(config.GetConfigPath())
+				if loadErr == nil {
 					newWhitelist := []string{}
 					for _, entry := range globalCfg.Base.Whitelist {
 						normalizedEntry := entry
-						if host, _, err := iputil.ParseIPPort(entry); err == nil {
+						if host, _, parseErr := iputil.ParseIPPort(entry); parseErr == nil {
 							normalizedEntry = host
 						}
 						normalizedEntry = iputil.NormalizeCIDR(normalizedEntry)
@@ -61,13 +61,15 @@ func SyncLockMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, lock bo
 						}
 					}
 					globalCfg.Base.Whitelist = newWhitelist
-					types.SaveGlobalConfig(config.GetConfigPath(), globalCfg)
+					if saveErr := types.SaveGlobalConfig(config.GetConfigPath(), globalCfg); saveErr != nil {
+						log.Warnf("⚠️  Failed to save config: %v", saveErr)
+					}
 				}
 			}
 		}
 
-		if err := xdpMgr.AddBlacklistIP(cidrStr); err != nil {
-			return fmt.Errorf("failed to lock %s: %v", cidrStr, err)
+		if addErr := xdpMgr.AddBlacklistIP(cidrStr); addErr != nil {
+			return fmt.Errorf("failed to lock %s: %v", cidrStr, addErr)
 		}
 		log.Infof("🛡️ Locked: %s", cidrStr)
 
@@ -133,7 +135,9 @@ func SyncLockMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, lock bo
 						newLines = append(newLines, line)
 					}
 				}
-				fileutil.AtomicWriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0644)
+				if writeErr := fileutil.AtomicWriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0644); writeErr != nil {
+					log.Warnf("⚠️  Failed to write lock list file: %v", writeErr)
+				}
 			}
 		}
 	}
@@ -167,16 +171,16 @@ func SyncWhitelistMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, po
 
 		// Re-check conflict
 		// 重新检查冲突
-		if conflict, err := xdpMgr.IsIPInBlacklist(cidrStr); err == nil && conflict {
-			if err := xdpMgr.RemoveBlacklistIP(cidrStr); err != nil {
-				log.Warnf("⚠️  Failed to remove from blacklist: %v", err)
+		if conflict, checkErr := xdpMgr.IsIPInBlacklist(cidrStr); checkErr == nil && conflict {
+			if removeErr := xdpMgr.RemoveBlacklistIP(cidrStr); removeErr != nil {
+				log.Warnf("⚠️  Failed to remove from blacklist: %v", removeErr)
 			} else {
 				log.Infof("🔓 Removed %s from blacklist", cidrStr)
 			}
 		}
 
-		if err := xdpMgr.AddWhitelistIP(cidrStr, port); err != nil {
-			return fmt.Errorf("failed to allow %s: %v", cidrStr, err)
+		if addErr := xdpMgr.AddWhitelistIP(cidrStr, port); addErr != nil {
+			return fmt.Errorf("failed to allow %s: %v", cidrStr, addErr)
 		}
 		if port > 0 {
 			log.Infof("⚪ Whitelisted: %s (port: %d)", cidrStr, port)
@@ -207,7 +211,9 @@ func SyncWhitelistMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, po
 
 				globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
 				optimizer.OptimizeWhitelistConfig(globalCfg)
-				types.SaveGlobalConfig(configPath, globalCfg)
+				if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+					log.Warnf("⚠️  Failed to save config: %v", saveErr)
+				}
 
 				// Cleanup BPF: Remove rules that were merged into larger subnets
 				// 清理 BPF：删除已合并到较大子网中的规则
@@ -240,7 +246,9 @@ func SyncWhitelistMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, po
 						cidrToAdd = host
 						portToAdd = p
 					}
-					xdpMgr.AddWhitelistIP(cidrToAdd, portToAdd)
+					if addErr := xdpMgr.AddWhitelistIP(cidrToAdd, portToAdd); addErr != nil {
+						log.Warnf("⚠️  Failed to add whitelist IP %s: %v", cidrToAdd, addErr)
+					}
 				}
 			}
 		}
@@ -278,157 +286,104 @@ func SyncWhitelistMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, po
 				newWhitelist = append(newWhitelist, ip)
 			}
 			globalCfg.Base.Whitelist = newWhitelist
-			types.SaveGlobalConfig(configPath, globalCfg)
+			if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+				log.Warnf("⚠️  Failed to save config: %v", saveErr)
+			}
 		}
 	}
+	return nil
+}
+
+// configBoolSetter is a function type for setting boolean config fields.
+// configBoolSetter 是设置布尔配置字段的函数类型。
+type configBoolSetter func(*types.GlobalConfig, bool)
+
+// syncBoolSettingWithConfig syncs a boolean setting to XDP manager and config file.
+// syncBoolSettingWithConfig 将布尔设置同步到 XDP 管理器和配置文件。
+func syncBoolSettingWithConfig(ctx context.Context, xdpMgr XDPManager, enable bool,
+	setter func(bool) error, configSetter configBoolSetter, settingName, logMsg string) error {
+
+	log := logger.Get(ctx)
+	if err := setter(enable); err != nil {
+		return fmt.Errorf("failed to set %s: %v", settingName, err)
+	}
+
+	configPath := config.GetConfigPath()
+	types.ConfigMu.Lock()
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err == nil {
+		configSetter(globalCfg, enable)
+		if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+			log.Warnf("⚠️  Failed to save config: %v", saveErr)
+		}
+	}
+	types.ConfigMu.Unlock()
+
+	log.Infof(logMsg, enable)
 	return nil
 }
 
 // SyncDefaultDeny sets the default deny policy and syncs with configuration.
 // SyncDefaultDeny 设置默认拒绝策略并与配置同步。
 func SyncDefaultDeny(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	log := logger.Get(ctx)
-	if err := xdpMgr.SetDefaultDeny(enable); err != nil {
-		return fmt.Errorf("failed to set default deny: %v", err)
-	}
-
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		globalCfg.Base.DefaultDeny = enable
-		types.SaveGlobalConfig(configPath, globalCfg)
-	}
-	types.ConfigMu.Unlock()
-
-	log.Infof("🛡️ Default deny policy set to: %v", enable)
-	return nil
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
+		xdpMgr.SetDefaultDeny,
+		func(cfg *types.GlobalConfig, v bool) { cfg.Base.DefaultDeny = v },
+		"default deny", "🛡️ Default deny policy set to: %v")
 }
 
 // SyncEnableAFXDP enables or disables AF_XDP redirection and syncs with configuration.
 // SyncEnableAFXDP 启用或禁用 AF_XDP 重定向并与配置同步。
 func SyncEnableAFXDP(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	log := logger.Get(ctx)
-	if err := xdpMgr.SetEnableAFXDP(enable); err != nil {
-		return fmt.Errorf("failed to set enable AF_XDP: %v", err)
-	}
-
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		globalCfg.Base.EnableAFXDP = enable
-		types.SaveGlobalConfig(configPath, globalCfg)
-	}
-	types.ConfigMu.Unlock()
-
-	log.Infof("🚀 AF_XDP redirection set to: %v", enable)
-	return nil
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
+		xdpMgr.SetEnableAFXDP,
+		func(cfg *types.GlobalConfig, v bool) { cfg.Base.EnableAFXDP = v },
+		"enable AF_XDP", "🚀 AF_XDP redirection set to: %v")
 }
 
 // SyncEnableRateLimit enables or disables global rate limiting and syncs with configuration.
 // SyncEnableRateLimit 启用或禁用全局速率限制并与配置同步。
 func SyncEnableRateLimit(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	log := logger.Get(ctx)
-	if err := xdpMgr.SetEnableRateLimit(enable); err != nil {
-		return fmt.Errorf("failed to set enable ratelimit: %v", err)
-	}
-
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		globalCfg.RateLimit.Enabled = enable
-		types.SaveGlobalConfig(configPath, globalCfg)
-	}
-	types.ConfigMu.Unlock()
-
-	log.Infof("🚀 Global rate limit set to: %v", enable)
-	return nil
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
+		xdpMgr.SetEnableRateLimit,
+		func(cfg *types.GlobalConfig, v bool) { cfg.RateLimit.Enabled = v },
+		"enable ratelimit", "🚀 Global rate limit set to: %v")
 }
 
 // SyncDropFragments enables or disables dropping of IP fragments and syncs with configuration.
 // SyncDropFragments 启用或禁用丢弃 IP 分片并与配置同步。
 func SyncDropFragments(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	log := logger.Get(ctx)
-	if err := xdpMgr.SetDropFragments(enable); err != nil {
-		return fmt.Errorf("failed to set drop fragments: %v", err)
-	}
-
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		globalCfg.Base.DropFragments = enable
-		types.SaveGlobalConfig(configPath, globalCfg)
-	}
-	types.ConfigMu.Unlock()
-
-	log.Infof("🛡️ IP Fragment dropping set to: %v", enable)
-	return nil
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
+		xdpMgr.SetDropFragments,
+		func(cfg *types.GlobalConfig, v bool) { cfg.Base.DropFragments = v },
+		"drop fragments", "🛡️ IP Fragment dropping set to: %v")
 }
 
 // SyncStrictTCP enables or disables strict TCP validation and syncs with configuration.
 // SyncStrictTCP 启用或禁用严格的 TCP 验证并与配置同步。
 func SyncStrictTCP(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	log := logger.Get(ctx)
-	if err := xdpMgr.SetStrictTCP(enable); err != nil {
-		return fmt.Errorf("failed to set strict tcp: %v", err)
-	}
-
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		globalCfg.Base.StrictTCP = enable
-		types.SaveGlobalConfig(configPath, globalCfg)
-	}
-	types.ConfigMu.Unlock()
-
-	log.Infof("🛡️ Strict TCP validation set to: %v", enable)
-	return nil
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
+		xdpMgr.SetStrictTCP,
+		func(cfg *types.GlobalConfig, v bool) { cfg.Base.StrictTCP = v },
+		"strict tcp", "🛡️ Strict TCP validation set to: %v")
 }
 
 // SyncSYNLimit enables or disables SYN rate limiting and syncs with configuration.
 // SyncSYNLimit 启用或禁用 SYN 速率限制并与配置同步。
 func SyncSYNLimit(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	log := logger.Get(ctx)
-	if err := xdpMgr.SetSYNLimit(enable); err != nil {
-		return fmt.Errorf("failed to set syn limit: %v", err)
-	}
-
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		globalCfg.Base.SYNLimit = enable
-		types.SaveGlobalConfig(configPath, globalCfg)
-	}
-	types.ConfigMu.Unlock()
-
-	log.Infof("🛡️ SYN Rate Limit set to: %v", enable)
-	return nil
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
+		xdpMgr.SetSYNLimit,
+		func(cfg *types.GlobalConfig, v bool) { cfg.Base.SYNLimit = v },
+		"syn limit", "🛡️ SYN Rate Limit set to: %v")
 }
 
 // SyncBogonFilter enables or disables bogon filtering and syncs with configuration.
 // SyncBogonFilter 启用或禁用 bogon 过滤并与配置同步。
 func SyncBogonFilter(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	log := logger.Get(ctx)
-	if err := xdpMgr.SetBogonFilter(enable); err != nil {
-		return fmt.Errorf("failed to set bogon filter: %v", err)
-	}
-
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		globalCfg.Base.BogonFilter = enable
-		types.SaveGlobalConfig(configPath, globalCfg)
-	}
-	types.ConfigMu.Unlock()
-
-	log.Infof("🛡️ Bogon Filter set to: %v", enable)
-	return nil
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
+		xdpMgr.SetBogonFilter,
+		func(cfg *types.GlobalConfig, v bool) { cfg.Base.BogonFilter = v },
+		"bogon filter", "🛡️ Bogon Filter set to: %v")
 }
 
 // ShowLockList lists all currently blocked IP ranges.
@@ -447,8 +402,10 @@ func ShowLockList(ctx context.Context, xdpMgr XDPManager, limit int, search stri
 	}
 
 	// Also check dynamic lock list / 同时检查动态封禁列表
-	dynIps, dynCount, _ := xdpMgr.ListDynamicBlacklistIPs(limit, search)
-	if dynCount > 0 {
+	dynIps, dynCount, err := xdpMgr.ListDynamicBlacklistIPs(limit, search)
+	if err != nil {
+		log.Warnf("⚠️  Failed to list dynamic blacklist: %v", err)
+	} else if dynCount > 0 {
 		fmt.Println("\n📋 Dynamic Blacklist Rules:")
 		for _, entry := range dynIps {
 			fmt.Printf(" - %s (ExpiresAt: %d)\n", entry.IP, entry.ExpiresAt)

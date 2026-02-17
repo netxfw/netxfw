@@ -20,7 +20,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.24'
+
+      - name: Run tests
+        run: go test -v -race ./...
+
+      - name: Build test
+        run: go build ./...
 
       # - name: Install dependencies
       #   run: |

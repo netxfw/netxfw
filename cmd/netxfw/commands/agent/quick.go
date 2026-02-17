@@ -6,27 +6,30 @@ import (
 	"strconv"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
+	"github.com/livp123/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
+
+// getSDKOrExit initializes SDK and exits on error.
+// getSDKOrExit 初始化 SDK，出错时退出。
+func getSDKOrExit(cmd *cobra.Command) *sdk.SDK {
+	common.EnsureStandaloneMode()
+	s, err := common.GetSDK()
+	if err != nil {
+		cmd.PrintErrln(err)
+		os.Exit(1)
+	}
+	return s
+}
 
 var QuickBlockCmd = &cobra.Command{
 	Use:   "block <ip>",
 	Short: "Quickly block an IP",
-	// Short: 快速封锁 IP
-	Long: `Quickly block an IP by adding it to the blacklist`,
-	// Long: 通过将其添加到黑名单来快速封锁 IP
-	Args: cobra.ExactArgs(1),
+	Long:  `Quickly block an IP by adding it to the blacklist`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
+		s := getSDKOrExit(cmd)
 
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		// Block IP
-		// 封锁 IP
 		if err := s.Blacklist.Add(args[0]); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
@@ -38,21 +41,11 @@ var QuickBlockCmd = &cobra.Command{
 var QuickUnlockCmd = &cobra.Command{
 	Use:   "unlock <ip>",
 	Short: "Quickly unblock IP",
-	// Short: 快速解封 IP
-	Long: `Quickly remove an IP from blacklist`,
-	// Long: 快速从黑名单中移除 IP
-	Args: cobra.ExactArgs(1),
+	Long:  `Quickly remove an IP from blacklist`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
+		s := getSDKOrExit(cmd)
 
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		// Unblock IP
-		// 解封 IP
 		if err := s.Blacklist.Remove(args[0]); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
@@ -64,18 +57,10 @@ var QuickUnlockCmd = &cobra.Command{
 var QuickAllowCmd = &cobra.Command{
 	Use:   "allow <ip> [port]",
 	Short: "Quickly whitelist IP",
-	// Short: 快速将 IP 加入白名单
-	Long: `Quickly whitelist an IP address`,
-	// Long: 快速将一个 IP 地址加入白名单
-	Args: cobra.RangeArgs(1, 2),
+	Long:  `Quickly whitelist an IP address`,
+	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
-
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
+		s := getSDKOrExit(cmd)
 
 		var port uint16
 		if len(args) > 1 {
@@ -86,8 +71,6 @@ var QuickAllowCmd = &cobra.Command{
 			port = uint16(p)
 		}
 
-		// Allow IP
-		// 允许 IP
 		if err := s.Whitelist.Add(args[0], port); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
@@ -99,21 +82,11 @@ var QuickAllowCmd = &cobra.Command{
 var QuickUnallowCmd = &cobra.Command{
 	Use:   "unallow <ip> [port]",
 	Short: "Quickly remove from whitelist",
-	// Short: 快速从白名单中移除
-	Long: `Quickly remove an IP from whitelist`,
-	// Long: 快速从白名单中移除一个 IP
-	Args: cobra.RangeArgs(1, 2),
+	Long:  `Quickly remove an IP from whitelist`,
+	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
+		s := getSDKOrExit(cmd)
 
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		// Unallow IP
-		// 取消允许 IP
 		if err := s.Whitelist.Remove(args[0]); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
@@ -125,20 +98,10 @@ var QuickUnallowCmd = &cobra.Command{
 var QuickClearCmd = &cobra.Command{
 	Use:   "clear",
 	Short: "Quickly clear blacklist",
-	// Short: 快速清空黑名单
-	Long: `Quickly clear all entries from blacklist`,
-	// Long: 快速清空黑名单中的所有条目
+	Long:  `Quickly clear all entries from blacklist`,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
+		s := getSDKOrExit(cmd)
 
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		// Confirm and clear blacklist
-		// 确认并清空黑名单
 		if common.AskConfirmation("Are you sure you want to clear all entries from the blacklist?") {
 			if err := s.Blacklist.Clear(); err != nil {
 				cmd.PrintErrln(err)
@@ -150,5 +113,4 @@ var QuickClearCmd = &cobra.Command{
 }
 
 func init() {
-	// Not adding to RootCmd here, will be added in root.go
 }

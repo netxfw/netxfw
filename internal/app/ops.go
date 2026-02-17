@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	// Import pprof for HTTP endpoint profiling / 导入 pprof 用于 HTTP 端点性能分析
 	_ "net/http/pprof"
 	"strconv"
 
@@ -28,9 +30,15 @@ import (
 func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 	log := logger.Get(ctx)
 	// Load global configuration first to get interface settings / 首先加载全局配置以获取接口设置
-	globalCfg, err := types.LoadGlobalConfig(config.GetConfigPath())
+	cfgManager := config.GetConfigManager()
+	err := cfgManager.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load global config: %v", err)
+	}
+
+	globalCfg := cfgManager.GetConfig()
+	if globalCfg == nil {
+		return fmt.Errorf("config is nil after loading")
 	}
 
 	var interfaces []string
@@ -152,7 +160,7 @@ func RunDaemon(ctx context.Context) {
 func HandlePluginCommand(ctx context.Context, args []string) error {
 	log := logger.Get(ctx)
 	if len(args) < 1 {
-		return fmt.Errorf("Usage: netxfw plugin <load|remove> ...")
+		return fmt.Errorf("usage: netxfw plugin <load|remove> ...")
 	}
 
 	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
@@ -202,12 +210,20 @@ func HandlePluginCommand(ctx context.Context, args []string) error {
  */
 func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 	log := logger.Get(ctx)
+	var globalCfg *types.GlobalConfig
+
 	// Load global configuration to get max entries (needed for NewManager)
 	// 加载全局配置以获取最大条目数（NewManager 需要）
-	globalCfg, err := types.LoadGlobalConfig(config.GetConfigPath())
+	cfgManager := config.GetConfigManager()
+	err := cfgManager.LoadConfig()
 	if err != nil {
 		log.Warnf("⚠️  Failed to load global config, using default map capacity: %v", err)
 		globalCfg = &types.GlobalConfig{}
+	} else {
+		globalCfg = cfgManager.GetConfig()
+		if globalCfg == nil {
+			globalCfg = &types.GlobalConfig{} // fallback
+		}
 	}
 
 	var interfaces []string
@@ -223,7 +239,8 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 		uniqueInterfaces := make(map[string]bool)
 
 		// 1. Get physical interfaces / 1. 获取物理接口
-		if phyInterfaces, err := xdp.GetPhysicalInterfaces(); err == nil {
+		phyInterfaces, phyErr := xdp.GetPhysicalInterfaces()
+		if phyErr == nil {
 			for _, iface := range phyInterfaces {
 				uniqueInterfaces[iface] = true
 			}
@@ -235,7 +252,8 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 		}
 
 		// 3. Get currently attached interfaces from pins / 3. 从固定路径获取当前已附加的接口
-		if attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath()); err == nil {
+		attachedIfaces, attachErr := xdp.GetAttachedInterfaces(config.GetPinPath())
+		if attachErr == nil {
 			for _, iface := range attachedIfaces {
 				uniqueInterfaces[iface] = true
 			}
@@ -276,9 +294,15 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 	log.Info("🔄 Starting hot-reload of XDP program...")
 
 	// 1. Load global configuration / 加载全局配置
-	globalCfg, err := types.LoadGlobalConfig(config.GetConfigPath())
+	cfgManager := config.GetConfigManager()
+	err := cfgManager.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load global config: %v", err)
+	}
+
+	globalCfg := cfgManager.GetConfig()
+	if globalCfg == nil {
+		return fmt.Errorf("config is nil after loading")
 	}
 
 	var interfaces []string

@@ -72,7 +72,8 @@ func (c *RateLimitConfig) Validate() error {
 }
 
 func (c *LogEngineConfig) Validate() error {
-	for i, rule := range c.Rules {
+	for i := range c.Rules {
+		rule := &c.Rules[i]
 		if rule.TailPosition != "" && rule.TailPosition != "start" && rule.TailPosition != "end" && rule.TailPosition != "offset" {
 			return fmt.Errorf("invalid log_engine rule #%d: invalid tail_position '%s'", i, rule.TailPosition)
 		}

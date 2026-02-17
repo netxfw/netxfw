@@ -5,7 +5,6 @@ import (
 
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins"
-	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/internal/xdp"
 	"github.com/livp123/netxfw/pkg/sdk"
@@ -25,9 +24,17 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	}
 	defer removePidFile(pidPath)
 
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err != nil {
-		log.Fatalf("❌ Failed to load global config from %s: %v", configPath, err)
+	// Use the config manager to load the configuration
+	cfgManager := config.GetConfigManager()
+	if err := cfgManager.LoadConfig(); err != nil {
+		log.Errorf("❌ Failed to load global config from %s: %v", configPath, err)
+		return
+	}
+
+	globalCfg := cfgManager.GetConfig()
+	if globalCfg == nil {
+		log.Errorf("❌ Config is nil after loading from %s", configPath)
+		return
 	}
 
 	// Initialize Logging / 初始化日志
@@ -86,7 +93,7 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 		if err := p.Start(pluginCtx); err != nil {
 			log.Warnf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
 		}
-		defer p.Stop()
+		defer func() { _ = p.Stop() }()
 	}
 
 	// 4. Start Cleanup Loop / 启动清理循环

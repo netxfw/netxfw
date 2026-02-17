@@ -146,13 +146,17 @@ func (s *YAMLStore) LoadAll() (whitelist []IPRule, lockList []IPRule, ipPortRule
 	defer s.mu.RUnlock()
 
 	// Load from config / 从配置加载
-	configData, _ := s.readFile(s.configPath)
-	whitelist = configData.Whitelist
-	ipPortRules = configData.IPPortRules
+	configData, cfgErr := s.readFile(s.configPath)
+	if cfgErr == nil {
+		whitelist = configData.Whitelist
+		ipPortRules = configData.IPPortRules
+	}
 
 	// Load from lock file / 从锁定文件加载
-	lockData, _ := s.readFile(s.lockFilePath)
-	lockList = lockData.LockList
+	lockData, lockErr := s.readFile(s.lockFilePath)
+	if lockErr == nil {
+		lockList = lockData.LockList
+	}
 
 	return
 }
@@ -179,10 +183,18 @@ func (s *YAMLStore) readFile(path string) (fileData, error) {
 
 func (s *YAMLStore) updateFile(path string, updater func(*fileData)) error {
 	// Read raw to preserve other fields / 读取原始数据以保留其他字段
-	raw, _ := s.readRawFile(path)
+	raw, rawErr := s.readRawFile(path)
+	if rawErr != nil {
+		raw = make(map[string]interface{})
+	}
 
 	// Read typed to easily modify / 读取类型化数据以便于修改
-	typed, _ := s.readFile(path)
+	typed, typedErr := s.readFile(path)
+	if typedErr != nil {
+		// Initialize empty fileData if file doesn't exist
+		// 如果文件不存在，初始化空的 fileData
+		typed = fileData{}
+	}
 	updater(&typed)
 
 	// Sync typed back to raw / 将类型化数据同步回原始数据

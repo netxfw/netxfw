@@ -1,21 +1,31 @@
 # netxfw Default Configuration
 # /etc/netxfw/config.yaml
 
-capacity:
-  lock_list: 1024
-  conntrack: 100000
-  dyn_lock_list: 10000
-
 base:
   default_deny: false
   bogon_filter: true
-  tcp_flags_check: true
+  tcp_flags_check: false
   drop_fragments: false
   allow_return_traffic: true
   allow_icmp: true
+  interfaces: []
+  enable_af_xdp: false
+  strict_protocol: false
+  strict_tcp: false
+  syn_limit: false
   whitelist:
-    - cidr: "127.0.0.1/32"
-    - cidr: "::1/128"
+    - "127.0.0.1/32"
+    - "::1/128"
+  lock_list_file: "/etc/netxfw/lock_list.txt"
+  lock_list_binary: ""
+  lock_list_merge_threshold: 0
+  lock_list_v4_mask: 24
+  lock_list_v6_mask: 64
+  enable_expiry: true
+  cleanup_interval: "1m"
+  persist_rules: true
+  enable_pprof: false
+  pprof_port: 6060
 
 conntrack:
   enabled: true
@@ -34,8 +44,60 @@ rate_limit:
 
 port:
   allowed_ports: []
-  ip_port_rules:
-    - ip: "0.0.0.0/0"
-      port: 22
-      action: 1 # 1: allow, 2: deny
+  ip_port_rules: []
+
+capacity:
+  lock_list: 2000000
+  dyn_lock_list: 2000000
+  whitelist: 65536
+  ip_port_rules: 65536
+  allowed_ports: 1024
+
+logging:
+  enabled: false
+  level: "info"
+  path: "/var/log/netxfw/agent.log"
+  max_size: 10
+  max_backups: 3
+  max_age: 30
+  compress: true
+
+web:
+  enabled: false
+  port: 11811
+  token: ""
+
+metrics:
+  enabled: false
+  server_enabled: true
+  port: 11812
+  push_enabled: false
+  push_gateway_addr: ""
+  push_interval: "15s"
+  textfile_enabled: false
+  textfilePath: "/var/lib/node_exporter/netxfw.prom"
+
+log_engine:
+  enabled: false
+  workers: 4
+  max_window: 3600
+  rules: []
+
+cluster:
+  enabled: false
+  port: 11815
+  nodes: []
+  secret: ""
+
+ai:
+  enabled: false
+  port: 11813
+  model: ""
+  api_key: ""
+  base_url: ""
+
+mcp:
+  enabled: false
+  port: 11814
+  mode: "sse"
 

@@ -52,7 +52,9 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 			parts := strings.Split(rule, ":")
 			if len(parts) == 2 {
 				cidr = parts[0]
-				fmt.Sscanf(parts[1], "%d", &port)
+				if _, err := fmt.Sscanf(parts[1], "%d", &port); err != nil {
+					m.logger.Warnf("⚠️  Failed to parse port from whitelist rule %s: %v", rule, err)
+				}
 			}
 		}
 
@@ -169,13 +171,27 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	}
 
 	// 7. Sync Global Config from config to maps / 7. 从配置同步全局设置到 Map
-	m.SetDefaultDeny(cfg.Base.DefaultDeny)
-	m.SetAllowReturnTraffic(cfg.Base.AllowReturnTraffic)
-	m.SetAllowICMP(cfg.Base.AllowICMP)
-	m.SetEnableAFXDP(cfg.Base.EnableAFXDP)
-	m.SetICMPRateLimit(cfg.Base.ICMPRate, cfg.Base.ICMPBurst)
-	m.SetEnableRateLimit(cfg.RateLimit.Enabled)
-	m.SetConntrack(cfg.Conntrack.Enabled)
+	if err := m.SetDefaultDeny(cfg.Base.DefaultDeny); err != nil {
+		m.logger.Warnf("⚠️  Failed to set default deny: %v", err)
+	}
+	if err := m.SetAllowReturnTraffic(cfg.Base.AllowReturnTraffic); err != nil {
+		m.logger.Warnf("⚠️  Failed to set allow return traffic: %v", err)
+	}
+	if err := m.SetAllowICMP(cfg.Base.AllowICMP); err != nil {
+		m.logger.Warnf("⚠️  Failed to set allow ICMP: %v", err)
+	}
+	if err := m.SetEnableAFXDP(cfg.Base.EnableAFXDP); err != nil {
+		m.logger.Warnf("⚠️  Failed to set enable AF_XDP: %v", err)
+	}
+	if err := m.SetICMPRateLimit(cfg.Base.ICMPRate, cfg.Base.ICMPBurst); err != nil {
+		m.logger.Warnf("⚠️  Failed to set ICMP rate limit: %v", err)
+	}
+	if err := m.SetEnableRateLimit(cfg.RateLimit.Enabled); err != nil {
+		m.logger.Warnf("⚠️  Failed to set enable rate limit: %v", err)
+	}
+	if err := m.SetConntrack(cfg.Conntrack.Enabled); err != nil {
+		m.logger.Warnf("⚠️  Failed to set conntrack: %v", err)
+	}
 	if cfg.Conntrack.TCPTimeout != "" {
 		if d, err := time.ParseDuration(cfg.Conntrack.TCPTimeout); err == nil {
 			m.SetConntrackTimeout(d)

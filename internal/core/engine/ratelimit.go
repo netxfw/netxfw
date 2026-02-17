@@ -50,7 +50,9 @@ func (m *RateLimitModule) Reload(cfg *types.GlobalConfig) error {
 }
 
 func (m *RateLimitModule) Stop() error {
-	close(m.stopChan)
+	if m.stopChan != nil {
+		close(m.stopChan)
+	}
 	return nil
 }
 
@@ -98,7 +100,9 @@ func (m *RateLimitModule) Sync() error {
 	}
 	if m.config.AutoBlockExpiry != "" {
 		if d, err := time.ParseDuration(m.config.AutoBlockExpiry); err == nil {
-			m.manager.SetAutoBlockExpiry(d)
+			if err := m.manager.SetAutoBlockExpiry(d); err != nil {
+				m.logger.Warnf("⚠️  [RateLimit] Failed to set auto-block expiry: %v", err)
+			}
 		}
 	}
 
@@ -149,7 +153,9 @@ func (m *RateLimitModule) Sync() error {
 
 	for _, rule := range desiredRules {
 		m.logger.Infof("➕ [RateLimit] Syncing rule for %s: %d/%d", rule.IP, rule.Rate, rule.Burst)
-		m.manager.AddRateLimitRule(rule.IP, rule.Rate, rule.Burst)
+		if err := m.manager.AddRateLimitRule(rule.IP, rule.Rate, rule.Burst); err != nil {
+			m.logger.Warnf("⚠️ [RateLimit] Failed to add rule for %s: %v", rule.IP, err)
+		}
 	}
 	return nil
 }

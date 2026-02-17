@@ -182,7 +182,11 @@ func (e *Env) Match(pattern string) bool {
 		regexCache.Store(pattern, re)
 		atomic.AddInt64(&regexCount, 1)
 	}
-	return re.(*regexp.Regexp).Match(e.Line)
+	regex, ok := re.(*regexp.Regexp)
+	if !ok {
+		return false
+	}
+	return regex.Match(e.Line)
 }
 
 func (e *Env) Count(window int) int {
@@ -262,7 +266,9 @@ func (e *Env) Int(v interface{}) int {
 		return 0
 	}
 	var i int
-	fmt.Sscanf(s, "%d", &i)
+	if _, err := fmt.Sscanf(s, "%d", &i); err != nil {
+		return 0
+	}
 	return i
 }
 
@@ -272,7 +278,11 @@ func (e *Env) Like(haystack []byte, pattern string) bool {
 	}
 
 	if v, ok := regexCache.Load(pattern); ok {
-		return v.(*regexp.Regexp).Match(haystack)
+		regex, ok := v.(*regexp.Regexp)
+		if !ok {
+			return false
+		}
+		return regex.Match(haystack)
 	}
 
 	quoted := regexp.QuoteMeta(pattern)
@@ -531,7 +541,10 @@ func (re *RuleEngine) Evaluate(ip netip.Addr, event LogEvent) (ActionType, time.
 	}
 
 	lineBytes := []byte(event.Line)
-	env := envPool.Get().(*Env)
+	env, ok := envPool.Get().(*Env)
+	if !ok || env == nil {
+		env = &Env{}
+	}
 	defer func() {
 		env.Reset()
 		envPool.Put(env)

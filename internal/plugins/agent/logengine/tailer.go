@@ -91,7 +91,7 @@ func (t *Tailer) tailFile(filename string, mode string) {
 // Stop stops all tailers.
 func (t *Tailer) Stop() {
 	for _, tailer := range t.tails {
-		tailer.Stop()
+		_ = tailer.Stop()
 	}
 	t.wg.Wait()
 	close(t.Events)

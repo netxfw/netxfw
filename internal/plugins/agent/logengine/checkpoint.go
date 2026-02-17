@@ -63,7 +63,10 @@ func (cm *CheckpointManager) Save() {
 	}
 
 	// Ensure directory exists
-	_ = os.MkdirAll("/var/lib/netxfw", 0755)
+	if err := os.MkdirAll("/var/lib/netxfw", 0755); err != nil {
+		cm.logger.Warnf("⚠️  Failed to create checkpoint directory: %v", err)
+		return
+	}
 
 	if err := os.WriteFile(cm.file, data, 0644); err != nil {
 		cm.logger.Warnf("⚠️  Failed to save checkpoints: %v", err)
@@ -109,14 +112,9 @@ func (cm *CheckpointManager) GetOffset(file string, mode string) *tail.SeekInfo 
 	savedOffset, ok := cm.offsets[file]
 	cm.mu.Unlock()
 
-	// Default fallback to End if unknown mode
-	whence := 2 // End
-	offset := int64(0)
-
 	switch mode {
 	case "start":
-		whence = 0
-		offset = 0
+		return &tail.SeekInfo{Offset: 0, Whence: 0}
 	case "offset":
 		if ok {
 			// Validate file size to detect rotation
@@ -130,18 +128,12 @@ func (cm *CheckpointManager) GetOffset(file string, mode string) *tail.SeekInfo 
 				return &tail.SeekInfo{Offset: savedOffset, Whence: 0}
 			}
 		}
-		// If offset not found or file error, what should default be for "offset" mode?
-		// Usually "end" to avoid re-reading everything if state is lost.
-		whence = 2
-		offset = 0
+		// If offset not found or file error, default to end
+		return &tail.SeekInfo{Offset: 0, Whence: 2}
 	case "end":
-		whence = 2
-		offset = 0
+		return &tail.SeekInfo{Offset: 0, Whence: 2}
 	default:
 		// Default to End
-		whence = 2
-		offset = 0
+		return &tail.SeekInfo{Offset: 0, Whence: 2}
 	}
-
-	return &tail.SeekInfo{Offset: offset, Whence: whence}
 }

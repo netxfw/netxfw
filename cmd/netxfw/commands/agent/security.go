@@ -7,171 +7,108 @@ import (
 	"time"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
+	"github.com/livp123/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
 var SecurityCmd = &cobra.Command{
 	Use:   "security",
 	Short: "Security management commands",
-	// Short: 安全管理命令
 	Long: `Security management commands for netxfw
 netxfw 的安全管理命令`,
+}
+
+// runSecurityBoolCommand executes a security command with boolean argument.
+// runSecurityBoolCommand 执行带有布尔参数的安全命令。
+func runSecurityBoolCommand(cmd *cobra.Command, args []string, setter func(*sdk.SDK, bool) error, settingName string) {
+	common.EnsureStandaloneMode()
+
+	s, err := common.GetSDK()
+	if err != nil {
+		cmd.PrintErrln(err)
+		os.Exit(1)
+	}
+
+	enable, err := strconv.ParseBool(args[0])
+	if err != nil {
+		log.Fatalf("❌ Invalid boolean value: %v", err)
+	}
+
+	if err := setter(s, enable); err != nil {
+		cmd.PrintErrln(err)
+		os.Exit(1)
+	}
+	log.Printf("✅ %s set to %v", settingName, enable)
 }
 
 var securityFragmentsCmd = &cobra.Command{
 	Use:   "fragments [true|false]",
 	Short: "Drop fragmented packets",
-	// Short: 丢弃分片数据包
 	Long: `Enable/disable dropping of fragmented packets
 启用/禁用丢弃分片数据包`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
-
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		enable, err := strconv.ParseBool(args[0])
-		if err != nil {
-			log.Fatalf("❌ Invalid boolean value: %v", err)
-		}
-		// Toggle drop fragments
-		// 切换丢弃分片
-		if err := s.Security.SetDropFragments(enable); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-		log.Printf("✅ Drop Fragments set to %v", enable)
+		runSecurityBoolCommand(cmd, args, func(s *sdk.SDK, v bool) error {
+			return s.Security.SetDropFragments(v)
+		}, "Drop Fragments")
 	},
 }
 
 var securityStrictTCPCmd = &cobra.Command{
 	Use:   "strict-tcp [true|false]",
 	Short: "Strict TCP flag validation",
-	// Short: 严格 TCP 标志验证
 	Long: `Enable/disable strict TCP flag validation
 启用/禁用严格 TCP 标志验证`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
-
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		enable, err := strconv.ParseBool(args[0])
-		if err != nil {
-			log.Fatalf("❌ Invalid boolean value: %v", err)
-		}
-		// Toggle strict TCP
-		// 切换严格 TCP 检查
-		if err := s.Security.SetStrictTCP(enable); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-		log.Printf("✅ Strict TCP set to %v", enable)
+		runSecurityBoolCommand(cmd, args, func(s *sdk.SDK, v bool) error {
+			return s.Security.SetStrictTCP(v)
+		}, "Strict TCP")
 	},
 }
 
 var securitySYNLimitCmd = &cobra.Command{
 	Use:   "syn-limit [true|false]",
 	Short: "SYN flood protection",
-	// Short: SYN Flood 保护
 	Long: `Enable/disable SYN flood protection
 启用/禁用 SYN Flood 保护`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
-
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		enable, err := strconv.ParseBool(args[0])
-		if err != nil {
-			log.Fatalf("❌ Invalid boolean value: %v", err)
-		}
-		// Toggle SYN limit
-		// 切换 SYN 限制
-		if err := s.Security.SetSYNLimit(enable); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-		log.Printf("✅ SYN Limit set to %v", enable)
+		runSecurityBoolCommand(cmd, args, func(s *sdk.SDK, v bool) error {
+			return s.Security.SetSYNLimit(v)
+		}, "SYN Limit")
 	},
 }
 
 var securityBogonCmd = &cobra.Command{
 	Use:   "bogon [true|false]",
 	Short: "Bogon filtering",
-	// Short: Bogon 过滤
 	Long: `Enable/disable Bogon filtering
 启用/禁用 Bogon 过滤`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
-
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		enable, err := strconv.ParseBool(args[0])
-		if err != nil {
-			log.Fatalf("❌ Invalid boolean value: %v", err)
-		}
-		// Toggle Bogon filtering
-		// 切换 Bogon 过滤
-		if err := s.Security.SetBogonFilter(enable); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-		log.Printf("✅ Bogon filter set to %v", enable)
+		runSecurityBoolCommand(cmd, args, func(s *sdk.SDK, v bool) error {
+			return s.Security.SetBogonFilter(v)
+		}, "Bogon filter")
 	},
 }
 
 var securityAutoBlockCmd = &cobra.Command{
 	Use:   "auto-block [true|false]",
 	Short: "Auto-blocking",
-	// Short: 自动封锁
 	Long: `Enable/disable auto-blocking
 启用/禁用自动封锁`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
-
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		enable, err := strconv.ParseBool(args[0])
-		if err != nil {
-			log.Fatalf("❌ Invalid boolean value: %v", err)
-		}
-		// Toggle auto-blocking
-		// 切换自动封锁
-		if err := s.Security.SetAutoBlock(enable); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-		log.Printf("✅ Auto-block set to %v", enable)
+		runSecurityBoolCommand(cmd, args, func(s *sdk.SDK, v bool) error {
+			return s.Security.SetAutoBlock(v)
+		}, "Auto-block")
 	},
 }
 
 var securityAutoBlockExpiryCmd = &cobra.Command{
 	Use:   "auto-block-expiry <seconds>",
 	Short: "Auto-block expiry time",
-	// Short: 自动封锁过期时间
 	Long: `Set auto-block expiry time in seconds
 设置自动封锁过期时间（秒）`,
 	Args: cobra.ExactArgs(1),
@@ -188,8 +125,6 @@ var securityAutoBlockExpiryCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("❌ Invalid expiry value: %v", err)
 		}
-		// Set auto-block expiry
-		// 设置自动封锁过期时间
 		duration := time.Duration(expiry) * time.Second
 		if err := s.Security.SetAutoBlockExpiry(duration); err != nil {
 			cmd.PrintErrln(err)

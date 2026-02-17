@@ -159,7 +159,7 @@ var ruleIPListCmd = &cobra.Command{
 		search := ""
 
 		if len(args) > 0 {
-			if l, err := strconv.Atoi(args[0]); err == nil {
+			if l, parseErr := strconv.Atoi(args[0]); parseErr == nil {
 				limit = l
 				if len(args) > 1 {
 					search = args[1]
@@ -208,7 +208,7 @@ var rulePortListCmd = &cobra.Command{
 		search := ""
 
 		if len(args) > 0 {
-			if l, err := strconv.Atoi(args[0]); err == nil {
+			if l, parseErr := strconv.Atoi(args[0]); parseErr == nil {
 				limit = l
 				if len(args) > 1 {
 					search = args[1]
@@ -329,7 +329,7 @@ var ruleListCmd = &cobra.Command{
 					args = args[1:]
 
 					if len(args) > 0 {
-						if l, err := strconv.Atoi(args[0]); err == nil {
+						if l, parseErr := strconv.Atoi(args[0]); parseErr == nil {
 							limit = l
 							if len(args) > 1 {
 								search = args[1]
@@ -341,9 +341,9 @@ var ruleListCmd = &cobra.Command{
 
 					if subArg == "allow" || subArg == "white" {
 						cmd.Println("=== Whitelist (IP Rules) ===")
-						wl, _, err := s.Whitelist.List(limit, search)
-						if err != nil {
-							cmd.PrintErrln(err)
+						wl, _, listErr := s.Whitelist.List(limit, search)
+						if listErr != nil {
+							cmd.PrintErrln(listErr)
 						}
 						for _, ip := range wl {
 							cmd.Println(ip)
@@ -351,9 +351,9 @@ var ruleListCmd = &cobra.Command{
 						return
 					} else if subArg == "deny" || subArg == "block" || subArg == "lock" {
 						cmd.Println("=== Blacklist (IP Rules) ===")
-						bl, _, err := s.Blacklist.List(limit, search)
-						if err != nil {
-							cmd.PrintErrln(err)
+						bl, _, listErr := s.Blacklist.List(limit, search)
+						if listErr != nil {
+							cmd.PrintErrln(listErr)
 						}
 						for _, ip := range bl {
 							cmd.Println(ip.IP)
@@ -365,17 +365,17 @@ var ruleListCmd = &cobra.Command{
 				// Default to showing both IP whitelist and blacklist
 				// 默认显示 IP 白名单和黑名单
 				cmd.Println("=== Whitelist (IP Rules) ===")
-				wl, _, err := s.Whitelist.List(limit, search)
-				if err != nil {
-					cmd.PrintErrln(err)
+				wl, _, listErr := s.Whitelist.List(limit, search)
+				if listErr != nil {
+					cmd.PrintErrln(listErr)
 				}
 				for _, ip := range wl {
 					cmd.Println(ip)
 				}
 				cmd.Println("\n=== Blacklist (IP Rules) ===")
-				bl, _, err := s.Blacklist.List(limit, search)
-				if err != nil {
-					cmd.PrintErrln(err)
+				bl, _, listErr := s.Blacklist.List(limit, search)
+				if listErr != nil {
+					cmd.PrintErrln(listErr)
 				}
 				for _, ip := range bl {
 					cmd.Println(ip.IP)
@@ -392,7 +392,7 @@ var ruleListCmd = &cobra.Command{
 					args = args[1:]
 
 					if len(args) > 0 {
-						if l, err := strconv.Atoi(args[0]); err == nil {
+						if l, parseErr := strconv.Atoi(args[0]); parseErr == nil {
 							limit = l
 							if len(args) > 1 {
 								search = args[1]
@@ -411,9 +411,9 @@ var ruleListCmd = &cobra.Command{
 				// Default to showing all IP+Port rules
 				// 默认显示所有 IP+Port 规则
 				cmd.Println("=== IP+Port Rules ===")
-				rules, _, err := s.Rule.ListIPPortRules(limit, search)
-				if err != nil {
-					cmd.PrintErrln(err)
+				rules, _, listErr := s.Rule.ListIPPortRules(limit, search)
+				if listErr != nil {
+					cmd.PrintErrln(listErr)
 				}
 				for _, rule := range rules {
 					action := "deny"
@@ -431,7 +431,7 @@ var ruleListCmd = &cobra.Command{
 				search := ""
 
 				if len(args) > 0 {
-					if l, err := strconv.Atoi(args[0]); err == nil {
+					if l, parseErr := strconv.Atoi(args[0]); parseErr == nil {
 						limit = l
 						if len(args) > 1 {
 							search = args[1]
@@ -441,9 +441,9 @@ var ruleListCmd = &cobra.Command{
 					}
 				}
 
-				wl, _, err := s.Whitelist.List(limit, search)
-				if err != nil {
-					cmd.PrintErrln(err)
+				wl, _, listErr := s.Whitelist.List(limit, search)
+				if listErr != nil {
+					cmd.PrintErrln(listErr)
 				}
 				for _, ip := range wl {
 					cmd.Println(ip)
@@ -457,7 +457,7 @@ var ruleListCmd = &cobra.Command{
 				search := ""
 
 				if len(args) > 0 {
-					if l, err := strconv.Atoi(args[0]); err == nil {
+					if l, parseErr := strconv.Atoi(args[0]); parseErr == nil {
 						limit = l
 						if len(args) > 1 {
 							search = args[1]
@@ -467,9 +467,9 @@ var ruleListCmd = &cobra.Command{
 					}
 				}
 
-				bl, _, err := s.Blacklist.List(limit, search)
-				if err != nil {
-					cmd.PrintErrln(err)
+				bl, _, listErr := s.Blacklist.List(limit, search)
+				if listErr != nil {
+					cmd.PrintErrln(listErr)
 				}
 				for _, ip := range bl {
 					cmd.Println(ip.IP)
@@ -483,7 +483,7 @@ var ruleListCmd = &cobra.Command{
 				search := ""
 
 				if len(args) > 0 {
-					if l, err := strconv.Atoi(args[0]); err == nil {
+					if l, parseErr := strconv.Atoi(args[0]); parseErr == nil {
 						limit = l
 						if len(args) > 1 {
 							search = args[1]
@@ -493,9 +493,9 @@ var ruleListCmd = &cobra.Command{
 					}
 				}
 
-				rules, _, err := s.Rule.ListIPPortRules(limit, search)
-				if err != nil {
-					cmd.PrintErrln(err)
+				rules, _, listErr := s.Rule.ListIPPortRules(limit, search)
+				if listErr != nil {
+					cmd.PrintErrln(listErr)
 				}
 				for _, rule := range rules {
 					action := "deny"
@@ -507,8 +507,8 @@ var ruleListCmd = &cobra.Command{
 				return
 
 			case "conntrack":
-				if err := common.ShowConntrack(ctx, s); err != nil {
-					cmd.PrintErrln(err)
+				if connErr := common.ShowConntrack(ctx, s); connErr != nil {
+					cmd.PrintErrln(connErr)
 				}
 				return
 			}
@@ -517,27 +517,27 @@ var ruleListCmd = &cobra.Command{
 		// Default behavior: show all rules (IP whitelist, IP blacklist, and IP+Port rules)
 		// 默认行为：显示所有规则（IP 白名单，IP 黑名单和 IP+Port 规则）
 		cmd.Println("=== Whitelist (IP Rules) ===")
-		wl, _, err := s.Whitelist.List(100, "")
-		if err != nil {
-			cmd.PrintErrln(err)
+		wl, _, listErr := s.Whitelist.List(100, "")
+		if listErr != nil {
+			cmd.PrintErrln(listErr)
 		}
 		for _, ip := range wl {
 			cmd.Println(ip)
 		}
 
 		cmd.Println("\n=== Blacklist (IP Rules) ===")
-		bl, _, err := s.Blacklist.List(100, "")
-		if err != nil {
-			cmd.PrintErrln(err)
+		bl, _, listErr := s.Blacklist.List(100, "")
+		if listErr != nil {
+			cmd.PrintErrln(listErr)
 		}
 		for _, ip := range bl {
 			cmd.Println(ip.IP)
 		}
 
 		cmd.Println("\n=== IP+Port Rules ===")
-		rules, _, err := s.Rule.ListIPPortRules(100, "")
-		if err != nil {
-			cmd.PrintErrln(err)
+		rules, _, listErr := s.Rule.ListIPPortRules(100, "")
+		if listErr != nil {
+			cmd.PrintErrln(listErr)
 		}
 		for _, rule := range rules {
 			action := "deny"

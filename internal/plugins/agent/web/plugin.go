@@ -7,34 +7,10 @@ import (
 	"time"
 
 	"github.com/livp123/netxfw/internal/api"
+	"github.com/livp123/netxfw/internal/metrics"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/pkg/sdk"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-)
-
-var (
-	xdpDropTotal = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "netxfw_xdp_drop_total",
-			Help: "Total dropped packets by the XDP program",
-		},
-		[]string{"reason"},
-	)
-	xdpPassTotal = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "netxfw_xdp_pass_total",
-			Help: "Total passed packets by the XDP program",
-		},
-		[]string{"reason"},
-	)
-	lockedIPsCount = promauto.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "netxfw_locked_ips_count",
-			Help: "Current number of locked IP addresses",
-		},
-	)
 )
 
 type WebPlugin struct {
@@ -83,12 +59,20 @@ func (p *WebPlugin) Start(ctx *sdk.PluginContext) error {
 	// Create main mux
 	mux := http.NewServeMux()
 
-	// 1. Register API Routes
-	apiHandler := p.api.Handler()
-	mux.Handle("/", apiHandler)
+	// 1. Register Metrics Route based on configuration
+	// If metrics server is disabled, serve metrics on the same server
+	if !ctx.Config.Metrics.Enabled || !ctx.Config.Metrics.ServerEnabled {
+		mux.Handle("/metrics", promhttp.Handler())
+	}
 
-	// 2. Register Metrics Route
-	mux.Handle("/metrics", promhttp.Handler())
+	// 2. Get API handler (handles both API and UI routes)
+	apiHandler := p.api.Handler()
+
+	// 3. Register API routes (under /api/)
+	mux.Handle("/api/", http.StripPrefix("/api", apiHandler))
+
+	// 4. Register UI route (for root and other non-API/non-metrics paths)
+	mux.Handle("/", apiHandler)
 
 	p.server = &http.Server{
 		Addr:    fmt.Sprintf(":%d", p.config.Port),
@@ -123,9 +107,13 @@ func (p *WebPlugin) Stop() error {
 }
 
 func (p *WebPlugin) Reload(ctx *sdk.PluginContext) error {
-	p.Stop()
-	p.Init(ctx)
-	return p.Start(ctx)
+	// Update configuration
+	newConfig := ctx.Config.Web
+	p.config = &newConfig
+
+	// For web plugin, we might want to restart the server with new config
+	// But for now, just update the config reference
+	return nil
 }
 
 func (p *WebPlugin) collectStats(ctx *sdk.PluginContext) {
@@ -133,33 +121,31 @@ func (p *WebPlugin) collectStats(ctx *sdk.PluginContext) {
 	defer ticker.Stop()
 
 	for p.running {
-		select {
-		case <-ticker.C:
-			if ctx.SDK.Stats != nil {
-				// Update Prometheus metrics
-				_, _, err := ctx.SDK.Stats.GetCounters()
+		<-ticker.C
+		if p.api != nil && p.api.Sdk() != nil {
+			stats := p.api.Sdk().Stats
+			if stats != nil {
+				// Update locked IPs count
+				locked, err := stats.GetLockedIPCount()
 				if err == nil {
-					// Counters are updated internally by prometheus via GetDropDetails/GetPassDetails
+					metrics.WhitelistCount.Set(float64(locked))
 				}
 
-				locked, err := ctx.SDK.Stats.GetLockedIPCount()
-				if err == nil {
-					lockedIPsCount.Set(float64(locked))
-				}
-
-				drops, err := ctx.SDK.Stats.GetDropDetails()
+				// Update drop details
+				drops, err := stats.GetDropDetails()
 				if err == nil {
 					for _, d := range drops {
 						reasonStr := fmt.Sprintf("%d", d.Reason)
-						xdpDropTotal.WithLabelValues(reasonStr).Set(float64(d.Count))
+						metrics.XdpDropTotal.WithLabelValues(reasonStr).Set(float64(d.Count))
 					}
 				}
 
-				passes, err := ctx.SDK.Stats.GetPassDetails()
+				// Update pass details
+				passes, err := stats.GetPassDetails()
 				if err == nil {
 					for _, d := range passes {
 						reasonStr := fmt.Sprintf("%d", d.Reason)
-						xdpPassTotal.WithLabelValues(reasonStr).Set(float64(d.Count))
+						metrics.XdpPassTotal.WithLabelValues(reasonStr).Set(float64(d.Count))
 					}
 				}
 			}

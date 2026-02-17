@@ -2,10 +2,10 @@ package config
 
 import (
 	"path/filepath"
+	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/runtime"
 )
 
 /**
@@ -28,34 +28,37 @@ func LoadMap(mapName string) (*ebpf.Map, error) {
 // 		return err
 // 	}
 // 	defer m.Close()
-// 	_, err = xdp.ClearMap(m)
-// 	return err
+// 	return m.Iterate().Close()
 // }
 
-/**
- * GetConfigPath resolves the configuration file path.
- * It prioritizes the CLI flag (runtime.ConfigPath) over the default.
- * GetConfigPath 解析配置文件路径。
- * 优先使用 CLI 标志 (runtime.ConfigPath)，其次是默认值。
- */
-func GetConfigPath() string {
-	if runtime.ConfigPath != "" {
-		return runtime.ConfigPath
-	}
-	return DefaultConfigPath
+// ConfigManagerInstance holds the singleton instance of the config manager
+// ConfigManagerInstance 保存配置管理器的单例实例
+var ConfigManagerInstance *ConfigManager
+var once sync.Once
+
+// GetConfigManager returns the singleton instance of the config manager
+// GetConfigManager 返回配置管理器的单例实例
+func GetConfigManager() *ConfigManager {
+	once.Do(func() {
+		ConfigManagerInstance = NewConfigManager(GetDefaultConfigPath())
+	})
+	return ConfigManagerInstance
 }
 
-/**
- * GetPinPath resolves the BPF pin path.
- * It checks the configuration file first, then falls back to the constant default.
- * GetPinPath 解析 BPF 固定路径。
- * 首先检查配置文件，然后回退到常量默认值。
- */
-func GetPinPath() string {
-	cfgPath := GetConfigPath()
-	cfg, err := types.LoadGlobalConfig(cfgPath)
-	if err == nil && cfg.Base.BPFPinPath != "" {
-		return cfg.Base.BPFPinPath
-	}
-	return BPFPinPath
+// LoadGlobalConfig loads the configuration using the config manager
+// LoadGlobalConfig 使用配置管理器加载配置
+func LoadGlobalConfig() error {
+	return GetConfigManager().LoadConfig()
+}
+
+// SaveGlobalConfig saves the configuration using the config manager
+// SaveGlobalConfig 使用配置管理器保存配置
+func SaveGlobalConfig() error {
+	return GetConfigManager().SaveConfig()
+}
+
+// GetCurrentConfig returns the current configuration
+// GetCurrentConfig 返回当前配置
+func GetCurrentConfig() *types.GlobalConfig {
+	return GetConfigManager().GetConfig()
 }

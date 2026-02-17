@@ -37,15 +37,15 @@ func GetSDK() (*sdk.SDK, error) {
 }
 
 // EnsureStandaloneMode ensures that the application is running in standalone mode.
-var EnsureStandaloneMode = func() error {
+// EnsureStandaloneMode 确保应用程序以独立模式运行。
+var EnsureStandaloneMode = func() {
 	if MockSDK != nil {
-		return nil
+		return
 	}
 	if os.Geteuid() != 0 {
 		fmt.Println("❌ This command must be run as root.")
 		os.Exit(1)
 	}
-	return nil
 }
 
 // AskConfirmation prompts the user for confirmation.

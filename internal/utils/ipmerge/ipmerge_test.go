@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// TestMergeCIDRs tests the CIDR merging functionality
+// TestMergeCIDRs 测试 CIDR 合并功能
 func TestMergeCIDRs(t *testing.T) {
 	tests := []struct {
 		name     string

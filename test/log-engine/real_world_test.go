@@ -21,7 +21,7 @@ func TestRealWorldSSHLogs(t *testing.T) {
 2026-02-11T09:00:26.581373+00:00 racknerd-e09af81 sshd[42020]: Connection closed by invalid user nagios 161.35.148.113 port 43480 [preauth]
 `
 	extractor := logengine.NewIPExtractor()
-	
+
 	expectedIPs := map[string][]string{
 		"165.22.205.152": {},
 		"178.62.249.170": {},
@@ -32,7 +32,7 @@ func TestRealWorldSSHLogs(t *testing.T) {
 	for i, line := range lines {
 		ips := extractor.ExtractIPs(line)
 		t.Logf("Line %d extracted: %v", i+1, ips)
-		
+
 		// Verify all extracted IPs are valid
 		for _, ip := range ips {
 			if !ip.IsValid() {

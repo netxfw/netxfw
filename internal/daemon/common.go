@@ -31,7 +31,7 @@ func managePidFile(path string) error {
 			}
 		}
 		// PID file exists but process is dead or invalid, remove it / PID 文件存在但进程已死或无效，将其删除
-		logger.Get(nil).Warnf("⚠️  Removing stale PID file: %s", path)
+		logger.Get(context.TODO()).Warnf("⚠️  Removing stale PID file: %s", path)
 		_ = os.Remove(path)
 	}
 
@@ -46,7 +46,7 @@ func managePidFile(path string) error {
 // removePidFile 在关机时删除 PID 文件。
 func removePidFile(path string) {
 	if err := os.Remove(path); err != nil {
-		logger.Get(nil).Warnf("⚠️  Failed to remove PID file: %v", err)
+		logger.Get(context.TODO()).Warnf("⚠️  Failed to remove PID file: %v", err)
 	}
 }
 
@@ -54,11 +54,11 @@ func removePidFile(path string) {
 // startPprof 启动用于分析的 Go pprof 服务器。
 func startPprof(port int) {
 	addr := fmt.Sprintf(":%d", port)
-	logger.Get(nil).Infof("📊 Pprof enabled on %s", addr)
+	logger.Get(context.TODO()).Infof("📊 Pprof enabled on %s", addr)
 	go func() {
 		err := http.ListenAndServe(addr, nil)
 		if err != nil {
-			logger.Get(nil).Errorf("❌ Pprof server error: %v", err)
+			logger.Get(context.TODO()).Errorf("❌ Pprof server error: %v", err)
 		}
 	}()
 }
@@ -81,9 +81,9 @@ func cleanupOrphanedInterfaces(manager *xdp.Manager, configuredInterfaces []stri
 			}
 		}
 		if len(toDetach) > 0 {
-			logger.Get(nil).Infof("ℹ️  Detaching from removed interfaces: %v", toDetach)
+			logger.Get(context.TODO()).Infof("ℹ️  Detaching from removed interfaces: %v", toDetach)
 			if err := manager.Detach(toDetach); err != nil {
-				logger.Get(nil).Warnf("⚠️  Failed to detach from removed interfaces: %v", err)
+				logger.Get(context.TODO()).Warnf("⚠️  Failed to detach from removed interfaces: %v", err)
 			}
 		}
 	}
