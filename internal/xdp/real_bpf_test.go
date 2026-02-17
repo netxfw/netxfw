@@ -322,8 +322,10 @@ func TestRealBPF_RateLimitRules(t *testing.T) {
 
 	adapter := NewAdapter(mgr)
 
-	testCIDR := "10.255.255.0/24" // Use unlikely CIDR for testing
-	// 使用不太可能的 CIDR 进行测试
+	testCIDR := "10.255.255.0/32" // Use single IP for rate limit (unified map uses IP as key)
+	// 使用单个 IP 进行速率限制（统一 Map 使用 IP 作为键）
+	expectedIP := "10.255.255.0" // Expected key in map (without CIDR suffix)
+	// Map 中期望的键（不带 CIDR 后缀）
 
 	// Add rate limit rule
 	// 添加速率限制规则
@@ -337,10 +339,10 @@ func TestRealBPF_RateLimitRules(t *testing.T) {
 	assert.Greater(t, count, 0, "Should have at least one rate limit rule")
 	t.Logf("Rate limit rules count: %d", count)
 
-	// Verify rule exists
-	// 验证规则存在
-	_, exists := rules[testCIDR]
-	assert.True(t, exists, "Rule should exist")
+	// Verify rule exists (key is IP without CIDR suffix)
+	// 验证规则存在（键是不带 CIDR 后缀的 IP）
+	_, exists := rules[expectedIP]
+	assert.True(t, exists, "Rule should exist for IP %s", expectedIP)
 
 	// Remove rule
 	// 移除规则
@@ -793,16 +795,18 @@ func TestRealBPF_AdapterMapGetters(t *testing.T) {
 	adapter := NewAdapter(mgr)
 	require.NotNil(t, adapter)
 
-	// Test map getters
-	// 测试 Map 获取器
-	assert.NotNil(t, adapter.LockList())
-	assert.NotNil(t, adapter.DynLockList())
-	assert.NotNil(t, adapter.Whitelist())
-	assert.NotNil(t, adapter.IPPortRules())
-	assert.NotNil(t, adapter.AllowedPorts())
-	assert.NotNil(t, adapter.RateLimitConfig())
-	assert.NotNil(t, adapter.GlobalConfig())
-	assert.NotNil(t, adapter.ConntrackMap())
+	// Test map getters (new unified names)
+	// 测试 Map 获取器（新的统一名称）
+	assert.NotNil(t, adapter.LockList(), "LockList (static_blacklist) should not be nil")
+	assert.NotNil(t, adapter.DynLockList(), "DynLockList (dynamic_blacklist) should not be nil")
+	assert.NotNil(t, adapter.Whitelist(), "Whitelist should not be nil")
+	assert.NotNil(t, adapter.GlobalConfig(), "GlobalConfig should not be nil")
+	assert.NotNil(t, adapter.ConntrackMap(), "ConntrackMap should not be nil")
+
+	// Note: These return nil due to map unification (deprecated)
+	// 注意：由于 Map 统一，这些返回 nil（已弃用）
+	// IPPortRules, AllowedPorts, RateLimitConfig are now merged into rule_map and ratelimit_map
+	// IPPortRules、AllowedPorts、RateLimitConfig 现在已合并到 rule_map 和 ratelimit_map
 }
 
 // TestRealBPF_AdvancedConfigMethods tests advanced configuration methods

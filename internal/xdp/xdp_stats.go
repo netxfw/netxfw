@@ -95,6 +95,8 @@ func GetTopStatsFromMap(m *ebpf.Map, mapName string) ([]sdk.DropDetailEntry, err
  * GetStats 从 stats_global_map 获取总的通过和丢弃计数。
  * Uses unified stats_global struct.
  * 使用统一的 stats_global 结构体。
+ * Note: stats_global_map is PERCPU_ARRAY, requires slice for lookup.
+ * 注意：stats_global_map 是 PERCPU_ARRAY，需要使用切片进行查找。
  */
 func (m *Manager) GetStats() (uint64, uint64) {
 	var totalPass, totalDrop uint64
@@ -104,10 +106,20 @@ func (m *Manager) GetStats() (uint64, uint64) {
 	}
 
 	var key uint32 = 0
-	var stats NetXfwStatsGlobal
-	if err := m.statsGlobalMap.Lookup(&key, &stats); err == nil {
-		totalPass = stats.TotalPass
-		totalDrop = stats.TotalDrop
+	// PERCPU map requires slice of values
+	// PERCPU Map 需要值切片
+	numCPU, err := ebpf.PossibleCPU()
+	if err != nil {
+		return 0, 0
+	}
+	statsSlice := make([]NetXfwStatsGlobal, numCPU)
+	if err := m.statsGlobalMap.Lookup(&key, &statsSlice); err == nil {
+		// Sum values from all CPUs
+		// 汇总所有 CPU 的值
+		for _, stats := range statsSlice {
+			totalPass += stats.TotalPass
+			totalDrop += stats.TotalDrop
+		}
 	}
 
 	return totalPass, totalDrop
@@ -134,33 +146,61 @@ func GetMapCount(m *ebpf.Map) (int, error) {
 /**
  * GetDropCount retrieves global drop statistics from stats_global_map.
  * GetDropCount 从 stats_global_map 获取全局丢弃统计信息。
+ * Note: stats_global_map is PERCPU_ARRAY, requires slice for lookup.
+ * 注意：stats_global_map 是 PERCPU_ARRAY，需要使用切片进行查找。
  */
 func (m *Manager) GetDropCount() (uint64, error) {
 	if m.statsGlobalMap == nil {
 		return 0, nil
 	}
 	var key uint32 = 0
-	var stats NetXfwStatsGlobal
-	if err := m.statsGlobalMap.Lookup(&key, &stats); err != nil {
+	// PERCPU map requires slice of values
+	// PERCPU Map 需要值切片
+	numCPU, err := ebpf.PossibleCPU()
+	if err != nil {
 		return 0, err
 	}
-	return stats.TotalDrop, nil
+	statsSlice := make([]NetXfwStatsGlobal, numCPU)
+	if err := m.statsGlobalMap.Lookup(&key, &statsSlice); err != nil {
+		return 0, err
+	}
+	// Sum values from all CPUs
+	// 汇总所有 CPU 的值
+	var totalDrop uint64
+	for _, stats := range statsSlice {
+		totalDrop += stats.TotalDrop
+	}
+	return totalDrop, nil
 }
 
 /**
  * GetPassCount retrieves global pass statistics from stats_global_map.
  * GetPassCount 从 stats_global_map 获取全局通过统计信息。
+ * Note: stats_global_map is PERCPU_ARRAY, requires slice for lookup.
+ * 注意：stats_global_map 是 PERCPU_ARRAY，需要使用切片进行查找。
  */
 func (m *Manager) GetPassCount() (uint64, error) {
 	if m.statsGlobalMap == nil {
 		return 0, nil
 	}
 	var key uint32 = 0
-	var stats NetXfwStatsGlobal
-	if err := m.statsGlobalMap.Lookup(&key, &stats); err != nil {
+	// PERCPU map requires slice of values
+	// PERCPU Map 需要值切片
+	numCPU, err := ebpf.PossibleCPU()
+	if err != nil {
 		return 0, err
 	}
-	return stats.TotalPass, nil
+	statsSlice := make([]NetXfwStatsGlobal, numCPU)
+	if err := m.statsGlobalMap.Lookup(&key, &statsSlice); err != nil {
+		return 0, err
+	}
+	// Sum values from all CPUs
+	// 汇总所有 CPU 的值
+	var totalPass uint64
+	for _, stats := range statsSlice {
+		totalPass += stats.TotalPass
+	}
+	return totalPass, nil
 }
 
 /**
@@ -255,6 +295,8 @@ func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
  * GetGlobalStats 从 stats_global_map 获取所有全局统计信息。
  * Uses unified stats_global struct.
  * 使用统一的 stats_global 结构体。
+ * Note: stats_global_map is PERCPU_ARRAY, requires slice for lookup.
+ * 注意：stats_global_map 是 PERCPU_ARRAY，需要使用切片进行查找。
  */
 func (m *Manager) GetGlobalStats() (*GlobalStats, error) {
 	result := &GlobalStats{}
@@ -264,25 +306,35 @@ func (m *Manager) GetGlobalStats() (*GlobalStats, error) {
 	}
 
 	var key uint32 = 0
-	var stats NetXfwStatsGlobal
-	if err := m.statsGlobalMap.Lookup(&key, &stats); err != nil {
+	// PERCPU map requires slice of values
+	// PERCPU Map 需要值切片
+	numCPU, err := ebpf.PossibleCPU()
+	if err != nil {
+		return result, err
+	}
+	statsSlice := make([]NetXfwStatsGlobal, numCPU)
+	if err := m.statsGlobalMap.Lookup(&key, &statsSlice); err != nil {
 		return result, err
 	}
 
-	result.TotalPackets = stats.TotalPackets
-	result.TotalPass = stats.TotalPass
-	result.TotalDrop = stats.TotalDrop
-	result.DropBlacklist = stats.DropBlacklist
-	result.DropNoRule = stats.DropNoRule
-	result.DropInvalid = stats.DropInvalid
-	result.DropRateLimit = stats.DropRateLimit
-	result.DropSynFlood = stats.DropSynFlood
-	result.DropIcmpLimit = stats.DropIcmpLimit
-	result.DropPortBlocked = stats.DropPortBlocked
-	result.PassWhitelist = stats.PassWhitelist
-	result.PassRule = stats.PassRule
-	result.PassReturn = stats.PassReturn
-	result.PassEstablished = stats.PassEstablished
+	// Sum values from all CPUs
+	// 汇总所有 CPU 的值
+	for _, stats := range statsSlice {
+		result.TotalPackets += stats.TotalPackets
+		result.TotalPass += stats.TotalPass
+		result.TotalDrop += stats.TotalDrop
+		result.DropBlacklist += stats.DropBlacklist
+		result.DropNoRule += stats.DropNoRule
+		result.DropInvalid += stats.DropInvalid
+		result.DropRateLimit += stats.DropRateLimit
+		result.DropSynFlood += stats.DropSynFlood
+		result.DropIcmpLimit += stats.DropIcmpLimit
+		result.DropPortBlocked += stats.DropPortBlocked
+		result.PassWhitelist += stats.PassWhitelist
+		result.PassRule += stats.PassRule
+		result.PassReturn += stats.PassReturn
+		result.PassEstablished += stats.PassEstablished
+	}
 
 	return result, nil
 }
