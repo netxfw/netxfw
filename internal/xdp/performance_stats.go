@@ -1,6 +1,8 @@
 package xdp
 
 import (
+	"encoding/json"
+	"os"
 	"sync"
 	"time"
 )
@@ -356,20 +358,20 @@ func (p *PerformanceStats) GetStats() *PerformanceStatsSnapshot {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return &PerformanceStatsSnapshot{
-		MapLatency:    p.MapLatency,
-		CacheHitRate:  p.CacheHitRate,
-		Traffic:       p.Traffic,
-		StartTime:     p.StartTime,
+		MapLatency:   p.MapLatency,
+		CacheHitRate: p.CacheHitRate,
+		Traffic:      p.Traffic,
+		StartTime:    p.StartTime,
 	}
 }
 
 // PerformanceStatsSnapshot is a snapshot of performance statistics without mutex.
 // PerformanceStatsSnapshot 是不含互斥锁的性能统计快照。
 type PerformanceStatsSnapshot struct {
-	MapLatency    MapLatencyStats  `json:"map_latency"`
-	CacheHitRate  CacheHitRateStats `json:"cache_hit_rate"`
-	Traffic       TrafficStats     `json:"traffic"`
-	StartTime     time.Time        `json:"start_time"`
+	MapLatency   MapLatencyStats   `json:"map_latency"`
+	CacheHitRate CacheHitRateStats `json:"cache_hit_rate"`
+	Traffic      TrafficStats      `json:"traffic"`
+	StartTime    time.Time         `json:"start_time"`
 }
 
 // GetLatencyStats returns a snapshot of map latency statistics.
@@ -418,4 +420,35 @@ func (p *PerformanceStats) Reset() {
 	p.CacheHitRate = CacheHitRateStats{}
 	p.Traffic = TrafficStats{}
 	p.StartTime = time.Now()
+}
+
+const trafficStatsFile = "/var/run/netxfw_traffic_stats.json"
+
+// SaveTrafficStats saves traffic statistics to a shared file.
+// SaveTrafficStats 将流量统计保存到共享文件。
+func (p *PerformanceStats) SaveTrafficStats() error {
+	p.mu.RLock()
+	data := p.Traffic
+	p.mu.RUnlock()
+
+	fileData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(trafficStatsFile, fileData, 0644)
+}
+
+// LoadTrafficStats loads traffic statistics from a shared file.
+// LoadTrafficStats 从共享文件加载流量统计。
+func LoadTrafficStats() (TrafficStats, error) {
+	var stats TrafficStats
+
+	data, err := os.ReadFile(trafficStatsFile)
+	if err != nil {
+		return stats, err
+	}
+
+	err = json.Unmarshal(data, &stats)
+	return stats, err
 }

@@ -123,6 +123,9 @@ func runUnified(ctx context.Context) {
 	defer cancel()
 	go runCleanupLoop(ctxCleanup, globalCfg)
 
+	// 6. Start Traffic Stats Loop / 启动流量统计循环
+	go runTrafficStatsLoop(ctxCleanup, s)
+
 	log.Info("🛡️ NetXFW Unified is running.")
 
 	reloadFunc := func() error {

@@ -101,6 +101,9 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	defer cancel()
 	go runCleanupLoop(ctxCleanup, globalCfg)
 
+	// 5. Start Traffic Stats Loop / 启动流量统计循环
+	go runTrafficStatsLoop(ctxCleanup, s)
+
 	log.Info("🛡️ Agent is running.")
 	waitForSignal(ctx, configPath, s, nil, nil) // nil means reload all / nil 表示重新加载所有内容
 }

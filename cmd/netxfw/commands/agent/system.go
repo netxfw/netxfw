@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
 	"github.com/livp123/netxfw/internal/app"
@@ -151,7 +152,7 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 
 	// Show traffic metrics (PPS/BPS)
 	// 显示流量指标 (PPS/BPS)
-	showTrafficMetrics(mgr, pass, drops)
+	showTrafficMetrics(pass, drops)
 
 	// Show drop statistics
 	// 显示丢弃统计
@@ -501,43 +502,38 @@ func showAttachedInterfaces() {
 
 // showTrafficMetrics displays PPS/BPS traffic metrics
 // showTrafficMetrics 显示 PPS/BPS 流量指标
-func showTrafficMetrics(mgr sdk.ManagerInterface, pass, drops uint64) {
+func showTrafficMetrics(pass, drops uint64) {
 	fmt.Println()
 	fmt.Println("📈 Traffic Rate:")
 
 	totalPackets := pass + drops
 
-	// Get performance stats if available / 如果可用，获取性能统计
-	perfStats := mgr.PerfStats()
-	if perfStats != nil {
-		// Try to get traffic stats from performance tracker / 尝试从性能跟踪器获取流量统计
-		if ts, ok := perfStats.(interface {
-			GetTrafficStats() interface{}
-		}); ok {
-			stats := ts.GetTrafficStats()
-			if trafficStats, ok := stats.(interface {
-				GetCurrentPPS() uint64
-				GetCurrentBPS() uint64
-				GetPeakPPS() uint64
-				GetPeakBPS() uint64
-				GetCurrentDropPPS() uint64
-			}); ok && trafficStats != nil {
-				currentPPS := trafficStats.GetCurrentPPS()
-				currentBPS := trafficStats.GetCurrentBPS()
-				dropPPS := trafficStats.GetCurrentDropPPS()
+	// Try to load traffic stats from shared file (updated by daemon)
+	// 尝试从共享文件加载流量统计（由守护进程更新）
+	trafficStats, err := xdp.LoadTrafficStats()
+	if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
+		// We have valid traffic stats from daemon
+		// 我们有来自守护进程的有效流量统计
+		currentPPS := trafficStats.CurrentPPS
+		currentBPS := trafficStats.CurrentBPS
+		dropPPS := trafficStats.CurrentDropPPS
+		passPPS := trafficStats.CurrentPassPPS
 
-				// Calculate drop rate / 计算丢弃率
-				var dropRate float64
-				if currentPPS > 0 {
-					dropRate = float64(dropPPS) / float64(currentPPS) * 100
-				}
-
-				fmt.Printf("   ├─ PPS: %s pkt/s\n", formatNumberWithComma(currentPPS))
-				fmt.Printf("   ├─ BPS: %s\n", formatBPS(currentBPS))
-				fmt.Printf("   ├─ Drop PPS: %s pkt/s\n", formatNumberWithComma(dropPPS))
-				fmt.Printf("   └─ Drop Rate: %.2f%%\n", dropRate)
-				return
+		if currentPPS > 0 || currentBPS > 0 {
+			// Calculate rates / 计算比率
+			var dropRate, passRate float64
+			if currentPPS > 0 {
+				dropRate = float64(dropPPS) / float64(currentPPS) * 100
+				passRate = float64(passPPS) / float64(currentPPS) * 100
 			}
+
+			fmt.Printf("   ├─ PPS: %s pkt/s\n", formatNumberWithComma(currentPPS))
+			fmt.Printf("   ├─ BPS: %s\n", formatBPS(currentBPS))
+			fmt.Printf("   ├─ Pass PPS: %s pkt/s\n", formatNumberWithComma(passPPS))
+			fmt.Printf("   ├─ Pass Rate: %.2f%%\n", passRate)
+			fmt.Printf("   ├─ Drop PPS: %s pkt/s\n", formatNumberWithComma(dropPPS))
+			fmt.Printf("   └─ Drop Rate: %.2f%%\n", dropRate)
+			return
 		}
 	}
 

@@ -164,3 +164,62 @@ func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
 		}
 	}
 }
+
+// runTrafficStatsLoop periodically updates traffic statistics for PPS/BPS calculation.
+// runTrafficStatsLoop 定期更新流量统计以计算 PPS/BPS。
+func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
+	log := logger.Get(ctx)
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	log.Info("📊 Traffic stats collection enabled (Interval: 1s)")
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("🛑 Stopping traffic stats loop")
+			return
+		case <-ticker.C:
+			// Get manager to access performance stats
+			// 获取管理器以访问性能统计
+			mgr := s.GetManager()
+			if mgr == nil {
+				continue
+			}
+
+			perfStats := mgr.PerfStats()
+			if perfStats == nil {
+				continue
+			}
+
+			// Type assert to *xdp.PerformanceStats
+			// 类型断言为 *xdp.PerformanceStats
+			ps, ok := perfStats.(*xdp.PerformanceStats)
+			if !ok {
+				continue
+			}
+
+			// Get current packet counts
+			// 获取当前数据包计数
+			pass, drops, err := s.Stats.GetCounters()
+			if err != nil {
+				continue
+			}
+
+			totalPackets := pass + drops
+			// Estimate bytes (average packet size ~500 bytes for estimation)
+			// 估算字节数（平均包大小约 500 字节用于估算）
+			totalBytes := totalPackets * 500
+
+			// Update traffic stats
+			// 更新流量统计
+			ps.UpdateTrafficStats(totalPackets, totalBytes, drops, pass)
+
+			// Save traffic stats to shared file for system status command
+			// 将流量统计保存到共享文件供 system status 命令使用
+			if err := ps.SaveTrafficStats(); err != nil {
+				log.Warnf("⚠️  Failed to save traffic stats: %v", err)
+			}
+		}
+	}
+}
