@@ -239,6 +239,12 @@ func (a *Adapter) GetConntrackCount() (int, error) {
 	return int(count), err
 }
 
+// GetDynLockListCount returns the count of dynamic blacklist entries.
+// GetDynLockListCount 返回动态黑名单条目数量。
+func (a *Adapter) GetDynLockListCount() (uint64, error) {
+	return a.manager.GetDynLockListCount()
+}
+
 // InvalidateStatsCache clears the statistics cache.
 // InvalidateStatsCache 清除统计缓存。
 func (a *Adapter) InvalidateStatsCache() {
@@ -296,4 +302,10 @@ func (a *Adapter) BlockIP(cidr string, duration time.Duration) error {
 
 func (a *Adapter) Close() error {
 	return a.manager.Close()
+}
+
+// GetManager returns the underlying Manager instance.
+// GetManager 返回底层的 Manager 实例。
+func (a *Adapter) GetManager() *Manager {
+	return a.manager
 }

@@ -121,6 +121,7 @@ type ManagerInterface interface {
 	GetLockedIPCount() (int, error)
 	GetWhitelistCount() (int, error)
 	GetConntrackCount() (int, error)
+	GetDynLockListCount() (uint64, error)
 
 	// Cached Stats - 缓存统计（用于性能优化）
 	InvalidateStatsCache()

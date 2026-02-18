@@ -82,11 +82,11 @@ type MockConfig struct {
 // NewMockManager 创建新的统一 MockManager 实例。
 func NewMockManager() *MockManager {
 	return &MockManager{
-		blacklist:       make(map[string]*MockBlacklistEntry),
-		whitelist:       make(map[string]uint16),
-		ipPortRules:     make(map[string]IPPortRule),
-		allowedPorts:    make(map[uint16]bool),
-		rateLimitRules:  make(map[string]RateLimitConf),
+		blacklist:        make(map[string]*MockBlacklistEntry),
+		whitelist:        make(map[string]uint16),
+		ipPortRules:      make(map[string]IPPortRule),
+		allowedPorts:     make(map[uint16]bool),
+		rateLimitRules:   make(map[string]RateLimitConf),
 		conntrackEntries: make([]ConntrackEntry, 0),
 	}
 }
@@ -523,6 +523,20 @@ func (m *MockManager) GetConntrackCount() (int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return len(m.conntrackEntries), nil
+}
+
+// GetDynLockListCount returns the count of dynamic blacklist entries.
+// GetDynLockListCount 返回动态黑名单条目数量。
+func (m *MockManager) GetDynLockListCount() (uint64, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var count uint64
+	for _, entry := range m.blacklist {
+		if entry.IsDynamic {
+			count++
+		}
+	}
+	return count, nil
 }
 
 // InvalidateStatsCache invalidates the stats cache.

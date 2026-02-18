@@ -332,6 +332,7 @@ func (m *MockManager) GetPassCount() (uint64, error)              { return 0, ni
 func (m *MockManager) GetLockedIPCount() (int, error)             { return len(m.Blacklist), nil }
 func (m *MockManager) GetWhitelistCount() (int, error)            { return len(m.WhitelistMap), nil }
 func (m *MockManager) GetConntrackCount() (int, error)            { return 0, nil }
+func (m *MockManager) GetDynLockListCount() (uint64, error)       { return 0, nil }
 func (m *MockManager) InvalidateStatsCache()                      {}
 
 // PerfStats returns a mock performance stats tracker.

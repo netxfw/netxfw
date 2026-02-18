@@ -12,6 +12,7 @@ import (
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/core"
 	"github.com/livp123/netxfw/internal/daemon"
+	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/xdp"
 	"github.com/livp123/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -148,6 +149,10 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 		return nil
 	}
 
+	// Show traffic metrics (PPS/BPS)
+	// 显示流量指标 (PPS/BPS)
+	showTrafficMetrics(mgr, pass, drops)
+
 	// Show drop statistics
 	// 显示丢弃统计
 	showDropStatistics(s.Stats, drops, pass)
@@ -156,9 +161,21 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 	// 显示通过统计
 	showPassStatistics(s.Stats, pass, drops)
 
+	// Show conntrack health
+	// 显示连接跟踪健康度
+	showConntrackHealth(mgr)
+
 	// Map statistics
 	// Map 统计
 	showMapStatistics(mgr)
+
+	// Show map usage
+	// 显示 Map 使用率
+	showMapUsage(mgr)
+
+	// Show protocol distribution
+	// 显示协议分布
+	showProtocolDistribution(s.Stats, pass, drops)
 
 	// Load configuration for policy display
 	// 加载配置以显示策略
@@ -480,4 +497,304 @@ func showAttachedInterfaces() {
 	} else {
 		fmt.Println("  - None")
 	}
+}
+
+// showTrafficMetrics displays PPS/BPS traffic metrics
+// showTrafficMetrics 显示 PPS/BPS 流量指标
+func showTrafficMetrics(mgr sdk.ManagerInterface, pass, drops uint64) {
+	fmt.Println()
+	fmt.Println("📈 Traffic Rate:")
+
+	totalPackets := pass + drops
+
+	// Get performance stats if available / 如果可用，获取性能统计
+	perfStats := mgr.PerfStats()
+	if perfStats != nil {
+		// Try to get traffic stats from performance tracker / 尝试从性能跟踪器获取流量统计
+		if ts, ok := perfStats.(interface {
+			GetTrafficStats() interface{}
+		}); ok {
+			stats := ts.GetTrafficStats()
+			if trafficStats, ok := stats.(interface {
+				GetCurrentPPS() uint64
+				GetCurrentBPS() uint64
+				GetPeakPPS() uint64
+				GetPeakBPS() uint64
+				GetCurrentDropPPS() uint64
+			}); ok && trafficStats != nil {
+				currentPPS := trafficStats.GetCurrentPPS()
+				currentBPS := trafficStats.GetCurrentBPS()
+				dropPPS := trafficStats.GetCurrentDropPPS()
+
+				// Calculate drop rate / 计算丢弃率
+				var dropRate float64
+				if currentPPS > 0 {
+					dropRate = float64(dropPPS) / float64(currentPPS) * 100
+				}
+
+				fmt.Printf("   ├─ PPS: %s pkt/s\n", formatNumberWithComma(currentPPS))
+				fmt.Printf("   ├─ BPS: %s\n", formatBPS(currentBPS))
+				fmt.Printf("   ├─ Drop PPS: %s pkt/s\n", formatNumberWithComma(dropPPS))
+				fmt.Printf("   └─ Drop Rate: %.2f%%\n", dropRate)
+				return
+			}
+		}
+	}
+
+	// Fallback: show basic packet stats / 回退：显示基本数据包统计
+	dropRate := calculatePercent(drops, totalPackets)
+	fmt.Printf("   ├─ Total Packets: %s\n", formatNumberWithComma(totalPackets))
+	fmt.Printf("   ├─ Pass Rate: %.2f%%\n", calculatePercent(pass, totalPackets))
+	fmt.Printf("   └─ Drop Rate: %.2f%%\n", dropRate)
+}
+
+// formatNumber formats a number with thousand separators
+// formatNumber 格式化数字，添加千位分隔符
+// showConntrackHealth displays conntrack health metrics
+// showConntrackHealth 显示连接跟踪健康度指标
+func showConntrackHealth(mgr sdk.ManagerInterface) {
+	fmt.Println()
+	fmt.Println("🕵️  Conntrack Health:")
+
+	conntrackCount, err := mgr.GetConntrackCount()
+	if err != nil {
+		fmt.Println("   └─ Status: Unavailable")
+		return
+	}
+
+	// Get conntrack entries for protocol breakdown / 获取连接跟踪条目以进行协议分布
+	entries, err := mgr.ListAllConntrackEntries()
+	if err != nil {
+		fmt.Printf("   ├─ Active Connections: %d\n", conntrackCount)
+		fmt.Println("   └─ Protocol Breakdown: Unavailable")
+		return
+	}
+
+	// Count by protocol / 按协议计数
+	var tcpCount, udpCount, icmpCount, otherCount int
+	for _, entry := range entries {
+		switch entry.Protocol {
+		case 6: // TCP
+			tcpCount++
+		case 17: // UDP
+			udpCount++
+		case 1: // ICMP
+			icmpCount++
+		default:
+			otherCount++
+		}
+	}
+
+	fmt.Printf("   ├─ Active Connections: %d\n", conntrackCount)
+	fmt.Printf("   ├─ TCP Connections: %d (%.1f%%)\n", tcpCount, calculatePercent(uint64(tcpCount), uint64(conntrackCount)))
+	fmt.Printf("   ├─ UDP Connections: %d (%.1f%%)\n", udpCount, calculatePercent(uint64(udpCount), uint64(conntrackCount)))
+	fmt.Printf("   ├─ ICMP Connections: %d (%.1f%%)\n", icmpCount, calculatePercent(uint64(icmpCount), uint64(conntrackCount)))
+	fmt.Printf("   └─ Other Connections: %d (%.1f%%)\n", otherCount, calculatePercent(uint64(otherCount), uint64(conntrackCount)))
+
+	// Determine health status / 确定健康状态
+	if conntrackCount > 10000 {
+		fmt.Println("   ⚠️  Status: High connection count")
+	} else {
+		fmt.Println("   ✅ Status: Healthy")
+	}
+}
+
+// showMapUsage displays BPF map usage statistics
+// showMapUsage 显示 BPF Map 使用率统计
+// showMapUsage displays BPF map usage statistics with capacity info
+// showMapUsage 显示 BPF Map 使用率统计，包含容量信息
+func showMapUsage(mgr sdk.ManagerInterface) {
+	fmt.Println()
+	fmt.Println("📊 Map Usage:")
+
+	// Get capacity configuration from config manager / 从配置管理器获取容量配置
+	cfgManager := config.GetConfigManager()
+	var capacityCfg *types.CapacityConfig
+	if err := cfgManager.LoadConfig(); err == nil {
+		capacityCfg = cfgManager.GetCapacityConfig()
+	}
+
+	// Get map counts / 获取 Map 计数
+	blacklistCount, _ := mgr.GetLockedIPCount()
+	whitelistCount, _ := mgr.GetWhitelistCount()
+	conntrackCount, _ := mgr.GetConntrackCount()
+	dynBlacklistCount, _ := mgr.GetDynLockListCount()
+
+	// Get rate limit rules / 获取限速规则
+	rateLimitRules, _, _ := mgr.ListRateLimitRules(0, "")
+
+	// Get IP+Port rules / 获取 IP+端口规则
+	ipPortRules, _, _ := mgr.ListIPPortRules(false, 0, "")
+
+	// Get max capacities from config or use defaults / 从配置获取最大容量或使用默认值
+	maxBlacklist := 10000
+	maxWhitelist := 10000
+	maxConntrack := 50000
+	maxDynBlacklist := 10000
+	maxIPPortRules := 1000
+	maxRateLimits := 1000
+
+	if capacityCfg != nil {
+		if capacityCfg.LockList > 0 {
+			maxBlacklist = capacityCfg.LockList
+		}
+		if capacityCfg.Whitelist > 0 {
+			maxWhitelist = capacityCfg.Whitelist
+		}
+		if capacityCfg.Conntrack > 0 {
+			maxConntrack = capacityCfg.Conntrack
+		}
+		if capacityCfg.DynLockList > 0 {
+			maxDynBlacklist = capacityCfg.DynLockList
+		}
+		if capacityCfg.IPPortRules > 0 {
+			maxIPPortRules = capacityCfg.IPPortRules
+		}
+	}
+
+	// Show usage with current/max and percentage / 显示当前/最大值和百分比
+	fmt.Printf("   ├─ Blacklist:      %d / %d (%.1f%%) %s\n",
+		blacklistCount, maxBlacklist,
+		calculatePercent(blacklistCount, uint64(maxBlacklist)),
+		getUsageIndicator(blacklistCount, maxBlacklist))
+	fmt.Printf("   ├─ Whitelist:      %d / %d (%.1f%%) %s\n",
+		whitelistCount, maxWhitelist,
+		calculatePercent(whitelistCount, uint64(maxWhitelist)),
+		getUsageIndicator(whitelistCount, maxWhitelist))
+	fmt.Printf("   ├─ Conntrack:      %d / %d (%.1f%%) %s\n",
+		conntrackCount, maxConntrack,
+		calculatePercent(conntrackCount, uint64(maxConntrack)),
+		getUsageIndicator(conntrackCount, maxConntrack))
+	fmt.Printf("   ├─ Dyn Blacklist:  %d / %d (%.1f%%) %s\n",
+		dynBlacklistCount, maxDynBlacklist,
+		calculatePercent(dynBlacklistCount, uint64(maxDynBlacklist)),
+		getUsageIndicator(int(dynBlacklistCount), maxDynBlacklist))
+	fmt.Printf("   ├─ Rate Limits:    %d / %d (%.1f%%) %s\n",
+		len(rateLimitRules), maxRateLimits,
+		calculatePercent(uint64(len(rateLimitRules)), uint64(maxRateLimits)),
+		getUsageIndicator(len(rateLimitRules), maxRateLimits))
+	fmt.Printf("   └─ IP+Port Rules:  %d / %d (%.1f%%) %s\n",
+		len(ipPortRules), maxIPPortRules,
+		calculatePercent(uint64(len(ipPortRules)), uint64(maxIPPortRules)),
+		getUsageIndicator(len(ipPortRules), maxIPPortRules))
+}
+
+// showProtocolDistribution displays protocol distribution statistics
+// showProtocolDistribution 显示协议分布统计
+func showProtocolDistribution(s StatsAPI, pass, drops uint64) {
+	fmt.Println()
+	fmt.Println("📡 Protocol Distribution:")
+
+	totalPackets := pass + drops
+
+	// Get drop details for protocol analysis / 获取丢弃详情以进行协议分析
+	dropDetails, err := s.GetDropDetails()
+	if err != nil {
+		fmt.Println("   └─ Status: Unavailable")
+		return
+	}
+
+	// Get pass details / 获取通过详情
+	passDetails, err := s.GetPassDetails()
+	if err != nil {
+		fmt.Println("   └─ Status: Unavailable")
+		return
+	}
+
+	// Count by protocol / 按协议计数
+	protoStats := make(map[uint8]struct {
+		dropped uint64
+		passed  uint64
+	})
+
+	for _, d := range dropDetails {
+		stats := protoStats[d.Protocol]
+		stats.dropped += d.Count
+		protoStats[d.Protocol] = stats
+	}
+
+	for _, p := range passDetails {
+		stats := protoStats[p.Protocol]
+		stats.passed += p.Count
+		protoStats[p.Protocol] = stats
+	}
+
+	// Show protocol breakdown / 显示协议分布
+	if len(protoStats) > 0 {
+		fmt.Printf("   %-10s %-15s %-15s %-10s\n", "Protocol", "Dropped", "Passed", "Percent")
+		fmt.Printf("   %s\n", strings.Repeat("-", 50))
+
+		for proto, stats := range protoStats {
+			total := stats.dropped + stats.passed
+			percent := calculatePercent(total, totalPackets)
+			fmt.Printf("   %-10s %-15d %-15d %.1f%%\n",
+				protocolToString(proto),
+				stats.dropped,
+				stats.passed,
+				percent)
+		}
+	} else {
+		fmt.Println("   └─ No protocol data available")
+	}
+}
+
+// getUsageIndicator returns a visual indicator based on usage level
+// getUsageIndicator 根据使用级别返回可视化指示器
+func getUsageIndicator(current, max int) string {
+	if max == 0 {
+		return ""
+	}
+	usage := float64(current) / float64(max) * 100
+	if usage >= 90 {
+		return "🔴 [CRITICAL]"
+	} else if usage >= 75 {
+		return "🟠 [HIGH]"
+	} else if usage >= 50 {
+		return "🟡 [MEDIUM]"
+	}
+	return "🟢 [OK]"
+}
+
+// calculatePercent calculates percentage safely
+// calculatePercent 安全地计算百分比
+func calculatePercent(part, total interface{}) float64 {
+	var p, t float64
+	switch v := part.(type) {
+	case int:
+		p = float64(v)
+	case uint64:
+		p = float64(v)
+	case int64:
+		p = float64(v)
+	default:
+		return 0
+	}
+	switch v := total.(type) {
+	case int:
+		t = float64(v)
+	case uint64:
+		t = float64(v)
+	case int64:
+		t = float64(v)
+	default:
+		return 0
+	}
+	if t == 0 {
+		return 0
+	}
+	return p / t * 100
+}
+
+// formatNumberWithComma formats a number with thousand separators
+// formatNumberWithComma 格式化数字，添加千位分隔符
+func formatNumberWithComma(n uint64) string {
+	s := fmt.Sprintf("%d", n)
+	result := ""
+	for i, c := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			result += ","
+		}
+		result += string(c)
+	}
+	return result
 }

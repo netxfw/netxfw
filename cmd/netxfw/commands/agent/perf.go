@@ -437,3 +437,25 @@ func formatBytes(b uint64) string {
 	}
 	return fmt.Sprintf("%.2fGB", float64(b)/1073741824)
 }
+
+// formatBPS formats bytes per second to human readable format (in bits)
+// formatBPS 将每秒字节数格式化为人类可读格式（以比特为单位）
+func formatBPS(bps uint64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+	)
+
+	bits := bps * 8 // Convert to bits / 转换为比特
+	switch {
+	case bits >= GB*8:
+		return fmt.Sprintf("%.1f Gbps", float64(bits)/float64(GB*8))
+	case bits >= MB*8:
+		return fmt.Sprintf("%.1f Mbps", float64(bits)/float64(MB*8))
+	case bits >= KB*8:
+		return fmt.Sprintf("%.1f Kbps", float64(bits)/float64(KB*8))
+	default:
+		return fmt.Sprintf("%d bps", bits)
+	}
+}

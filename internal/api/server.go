@@ -117,6 +117,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/perf/traffic", s.handlePerfTraffic)
 	mux.HandleFunc("/api/perf/reset", s.handlePerfReset)
 
+	// Metrics API routes (v1)
+	// 指标 API 路由 (v1)
+	RegisterMetricsRoutes(mux, s.sdk)
+
 	// UI Route
 	// UI 路由
 	mux.HandleFunc("/", s.handleUI)
