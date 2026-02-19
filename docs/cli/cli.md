@@ -7,9 +7,11 @@
 | 命令 | 参数 | 描述 |
 | :--- | :--- | :--- |
 | `daemon` | 无 | 启动守护进程，负责指标收集、规则清理和 API 服务 |
-| `load xdp` | 无 | 加载 BPF 程序并挂载到所有物理网卡 |
-| `unload xdp` | 无 | 卸载 BPF 程序并清理固定 Map |
-| `reload xdp` | 无 | 热重载配置并无损更新 BPF 程序 |
+| `system on` | `[interface...]` | 加载 XDP 程序 (load 的别名) |
+| `system off` | `[interface...]` | 卸载 XDP 程序 (unload 的别名) |
+| `system load` | `[-i interface]` | 加载 BPF 程序并挂载到指定网卡 |
+| `system unload` | `[-i interface]` | 卸载 BPF 程序并清理固定 Map |
+| `system reload` | `[-i interface]` | 热重载配置并无损更新 BPF 程序 |
 | `plugin load` | `<path> <index>` | 动态加载 BPF 插件到指定索引 (2-15) |
 | `plugin remove`| `<index>` | 移除指定索引位的 BPF 插件 |
 | `conntrack` | 无 | 查看当前内核中的活跃连接追踪表 |
@@ -35,7 +37,42 @@
 
 ## 详细说明
 
-### 1. 守护进程 (daemon)
+### 1. XDP 程序管理 (system on/off/load/unload)
+
+`netxfw` 提供多种方式管理 XDP 程序的加载和卸载：
+
+#### 命令对照表
+
+| 功能 | 命令格式 1 | 命令格式 2 | 命令格式 3 |
+|------|-----------|-----------|-----------|
+| **加载 XDP** | `netxfw system load -i eth0` | `netxfw system on -i eth0` | `netxfw system on eth0` |
+| **卸载 XDP** | `netxfw system unload -i eth0` | `netxfw system off -i eth0` | `netxfw system off eth0` |
+| **卸载全部** | `netxfw system unload` | `netxfw system off` | - |
+
+#### 使用示例
+
+```bash
+# 加载 XDP 到指定网卡
+sudo netxfw system on eth0
+
+# 加载到多个网卡
+sudo netxfw system on eth0 eth1 eth2
+
+# 使用配置文件中的默认网卡
+sudo netxfw system on
+
+# 卸载指定网卡上的 XDP
+sudo netxfw system off eth0
+
+# 卸载所有网卡上的 XDP
+sudo netxfw system off
+
+# 使用 -i 标志指定网卡
+sudo netxfw system load -i eth0
+sudo netxfw system unload -i eth0
+```
+
+### 2. 守护进程 (daemon)
 `netxfw` 的核心运行模式。在 `daemon` 模式下，程序会：
 - 监控内核 BPF Map 状态。
 - 自动清理过期的动态规则。
@@ -46,7 +83,7 @@
 sudo netxfw daemon
 ```
 
-### 2. 规则管理 (rule)
+### 3. 规则管理 (rule)
 支持细粒度的访问控制。
 - **添加规则**：
   ```bash
@@ -60,7 +97,7 @@ sudo netxfw daemon
   sudo netxfw rule list rules
   ```
 
-### 3. 连接追踪 (conntrack)
+### 4. 连接追踪 (conntrack)
 实时查看内核中的有状态连接。这对于排查网络连通性问题非常有用。
 
 ```bash
@@ -73,7 +110,7 @@ Source          Port  Destination     Port  Protocol
 192.168.1.100   54321 1.1.1.1         443   TCP
 ```
 
-### 4. 快速封禁与解封 (lock/unlock)
+### 5. 快速封禁与解封 (lock/unlock)
 针对紧急情况的快捷命令。
 
 ```bash
@@ -83,7 +120,7 @@ sudo netxfw lock 1.2.3.4
 sudo netxfw unlock 1.2.3.4
 ```
 
-### 5. 流量控制 (limit)
+### 6. 流量控制 (limit)
 在 XDP 层面对指定 IP 或网段进行 PPS（每秒数据包数）限速。支持 IPv4 和 IPv6。
 
 - **开启全局限速功能**：
@@ -110,7 +147,7 @@ sudo netxfw unlock 1.2.3.4
   sudo netxfw limit remove 1.2.3.4
   ```
 
-### 6. 热重载 (reload)
+### 7. 热重载 (reload)
 当您修改了 `/etc/netxfw/config.yaml`（例如调整了 Map 容量或默认策略）后，可以使用此命令实现无损重载。
 
 ```bash
@@ -118,7 +155,7 @@ sudo netxfw reload xdp
 ```
 该命令会自动将旧 Map 中的数据迁移到新 Map，确保现有连接不中断。
 
-### 7. 配置同步 (sync)
+### 8. 配置同步 (sync)
 支持内存状态（BPF Maps）与配置文件（config.yaml）之间的双向同步，确保运维一致性。
 
 - **同步到配置文件**（Memory -> Disk）：
@@ -133,7 +170,7 @@ sudo netxfw reload xdp
   sudo netxfw system sync to-map
   ```
 
-### 8. 批量导入 (import)
+### 9. 批量导入 (import)
 支持从文本文件或结构化文件（JSON/YAML）批量导入规则。
 
 #### 文本格式导入
@@ -182,7 +219,7 @@ sudo netxfw rule import all rules.yaml
 }
 ```
 
-### 9. 规则导出 (export)
+### 10. 规则导出 (export)
 支持将当前所有防火墙规则导出为 JSON、YAML 或 CSV 格式的文件。
 
 ```bash
@@ -200,7 +237,7 @@ sudo netxfw rule export rules.csv --format csv
 - 白名单列表
 - IP+端口规则
 
-### 10. 性能监控 (perf)
+### 11. 性能监控 (perf)
 提供实时性能监控功能，包括 Map 操作延迟、缓存命中率和流量统计。
 
 ```bash
@@ -224,7 +261,7 @@ sudo netxfw perf reset
 - **缓存命中率**：统计全局统计、丢弃详情、通过详情、Map 计数等缓存命中情况
 - **实时流量**：显示当前/峰值/平均 PPS、BPS、丢弃率等流量指标
 
-### 11. 插件管理 (plugin)
+### 12. 插件管理 (plugin)
 允许在不停止防火墙的情况下，动态扩展数据包处理逻辑。
 - **加载插件**：
   ```bash
