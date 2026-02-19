@@ -15,6 +15,18 @@ import (
 	"go.uber.org/zap"
 )
 
+// BlacklistSyncFunc is a callback function to sync blacklist to XDP dynamic_blacklist map.
+// BlacklistSyncFunc 是将黑名单同步到 XDP dynamic_blacklist Map 的回调函数。
+// This callback is typically implemented using SDK's AddDynamicBlacklistIP method.
+// 此回调通常使用 SDK 的 AddDynamicBlacklistIP 方法实现。
+// Parameters:
+// 参数:
+//   - ip: the IP address to block (CIDR format supported)
+//   - ip: 要封禁的 IP 地址（支持 CIDR 格式）
+//   - ttl: time-to-live for the entry (0 means permanent)
+//   - ttl: 条目的生存时间（0 表示永久）
+type BlacklistSyncFunc func(ip string, ttl time.Duration) error
+
 // Manager manages real IP extraction and blacklisting.
 // Manager 管理真实 IP 提取和黑名单。
 type Manager struct {
@@ -25,6 +37,10 @@ type Manager struct {
 	trustedLBs []netip.Prefix
 	mu         sync.RWMutex
 	log        *zap.SugaredLogger
+
+	// syncToXDPMap is the callback to sync blacklist to XDP dynamic_blacklist map.
+	// syncToXDPMap 是将黑名单同步到 XDP dynamic_blacklist Map 的回调。
+	syncToXDPMap BlacklistSyncFunc
 }
 
 // BlacklistEntry represents a blacklist entry with metadata.
@@ -32,6 +48,7 @@ type Manager struct {
 type BlacklistEntry struct {
 	IP        netip.Addr
 	Reason    string
+	Source    string // Source of the entry: "config", "api", "auto"
 	ExpiresAt time.Time
 	CreatedAt time.Time
 }
@@ -50,18 +67,23 @@ type Config struct {
 	// CacheExpiry is the cache entry expiry time.
 	// CacheExpiry 是缓存条目过期时间。
 	CacheExpiry time.Duration
+
+	// SyncToXDPCallback is the callback to sync blacklist to XDP map.
+	// SyncToXDPCallback 是将黑名单同步到 XDP Map 的回调。
+	SyncToXDPCallback BlacklistSyncFunc
 }
 
 // NewManager creates a new real IP manager.
 // NewManager 创建新的真实 IP 管理器。
 func NewManager(cfg *Config) *Manager {
 	m := &Manager{
-		parser:     proxyproto.NewParser(cfg.ProxyProtocolEnabled),
-		cache:      proxyproto.NewRealIPCache(),
-		blacklist:  make(map[string]*BlacklistEntry),
-		whitelist:  make(map[string]bool),
-		trustedLBs: make([]netip.Prefix, 0),
-		log:        logger.Get(context.Background()),
+		parser:       proxyproto.NewParser(cfg.ProxyProtocolEnabled),
+		cache:        proxyproto.NewRealIPCache(),
+		blacklist:    make(map[string]*BlacklistEntry),
+		whitelist:    make(map[string]bool),
+		trustedLBs:   make([]netip.Prefix, 0),
+		log:          logger.Get(context.Background()),
+		syncToXDPMap: cfg.SyncToXDPCallback,
 	}
 
 	// Parse trusted LB ranges.
@@ -137,9 +159,19 @@ func (m *Manager) IsTrustedLB(ip string) bool {
 	return false
 }
 
-// AddToBlacklist adds an IP to the blacklist.
-// AddToBlacklist 将 IP 添加到黑名单。
+// AddToBlacklist adds an IP to the blacklist and syncs to XDP map.
+// AddToBlacklist 将 IP 添加到黑名单并同步到 XDP Map。
+// The IP will be written to dynamic_blacklist map for XDP-level filtering.
+// IP 将被写入 dynamic_blacklist Map 以进行 XDP 级别过滤。
 func (m *Manager) AddToBlacklist(ip string, reason string, duration time.Duration) error {
+	return m.AddToBlacklistWithSource(ip, reason, duration, "manual")
+}
+
+// AddToBlacklistWithSource adds an IP to the blacklist with a specific source.
+// AddToBlacklistWithSource 将 IP 添加到黑名单并指定来源。
+// Source can be: "config", "api", "auto", "manual".
+// 来源可以是: "config", "api", "auto", "manual".
+func (m *Manager) AddToBlacklistWithSource(ip string, reason string, duration time.Duration, source string) error {
 	addr, err := netip.ParseAddr(ip)
 	if err != nil {
 		return fmt.Errorf("invalid IP address: %v", err)
@@ -151,6 +183,7 @@ func (m *Manager) AddToBlacklist(ip string, reason string, duration time.Duratio
 	entry := &BlacklistEntry{
 		IP:        addr,
 		Reason:    reason,
+		Source:    source,
 		CreatedAt: time.Now(),
 	}
 
@@ -159,19 +192,34 @@ func (m *Manager) AddToBlacklist(ip string, reason string, duration time.Duratio
 	}
 
 	m.blacklist[addr.String()] = entry
-	m.log.Infof("Added %s to blacklist: %s", ip, reason)
+
+	// Sync to XDP dynamic_blacklist map if callback is set.
+	// 如果设置了回调，同步到 XDP dynamic_blacklist Map。
+	// Uses SDK's AddDynamicBlacklistIP method internally.
+	// 内部使用 SDK 的 AddDynamicBlacklistIP 方法。
+	if m.syncToXDPMap != nil {
+		if err := m.syncToXDPMap(ip, duration); err != nil {
+			m.log.Warnf("Failed to sync %s to XDP dynamic_blacklist: %v", ip, err)
+		}
+	}
+
+	m.log.Infof("Added %s to real IP blacklist: %s (source: %s)", ip, reason, source)
 
 	return nil
 }
 
 // RemoveFromBlacklist removes an IP from the blacklist.
 // RemoveFromBlacklist 从黑名单中移除 IP。
+// Note: This only removes from local tracking, not from XDP map.
+// 注意：这仅从本地跟踪中移除，不会从 XDP Map 中移除。
+// Use SDK's RemoveBlacklistIP to remove from XDP map.
+// 使用 SDK 的 RemoveBlacklistIP 从 XDP Map 中移除。
 func (m *Manager) RemoveFromBlacklist(ip string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	delete(m.blacklist, ip)
-	m.log.Infof("Removed %s from blacklist", ip)
+	m.log.Infof("Removed %s from real IP blacklist", ip)
 
 	return nil
 }
@@ -270,4 +318,33 @@ func (m *Manager) GetStats() map[string]interface{} {
 		"trusted_lb_ranges": len(m.trustedLBs),
 		"proxy_protocol":    m.parser.IsEnabled(),
 	}
+}
+
+// LoadFromConfig loads blacklist entries from configuration.
+// LoadFromConfig 从配置加载黑名单条目。
+// This is typically called during initialization to sync config-based blacklist to XDP.
+// 这通常在初始化期间调用，以将配置中的黑名单同步到 XDP。
+func (m *Manager) LoadFromConfig(entries []BlacklistConfigEntry) error {
+	for _, e := range entries {
+		duration, err := time.ParseDuration(e.Duration)
+		if err != nil {
+			m.log.Warnf("Invalid duration for %s: %s, using 24h", e.IP, e.Duration)
+			duration = 24 * time.Hour
+		}
+
+		if err := m.AddToBlacklistWithSource(e.IP, e.Reason, duration, "config"); err != nil {
+			m.log.Warnf("Failed to add %s from config: %v", e.IP, err)
+		}
+	}
+
+	m.log.Infof("Loaded %d real IP blacklist entries from config", len(entries))
+	return nil
+}
+
+// BlacklistConfigEntry represents a blacklist entry from configuration.
+// BlacklistConfigEntry 表示配置中的黑名单条目。
+type BlacklistConfigEntry struct {
+	IP       string
+	Reason   string
+	Duration string
 }
