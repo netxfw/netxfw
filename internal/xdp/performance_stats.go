@@ -116,6 +116,11 @@ type TrafficStats struct {
 	CurrentPassPPS uint64 `json:"current_pass_pps"` // Current passes per second / 当前每秒通过数
 	PeakPassPPS    uint64 `json:"peak_pass_pps"`    // Peak passes per second / 峰值每秒通过数
 
+	// Conntrack rates / 连接跟踪速率
+	CurrentConntrackNew   uint64 `json:"current_conntrack_new"`   // Current new connections per second / 当前每秒新建连接数
+	CurrentConntrackEvict uint64 `json:"current_conntrack_evict"` // Current evicted connections per second / 当前每秒淘汰连接数
+	LastConntrackCount    uint64 `json:"last_conntrack_count"`    // Last conntrack count for rate calculation / 上次连接计数用于速率计算
+
 	// Time window for rate calculation / 速率计算的时间窗口
 	LastUpdateTime time.Time `json:"last_update_time"`
 	LastPackets    uint64    `json:"last_packets"`
@@ -348,6 +353,39 @@ func (p *PerformanceStats) UpdateTrafficStats(totalPackets, totalBytes, totalDro
 	p.Traffic.LastDrops = totalDrops
 	p.Traffic.LastPasses = totalPasses
 	p.Traffic.UptimeSeconds = uint64(now.Sub(p.StartTime).Seconds())
+}
+
+// UpdateConntrackStats updates conntrack statistics with new/evict rates.
+// UpdateConntrackStats 更新连接跟踪统计，包含新建/淘汰速率。
+func (p *PerformanceStats) UpdateConntrackStats(currentCount uint64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	now := time.Now()
+	elapsed := now.Sub(p.Traffic.LastUpdateTime).Seconds()
+
+	if elapsed > 0 && p.Traffic.LastUpdateTime.After(time.Time{}) {
+		// Calculate new/evict rates based on count changes
+		// 根据计数变化计算新建/淘汰速率
+		countDiff := int64(currentCount) - int64(p.Traffic.LastConntrackCount)
+
+		if countDiff > 0 {
+			// More connections than before = new connections
+			// 连接数增加 = 新建连接
+			p.Traffic.CurrentConntrackNew = uint64(float64(countDiff) / elapsed)
+			p.Traffic.CurrentConntrackEvict = 0
+		} else if countDiff < 0 {
+			// Less connections than before = evicted connections
+			// 连接数减少 = 淘汰连接
+			p.Traffic.CurrentConntrackNew = 0
+			p.Traffic.CurrentConntrackEvict = uint64(float64(-countDiff) / elapsed)
+		} else {
+			p.Traffic.CurrentConntrackNew = 0
+			p.Traffic.CurrentConntrackEvict = 0
+		}
+	}
+
+	p.Traffic.LastConntrackCount = currentCount
 }
 
 // GetStats returns a snapshot of all performance statistics.

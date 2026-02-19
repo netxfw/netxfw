@@ -75,7 +75,7 @@ func TestProtocolToString(t *testing.T) {
 		{"ICMP", 1, "ICMP"},
 		{"ICMPv6", 58, "ICMPv6"},
 		{"Unknown protocol", 99, "99"},
-		{"Zero", 0, "0"},
+		{"Zero", 0, "OTHER"},
 	}
 
 	for _, tt := range tests {

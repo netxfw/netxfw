@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
 // ConfigManager handles all configuration-related operations in a centralized manner
@@ -118,7 +119,7 @@ func (cm *ConfigManager) GetMetricsConfig() *types.MetricsConfig {
 
 // GetLoggingConfig returns the logging configuration
 // GetLoggingConfig 返回日志配置
-func (cm *ConfigManager) GetLoggingConfig() *types.LoggingConfig {
+func (cm *ConfigManager) GetLoggingConfig() *logger.LoggingConfig {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 
@@ -277,7 +278,7 @@ func (cm *ConfigManager) SetMetricsConfig(metricsConfig types.MetricsConfig) {
 
 // SetLoggingConfig updates the logging configuration
 // SetLoggingConfig 更新日志配置
-func (cm *ConfigManager) SetLoggingConfig(loggingConfig types.LoggingConfig) {
+func (cm *ConfigManager) SetLoggingConfig(loggingConfig logger.LoggingConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 

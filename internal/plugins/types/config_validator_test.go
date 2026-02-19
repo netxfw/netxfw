@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -501,7 +502,7 @@ func TestConfigValidator_ValidateLoggingConfig(t *testing.T) {
 
 	t.Run("ValidLoggingConfig", func(t *testing.T) {
 		cfg := &GlobalConfig{
-			Logging: LoggingConfig{
+			Logging: logger.LoggingConfig{
 				Enabled:    true,
 				Level:      "info",
 				Path:       "/var/log/netxfw.log",
@@ -516,7 +517,7 @@ func TestConfigValidator_ValidateLoggingConfig(t *testing.T) {
 
 	t.Run("InvalidLogLevel", func(t *testing.T) {
 		cfg := &GlobalConfig{
-			Logging: LoggingConfig{
+			Logging: logger.LoggingConfig{
 				Enabled: true,
 				Level:   "invalid", // Invalid level / 无效级别
 				Path:    "/var/log/netxfw.log",
@@ -529,7 +530,7 @@ func TestConfigValidator_ValidateLoggingConfig(t *testing.T) {
 
 	t.Run("MissingPath", func(t *testing.T) {
 		cfg := &GlobalConfig{
-			Logging: LoggingConfig{
+			Logging: logger.LoggingConfig{
 				Enabled: true,
 				Path:    "", // Missing path / 缺少路径
 			},
@@ -673,7 +674,7 @@ func TestConfigValidator_NetworksOverlap(t *testing.T) {
 
 // Helper function to parse CIDR.
 // 解析 CIDR 的辅助函数。
-func netParseCIDR(s string) (interface{}, *net.IPNet, error) {
+func netParseCIDR(s string) (any, *net.IPNet, error) {
 	_, ipNet, err := net.ParseCIDR(s)
 	return nil, ipNet, err
 }

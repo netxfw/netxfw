@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -503,7 +504,7 @@ func (v *ConfigValidator) validateCapacityConfig(cfg *CapacityConfig, result *Va
 
 // validateLoggingConfig validates logging configuration.
 // validateLoggingConfig 验证日志配置。
-func (v *ConfigValidator) validateLoggingConfig(cfg *LoggingConfig, result *ValidationResult) {
+func (v *ConfigValidator) validateLoggingConfig(cfg *logger.LoggingConfig, result *ValidationResult) {
 	if !cfg.Enabled {
 		return
 	}

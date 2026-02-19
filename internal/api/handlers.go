@@ -60,7 +60,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		// 获取 IP+端口规则（action 1=允许, 2=拒绝）
 		ipPortRules, totalIPPort, _ := s.sdk.Rule.List(true, limit, search)
 
-		res := map[string]interface{}{
+		res := map[string]any{
 			"blacklist":      locked,
 			"totalBlacklist": totalLocked,
 			"whitelist":      whitelist,
@@ -267,7 +267,7 @@ func (s *Server) handleConntrack(w http.ResponseWriter, r *http.Request) {
 
 	topEntries := entries[:limit]
 
-	res := map[string]interface{}{
+	res := map[string]any{
 		"total": total,
 		"top":   topEntries,
 	}

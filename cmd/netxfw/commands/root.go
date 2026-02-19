@@ -33,7 +33,7 @@ netxfw 是一个基于 eBPF/XDP 技术构建的高性能防火墙。
 		if err != nil {
 			// If config fails to load, use default logging config (console only)
 			// 如果加载配置失败，使用默认日志配置（仅控制台）
-			logger.Init(types.LoggingConfig{
+			logger.Init(logger.LoggingConfig{
 				Enabled: true,
 				Level:   "info",
 			})

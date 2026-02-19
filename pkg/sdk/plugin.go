@@ -80,7 +80,7 @@ type Plugin interface {
 	// This structure is used to parse the YAML configuration.
 	// DefaultConfig 返回插件的默认配置结构。
 	// 此结构用于解析 YAML 配置。
-	DefaultConfig() interface{}
+	DefaultConfig() any
 
 	// Validate checks if the configuration is valid before applying.
 	// It should return an error if the configuration is invalid.

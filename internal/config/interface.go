@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/runtime"
+	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
 // Configurable represents the interface for configuration management
@@ -17,7 +18,7 @@ type Configurable interface {
 	GetBaseConfig() *types.BaseConfig
 	GetWebConfig() *types.WebConfig
 	GetMetricsConfig() *types.MetricsConfig
-	GetLoggingConfig() *types.LoggingConfig
+	GetLoggingConfig() *logger.LoggingConfig
 	GetConntrackConfig() *types.ConntrackConfig
 	GetRateLimitConfig() *types.RateLimitConfig
 	GetPortConfig() *types.PortConfig
@@ -31,7 +32,7 @@ type Configurable interface {
 	SetBaseConfig(types.BaseConfig)
 	SetWebConfig(types.WebConfig)
 	SetMetricsConfig(types.MetricsConfig)
-	SetLoggingConfig(types.LoggingConfig)
+	SetLoggingConfig(logger.LoggingConfig)
 	SetConntrackConfig(types.ConntrackConfig)
 	SetRateLimitConfig(types.RateLimitConfig)
 	SetPortConfig(types.PortConfig)

@@ -240,6 +240,15 @@ func (m *Manager) GetDynLockListCount() (uint64, error) {
 }
 
 /**
+ * GetCriticalBlacklistCount returns the total number of entries in the critical blacklist map.
+ * GetCriticalBlacklistCount 返回危机封锁 Map 中的条目总数。
+ */
+func (m *Manager) GetCriticalBlacklistCount() (uint64, error) {
+	count, err := GetMapCount(m.criticalBlacklist)
+	return uint64(count), err
+}
+
+/**
  * ListConntrackEntries iterates over the conntrack map and returns entries.
  * ListConntrackEntries 遍历连接跟踪 Map 并返回条目。
  */

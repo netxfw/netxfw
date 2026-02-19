@@ -227,7 +227,7 @@ func TestEnv_Int(t *testing.T) {
 	env := &Env{}
 
 	tests := []struct {
-		input    interface{}
+		input    any
 		expected int
 	}{
 		{"123", 123},

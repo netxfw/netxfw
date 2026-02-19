@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/netip"
 	"path/filepath"
 	"regexp"
@@ -16,6 +15,7 @@ import (
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/pkg/sdk"
 )
 
@@ -52,7 +52,7 @@ type Env struct {
 }
 
 var envPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &Env{
 			fields: make([]string, 0, 16),
 		}
@@ -141,8 +141,8 @@ func (e *Env) Get(key string) string {
 
 // JSON parses the log line as JSON and returns a map.
 // JSON 将日志行解析为 JSON 并返回一个 Map。
-func (e *Env) JSON() map[string]interface{} {
-	var res map[string]interface{}
+func (e *Env) JSON() map[string]any {
+	var res map[string]any
 	if err := json.Unmarshal(e.Line, &res); err != nil {
 		return nil
 	}
@@ -176,7 +176,7 @@ func (e *Env) Match(pattern string) bool {
 		var err error
 		re, err = regexp.Compile(pattern)
 		if err != nil {
-			log.Printf("⚠️  Invalid regex pattern: %s", pattern)
+			logger.Get(nil).Warnf("⚠️  Invalid regex pattern: %s", pattern)
 			return false
 		}
 		regexCache.Store(pattern, re)
@@ -222,7 +222,7 @@ func (e *Env) Msg(needle string) bool {
 }
 
 // Contains: haystack is []byte or string, needle is string.
-func (e *Env) Contains(haystack interface{}, needle string) bool {
+func (e *Env) Contains(haystack any, needle string) bool {
 	switch h := haystack.(type) {
 	case []byte:
 		return bytes.Contains(h, []byte(needle))
@@ -233,7 +233,7 @@ func (e *Env) Contains(haystack interface{}, needle string) bool {
 	}
 }
 
-func (e *Env) IContains(haystack interface{}, needle string) bool {
+func (e *Env) IContains(haystack any, needle string) bool {
 	switch h := haystack.(type) {
 	case []byte:
 		return bytes.Contains(bytes.ToLower(h), bytes.ToLower([]byte(needle)))
@@ -244,7 +244,7 @@ func (e *Env) IContains(haystack interface{}, needle string) bool {
 	}
 }
 
-func (e *Env) Lower(v interface{}) string {
+func (e *Env) Lower(v any) string {
 	switch val := v.(type) {
 	case []byte:
 		return string(bytes.ToLower(val))
@@ -255,7 +255,7 @@ func (e *Env) Lower(v interface{}) string {
 	}
 }
 
-func (e *Env) Int(v interface{}) int {
+func (e *Env) Int(v any) int {
 	var s string
 	switch val := v.(type) {
 	case string:
@@ -437,7 +437,7 @@ func (re *RuleEngine) UpdateRules(configs []types.LogEngineRule) error {
 			if d, err := time.ParseDuration(ttlStr); err == nil {
 				ttl = d
 			} else {
-				log.Printf("⚠️  Rule '%s': Invalid TTL '%s', using 0 (no expiry). Error: %v", cfg.ID, ttlStr, err)
+				logger.Get(nil).Warnf("⚠️  Rule '%s': Invalid TTL '%s', using 0 (no expiry). Error: %v", cfg.ID, ttlStr, err)
 			}
 		}
 

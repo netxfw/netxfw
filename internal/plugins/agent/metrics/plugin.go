@@ -22,7 +22,7 @@ func (p *MetricsPlugin) Type() sdk.PluginType {
 	return sdk.PluginTypeExtension
 }
 
-func (p *MetricsPlugin) DefaultConfig() interface{} {
+func (p *MetricsPlugin) DefaultConfig() any {
 	return types.MetricsConfig{
 		Enabled:       true,
 		ServerEnabled: true,

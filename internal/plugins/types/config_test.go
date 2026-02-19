@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -176,7 +177,7 @@ web:
 
 	// Verify merge happened
 	// 验证合并已发生
-	var result map[string]interface{}
+	var result map[string]any
 	err = yaml.Unmarshal([]byte(targetYaml), &result)
 	assert.NoError(t, err)
 }
@@ -310,7 +311,7 @@ func TestCapacityConfig_Fields(t *testing.T) {
 // TestLoggingConfig_Fields tests LoggingConfig field assignments
 // TestLoggingConfig_Fields 测试 LoggingConfig 字段赋值
 func TestLoggingConfig_Fields(t *testing.T) {
-	cfg := LoggingConfig{
+	cfg := logger.LoggingConfig{
 		Enabled:    true,
 		Path:       "/var/log/test.log",
 		MaxSize:    20,

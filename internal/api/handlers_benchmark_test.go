@@ -98,10 +98,10 @@ func BenchmarkHandleConntrack(b *testing.B) {
 // BenchmarkJSONEncoding benchmarks JSON encoding for API responses.
 // BenchmarkJSONEncoding 基准测试 API 响应的 JSON 编码。
 func BenchmarkJSONEncoding(b *testing.B) {
-	response := map[string]interface{}{
+	response := map[string]any{
 		"success": true,
 		"message": "Operation completed",
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"ip":      "192.168.1.1",
 			"action":  "blocked",
 			"count":   100,

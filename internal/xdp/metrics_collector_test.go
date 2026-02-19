@@ -3,6 +3,8 @@ package xdp
 import (
 	"testing"
 	"time"
+
+	"github.com/livp123/netxfw/internal/utils/fmtutil"
 )
 
 // TestMetricsCollector_NewMetricsCollector tests NewMetricsCollector function.
@@ -289,18 +291,18 @@ func TestProtocolDistribution_PercentageCalculation(t *testing.T) {
 
 	// Calculate percentages / 计算百分比
 	if pd.TotalPackets > 0 {
-		pd.TCP.Percentage = formatPercent(float64(pd.TCP.Packets) * 100 / float64(pd.TotalPackets))
-		pd.UDP.Percentage = formatPercent(float64(pd.UDP.Packets) * 100 / float64(pd.TotalPackets))
-		pd.ICMP.Percentage = formatPercent(float64(pd.ICMP.Packets) * 100 / float64(pd.TotalPackets))
-		pd.Other.Percentage = formatPercent(float64(pd.Other.Packets) * 100 / float64(pd.TotalPackets))
+		pd.TCP.Percentage = fmtutil.FormatPercent(float64(pd.TCP.Packets) * 100 / float64(pd.TotalPackets))
+		pd.UDP.Percentage = fmtutil.FormatPercent(float64(pd.UDP.Packets) * 100 / float64(pd.TotalPackets))
+		pd.ICMP.Percentage = fmtutil.FormatPercent(float64(pd.ICMP.Packets) * 100 / float64(pd.TotalPackets))
+		pd.Other.Percentage = fmtutil.FormatPercent(float64(pd.Other.Packets) * 100 / float64(pd.TotalPackets))
 	}
 
-	// formatPercent uses %.1f%% format / formatPercent 使用 %.1f%% 格式
-	if pd.TCP.Percentage != "60.0%" {
-		t.Errorf("Expected TCP percentage '60.0%%', got '%s'", pd.TCP.Percentage)
+	// fmtutil.FormatPercent uses %.2f%% format / fmtutil.FormatPercent 使用 %.2f%% 格式
+	if pd.TCP.Percentage != "60.00%" {
+		t.Errorf("Expected TCP percentage '60.00%%', got '%s'", pd.TCP.Percentage)
 	}
-	if pd.UDP.Percentage != "30.0%" {
-		t.Errorf("Expected UDP percentage '30.0%%', got '%s'", pd.UDP.Percentage)
+	if pd.UDP.Percentage != "30.00%" {
+		t.Errorf("Expected UDP percentage '30.00%%', got '%s'", pd.UDP.Percentage)
 	}
 }
 

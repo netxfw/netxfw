@@ -194,7 +194,7 @@ func (m *Manager) IncrementalUpdater() *IncrementalUpdater {
 
 // PerfStats returns the performance statistics tracker.
 // PerfStats 返回性能统计跟踪器。
-func (m *Manager) PerfStats() interface{} {
+func (m *Manager) PerfStats() any {
 	return m.perfStats
 }
 

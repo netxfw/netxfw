@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -19,7 +18,7 @@ var globalLogger *zap.SugaredLogger
 
 // Init initializes the global logger based on configuration.
 // Init 根据配置初始化全局日志记录器。
-func Init(cfg types.LoggingConfig) {
+func Init(cfg LoggingConfig) {
 	// Default to stdout if not configured or disabled
 	writeSyncer := zapcore.AddSync(os.Stdout)
 

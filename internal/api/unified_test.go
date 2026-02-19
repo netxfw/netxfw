@@ -83,7 +83,7 @@ func TestHandleRulesGet(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.Unmarshal(rec.Body.Bytes(), &resp)
 	assert.Contains(t, resp, "blacklist")
 	assert.Contains(t, resp, "whitelist")
@@ -672,7 +672,7 @@ func TestHandleConntrack(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.Unmarshal(rec.Body.Bytes(), &resp)
 	assert.Contains(t, resp, "total")
 	assert.Contains(t, resp, "top")
@@ -693,6 +693,225 @@ func TestHandleRules_IPPortRules(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	server.handleRules(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+// TestHandleLogin tests the login endpoint
+// TestHandleLogin 测试登录端点
+func TestHandleLogin(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	// Test with invalid method
+	// 测试无效方法
+	req := httptest.NewRequest(http.MethodGet, "/api/login", nil)
+	rec := httptest.NewRecorder()
+	server.handleLogin(rec, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
+}
+
+// TestHandleLogin_InvalidJSON tests login with invalid JSON
+// TestHandleLogin_InvalidJSON 测试无效 JSON 的登录
+func TestHandleLogin_InvalidJSON(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	body := `{"invalid json`
+	req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.handleLogin(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+// TestHandleHealth tests the health endpoint
+// TestHandleHealth 测试健康端点
+func TestHandleHealth(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	rec := httptest.NewRecorder()
+
+	server.handleHealth(rec, req)
+	// Should return basic health check since mock doesn't implement GetHealthChecker
+	// 应该返回基本健康检查，因为 mock 没有实现 GetHealthChecker
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+// TestHandleHealth_NilSDK tests health endpoint with nil SDK
+// TestHandleHealth_NilSDK 测试空 SDK 的健康端点
+func TestHandleHealth_NilSDK(t *testing.T) {
+	server := NewServer(nil, 8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	rec := httptest.NewRecorder()
+
+	server.handleHealth(rec, req)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+}
+
+// TestHandleHealthMaps tests the health maps endpoint
+// TestHandleHealthMaps 测试健康 Map 端点
+func TestHandleHealthMaps(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/health/maps", nil)
+	rec := httptest.NewRecorder()
+
+	server.handleHealthMaps(rec, req)
+	// Mock doesn't implement GetHealthChecker
+	// Mock 没有实现 GetHealthChecker
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+}
+
+// TestHandleHealthMaps_NilSDK tests health maps endpoint with nil SDK
+// TestHandleHealthMaps_NilSDK 测试空 SDK 的健康 Map 端点
+func TestHandleHealthMaps_NilSDK(t *testing.T) {
+	server := NewServer(nil, 8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/health/maps", nil)
+	rec := httptest.NewRecorder()
+
+	server.handleHealthMaps(rec, req)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+}
+
+// TestHandleHealthMap tests the health map endpoint for a specific map
+// TestHandleHealthMap 测试特定 Map 的健康端点
+func TestHandleHealthMap(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/health/map?name=blacklist", nil)
+	rec := httptest.NewRecorder()
+
+	server.handleHealthMap(rec, req)
+	// Mock doesn't implement GetHealthChecker
+	// Mock 没有实现 GetHealthChecker
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+}
+
+// TestHandleHealthMap_MissingName tests health map endpoint without map name
+// TestHandleHealthMap_MissingName 测试没有 Map 名称的健康 Map 端点
+func TestHandleHealthMap_MissingName(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/health/map", nil)
+	rec := httptest.NewRecorder()
+
+	server.handleHealthMap(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+// TestHandleHealthMap_NilSDK tests health map endpoint with nil SDK
+// TestHandleHealthMap_NilSDK 测试空 SDK 的健康 Map 端点
+func TestHandleHealthMap_NilSDK(t *testing.T) {
+	server := NewServer(nil, 8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/health/map?name=blacklist", nil)
+	rec := httptest.NewRecorder()
+
+	server.handleHealthMap(rec, req)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+}
+
+// TestHandlePerfStats tests the performance stats endpoint
+// TestHandlePerfStats 测试性能统计端点
+func TestHandlePerfStats(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/perf/stats", nil)
+	rec := httptest.NewRecorder()
+
+	server.handlePerfStats(rec, req)
+	// Mock returns a valid PerfStats
+	// Mock 返回有效的 PerfStats
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+// TestHandlePerfLatency tests the performance latency endpoint
+// TestHandlePerfLatency 测试性能延迟端点
+func TestHandlePerfLatency(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/perf/latency", nil)
+	rec := httptest.NewRecorder()
+
+	server.handlePerfLatency(rec, req)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+}
+
+// TestHandlePerfCache tests the performance cache endpoint
+// TestHandlePerfCache 测试性能缓存端点
+func TestHandlePerfCache(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/perf/cache", nil)
+	rec := httptest.NewRecorder()
+
+	server.handlePerfCache(rec, req)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+}
+
+// TestHandlePerfTraffic tests the performance traffic endpoint
+// TestHandlePerfTraffic 测试性能流量端点
+func TestHandlePerfTraffic(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/perf/traffic", nil)
+	rec := httptest.NewRecorder()
+
+	server.handlePerfTraffic(rec, req)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+}
+
+// TestHandlePerfReset tests the performance reset endpoint
+// TestHandlePerfReset 测试性能重置端点
+func TestHandlePerfReset(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	// Test with invalid method
+	// 测试无效方法
+	req := httptest.NewRequest(http.MethodGet, "/api/perf/reset", nil)
+	rec := httptest.NewRecorder()
+
+	server.handlePerfReset(rec, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
+}
+
+// TestHandlePerfReset_Post tests the performance reset endpoint with POST
+// TestHandlePerfReset_Post 测试 POST 方法的性能重置端点
+func TestHandlePerfReset_Post(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/perf/reset", nil)
+	rec := httptest.NewRecorder()
+
+	server.handlePerfReset(rec, req)
+	// Mock returns a valid PerfStats that supports Reset
+	// Mock 返回支持 Reset 的有效 PerfStats
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 

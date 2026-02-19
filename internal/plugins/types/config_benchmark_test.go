@@ -2,6 +2,8 @@ package types
 
 import (
 	"testing"
+
+	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
 // BenchmarkLoadGlobalConfig benchmarks global config loading.
@@ -33,7 +35,7 @@ func BenchmarkBaseConfigDefaults(b *testing.B) {
 func BenchmarkLoggingConfigDefaults(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = LoggingConfig{
+		_ = logger.LoggingConfig{
 			Enabled:    true,
 			Level:      "info",
 			Path:       "/var/log/netxfw/agent.log",
@@ -118,7 +120,7 @@ func BenchmarkGlobalConfigCreation(b *testing.B) {
 				CleanupInterval:    "1h",
 				Whitelist:          []string{"10.0.0.0/8"},
 			},
-			Logging: LoggingConfig{
+			Logging: logger.LoggingConfig{
 				Enabled:  true,
 				Level:    "info",
 				Path:     "/var/log/netxfw/agent.log",
@@ -154,11 +156,11 @@ func BenchmarkCapacityConfigDefaults(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = CapacityConfig{
-			LockList:      2000000,
-			DynLockList:   2000000,
-			Whitelist:     65536,
-			IPPortRules:   65536,
-			AllowedPorts:  1024,
+			LockList:     2000000,
+			DynLockList:  2000000,
+			Whitelist:    65536,
+			IPPortRules:  65536,
+			AllowedPorts: 1024,
 		}
 	}
 }

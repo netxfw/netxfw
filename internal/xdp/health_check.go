@@ -174,7 +174,7 @@ func (h *HealthChecker) countMapEntries(mapObj *ebpf.Map) (int, error) {
 	iter := mapObj.Iterate()
 	count := 0
 
-	var key, val interface{}
+	var key, val any
 	for iter.Next(&key, &val) {
 		count++
 	}

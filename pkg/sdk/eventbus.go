@@ -18,13 +18,13 @@ const (
 // Event represents a system event.
 type Event struct {
 	Type      EventType
-	Payload   interface{}
+	Payload   any
 	Timestamp int64
 	Source    string
 }
 
 // NewEvent creates a new event with the current timestamp.
-func NewEvent(eventType EventType, source string, payload interface{}) Event {
+func NewEvent(eventType EventType, source string, payload any) Event {
 	return Event{
 		Type:      eventType,
 		Source:    source,

@@ -161,8 +161,8 @@ func (s *YAMLStore) LoadAll() (whitelist []IPRule, lockList []IPRule, ipPortRule
 	return
 }
 
-func (s *YAMLStore) readRawFile(path string) (map[string]interface{}, error) {
-	data := make(map[string]interface{})
+func (s *YAMLStore) readRawFile(path string) (map[string]any, error) {
+	data := make(map[string]any)
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return data, err
@@ -185,7 +185,7 @@ func (s *YAMLStore) updateFile(path string, updater func(*fileData)) error {
 	// Read raw to preserve other fields / 读取原始数据以保留其他字段
 	raw, rawErr := s.readRawFile(path)
 	if rawErr != nil {
-		raw = make(map[string]interface{})
+		raw = make(map[string]any)
 	}
 
 	// Read typed to easily modify / 读取类型化数据以便于修改

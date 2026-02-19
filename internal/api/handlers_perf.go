@@ -10,6 +10,11 @@ import (
 func (s *Server) handlePerfStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	if s.sdk == nil {
+		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
+		return
+	}
+
 	perfStats := s.sdk.GetManager().PerfStats()
 	if perfStats == nil {
 		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
@@ -24,6 +29,11 @@ func (s *Server) handlePerfStats(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handlePerfLatency(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	if s.sdk == nil {
+		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
+		return
+	}
+
 	perfStats := s.sdk.GetManager().PerfStats()
 	if perfStats == nil {
 		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
@@ -31,7 +41,7 @@ func (s *Server) handlePerfLatency(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stats, ok := perfStats.(interface {
-		GetLatencyStats() interface{}
+		GetLatencyStats() any
 	})
 	if !ok {
 		http.Error(w, "Latency stats not available", http.StatusServiceUnavailable)
@@ -46,6 +56,11 @@ func (s *Server) handlePerfLatency(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handlePerfCache(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	if s.sdk == nil {
+		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
+		return
+	}
+
 	perfStats := s.sdk.GetManager().PerfStats()
 	if perfStats == nil {
 		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
@@ -53,7 +68,7 @@ func (s *Server) handlePerfCache(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stats, ok := perfStats.(interface {
-		GetCacheStats() interface{}
+		GetCacheStats() any
 	})
 	if !ok {
 		http.Error(w, "Cache stats not available", http.StatusServiceUnavailable)
@@ -68,6 +83,11 @@ func (s *Server) handlePerfCache(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handlePerfTraffic(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	if s.sdk == nil {
+		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
+		return
+	}
+
 	perfStats := s.sdk.GetManager().PerfStats()
 	if perfStats == nil {
 		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
@@ -75,7 +95,7 @@ func (s *Server) handlePerfTraffic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stats, ok := perfStats.(interface {
-		GetTrafficStats() interface{}
+		GetTrafficStats() any
 	})
 	if !ok {
 		http.Error(w, "Traffic stats not available", http.StatusServiceUnavailable)
@@ -94,6 +114,11 @@ func (s *Server) handlePerfReset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	if s.sdk == nil {
+		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
+		return
+	}
 
 	perfStats := s.sdk.GetManager().PerfStats()
 	if perfStats == nil {

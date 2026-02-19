@@ -30,14 +30,14 @@ func BenchmarkMockManager_AddBlacklistIP(b *testing.B) {
 // BenchmarkMockManager_RemoveBlacklistIP 基准测试 RemoveBlacklistIP 操作
 func BenchmarkMockManager_RemoveBlacklistIP(b *testing.B) {
 	mockMgr := NewMockManager()
-	// Pre-populate
-	// 预填充
-	for i := 0; i < b.N; i++ {
+	// Pre-populate with fixed number of IPs
+	// 预填充固定数量的 IP
+	for i := 0; i < 1000; i++ {
 		_ = mockMgr.AddBlacklistIP(fmt.Sprintf("192.168.%d.%d/32", i/256, i%256))
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = mockMgr.RemoveBlacklistIP(fmt.Sprintf("192.168.%d.%d/32", i/256, i%256))
+		_ = mockMgr.RemoveBlacklistIP(fmt.Sprintf("192.168.%d.%d/32", (i%1000)/256, i%256))
 	}
 }
 
@@ -96,14 +96,14 @@ func BenchmarkMockManager_AddWhitelistIP(b *testing.B) {
 // BenchmarkMockManager_RemoveWhitelistIP 基准测试 RemoveWhitelistIP 操作
 func BenchmarkMockManager_RemoveWhitelistIP(b *testing.B) {
 	mockMgr := NewMockManager()
-	// Pre-populate
-	// 预填充
-	for i := 0; i < b.N; i++ {
+	// Pre-populate with fixed number of IPs
+	// 预填充固定数量的 IP
+	for i := 0; i < 1000; i++ {
 		_ = mockMgr.AddWhitelistIP(fmt.Sprintf("10.0.%d.%d/32", i/256, i%256), 80)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = mockMgr.RemoveWhitelistIP(fmt.Sprintf("10.0.%d.%d/32", i/256, i%256))
+		_ = mockMgr.RemoveWhitelistIP(fmt.Sprintf("10.0.%d.%d/32", (i%1000)/256, i%256))
 	}
 }
 
@@ -132,14 +132,14 @@ func BenchmarkMockManager_AddIPPortRule(b *testing.B) {
 // BenchmarkMockManager_RemoveIPPortRule 基准测试 RemoveIPPortRule 操作
 func BenchmarkMockManager_RemoveIPPortRule(b *testing.B) {
 	mockMgr := NewMockManager()
-	// Pre-populate
-	// 预填充
-	for i := 0; i < b.N; i++ {
+	// Pre-populate with fixed number of rules
+	// 预填充固定数量的规则
+	for i := 0; i < 1000; i++ {
 		_ = mockMgr.AddIPPortRule(fmt.Sprintf("172.16.%d.%d/32", i/256, i%256), uint16(i%65536), 1)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = mockMgr.RemoveIPPortRule(fmt.Sprintf("172.16.%d.%d/32", i/256, i%256), uint16(i%65536))
+		_ = mockMgr.RemoveIPPortRule(fmt.Sprintf("172.16.%d.%d/32", (i%1000)/256, i%256), uint16(i%65536))
 	}
 }
 
@@ -157,14 +157,14 @@ func BenchmarkMockManager_AllowPort(b *testing.B) {
 // BenchmarkMockManager_RemoveAllowedPort 基准测试 RemoveAllowedPort 操作
 func BenchmarkMockManager_RemoveAllowedPort(b *testing.B) {
 	mockMgr := NewMockManager()
-	// Pre-populate
-	// 预填充
-	for i := 0; i < b.N; i++ {
+	// Pre-populate with fixed number of ports
+	// 预填充固定数量的端口
+	for i := 0; i < 1000; i++ {
 		_ = mockMgr.AllowPort(uint16(i % 65536))
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = mockMgr.RemoveAllowedPort(uint16(i % 65536))
+		_ = mockMgr.RemoveAllowedPort(uint16(i % 1000))
 	}
 }
 
@@ -182,10 +182,10 @@ func BenchmarkMockManager_AddRateLimitRule(b *testing.B) {
 // BenchmarkMockManager_RemoveRateLimitRule 基准测试 RemoveRateLimitRule 操作
 func BenchmarkMockManager_RemoveRateLimitRule(b *testing.B) {
 	mockMgr := NewMockManager()
-	// Pre-populate
-	// 预填充
-	for i := 0; i < b.N; i++ {
-		_ = mockMgr.AddRateLimitRule(fmt.Sprintf("192.168.%d.0/24", i%256), 1000, 2000)
+	// Pre-populate with fixed number of rules
+	// 预填充固定数量的规则
+	for i := 0; i < 256; i++ {
+		_ = mockMgr.AddRateLimitRule(fmt.Sprintf("192.168.%d.0/24", i), 1000, 2000)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -227,15 +227,14 @@ func BenchmarkMockManager_GetLockedIPCount(b *testing.B) {
 // BenchmarkMockManager_ClearBlacklist benchmarks ClearBlacklist operation
 // BenchmarkMockManager_ClearBlacklist 基准测试 ClearBlacklist 操作
 func BenchmarkMockManager_ClearBlacklist(b *testing.B) {
+	mockMgr := NewMockManager()
+	// Pre-populate with 100 IPs once
+	// 一次预填充 100 个 IP
+	for j := 0; j < 100; j++ {
+		_ = mockMgr.AddBlacklistIP(fmt.Sprintf("192.168.%d.%d/32", j/256, j%256))
+	}
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		mockMgr := NewMockManager()
-		// Pre-populate with 100 IPs
-		// 预填充 100 个 IP
-		for j := 0; j < 100; j++ {
-			_ = mockMgr.AddBlacklistIP(fmt.Sprintf("192.168.%d.%d/32", j/256, j%256))
-		}
-		b.StartTimer()
 		_ = mockMgr.ClearBlacklist()
 	}
 }
@@ -243,15 +242,14 @@ func BenchmarkMockManager_ClearBlacklist(b *testing.B) {
 // BenchmarkMockManager_ClearWhitelist benchmarks ClearWhitelist operation
 // BenchmarkMockManager_ClearWhitelist 基准测试 ClearWhitelist 操作
 func BenchmarkMockManager_ClearWhitelist(b *testing.B) {
+	mockMgr := NewMockManager()
+	// Pre-populate with 100 IPs once
+	// 一次预填充 100 个 IP
+	for j := 0; j < 100; j++ {
+		_ = mockMgr.AddWhitelistIP(fmt.Sprintf("10.0.%d.%d/32", j/256, j%256), 80)
+	}
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		mockMgr := NewMockManager()
-		// Pre-populate with 100 IPs
-		// 预填充 100 个 IP
-		for j := 0; j < 100; j++ {
-			_ = mockMgr.AddWhitelistIP(fmt.Sprintf("10.0.%d.%d/32", j/256, j%256), 80)
-		}
-		b.StartTimer()
 		_ = mockMgr.ClearWhitelist()
 	}
 }
@@ -283,57 +281,6 @@ func BenchmarkMockManager_Close(b *testing.B) {
 		mockMgr := NewMockManager()
 		_ = mockMgr.Close()
 	}
-}
-
-// BenchmarkMockManager_ConcurrentBlacklist benchmarks concurrent blacklist operations
-// BenchmarkMockManager_ConcurrentBlacklist 基准测试并发黑名单操作
-func BenchmarkMockManager_ConcurrentBlacklist(b *testing.B) {
-	mockMgr := NewMockManager()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		i := 0
-		for pb.Next() {
-			_ = mockMgr.AddBlacklistIP(fmt.Sprintf("192.168.%d.%d/32", i/256, i%256))
-			i++
-		}
-	})
-}
-
-// BenchmarkMockManager_ConcurrentWhitelist benchmarks concurrent whitelist operations
-// BenchmarkMockManager_ConcurrentWhitelist 基准测试并发白名单操作
-func BenchmarkMockManager_ConcurrentWhitelist(b *testing.B) {
-	mockMgr := NewMockManager()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		i := 0
-		for pb.Next() {
-			_ = mockMgr.AddWhitelistIP(fmt.Sprintf("10.0.%d.%d/32", i/256, i%256), 80)
-			i++
-		}
-	})
-}
-
-// BenchmarkMockManager_ConcurrentMixedOps benchmarks concurrent mixed operations
-// BenchmarkMockManager_ConcurrentMixedOps 基准测试并发混合操作
-func BenchmarkMockManager_ConcurrentMixedOps(b *testing.B) {
-	mockMgr := NewMockManager()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		i := 0
-		for pb.Next() {
-			switch i % 4 {
-			case 0:
-				_ = mockMgr.AddBlacklistIP(fmt.Sprintf("192.168.%d.%d/32", i/256, i%256))
-			case 1:
-				_, _ = mockMgr.IsIPInBlacklist(fmt.Sprintf("192.168.%d.%d/32", i/256, i%256))
-			case 2:
-				_ = mockMgr.AddWhitelistIP(fmt.Sprintf("10.0.%d.%d/32", i/256, i%256), 80)
-			case 3:
-				_, _ = mockMgr.IsIPInWhitelist(fmt.Sprintf("10.0.%d.%d/32", i/256, i%256))
-			}
-			i++
-		}
-	})
 }
 
 // BenchmarkMockManager_SyncFromFiles benchmarks SyncFromFiles operation

@@ -37,7 +37,7 @@ func NewCounter(maxWindow int) *Counter {
 	}
 	c := &Counter{
 		statsPool: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return &ipStats{}
 			},
 		},

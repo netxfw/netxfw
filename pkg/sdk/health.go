@@ -13,7 +13,7 @@ const (
 type HealthCheckResult struct {
 	Status  HealthStatus
 	Message string
-	Details map[string]interface{}
+	Details map[string]any
 }
 
 // HealthChecker is an interface for components that can be health-checked.

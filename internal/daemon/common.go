@@ -170,9 +170,28 @@ func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
 func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
 	log := logger.Get(ctx)
 
-	ticker := time.NewTicker(1 * time.Second)
+	// Get stats interval from config / 从配置获取统计间隔
+	cfgManager := config.GetConfigManager()
+	statsInterval := 1 * time.Second
+	avgPacketSize := 500
+
+	if err := cfgManager.LoadConfig(); err == nil {
+		cfg := cfgManager.GetConfig()
+		if cfg != nil {
+			if cfg.Metrics.StatsInterval != "" {
+				if duration, err := time.ParseDuration(cfg.Metrics.StatsInterval); err == nil && duration > 0 {
+					statsInterval = duration
+				}
+			}
+			if cfg.Metrics.AvgPacketSize > 0 {
+				avgPacketSize = cfg.Metrics.AvgPacketSize
+			}
+		}
+	}
+
+	ticker := time.NewTicker(statsInterval)
 	defer ticker.Stop()
-	log.Info("📊 Traffic stats collection enabled (Interval: 1s)")
+	log.Infof("📊 Traffic stats collection enabled (Interval: %v, AvgPacketSize: %d bytes)", statsInterval, avgPacketSize)
 
 	for {
 		select {
@@ -207,13 +226,19 @@ func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
 			}
 
 			totalPackets := pass + drops
-			// Estimate bytes (average packet size ~500 bytes for estimation)
-			// 估算字节数（平均包大小约 500 字节用于估算）
-			totalBytes := totalPackets * 500
+			// Estimate bytes using configured average packet size
+			// 使用配置的平均包大小估算字节数
+			totalBytes := totalPackets * uint64(avgPacketSize)
 
 			// Update traffic stats
 			// 更新流量统计
 			ps.UpdateTrafficStats(totalPackets, totalBytes, drops, pass)
+
+			// Update conntrack stats
+			// 更新连接跟踪统计
+			if conntrackCount, err := mgr.GetConntrackCount(); err == nil {
+				ps.UpdateConntrackStats(uint64(conntrackCount))
+			}
 
 			// Save traffic stats to shared file for system status command
 			// 将流量统计保存到共享文件供 system status 命令使用

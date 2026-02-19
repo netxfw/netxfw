@@ -263,7 +263,7 @@ type ProtocolSummary struct {
 
 // writeJSONResponse writes JSON response.
 // writeJSONResponse 写入 JSON 响应。
-func writeJSONResponse(w http.ResponseWriter, data interface{}) {
+func writeJSONResponse(w http.ResponseWriter, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")

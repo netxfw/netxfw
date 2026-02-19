@@ -46,7 +46,7 @@ func main() {
 func testManualAutoActive() {
 	fmt.Println("\n--- Scenario 1: Manual Add with AutoActive=true ---")
 	// 场景 1：手动添加，AutoActive=true
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"ip":          "1.1.1.1",
 		"reason":      "Test manual auto-active",
 		"auto_active": true,
@@ -60,7 +60,7 @@ func testManualAutoActive() {
 func testExternalAutoActive() {
 	fmt.Println("\n--- Scenario 2: External Alert with AutoActive=true ---")
 	// 场景 2：外部告警，AutoActive=true
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"type":        "blacklist",
 		"instance":    "2.2.2.2",
 		"reason":      "Simulated attack from analyzer",
@@ -76,7 +76,7 @@ func testExternalAutoActive() {
 func testManualPending() {
 	fmt.Println("\n--- Scenario 3: Manual Add with AutoActive=false (Pending) ---")
 	// 场景 3：手动添加，AutoActive=false（待审批）
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"ip":          "3.3.3.3",
 		"reason":      "Test manual pending",
 		"auto_active": false,
@@ -87,7 +87,7 @@ func testManualPending() {
 
 // post is a helper function to send POST requests to the API.
 // post 是一个向 API 发送 POST 请求的辅助函数。
-func post(path string, data interface{}) string {
+func post(path string, data any) string {
 	b, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Sprintf("JSON marshal error: %v", err)

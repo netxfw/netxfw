@@ -89,7 +89,7 @@ func (p *LogEnginePlugin) Stop() error {
 
 // DefaultConfig returns the default configuration.
 // DefaultConfig 返回默认配置。
-func (p *LogEnginePlugin) DefaultConfig() interface{} {
+func (p *LogEnginePlugin) DefaultConfig() any {
 	return types.LogEngineConfig{
 		Enabled: false,
 		Workers: 4,

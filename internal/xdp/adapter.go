@@ -245,6 +245,12 @@ func (a *Adapter) GetDynLockListCount() (uint64, error) {
 	return a.manager.GetDynLockListCount()
 }
 
+// GetCriticalBlacklistCount returns the count of critical blacklist entries.
+// GetCriticalBlacklistCount 返回危机封锁条目数量。
+func (a *Adapter) GetCriticalBlacklistCount() (uint64, error) {
+	return a.manager.GetCriticalBlacklistCount()
+}
+
 // InvalidateStatsCache clears the statistics cache.
 // InvalidateStatsCache 清除统计缓存。
 func (a *Adapter) InvalidateStatsCache() {
@@ -253,7 +259,7 @@ func (a *Adapter) InvalidateStatsCache() {
 
 // PerfStats returns the performance statistics tracker.
 // PerfStats 返回性能统计跟踪器。
-func (a *Adapter) PerfStats() interface{} {
+func (a *Adapter) PerfStats() any {
 	return a.manager.PerfStats()
 }
 

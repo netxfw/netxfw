@@ -34,8 +34,8 @@ type ConfigDiff struct {
 // ConfigChange 表示单个配置变更。
 type ConfigChange struct {
 	Field    string
-	OldValue interface{}
-	NewValue interface{}
+	OldValue any
+	NewValue any
 }
 
 // IPPortRuleChange represents an IP+Port rule change.
@@ -390,7 +390,7 @@ func (u *IncrementalUpdater) ApplyDiff(diff *ConfigDiff) error {
 
 // applyGlobalConfigChange applies a single global config change.
 // applyGlobalConfigChange 应用单个全局配置变更。
-func (u *IncrementalUpdater) applyGlobalConfigChange(field string, value interface{}) error {
+func (u *IncrementalUpdater) applyGlobalConfigChange(field string, value any) error {
 	// Validate value is not nil / 验证值不为 nil
 	if value == nil {
 		return fmt.Errorf("value for field %s is nil", field)

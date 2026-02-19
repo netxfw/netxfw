@@ -84,14 +84,44 @@ func passReasonToString(reason uint32) string {
 // protocolToString 将协议号映射为可读字符串
 func protocolToString(proto uint8) string {
 	switch proto {
-	case 6:
-		return "TCP"
-	case 17:
-		return "UDP"
+	case 0:
+		return "OTHER"
 	case 1:
 		return "ICMP"
+	case 2:
+		return "IGMP"
+	case 4:
+		return "IP-in-IP"
+	case 6:
+		return "TCP"
+	case 8:
+		return "EGP"
+	case 17:
+		return "UDP"
+	case 41:
+		return "IPv6"
+	case 43:
+		return "IPv6-Route"
+	case 44:
+		return "IPv6-Frag"
+	case 47:
+		return "GRE"
+	case 50:
+		return "ESP"
+	case 51:
+		return "AH"
 	case 58:
 		return "ICMPv6"
+	case 59:
+		return "IPv6-NoNxt"
+	case 60:
+		return "IPv6-Opts"
+	case 89:
+		return "OSPF"
+	case 132:
+		return "SCTP"
+	case 135:
+		return "UDPLite"
 	default:
 		return fmt.Sprintf("%d", proto)
 	}

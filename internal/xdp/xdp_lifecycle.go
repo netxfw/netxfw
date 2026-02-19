@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -180,6 +181,101 @@ func GetAttachedInterfaces(pinPath string) ([]string, error) {
 		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "link_") {
 			iface := strings.TrimPrefix(entry.Name(), "link_")
 			interfaces = append(interfaces, iface)
+		}
+	}
+	return interfaces, nil
+}
+
+// InterfaceXDPInfo contains XDP attachment information for an interface
+// InterfaceXDPInfo 包含接口的 XDP 挂载信息
+type InterfaceXDPInfo struct {
+	Name      string    // Interface name / 接口名称
+	ProgramID uint32    // XDP program ID / XDP 程序 ID
+	LinkID    uint32    // Link ID / 链接 ID
+	Mode      string    // Attachment mode / 挂载模式
+	LoadTime  time.Time // Program load time / 程序加载时间
+}
+
+/**
+ * GetAttachedInterfacesWithInfo returns detailed XDP attachment information for all attached interfaces.
+ * GetAttachedInterfacesWithInfo 返回所有已挂载接口的详细 XDP 挂载信息。
+ */
+func GetAttachedInterfacesWithInfo(pinPath string) ([]InterfaceXDPInfo, error) {
+	entries, err := os.ReadDir(pinPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var interfaces []InterfaceXDPInfo
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "link_") {
+			ifaceName := strings.TrimPrefix(entry.Name(), "link_")
+			linkPath := filepath.Join(pinPath, entry.Name())
+
+			// Load the pinned link to get info / 加载固定的链接以获取信息
+			l, err := link.LoadPinnedLink(linkPath, nil)
+			if err != nil {
+				// If we can't load the link, still add the interface with 0 ID
+				// 如果无法加载链接，仍然添加接口但 ID 为 0
+				interfaces = append(interfaces, InterfaceXDPInfo{
+					Name:      ifaceName,
+					ProgramID: 0,
+					LinkID:    0,
+					Mode:      "Native",
+				})
+				continue
+			}
+
+			// Get link info / 获取链接信息
+			info, err := l.Info()
+			if err != nil {
+				l.Close()
+				interfaces = append(interfaces, InterfaceXDPInfo{
+					Name:      ifaceName,
+					ProgramID: 0,
+					LinkID:    0,
+					Mode:      "Native",
+				})
+				continue
+			}
+
+			// Determine mode from XDP info / 从 XDP 信息确定模式
+			mode := "Native"
+			if xdpInfo := info.XDP(); xdpInfo != nil {
+				// Check ifindex to determine mode / 检查 ifindex 以确定模式
+				// We can't directly get the mode, so we default to Native
+				// 我们无法直接获取模式，所以默认为 Native
+				_ = xdpInfo.Ifindex
+			}
+
+			// Get program load time / 获取程序加载时间
+			var loadTime time.Time
+			progID := info.Program
+			if progID > 0 {
+				// Try to get program info for load time / 尝试获取程序信息以获取加载时间
+				if prog, err := ebpf.NewProgramFromID(ebpf.ProgramID(progID)); err == nil {
+					if progInfo, err := prog.Info(); err == nil {
+						if loadDuration, ok := progInfo.LoadTime(); ok {
+							// LoadTime is duration since boot, convert to absolute time
+							// LoadTime 是从启动开始的持续时间，转换为绝对时间
+							loadTime = time.Now().Add(-loadDuration)
+						}
+					}
+					prog.Close()
+				}
+			}
+
+			interfaces = append(interfaces, InterfaceXDPInfo{
+				Name:      ifaceName,
+				ProgramID: uint32(info.Program),
+				LinkID:    uint32(info.ID),
+				Mode:      mode,
+				LoadTime:  loadTime,
+			})
+			l.Close()
 		}
 	}
 	return interfaces, nil

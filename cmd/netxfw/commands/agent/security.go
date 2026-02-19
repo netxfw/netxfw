@@ -1,12 +1,12 @@
 package agent
 
 import (
-	"log"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -31,14 +31,14 @@ func runSecurityBoolCommand(cmd *cobra.Command, args []string, setter func(*sdk.
 
 	enable, err := strconv.ParseBool(args[0])
 	if err != nil {
-		log.Fatalf("❌ Invalid boolean value: %v", err)
+		logger.Get(nil).Fatalf("❌ Invalid boolean value: %v", err)
 	}
 
 	if err := setter(s, enable); err != nil {
 		cmd.PrintErrln(err)
 		os.Exit(1)
 	}
-	log.Printf("✅ %s set to %v", settingName, enable)
+	logger.Get(nil).Infof("✅ %s set to %v", settingName, enable)
 }
 
 var securityFragmentsCmd = &cobra.Command{
@@ -123,14 +123,14 @@ var securityAutoBlockExpiryCmd = &cobra.Command{
 
 		expiry, err := strconv.Atoi(args[0])
 		if err != nil {
-			log.Fatalf("❌ Invalid expiry value: %v", err)
+			logger.Get(nil).Fatalf("❌ Invalid expiry value: %v", err)
 		}
 		duration := time.Duration(expiry) * time.Second
 		if err := s.Security.SetAutoBlockExpiry(duration); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		log.Printf("✅ Auto-block expiry set to %v", duration)
+		logger.Get(nil).Infof("✅ Auto-block expiry set to %v", duration)
 	},
 }
 

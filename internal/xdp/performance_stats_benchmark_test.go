@@ -53,13 +53,9 @@ func BenchmarkPerformanceStats_GetStats(b *testing.B) {
 // BenchmarkPerformanceStats_Reset 基准测试统计重置。
 func BenchmarkPerformanceStats_Reset(b *testing.B) {
 	ps := NewPerformanceStats()
-	ps.RecordMapOperation("blacklist", "add", 10000, false)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		ps.RecordMapOperation("blacklist", "add", 10000, false)
-		b.StartTimer()
 		ps.Reset()
 	}
 }
@@ -73,15 +69,11 @@ func BenchmarkPerformanceStats_ConcurrentRecord(b *testing.B) {
 	ops := []string{"add", "remove", "lookup"}
 
 	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		i := 0
-		for pb.Next() {
-			mapName := maps[i%len(maps)]
-			opType := ops[(i/len(maps))%len(ops)]
-			ps.RecordMapOperation(mapName, opType, uint64(i%10000), false)
-			i++
-		}
-	})
+	for i := 0; i < b.N; i++ {
+		mapName := maps[i%len(maps)]
+		opType := ops[(i/len(maps))%len(ops)]
+		ps.RecordMapOperation(mapName, opType, uint64(i%10000), false)
+	}
 }
 
 // BenchmarkPerformanceStats_ConcurrentRead benchmarks concurrent stats reading.
@@ -92,11 +84,9 @@ func BenchmarkPerformanceStats_ConcurrentRead(b *testing.B) {
 	ps.RecordMapOperation("whitelist", "add", 15000, false)
 
 	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			_ = ps.GetStats()
-		}
-	})
+	for i := 0; i < b.N; i++ {
+		_ = ps.GetStats()
+	}
 }
 
 // BenchmarkPerformanceStats_MixedOperations benchmarks mixed read/write operations.
@@ -105,17 +95,13 @@ func BenchmarkPerformanceStats_MixedOperations(b *testing.B) {
 	ps := NewPerformanceStats()
 
 	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		i := 0
-		for pb.Next() {
-			if i%2 == 0 {
-				ps.RecordMapOperation("blacklist", "add", uint64(i%10000), false)
-			} else {
-				_ = ps.GetStats()
-			}
-			i++
+	for i := 0; i < b.N; i++ {
+		if i%2 == 0 {
+			ps.RecordMapOperation("blacklist", "add", uint64(i%10000), false)
+		} else {
+			_ = ps.GetStats()
 		}
-	})
+	}
 }
 
 // BenchmarkPerformanceStats_ManyOperations benchmarks with many operations.

@@ -219,11 +219,11 @@ type MockKVStore struct {
 	mock.Mock
 }
 
-func (m *MockKVStore) Set(key string, value interface{}) {
+func (m *MockKVStore) Set(key string, value any) {
 	m.Called(key, value)
 }
 
-func (m *MockKVStore) Get(key string) (interface{}, bool) {
+func (m *MockKVStore) Get(key string) (any, bool) {
 	args := m.Called(key)
 	return args.Get(0), args.Bool(1)
 }

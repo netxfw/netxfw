@@ -28,7 +28,7 @@ func (p *WebPlugin) Type() sdk.PluginType {
 	return sdk.PluginTypeExtension
 }
 
-func (p *WebPlugin) DefaultConfig() interface{} {
+func (p *WebPlugin) DefaultConfig() any {
 	return types.WebConfig{
 		Enabled: true,
 		Port:    11811,

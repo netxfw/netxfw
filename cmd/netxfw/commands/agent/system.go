@@ -14,6 +14,7 @@ import (
 	"github.com/livp123/netxfw/internal/core"
 	"github.com/livp123/netxfw/internal/daemon"
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/fmtutil"
 	"github.com/livp123/netxfw/internal/xdp"
 	"github.com/livp123/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -170,10 +171,6 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 	// Map 统计
 	showMapStatistics(mgr)
 
-	// Show map usage
-	// 显示 Map 使用率
-	showMapUsage(mgr)
-
 	// Show protocol distribution
 	// 显示协议分布
 	showProtocolDistribution(s.Stats, pass, drops)
@@ -186,6 +183,10 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 	// 显示已附加的接口
 	showAttachedInterfaces()
 
+	// Show conclusion statistics
+	// 显示结论统计
+	showConclusionStatistics(mgr, s.Stats)
+
 	return nil
 }
 
@@ -196,188 +197,161 @@ type StatsAPI interface {
 	GetPassDetails() ([]sdk.DropDetailEntry, error)
 }
 
-// showDropStatistics displays drop statistics with percentages
 // showDropStatistics 显示带百分比的丢弃统计
 func showDropStatistics(s StatsAPI, drops, pass uint64) {
-	totalPackets := pass + drops
-	dropPercent := float64(0)
-	if totalPackets > 0 {
-		dropPercent = float64(drops) / float64(totalPackets) * 100
+	// Load traffic stats for rate calculation / 加载流量统计用于速率计算
+	trafficStats, err := xdp.LoadTrafficStats()
+	var currentDropPPS uint64
+	if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
+		currentDropPPS = trafficStats.CurrentDropPPS
 	}
-	fmt.Printf("\n📊 Global Drop Count: %d packets (%.2f%%)\n", drops, dropPercent)
 
 	// Show detailed drop stats
 	// 显示详细丢弃统计
 	dropDetails, err := s.GetDropDetails()
-	if err == nil && len(dropDetails) > 0 {
-		// Sort by count descending
-		// 按计数降序排序
-		sort.Slice(dropDetails, func(i, j int) bool {
-			return dropDetails[i].Count > dropDetails[j].Count
-		})
-
-		// Limit to top 10
-		// 限制显示前 10 条
-		maxShow := 10
-		if len(dropDetails) < maxShow {
-			maxShow = len(dropDetails)
-		}
-
-		fmt.Println("\n   🚫 Top Drops by Reason & Source:")
-		fmt.Printf("   %-20s %-8s %-40s %-8s %-10s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count", "Percent")
-		fmt.Printf("   %s\n", strings.Repeat("-", 100))
-
-		for i := 0; i < maxShow; i++ {
-			d := dropDetails[i]
-			percent := float64(0)
-			if drops > 0 {
-				percent = float64(d.Count) / float64(drops) * 100
-			}
-			fmt.Printf("   %-20s %-8s %-40s %-8d %-10d %.2f%%\n",
-				dropReasonToString(d.Reason),
-				protocolToString(d.Protocol),
-				d.SrcIP,
-				d.DstPort,
-				d.Count,
-				percent)
-		}
-		if len(dropDetails) > 10 {
-			fmt.Printf("   ... and more\n")
-		}
-
-		// Show drop reason summary
-		// 显示丢弃原因汇总
-		showDropReasonSummary(dropDetails, drops)
+	if err != nil || len(dropDetails) == 0 {
+		// No drop details available / 没有可用的丢弃详情
+		return
 	}
-}
 
-// showDropReasonSummary displays a summary of drop reasons
-// showDropReasonSummary 显示丢弃原因汇总
-func showDropReasonSummary(dropDetails []sdk.DropDetailEntry, drops uint64) {
-	dropReasonSummary := make(map[string]uint64)
-	for _, d := range dropDetails {
-		reason := dropReasonToString(d.Reason)
-		dropReasonSummary[reason] += d.Count
+	// Wrap drop details for generic function / 包装丢弃详情用于泛型函数
+	wrappedDetails := make([]DropDetailEntryWrapper, len(dropDetails))
+	for i, d := range dropDetails {
+		wrappedDetails[i] = DropDetailEntryWrapper{d}
 	}
-	if len(dropReasonSummary) > 0 {
-		fmt.Println("\n   📈 Drop Reason Summary:")
-		for reason, count := range dropReasonSummary {
-			percent := float64(0)
-			if drops > 0 {
-				percent = float64(count) / float64(drops) * 100
-			}
-			fmt.Printf("      %s: %d (%.2f%%)\n", reason, count, percent)
-		}
-	}
+
+	// Use generic function to display statistics / 使用泛型函数显示统计
+	showDetailStatistics(wrappedDetails, detailStatsConfig{
+		title:      "🚫 Drop Statistics:",
+		subTitle:   "🚫 Top Drops by Reason & Source:",
+		reasonFunc: dropReasonToString,
+		totalCount: drops,
+		currentPPS: currentDropPPS,
+		showRate:   true,
+	})
 }
 
 // showPassStatistics displays pass statistics with percentages
 // showPassStatistics 显示带百分比的通过统计
 func showPassStatistics(s StatsAPI, pass, drops uint64) {
-	totalPackets := pass + drops
-	passPercent := float64(0)
-	if totalPackets > 0 {
-		passPercent = float64(pass) / float64(totalPackets) * 100
+	// Load traffic stats for rate calculation / 加载流量统计用于速率计算
+	trafficStats, err := xdp.LoadTrafficStats()
+	var currentPassPPS uint64
+	if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
+		currentPassPPS = trafficStats.CurrentPassPPS
 	}
-	fmt.Printf("\n📊 Global Pass Count: %d packets (%.2f%%)\n", pass, passPercent)
 
 	// Show detailed pass stats
 	// 显示详细通过统计
 	passDetails, err := s.GetPassDetails()
-	if err == nil && len(passDetails) > 0 {
-		// Sort by count descending
-		// 按计数降序排序
-		sort.Slice(passDetails, func(i, j int) bool {
-			return passDetails[i].Count > passDetails[j].Count
-		})
-
-		// Limit to top 10
-		// 限制显示前 10 条
-		maxShow := 10
-		if len(passDetails) < maxShow {
-			maxShow = len(passDetails)
-		}
-
-		fmt.Println("\n   ✅ Top Allowed by Reason & Source:")
-		fmt.Printf("   %-20s %-8s %-40s %-8s %-10s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count", "Percent")
-		fmt.Printf("   %s\n", strings.Repeat("-", 100))
-
-		for i := 0; i < maxShow; i++ {
-			d := passDetails[i]
-			percent := float64(0)
-			if pass > 0 {
-				percent = float64(d.Count) / float64(pass) * 100
-			}
-			fmt.Printf("   %-20s %-8s %-40s %-8d %-10d %.2f%%\n",
-				passReasonToString(d.Reason),
-				protocolToString(d.Protocol),
-				d.SrcIP,
-				d.DstPort,
-				d.Count,
-				percent)
-		}
-		if len(passDetails) > 10 {
-			fmt.Printf("   ... and more\n")
-		}
-
-		// Show pass reason summary
-		// 显示通过原因汇总
-		showPassReasonSummary(passDetails, pass)
+	if err != nil || len(passDetails) == 0 {
+		// No pass details available / 没有可用的通过详情
+		return
 	}
-}
 
-// showPassReasonSummary displays a summary of pass reasons
-// showPassReasonSummary 显示通过原因汇总
-func showPassReasonSummary(passDetails []sdk.DropDetailEntry, pass uint64) {
-	passReasonSummary := make(map[string]uint64)
-	for _, d := range passDetails {
-		reason := passReasonToString(d.Reason)
-		passReasonSummary[reason] += d.Count
+	// Wrap pass details for generic function / 包装通过详情用于泛型函数
+	wrappedDetails := make([]PassDetailEntryWrapper, len(passDetails))
+	for i, d := range passDetails {
+		wrappedDetails[i] = PassDetailEntryWrapper{d}
 	}
-	if len(passReasonSummary) > 0 {
-		fmt.Println("\n   📈 Pass Reason Summary:")
-		for reason, count := range passReasonSummary {
-			percent := float64(0)
-			if pass > 0 {
-				percent = float64(count) / float64(pass) * 100
-			}
-			fmt.Printf("      %s: %d (%.2f%%)\n", reason, count, percent)
-		}
-	}
+
+	// Use generic function to display statistics / 使用泛型函数显示统计
+	showDetailStatistics(wrappedDetails, detailStatsConfig{
+		title:      "✅ Pass Statistics:",
+		subTitle:   "✅ Top Allowed by Reason & Source:",
+		reasonFunc: passReasonToString,
+		totalCount: pass,
+		currentPPS: currentPassPPS,
+		showRate:   true,
+	})
 }
 
 // showMapStatistics displays BPF map statistics
-// showMapStatistics 显示 BPF Map 统计
+// showMapStatistics 显示 BPF Map 统计和使用率
 func showMapStatistics(mgr sdk.ManagerInterface) {
 	fmt.Println()
 	fmt.Println("📦 Map Statistics:")
 
+	// Get capacity configuration from config manager / 从配置管理器获取容量配置
+	cfgManager := config.GetConfigManager()
+	var capacityCfg *types.CapacityConfig
+	if err := cfgManager.LoadConfig(); err == nil {
+		capacityCfg = cfgManager.GetCapacityConfig()
+	}
+
+	// Get map counts / 获取 Map 计数
 	blacklistCount, _ := mgr.GetLockedIPCount()
-	fmt.Printf("   ├─ 🔒 Blacklist Entries: %d\n", blacklistCount)
-
-	dynBlacklist, _, _ := mgr.ListDynamicBlacklistIPs(0, "")
-	fmt.Printf("   ├─ 🔒 Dynamic Blacklist: %d\n", len(dynBlacklist))
-
 	whitelistCount, _ := mgr.GetWhitelistCount()
-	fmt.Printf("   ├─ ⚪ Whitelist Entries: %d\n", whitelistCount)
-
 	conntrackCount, _ := mgr.GetConntrackCount()
-	fmt.Printf("   ├─ 🕵️  Active Connections: %d\n", conntrackCount)
+	dynBlacklistCount, _ := mgr.GetDynLockListCount()
 
-	// IP+Port rules
-	// IP+端口规则
-	ipPortRules, _, _ := mgr.ListIPPortRules(false, 0, "")
-	fmt.Printf("   ├─ 📋 IP+Port Rules: %d\n", len(ipPortRules))
-
-	// Allowed ports
-	// 允许端口
-	allowedPorts, _ := mgr.ListAllowedPorts()
-	fmt.Printf("   ├─ 🔓 Allowed Ports: %d\n", len(allowedPorts))
-
-	// Rate limit rules
-	// 速率限制规则
+	// Get rate limit rules / 获取限速规则
 	rateLimitRules, _, _ := mgr.ListRateLimitRules(0, "")
-	fmt.Printf("   └─ ⏱️  Rate Limit Rules: %d\n", len(rateLimitRules))
+
+	// Get IP+Port rules / 获取 IP+端口规则
+	ipPortRules, _, _ := mgr.ListIPPortRules(false, 0, "")
+
+	// Get allowed ports / 获取允许端口
+	allowedPorts, _ := mgr.ListAllowedPorts()
+
+	// Get max capacities from config or use defaults from CapacityConfig
+	// 从配置获取最大容量或使用 CapacityConfig 默认值
+	maxBlacklist := 2000000
+	maxWhitelist := 65536
+	maxConntrack := 100000
+	maxDynBlacklist := 2000000
+	maxIPPortRules := 65536
+	maxRateLimits := 1000
+
+	if capacityCfg != nil {
+		if capacityCfg.LockList > 0 {
+			maxBlacklist = capacityCfg.LockList
+		}
+		if capacityCfg.Whitelist > 0 {
+			maxWhitelist = capacityCfg.Whitelist
+		}
+		if capacityCfg.Conntrack > 0 {
+			maxConntrack = capacityCfg.Conntrack
+		}
+		if capacityCfg.DynLockList > 0 {
+			maxDynBlacklist = capacityCfg.DynLockList
+		}
+		if capacityCfg.IPPortRules > 0 {
+			maxIPPortRules = capacityCfg.IPPortRules
+		}
+		if capacityCfg.RateLimits > 0 {
+			maxRateLimits = capacityCfg.RateLimits
+		}
+	}
+
+	// Show compact table / 显示紧凑表格
+	fmt.Printf("   %-16s %10s / %-10s %-8s %s\n", "Map", "Used", "Max", "Usage", "Status")
+	fmt.Printf("   %s\n", strings.Repeat("-", 55))
+	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
+		"🔒 Blacklist", blacklistCount, maxBlacklist,
+		fmt.Sprintf("%.1f%%", calculatePercentGeneric(blacklistCount, uint64(maxBlacklist))),
+		getUsageIndicator(blacklistCount, maxBlacklist))
+	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
+		"🔓 Dyn Blacklist", dynBlacklistCount, maxDynBlacklist,
+		fmt.Sprintf("%.1f%%", calculatePercentGeneric(dynBlacklistCount, uint64(maxDynBlacklist))),
+		getUsageIndicator(int(dynBlacklistCount), maxDynBlacklist))
+	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
+		"⚪ Whitelist", whitelistCount, maxWhitelist,
+		fmt.Sprintf("%.1f%%", calculatePercentGeneric(whitelistCount, uint64(maxWhitelist))),
+		getUsageIndicator(whitelistCount, maxWhitelist))
+	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
+		"🔗 Conntrack", conntrackCount, maxConntrack,
+		fmt.Sprintf("%.1f%%", calculatePercentGeneric(conntrackCount, uint64(maxConntrack))),
+		getUsageIndicator(conntrackCount, maxConntrack))
+	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
+		"📋 IP+Port Rules", len(ipPortRules), maxIPPortRules,
+		fmt.Sprintf("%.1f%%", calculatePercentGeneric(uint64(len(ipPortRules)), uint64(maxIPPortRules))),
+		getUsageIndicator(len(ipPortRules), maxIPPortRules))
+	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
+		"⏱️  Rate Limits", len(rateLimitRules), maxRateLimits,
+		fmt.Sprintf("%.1f%%", calculatePercentGeneric(uint64(len(rateLimitRules)), uint64(maxRateLimits))),
+		getUsageIndicator(len(rateLimitRules), maxRateLimits))
+	fmt.Printf("   %-16s %10d\n", "🔓 Allowed Ports", len(allowedPorts))
 }
 
 // showPolicyConfiguration displays policy configuration
@@ -490,10 +464,16 @@ func showPolicyConfiguration() {
 // showAttachedInterfaces 显示已附加的网络接口
 func showAttachedInterfaces() {
 	fmt.Println("\n🔗 Attached Interfaces:")
-	attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
-	if err == nil && len(attachedIfaces) > 0 {
-		for _, iface := range attachedIfaces {
-			fmt.Printf("  - %s (Mode: Native)\n", iface)
+	ifaceInfos, err := xdp.GetAttachedInterfacesWithInfo(config.GetPinPath())
+	if err == nil && len(ifaceInfos) > 0 {
+		for _, info := range ifaceInfos {
+			// Format load time / 格式化加载时间
+			loadTimeStr := "N/A"
+			if !info.LoadTime.IsZero() {
+				duration := time.Since(info.LoadTime)
+				loadTimeStr = fmtutil.FormatDuration(duration)
+			}
+			fmt.Printf("  - %s (Mode: %s, ProgID: %d, Uptime: %s)\n", info.Name, info.Mode, info.ProgramID, loadTimeStr)
 		}
 	} else {
 		fmt.Println("  - None")
@@ -507,6 +487,11 @@ func showTrafficMetrics(pass, drops uint64) {
 	fmt.Println("📈 Traffic Rate:")
 
 	totalPackets := pass + drops
+
+	// Show total counts first / 首先显示总计数
+	fmt.Printf("   ├─ Total RX: %s packets\n", fmtutil.FormatNumberWithComma(totalPackets))
+	fmt.Printf("   ├─ Total Pass: %s (%.2f%%)\n", fmtutil.FormatNumberWithComma(pass), calculatePercentGeneric(pass, totalPackets))
+	fmt.Printf("   ├─ Total Drop: %s (%.2f%%)\n", fmtutil.FormatNumberWithComma(drops), calculatePercentGeneric(drops, totalPackets))
 
 	// Try to load traffic stats from shared file (updated by daemon)
 	// 尝试从共享文件加载流量统计（由守护进程更新）
@@ -527,21 +512,17 @@ func showTrafficMetrics(pass, drops uint64) {
 				passRate = float64(passPPS) / float64(currentPPS) * 100
 			}
 
-			fmt.Printf("   ├─ PPS: %s pkt/s\n", formatNumberWithComma(currentPPS))
-			fmt.Printf("   ├─ BPS: %s\n", formatBPS(currentBPS))
-			fmt.Printf("   ├─ Pass PPS: %s pkt/s\n", formatNumberWithComma(passPPS))
+			fmt.Printf("   ├─ PPS: %s pkt/s\n", fmtutil.FormatNumberWithComma(currentPPS))
+			fmt.Printf("   ├─ BPS: %s\n", fmtutil.FormatBPS(currentBPS))
+			fmt.Printf("   ├─ Pass PPS: %s pkt/s\n", fmtutil.FormatNumberWithComma(passPPS))
 			fmt.Printf("   ├─ Pass Rate: %.2f%%\n", passRate)
-			fmt.Printf("   ├─ Drop PPS: %s pkt/s\n", formatNumberWithComma(dropPPS))
+			fmt.Printf("   ├─ Drop PPS: %s pkt/s\n", fmtutil.FormatNumberWithComma(dropPPS))
 			fmt.Printf("   └─ Drop Rate: %.2f%%\n", dropRate)
 			return
 		}
 	}
 
-	// Fallback: show basic packet stats / 回退：显示基本数据包统计
-	dropRate := calculatePercent(drops, totalPackets)
-	fmt.Printf("   ├─ Total Packets: %s\n", formatNumberWithComma(totalPackets))
-	fmt.Printf("   ├─ Pass Rate: %.2f%%\n", calculatePercent(pass, totalPackets))
-	fmt.Printf("   └─ Drop Rate: %.2f%%\n", dropRate)
+	fmt.Println("   └─ Real-time rates: Unavailable (daemon not running)")
 }
 
 // formatNumber formats a number with thousand separators
@@ -558,10 +539,23 @@ func showConntrackHealth(mgr sdk.ManagerInterface) {
 		return
 	}
 
+	// Get capacity configuration from config manager / 从配置管理器获取容量配置
+	cfgManager := config.GetConfigManager()
+	var maxConntrack int
+	if err := cfgManager.LoadConfig(); err == nil {
+		capacityCfg := cfgManager.GetCapacityConfig()
+		if capacityCfg != nil && capacityCfg.Conntrack > 0 {
+			maxConntrack = capacityCfg.Conntrack
+		}
+	}
+	if maxConntrack == 0 {
+		maxConntrack = 100000 // Default from CapacityConfig / 来自 CapacityConfig 的默认值
+	}
+
 	// Get conntrack entries for protocol breakdown / 获取连接跟踪条目以进行协议分布
 	entries, err := mgr.ListAllConntrackEntries()
 	if err != nil {
-		fmt.Printf("   ├─ Active Connections: %d\n", conntrackCount)
+		fmt.Printf("   ├─ Active Connections: %d / %d (%.1f%%)\n", conntrackCount, maxConntrack, calculatePercentGeneric(conntrackCount, uint64(maxConntrack)))
 		fmt.Println("   └─ Protocol Breakdown: Unavailable")
 		return
 	}
@@ -581,98 +575,43 @@ func showConntrackHealth(mgr sdk.ManagerInterface) {
 		}
 	}
 
-	fmt.Printf("   ├─ Active Connections: %d\n", conntrackCount)
-	fmt.Printf("   ├─ TCP Connections: %d (%.1f%%)\n", tcpCount, calculatePercent(uint64(tcpCount), uint64(conntrackCount)))
-	fmt.Printf("   ├─ UDP Connections: %d (%.1f%%)\n", udpCount, calculatePercent(uint64(udpCount), uint64(conntrackCount)))
-	fmt.Printf("   ├─ ICMP Connections: %d (%.1f%%)\n", icmpCount, calculatePercent(uint64(icmpCount), uint64(conntrackCount)))
-	fmt.Printf("   └─ Other Connections: %d (%.1f%%)\n", otherCount, calculatePercent(uint64(otherCount), uint64(conntrackCount)))
+	fmt.Printf("   ├─ Active Connections: %d / %d (%.1f%%)\n", conntrackCount, maxConntrack, calculatePercentGeneric(conntrackCount, uint64(maxConntrack)))
+	fmt.Printf("   ├─ TCP Connections: %d (%.1f%%)\n", tcpCount, calculatePercentGeneric(uint64(tcpCount), uint64(conntrackCount)))
+	fmt.Printf("   ├─ UDP Connections: %d (%.1f%%)\n", udpCount, calculatePercentGeneric(uint64(udpCount), uint64(conntrackCount)))
+	fmt.Printf("   ├─ ICMP Connections: %d (%.1f%%)\n", icmpCount, calculatePercentGeneric(uint64(icmpCount), uint64(conntrackCount)))
+
+	// Try to load traffic stats for new/evict rates / 尝试加载流量统计获取新建/淘汰速率
+	trafficStats, err := xdp.LoadTrafficStats()
+	hasRateData := err == nil && trafficStats.LastUpdateTime.After(time.Time{})
+
+	if hasRateData {
+		fmt.Printf("   ├─ Other Connections: %d (%.1f%%)\n", otherCount, calculatePercentGeneric(uint64(otherCount), uint64(conntrackCount)))
+		fmt.Printf("   ├─ New/s: %s conn/s\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentConntrackNew))
+	} else {
+		fmt.Printf("   └─ Other Connections: %d (%.1f%%)\n", otherCount, calculatePercentGeneric(uint64(otherCount), uint64(conntrackCount)))
+	}
 
 	// Determine health status / 确定健康状态
-	if conntrackCount > 10000 {
-		fmt.Println("   ⚠️  Status: High connection count")
+	usagePercent := calculatePercentGeneric(conntrackCount, uint64(maxConntrack))
+	critical, high, _ := getThresholdsFromConfig()
+	if hasRateData {
+		fmt.Printf("   ├─ Evict/s: %s conn/s\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentConntrackEvict))
+		if usagePercent >= float64(critical) {
+			fmt.Println("   └─ ⚠️  Status: CRITICAL - Near capacity")
+		} else if usagePercent >= float64(high) {
+			fmt.Println("   └─ ⚠️  Status: HIGH - Approaching capacity")
+		} else {
+			fmt.Println("   └─ ✅ Status: Healthy")
+		}
 	} else {
-		fmt.Println("   ✅ Status: Healthy")
-	}
-}
-
-// showMapUsage displays BPF map usage statistics
-// showMapUsage 显示 BPF Map 使用率统计
-// showMapUsage displays BPF map usage statistics with capacity info
-// showMapUsage 显示 BPF Map 使用率统计，包含容量信息
-func showMapUsage(mgr sdk.ManagerInterface) {
-	fmt.Println()
-	fmt.Println("📊 Map Usage:")
-
-	// Get capacity configuration from config manager / 从配置管理器获取容量配置
-	cfgManager := config.GetConfigManager()
-	var capacityCfg *types.CapacityConfig
-	if err := cfgManager.LoadConfig(); err == nil {
-		capacityCfg = cfgManager.GetCapacityConfig()
-	}
-
-	// Get map counts / 获取 Map 计数
-	blacklistCount, _ := mgr.GetLockedIPCount()
-	whitelistCount, _ := mgr.GetWhitelistCount()
-	conntrackCount, _ := mgr.GetConntrackCount()
-	dynBlacklistCount, _ := mgr.GetDynLockListCount()
-
-	// Get rate limit rules / 获取限速规则
-	rateLimitRules, _, _ := mgr.ListRateLimitRules(0, "")
-
-	// Get IP+Port rules / 获取 IP+端口规则
-	ipPortRules, _, _ := mgr.ListIPPortRules(false, 0, "")
-
-	// Get max capacities from config or use defaults / 从配置获取最大容量或使用默认值
-	maxBlacklist := 10000
-	maxWhitelist := 10000
-	maxConntrack := 50000
-	maxDynBlacklist := 10000
-	maxIPPortRules := 1000
-	maxRateLimits := 1000
-
-	if capacityCfg != nil {
-		if capacityCfg.LockList > 0 {
-			maxBlacklist = capacityCfg.LockList
-		}
-		if capacityCfg.Whitelist > 0 {
-			maxWhitelist = capacityCfg.Whitelist
-		}
-		if capacityCfg.Conntrack > 0 {
-			maxConntrack = capacityCfg.Conntrack
-		}
-		if capacityCfg.DynLockList > 0 {
-			maxDynBlacklist = capacityCfg.DynLockList
-		}
-		if capacityCfg.IPPortRules > 0 {
-			maxIPPortRules = capacityCfg.IPPortRules
+		if usagePercent >= float64(critical) {
+			fmt.Println("   ⚠️  Status: CRITICAL - Near capacity")
+		} else if usagePercent >= float64(high) {
+			fmt.Println("   ⚠️  Status: HIGH - Approaching capacity")
+		} else {
+			fmt.Println("   ✅ Status: Healthy")
 		}
 	}
-
-	// Show usage with current/max and percentage / 显示当前/最大值和百分比
-	fmt.Printf("   ├─ Blacklist:      %d / %d (%.1f%%) %s\n",
-		blacklistCount, maxBlacklist,
-		calculatePercent(blacklistCount, uint64(maxBlacklist)),
-		getUsageIndicator(blacklistCount, maxBlacklist))
-	fmt.Printf("   ├─ Whitelist:      %d / %d (%.1f%%) %s\n",
-		whitelistCount, maxWhitelist,
-		calculatePercent(whitelistCount, uint64(maxWhitelist)),
-		getUsageIndicator(whitelistCount, maxWhitelist))
-	fmt.Printf("   ├─ Conntrack:      %d / %d (%.1f%%) %s\n",
-		conntrackCount, maxConntrack,
-		calculatePercent(conntrackCount, uint64(maxConntrack)),
-		getUsageIndicator(conntrackCount, maxConntrack))
-	fmt.Printf("   ├─ Dyn Blacklist:  %d / %d (%.1f%%) %s\n",
-		dynBlacklistCount, maxDynBlacklist,
-		calculatePercent(dynBlacklistCount, uint64(maxDynBlacklist)),
-		getUsageIndicator(int(dynBlacklistCount), maxDynBlacklist))
-	fmt.Printf("   ├─ Rate Limits:    %d / %d (%.1f%%) %s\n",
-		len(rateLimitRules), maxRateLimits,
-		calculatePercent(uint64(len(rateLimitRules)), uint64(maxRateLimits)),
-		getUsageIndicator(len(rateLimitRules), maxRateLimits))
-	fmt.Printf("   └─ IP+Port Rules:  %d / %d (%.1f%%) %s\n",
-		len(ipPortRules), maxIPPortRules,
-		calculatePercent(uint64(len(ipPortRules)), uint64(maxIPPortRules)),
-		getUsageIndicator(len(ipPortRules), maxIPPortRules))
 }
 
 // showProtocolDistribution displays protocol distribution statistics
@@ -720,13 +659,34 @@ func showProtocolDistribution(s StatsAPI, pass, drops uint64) {
 		fmt.Printf("   %-10s %-15s %-15s %-10s\n", "Protocol", "Dropped", "Passed", "Percent")
 		fmt.Printf("   %s\n", strings.Repeat("-", 50))
 
+		// Convert to slice for sorting / 转换为切片以便排序
+		type protoStat struct {
+			proto   uint8
+			dropped uint64
+			passed  uint64
+			total   uint64
+		}
+		var statsSlice []protoStat
 		for proto, stats := range protoStats {
-			total := stats.dropped + stats.passed
-			percent := calculatePercent(total, totalPackets)
+			statsSlice = append(statsSlice, protoStat{
+				proto:   proto,
+				dropped: stats.dropped,
+				passed:  stats.passed,
+				total:   stats.dropped + stats.passed,
+			})
+		}
+
+		// Sort by total count descending / 按总数降序排序
+		sort.Slice(statsSlice, func(i, j int) bool {
+			return statsSlice[i].total > statsSlice[j].total
+		})
+
+		for _, s := range statsSlice {
+			percent := calculatePercentGeneric(s.total, totalPackets)
 			fmt.Printf("   %-10s %-15d %-15d %.1f%%\n",
-				protocolToString(proto),
-				stats.dropped,
-				stats.passed,
+				protocolToString(s.proto),
+				s.dropped,
+				s.passed,
 				percent)
 		}
 	} else {
@@ -741,19 +701,173 @@ func getUsageIndicator(current, max int) string {
 		return ""
 	}
 	usage := float64(current) / float64(max) * 100
-	if usage >= 90 {
+	critical, high, medium := getThresholdsFromConfig()
+	if usage >= float64(critical) {
 		return "🔴 [CRITICAL]"
-	} else if usage >= 75 {
+	} else if usage >= float64(high) {
 		return "🟠 [HIGH]"
-	} else if usage >= 50 {
+	} else if usage >= float64(medium) {
 		return "🟡 [MEDIUM]"
 	}
 	return "🟢 [OK]"
 }
 
-// calculatePercent calculates percentage safely
-// calculatePercent 安全地计算百分比
-func calculatePercent(part, total interface{}) float64 {
+// Numeric is a type constraint for numeric types that can be converted to float64.
+// Numeric 是可以转换为 float64 的数值类型的类型约束。
+type Numeric interface {
+	~int | ~int64 | ~uint | ~uint64 | ~int32 | ~uint32 | ~float64
+}
+
+// calculatePercentGeneric calculates percentage safely using generics.
+// calculatePercentGeneric 使用泛型安全地计算百分比。
+func calculatePercentGeneric[T Numeric, U Numeric](part T, total U) float64 {
+	t := float64(total)
+	if t == 0 {
+		return 0
+	}
+	return float64(part) / t * 100
+}
+
+// calculateRateGeneric calculates rate per second based on percentage.
+// calculateRateGeneric 根据百分比计算每秒速率。
+func calculateRateGeneric[T Numeric](totalRate T, percent float64) uint64 {
+	return uint64(float64(totalRate) * percent / 100)
+}
+
+// DetailEntry is a generic interface for detail entries with common fields.
+// DetailEntry 是具有公共字段的详细条目的泛型接口。
+type DetailEntry interface {
+	GetReason() uint32
+	GetProtocol() uint8
+	GetSrcIP() string
+	GetDstPort() uint16
+	GetCount() uint64
+}
+
+// DropDetailEntryWrapper wraps sdk.DropDetailEntry to implement DetailEntry.
+// DropDetailEntryWrapper 包装 sdk.DropDetailEntry 以实现 DetailEntry。
+type DropDetailEntryWrapper struct {
+	sdk.DropDetailEntry
+}
+
+func (d DropDetailEntryWrapper) GetReason() uint32  { return d.Reason }
+func (d DropDetailEntryWrapper) GetProtocol() uint8 { return d.Protocol }
+func (d DropDetailEntryWrapper) GetSrcIP() string   { return d.SrcIP }
+func (d DropDetailEntryWrapper) GetDstPort() uint16 { return d.DstPort }
+func (d DropDetailEntryWrapper) GetCount() uint64   { return d.Count }
+
+// PassDetailEntryWrapper wraps sdk.DropDetailEntry for pass details.
+// PassDetailEntryWrapper 为通过详情包装 sdk.DropDetailEntry。
+type PassDetailEntryWrapper struct {
+	sdk.DropDetailEntry
+}
+
+func (p PassDetailEntryWrapper) GetReason() uint32  { return p.Reason }
+func (p PassDetailEntryWrapper) GetProtocol() uint8 { return p.Protocol }
+func (p PassDetailEntryWrapper) GetSrcIP() string   { return p.SrcIP }
+func (p PassDetailEntryWrapper) GetDstPort() uint16 { return p.DstPort }
+func (p PassDetailEntryWrapper) GetCount() uint64   { return p.Count }
+
+// detailStatsConfig holds configuration for displaying detail statistics.
+// detailStatsConfig 保存显示详细统计的配置。
+type detailStatsConfig struct {
+	title      string
+	subTitle   string
+	reasonFunc func(uint32) string
+	totalCount uint64
+	currentPPS uint64
+	showRate   bool
+}
+
+// showDetailStatistics displays detailed statistics using generics.
+// showDetailStatistics 使用泛型显示详细统计。
+func showDetailStatistics[T DetailEntry](details []T, cfg detailStatsConfig) {
+	if len(details) == 0 {
+		return
+	}
+
+	fmt.Printf("\n%s\n", cfg.title)
+	// Sort by count descending
+	// 按计数降序排序
+	sort.Slice(details, func(i, j int) bool {
+		return details[i].GetCount() > details[j].GetCount()
+	})
+
+	// Get top N from config / 从配置获取 Top N
+	maxShow := getTopNFromConfig()
+	if len(details) < maxShow {
+		maxShow = len(details)
+	}
+
+	fmt.Printf("\n   %s\n", cfg.subTitle)
+	// Add Rate column if we have PPS data / 如果有 PPS 数据则添加速率列
+	if cfg.showRate && cfg.currentPPS > 0 {
+		fmt.Printf("   %-20s %-8s %-40s %-8s %-10s %-10s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count", "Rate/s", "Percent")
+		fmt.Printf("   %s\n", strings.Repeat("-", 115))
+	} else {
+		fmt.Printf("   %-20s %-8s %-40s %-8s %-10s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count", "Percent")
+		fmt.Printf("   %s\n", strings.Repeat("-", 100))
+	}
+
+	for i := 0; i < maxShow; i++ {
+		d := details[i]
+		percent := calculatePercentGeneric(d.GetCount(), cfg.totalCount)
+
+		if cfg.showRate && cfg.currentPPS > 0 {
+			ratePerSec := calculateRateGeneric(cfg.currentPPS, percent)
+			fmt.Printf("   %-20s %-8s %-40s %-8d %-10d %-10s %.2f%%\n",
+				cfg.reasonFunc(d.GetReason()),
+				protocolToString(d.GetProtocol()),
+				d.GetSrcIP(),
+				d.GetDstPort(),
+				d.GetCount(),
+				fmtutil.FormatNumberWithComma(ratePerSec),
+				percent)
+		} else {
+			fmt.Printf("   %-20s %-8s %-40s %-8d %-10d %.2f%%\n",
+				cfg.reasonFunc(d.GetReason()),
+				protocolToString(d.GetProtocol()),
+				d.GetSrcIP(),
+				d.GetDstPort(),
+				d.GetCount(),
+				percent)
+		}
+	}
+	if len(details) > 10 {
+		fmt.Printf("   ... and more\n")
+	}
+
+	// Show reason summary
+	// 显示原因汇总
+	showReasonSummary(details, cfg)
+}
+
+// showReasonSummary displays a summary of reasons using generics.
+// showReasonSummary 使用泛型显示原因汇总。
+func showReasonSummary[T DetailEntry](details []T, cfg detailStatsConfig) {
+	reasonSummary := make(map[string]uint64)
+	for _, d := range details {
+		reason := cfg.reasonFunc(d.GetReason())
+		reasonSummary[reason] += d.GetCount()
+	}
+	if len(reasonSummary) > 0 {
+		fmt.Println("\n   📈 Reason Summary:")
+		for reason, count := range reasonSummary {
+			percent := calculatePercentGeneric(count, cfg.totalCount)
+			// Show rate if available / 如果有速率数据则显示
+			if cfg.showRate && cfg.currentPPS > 0 {
+				ratePerSec := calculateRateGeneric(cfg.currentPPS, percent)
+				fmt.Printf("      %s: %d (%.2f%%) - %s/s\n", reason, count, percent, fmtutil.FormatNumberWithComma(ratePerSec))
+			} else {
+				fmt.Printf("      %s: %d (%.2f%%)\n", reason, count, percent)
+			}
+		}
+	}
+}
+
+// calculatePercent calculates percentage safely (legacy wrapper for backward compatibility).
+// calculatePercent 安全地计算百分比（向后兼容的传统包装器）。
+func calculatePercent(part, total any) float64 {
 	var p, t float64
 	switch v := part.(type) {
 	case int:
@@ -781,16 +895,118 @@ func calculatePercent(part, total interface{}) float64 {
 	return p / t * 100
 }
 
-// formatNumberWithComma formats a number with thousand separators
-// formatNumberWithComma 格式化数字，添加千位分隔符
-func formatNumberWithComma(n uint64) string {
-	s := fmt.Sprintf("%d", n)
-	result := ""
-	for i, c := range s {
-		if i > 0 && (len(s)-i)%3 == 0 {
-			result += ","
+// getTopNFromConfig returns the top N value from config, defaulting to 10
+// getTopNFromConfig 从配置获取 Top N 值，默认为 10
+func getTopNFromConfig() int {
+	cfgManager := config.GetConfigManager()
+	if err := cfgManager.LoadConfig(); err == nil {
+		cfg := cfgManager.GetConfig()
+		if cfg != nil && cfg.Metrics.TopN > 0 {
+			return cfg.Metrics.TopN
 		}
-		result += string(c)
 	}
-	return result
+	return 10 // Default value / 默认值
+}
+
+// getThresholdsFromConfig returns usage thresholds from config
+// getThresholdsFromConfig 从配置获取使用率阈值
+func getThresholdsFromConfig() (critical, high, medium int) {
+	cfgManager := config.GetConfigManager()
+	if err := cfgManager.LoadConfig(); err == nil {
+		cfg := cfgManager.GetConfig()
+		if cfg != nil {
+			if cfg.Metrics.ThresholdCritical > 0 {
+				critical = cfg.Metrics.ThresholdCritical
+			} else {
+				critical = 90
+			}
+			if cfg.Metrics.ThresholdHigh > 0 {
+				high = cfg.Metrics.ThresholdHigh
+			} else {
+				high = 75
+			}
+			if cfg.Metrics.ThresholdMedium > 0 {
+				medium = cfg.Metrics.ThresholdMedium
+			} else {
+				medium = 50
+			}
+			return
+		}
+	}
+	return 90, 75, 50 // Default values / 默认值
+}
+
+// showConclusionStatistics displays summary statistics at the end
+// showConclusionStatistics 在末尾显示汇总统计
+func showConclusionStatistics(mgr sdk.ManagerInterface, s StatsAPI) {
+	// Get drop details for security analysis / 获取丢弃详情用于安全分析
+	dropDetails, err := s.GetDropDetails()
+	if err != nil {
+		fmt.Println()
+		fmt.Println("📋 Summary Security Hits:")
+		fmt.Println("   └─ Status: Unavailable")
+		return
+	}
+
+	// Count by drop reason / 按丢弃原因计数
+	var secHits, blacklistHits, rateLimitHits uint64
+	for _, d := range dropDetails {
+		switch d.Reason {
+		case DROP_REASON_BLACKLIST:
+			blacklistHits += d.Count
+		case DROP_REASON_RATELIMIT:
+			rateLimitHits += d.Count
+		case DROP_REASON_STRICT_TCP, DROP_REASON_BOGON, DROP_REASON_FRAGMENT,
+			DROP_REASON_BAD_HEADER, DROP_REASON_TCP_FLAGS, DROP_REASON_SPOOF,
+			DROP_REASON_LAND_ATTACK:
+			secHits += d.Count
+		}
+	}
+
+	// Get blacklist counts / 获取黑名单计数
+	staticBlacklistCount, _ := mgr.GetLockedIPCount()
+	dynBlacklistCount, _ := mgr.GetDynLockListCount()
+
+	// Get critical blacklist count / 获取危机封锁计数
+	criticalBlacklistCount := uint64(0)
+	if adapter, ok := mgr.(*xdp.Adapter); ok {
+		// Access the underlying manager to get critical blacklist count
+		// 访问底层管理器获取危机封锁计数
+		criticalBlacklistCount, _ = adapter.GetCriticalBlacklistCount()
+	}
+
+	// Get auto-block status from config / 从配置获取自动封禁状态
+	cfgManager := config.GetConfigManager()
+	var autoBlockEnabled bool
+	var autoBlockedCount uint64
+	if err := cfgManager.LoadConfig(); err == nil {
+		cfg := cfgManager.GetConfig()
+		if cfg != nil && cfg.RateLimit.AutoBlock {
+			autoBlockEnabled = true
+			autoBlockedCount = dynBlacklistCount
+		}
+	}
+
+	// Display summary / 显示汇总
+	fmt.Println()
+	fmt.Println("📊 Summary Security Hits:")
+
+	// Static Blacklist hits / 静态黑名单命中
+	fmt.Printf("   ├─ 🔒 Static Blacklist:    %s entries\n", fmtutil.FormatNumberWithComma(uint64(staticBlacklistCount)))
+
+	// Dynamic Blacklist hits / 动态黑名单命中
+	fmt.Printf("   ├─ 🔓 Dynamic Blacklist:   %s entries\n", fmtutil.FormatNumberWithComma(dynBlacklistCount))
+
+	// Critical Lock hits / 危机封锁命中
+	fmt.Printf("   ├─ 🚨 Critical Lock:       %s entries\n", fmtutil.FormatNumberWithComma(criticalBlacklistCount))
+
+	// Rate Limit hits / 速率限制命中
+	fmt.Printf("   ├─ ⏱️  Rate Limit Hits:     %s\n", fmtutil.FormatNumberWithComma(rateLimitHits))
+
+	// Auto Blocked / 自动封禁
+	if autoBlockEnabled {
+		fmt.Printf("   └─ 🤖 Auto Blocked:        %s IPs (enabled)\n", fmtutil.FormatNumberWithComma(autoBlockedCount))
+	} else {
+		fmt.Printf("   └─ 🤖 Auto Blocked:        disabled\n")
+	}
 }

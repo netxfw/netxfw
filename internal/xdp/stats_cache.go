@@ -278,11 +278,11 @@ func (c *StatsCache) InvalidateDetails() {
 
 // GetCacheInfo returns information about cache state.
 // GetCacheInfo 返回缓存状态信息。
-func (c *StatsCache) GetCacheInfo() map[string]interface{} {
+func (c *StatsCache) GetCacheInfo() map[string]any {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	return map[string]interface{}{
+	return map[string]any{
 		"global_stats_cached": c.globalStats != nil,
 		"global_stats_age":    time.Since(c.lastGlobalUpdate).String(),
 		"global_stats_ttl":    c.globalTTL.String(),

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 	"github.com/livp123/netxfw/internal/binary"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/fileutil"
+	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
 // VerifyAndRepair ensures consistency between config and BPF maps by forcing a sync.
@@ -396,7 +396,7 @@ func (m *Manager) ClearMaps() {
 			emap.Delete(key)
 		}
 	}
-	log.Printf("✅ All BPF maps cleared.")
+	logger.Get(nil).Infof("✅ All BPF maps cleared.")
 }
 
 // ClearMap clears all rules from a specific BPF map.

@@ -1,11 +1,11 @@
 package agent
 
 import (
-	"log"
 	"os"
 	"strconv"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -36,11 +36,11 @@ var limitAddCmd = &cobra.Command{
 		ip := args[0]
 		rate, err := strconv.ParseUint(args[1], 10, 64)
 		if err != nil {
-			log.Fatalf("❌ Invalid rate: %v", err)
+			logger.Get(nil).Fatalf("❌ Invalid rate: %v", err)
 		}
 		burst, err := strconv.ParseUint(args[2], 10, 64)
 		if err != nil {
-			log.Fatalf("❌ Invalid burst: %v", err)
+			logger.Get(nil).Fatalf("❌ Invalid burst: %v", err)
 		}
 		// Add rate limit rule
 		// 添加限速规则
@@ -48,7 +48,7 @@ var limitAddCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		log.Printf("✅ Rate limit rule added for %s: %d/s (burst %d)", ip, rate, burst)
+		logger.Get(nil).Infof("✅ Rate limit rule added for %s: %d/s (burst %d)", ip, rate, burst)
 	},
 }
 
@@ -75,7 +75,7 @@ var limitRemoveCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		log.Printf("✅ Rate limit rule removed for %s", ip)
+		logger.Get(nil).Infof("✅ Rate limit rule removed for %s", ip)
 	},
 }
 

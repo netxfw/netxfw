@@ -8,6 +8,7 @@
 /netxfw-dp
 /netxfw-agent
 /netxfw-controller.yaml
+/netxfw-test
 # Local config
 /etc/
 /vendor/

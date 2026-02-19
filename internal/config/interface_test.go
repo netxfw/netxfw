@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -209,7 +210,7 @@ func TestConfigManager_SetMetricsConfig(t *testing.T) {
 // TestConfigManager_SetLoggingConfig 测试 ConfigManager SetLoggingConfig
 func TestConfigManager_SetLoggingConfig(t *testing.T) {
 	manager := NewConfigManager("/test/path/config.yaml")
-	manager.SetLoggingConfig(types.LoggingConfig{})
+	manager.SetLoggingConfig(logger.LoggingConfig{})
 }
 
 // TestConfigManager_SetConntrackConfig tests ConfigManager SetConntrackConfig

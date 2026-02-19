@@ -4,13 +4,13 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
 	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -730,7 +730,7 @@ var ruleClearCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		log.Println("✅ Blacklist cleared")
+		logger.Get(nil).Infof("✅ Blacklist cleared")
 	},
 }
 

@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 
 	// Import pprof for HTTP endpoint profiling / 导入 pprof 用于 HTTP 端点性能分析
@@ -466,8 +465,9 @@ func RunWebServer(ctx context.Context, port int) error {
  * UnloadXDP 提供卸载程序的指令。
  */
 func UnloadXDP() {
-	log.Println("👋 Unloading XDP and cleaning up...")
+	log := logger.Get(nil)
+	log.Infof("👋 Unloading XDP and cleaning up...")
 	// Cleanup is handled by the server process on exit.
 	// 卸载和清理通常在服务器进程退出时处理。
-	log.Println("Please stop the running 'load xdp' server (e.g., Ctrl+C) to trigger cleanup.")
+	log.Infof("Please stop the running 'load xdp' server (e.g., Ctrl+C) to trigger cleanup.")
 }

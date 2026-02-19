@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -65,7 +66,7 @@ func TestDaemon_ConfigValidation(t *testing.T) {
 					EnableExpiry:    true,
 					CleanupInterval: "5m",
 				},
-				Logging: types.LoggingConfig{
+				Logging: logger.LoggingConfig{
 					Level: "info",
 				},
 			},

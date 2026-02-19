@@ -1,7 +1,9 @@
 package engine
 
 import (
-	"log"
+	"context"
+
+	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
 // TinyMLEngine represents a lightweight machine learning engine for traffic analysis.
@@ -18,8 +20,9 @@ func NewTinyMLEngine() *TinyMLEngine {
 
 // LoadModel placeholder for loading a TFLite or other TinyML model.
 // LoadModel 用于加载 TFLite 或其他 TinyML 模型的占位符。
-func (e *TinyMLEngine) LoadModel(path string) error {
-	log.Printf("🤖 Loading TinyML model from %s...", path)
+func (e *TinyMLEngine) LoadModel(ctx context.Context, path string) error {
+	log := logger.Get(ctx)
+	log.Infof("🤖 Loading TinyML model from %s...", path)
 	// Integration with TFLite or native Go ML libraries would go here.
 	// 此处将集成 TFLite 或原生 Go ML 库。
 	e.modelLoaded = true

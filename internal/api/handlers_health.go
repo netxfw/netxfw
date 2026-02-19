@@ -12,6 +12,11 @@ import (
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	if s.sdk == nil {
+		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
+		return
+	}
+
 	mgr := s.sdk.GetManager()
 	if mgr == nil {
 		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
@@ -26,7 +31,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		// Fallback to basic health check
 		// 回退到基本健康检查
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":  "ok",
 			"message": "Basic health check passed",
 		})
@@ -35,7 +40,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	healthChecker := xdpMgr.GetHealthChecker()
 	if healthChecker == nil {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":  "ok",
 			"message": "Health checker not initialized",
 		})
@@ -50,6 +55,11 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 // handleHealthMaps 返回所有 BPF Map 的健康状态。
 func (s *Server) handleHealthMaps(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	if s.sdk == nil {
+		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
+		return
+	}
 
 	mgr := s.sdk.GetManager()
 	if mgr == nil {
@@ -83,6 +93,11 @@ func (s *Server) handleHealthMap(w http.ResponseWriter, r *http.Request) {
 	mapName := r.URL.Query().Get("name")
 	if mapName == "" {
 		http.Error(w, "Map name required", http.StatusBadRequest)
+		return
+	}
+
+	if s.sdk == nil {
+		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
 		return
 	}
 

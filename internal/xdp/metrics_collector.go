@@ -1,11 +1,11 @@
 package xdp
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/cilium/ebpf"
+	"github.com/livp123/netxfw/internal/utils/fmtutil"
 )
 
 // MetricsCollector collects comprehensive firewall metrics.
@@ -195,6 +195,18 @@ type ProtocolStats struct {
 	Dropped    uint64 `json:"dropped"`    // Dropped count / 丢弃数
 	Passed     uint64 `json:"passed"`     // Passed count / 通过数
 	Percentage string `json:"percentage"` // Percentage of total / 占总量百分比
+}
+
+// MetricsData holds all metrics data without the mutex.
+// MetricsData 保存所有指标数据（不含互斥锁）。
+type MetricsData struct {
+	TrafficMetrics  TrafficMetrics       `json:"traffic_metrics"`
+	ConntrackHealth ConntrackHealth      `json:"conntrack_health"`
+	MapUsage        MapUsageStats        `json:"map_usage"`
+	RateLimitStats  RateLimitHitStats    `json:"rate_limit_stats"`
+	ProtocolStats   ProtocolDistribution `json:"protocol_stats"`
+	StartTime       time.Time            `json:"start_time"`
+	LastUpdate      time.Time            `json:"last_update"`
 }
 
 // NewMetricsCollector creates a new metrics collector.
@@ -543,10 +555,10 @@ func (mc *MetricsCollector) collectProtocolStats() {
 		mc.ProtocolStats.ICMP.Packets + mc.ProtocolStats.Other.Packets
 
 	if total > 0 {
-		mc.ProtocolStats.TCPPct = formatPercent(float64(mc.ProtocolStats.TCP.Packets) / float64(total) * 100)
-		mc.ProtocolStats.UDPPct = formatPercent(float64(mc.ProtocolStats.UDP.Packets) / float64(total) * 100)
-		mc.ProtocolStats.ICMPPct = formatPercent(float64(mc.ProtocolStats.ICMP.Packets) / float64(total) * 100)
-		mc.ProtocolStats.OtherPct = formatPercent(float64(mc.ProtocolStats.Other.Packets) / float64(total) * 100)
+		mc.ProtocolStats.TCPPct = fmtutil.FormatPercent(float64(mc.ProtocolStats.TCP.Packets) / float64(total) * 100)
+		mc.ProtocolStats.UDPPct = fmtutil.FormatPercent(float64(mc.ProtocolStats.UDP.Packets) / float64(total) * 100)
+		mc.ProtocolStats.ICMPPct = fmtutil.FormatPercent(float64(mc.ProtocolStats.ICMP.Packets) / float64(total) * 100)
+		mc.ProtocolStats.OtherPct = fmtutil.FormatPercent(float64(mc.ProtocolStats.Other.Packets) / float64(total) * 100)
 
 		mc.ProtocolStats.TCP.Percentage = mc.ProtocolStats.TCPPct
 		mc.ProtocolStats.UDP.Percentage = mc.ProtocolStats.UDPPct
@@ -555,15 +567,22 @@ func (mc *MetricsCollector) collectProtocolStats() {
 	}
 }
 
-// GetMetrics returns current metrics.
-// GetMetrics 返回当前指标。
-func (mc *MetricsCollector) GetMetrics() *MetricsCollector {
+// GetMetrics returns current metrics data.
+// GetMetrics 返回当前指标数据。
+func (mc *MetricsCollector) GetMetrics() *MetricsData {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
 
-	// Return a copy / 返回副本
-	copy := *mc
-	return &copy
+	// Return a copy without mutex / 返回不含互斥锁的副本
+	return &MetricsData{
+		TrafficMetrics:  mc.TrafficMetrics,
+		ConntrackHealth: mc.ConntrackHealth,
+		MapUsage:        mc.MapUsage,
+		RateLimitStats:  mc.RateLimitStats,
+		ProtocolStats:   mc.ProtocolStats,
+		StartTime:       mc.StartTime,
+		LastUpdate:      mc.LastUpdate,
+	}
 }
 
 // GetTrafficMetrics returns traffic metrics.
@@ -604,15 +623,6 @@ func (mc *MetricsCollector) GetProtocolStats() ProtocolDistribution {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
 	return mc.ProtocolStats
-}
-
-// formatPercent formats a percentage value.
-// formatPercent 格式化百分比值。
-func formatPercent(value float64) string {
-	if value >= 100 {
-		return "100.0%"
-	}
-	return fmt.Sprintf("%.1f%%", value)
 }
 
 // countMapEntriesFast counts entries in a map quickly.

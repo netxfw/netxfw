@@ -127,7 +127,7 @@ type ManagerInterface interface {
 	InvalidateStatsCache()
 
 	// Performance Statistics - 性能统计
-	PerfStats() interface{}
+	PerfStats() any
 
 	Close() error
 }

@@ -14,7 +14,7 @@ import (
 
 func main() {
 	// Initialize logger with defaults (stdout) / 使用默认值初始化日志记录器（标准输出）
-	logger.Init(types.LoggingConfig{Enabled: true, Level: "info"})
+	logger.Init(logger.LoggingConfig{Enabled: true, Level: "info"})
 	defer logger.Sync()
 
 	l := logger.Get(nil)

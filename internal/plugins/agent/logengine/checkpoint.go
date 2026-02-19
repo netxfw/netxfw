@@ -2,11 +2,11 @@ package logengine
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/pkg/sdk"
 	"github.com/nxadm/tail"
 )
@@ -121,7 +121,7 @@ func (cm *CheckpointManager) GetOffset(file string, mode string) *tail.SeekInfo 
 			info, err := os.Stat(file)
 			if err == nil {
 				if info.Size() < savedOffset {
-					log.Printf("🔄 Log rotation detected for %s (size %d < offset %d). Resetting to start.", file, info.Size(), savedOffset)
+					logger.Get(nil).Infof("🔄 Log rotation detected for %s (size %d < offset %d). Resetting to start.", file, info.Size(), savedOffset)
 					return &tail.SeekInfo{Offset: 0, Whence: 0}
 				}
 				// Resume

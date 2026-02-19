@@ -3,7 +3,6 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/livp123/netxfw/internal/utils/fileutil"
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -146,6 +146,16 @@ metrics:
   push_interval: "15s"
   textfile_enabled: false
   textfile_path: ""
+  # Top N: Number of top entries to display in status output (default 10)
+  # Top N：状态输出中显示的 Top 条目数量（默认 10）
+  top_n: 10
+  # Usage Thresholds for status indicators / 状态指示器的使用率阈值
+  threshold_critical: 90  # Critical threshold / 危机阈值
+  threshold_high: 75      # High threshold / 高阈值
+  threshold_medium: 50    # Medium threshold / 中等阈值
+  # Traffic Stats Collection Settings / 流量统计收集设置
+  stats_interval: "1s"    # Stats collection interval / 统计收集间隔
+  avg_packet_size: 500    # Average packet size for BPS estimation / 用于 BPS 估算的平均包大小
 
 
 # Port Configuration / 端口配置
@@ -211,11 +221,14 @@ log_engine:
 # Adjust these based on your system memory and requirements.
 # 根据您的系统内存和需求进行调整。
 capacity:
-  lock_list: 2000000
-  dyn_lock_list: 2000000
-  whitelist: 65536
-  ip_port_rules: 65536
-  allowed_ports: 1024
+  lock_list: 2000000       # Static blacklist capacity / 静态黑名单容量
+  dyn_lock_list: 2000000   # Dynamic blacklist capacity / 动态黑名单容量
+  whitelist: 65536         # Whitelist capacity / 白名单容量
+  ip_port_rules: 65536     # IP+Port rules capacity / IP+端口规则容量
+  allowed_ports: 1024      # Allowed ports capacity / 允许端口容量
+  rate_limits: 1000        # Rate limit rules capacity / 限速规则容量
+  drop_reason_stats: 1000000  # Drop reason stats capacity (per minute) / 丢弃原因统计容量（每分钟）
+  pass_reason_stats: 1000000  # Pass reason stats capacity (per minute) / 通过原因统计容量（每分钟）
 
 # Logging Configuration / 日志配置
 logging:
@@ -235,36 +248,18 @@ logging:
 // GlobalConfig represents the top-level configuration structure.
 // GlobalConfig 表示顶级配置结构。
 type GlobalConfig struct {
-	Cluster   ClusterConfig   `yaml:"cluster"`
-	Base      BaseConfig      `yaml:"base"`
-	Web       WebConfig       `yaml:"web"`
-	Metrics   MetricsConfig   `yaml:"metrics"`
-	Port      PortConfig      `yaml:"port"`
-	Conntrack ConntrackConfig `yaml:"conntrack"`
-	RateLimit RateLimitConfig `yaml:"rate_limit"`
-	LogEngine LogEngineConfig `yaml:"log_engine"`
-	Capacity  CapacityConfig  `yaml:"capacity"`
-	Logging   LoggingConfig   `yaml:"logging"`
-	AI        AIConfig        `yaml:"ai"`
-	MCP       MCPConfig       `yaml:"mcp"`
-}
-
-// LoggingConfig defines the configuration for logging.
-// LoggingConfig 定义日志配置。
-type LoggingConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	Level   string `yaml:"level"` // Log level (debug, info, warn, error)
-	// Level: 日志级别（debug, info, warn, error）
-	Path string `yaml:"path"` // Log file path
-	// Path: 日志文件路径
-	MaxSize int `yaml:"max_size"` // Max size in MB before rotation
-	// MaxSize: 轮转前的最大大小（MB）
-	MaxBackups int `yaml:"max_backups"` // Max number of old files to keep
-	// MaxBackups: 保留的旧文件最大数量
-	MaxAge int `yaml:"max_age"` // Max number of days to keep old files
-	// MaxAge: 保留旧文件的最大天数
-	Compress bool `yaml:"compress"` // Whether to compress old files
-	// Compress: 是否压缩旧文件
+	Cluster   ClusterConfig        `yaml:"cluster"`
+	Base      BaseConfig           `yaml:"base"`
+	Web       WebConfig            `yaml:"web"`
+	Metrics   MetricsConfig        `yaml:"metrics"`
+	Port      PortConfig           `yaml:"port"`
+	Conntrack ConntrackConfig      `yaml:"conntrack"`
+	RateLimit RateLimitConfig      `yaml:"rate_limit"`
+	LogEngine LogEngineConfig      `yaml:"log_engine"`
+	Capacity  CapacityConfig       `yaml:"capacity"`
+	Logging   logger.LoggingConfig `yaml:"logging"`
+	AI        AIConfig             `yaml:"ai"`
+	MCP       MCPConfig            `yaml:"mcp"`
 }
 
 // LogEngineConfig defines the configuration for the log engine.
@@ -387,6 +382,7 @@ type CapacityConfig struct {
 	Whitelist    int `yaml:"whitelist"`
 	IPPortRules  int `yaml:"ip_port_rules"`
 	AllowedPorts int `yaml:"allowed_ports"`
+	RateLimits   int `yaml:"rate_limits"` // Rate limit rules capacity / 限速规则容量
 	// Stats map capacities (per minute capacity for top IP/port analysis)
 	// 统计 Map 容量（每分钟容量，用于 top IP/端口分析）
 	DropReasonStats int `yaml:"drop_reason_stats"` // Drop reason stats map size / 丢弃原因统计 Map 大小
@@ -449,6 +445,14 @@ type MetricsConfig struct {
 	PushInterval    string `yaml:"push_interval"`
 	TextfileEnabled bool   `yaml:"textfile_enabled"`
 	TextfilePath    string `yaml:"textfile_path"`
+	TopN            int    `yaml:"top_n"` // Number of top entries to display in status output / 状态输出中显示的 Top 条目数量
+	// Usage thresholds for status display / 状态显示的使用率阈值
+	ThresholdCritical int `yaml:"threshold_critical"` // Critical usage threshold (default 90) / 危机使用率阈值（默认 90）
+	ThresholdHigh     int `yaml:"threshold_high"`     // High usage threshold (default 75) / 高使用率阈值（默认 75）
+	ThresholdMedium   int `yaml:"threshold_medium"`   // Medium usage threshold (default 50) / 中等使用率阈值（默认 50）
+	// Traffic stats collection settings / 流量统计收集设置
+	StatsInterval string `yaml:"stats_interval"`  // Traffic stats collection interval (default "1s") / 流量统计收集间隔（默认 "1s"）
+	AvgPacketSize int    `yaml:"avg_packet_size"` // Average packet size in bytes for BPS estimation (default 500) / 用于 BPS 估算的平均包大小（默认 500）
 }
 
 // PortConfig defines the configuration for port filtering.
@@ -511,13 +515,15 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 		Capacity: CapacityConfig{
 			Conntrack:       100000,
 			LockList:        2000000,
+			DynLockList:     2000000,
 			Whitelist:       65536,
 			IPPortRules:     65536,
 			AllowedPorts:    1024,
+			RateLimits:      1000,
 			DropReasonStats: 1000000, // 1 million entries per minute / 每分钟 100 万条目
 			PassReasonStats: 1000000, // 1 million entries per minute / 每分钟 100 万条目
 		},
-		Logging: LoggingConfig{
+		Logging: logger.LoggingConfig{
 			Enabled:    false,
 			Path:       "/var/log/netxfw/agent.log",
 			MaxSize:    10, // 10MB
@@ -530,9 +536,15 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 			Port: 11811,
 		},
 		Metrics: MetricsConfig{
-			Enabled:       false,
-			ServerEnabled: false,
-			Port:          11812,
+			Enabled:           false,
+			ServerEnabled:     false,
+			Port:              11812,
+			TopN:              10,   // Default top N entries to display / 默认显示的 Top 条目数量
+			ThresholdCritical: 90,   // Default critical threshold / 默认危机阈值
+			ThresholdHigh:     75,   // Default high threshold / 默认高阈值
+			ThresholdMedium:   50,   // Default medium threshold / 默认中等阈值
+			StatsInterval:     "1s", // Default stats collection interval / 默认统计收集间隔
+			AvgPacketSize:     500,  // Default average packet size in bytes / 默认平均包大小（字节）
 		},
 		AI: AIConfig{
 			Enabled: false,
@@ -562,18 +574,19 @@ func LoadGlobalConfig(path string) (*GlobalConfig, error) {
 }
 
 func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
+	log := logger.Get(nil)
 	// 1. Unmarshal default config (TEMPLATE) to Node (Source of Truth for structure & comments)
 	// We use DefaultConfigTemplate instead of marshaling cfg to preserve comments.
 	var defaultNode yaml.Node
 	if err := yaml.Unmarshal([]byte(DefaultConfigTemplate), &defaultNode); err != nil {
-		log.Printf("⚠️  Failed to parse default config template: %v", err)
+		log.Warnf("⚠️  Failed to parse default config template: %v", err)
 		return
 	}
 
 	// 2. Unmarshal existing file to Node (Target to update)
 	var fileNode yaml.Node
 	if err := yaml.Unmarshal(data, &fileNode); err != nil {
-		log.Printf("⚠️  Config file seems malformed, skipping auto-update check: %v", err)
+		log.Warnf("⚠️  Config file seems malformed, skipping auto-update check: %v", err)
 		return
 	}
 
@@ -591,7 +604,7 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
 	if err := enc.Encode(&defaultNode); err != nil {
-		log.Printf("❌ Failed to encode updated config: %v", err)
+		log.Warnf("❌ Failed to encode updated config: %v", err)
 		return
 	}
 
@@ -600,12 +613,12 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 		return
 	}
 
-	log.Println("🔄 Refreshing configuration file structure and comments...")
+	log.Infof("🔄 Refreshing configuration file structure and comments...")
 
 	// Backup original
 	backupPath := path + ".bak." + time.Now().Format("20060102-150405")
 	if err := os.WriteFile(backupPath, data, 0644); err != nil {
-		log.Printf("⚠️  Failed to backup config file, skipping update: %v", err)
+		log.Warnf("⚠️  Failed to backup config file, skipping update: %v", err)
 		return
 	}
 
@@ -615,9 +628,9 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 	// Write new config (defaultNode now contains merged state)
 	// yaml.v3 Encoder adds a newline
 	if err := fileutil.AtomicWriteFile(path, buf.Bytes(), 0644); err != nil {
-		log.Printf("❌ Failed to update config file: %v", err)
+		log.Warnf("❌ Failed to update config file: %v", err)
 	} else {
-		log.Println("✅ Configuration file updated (comments restored/preserved).")
+		log.Infof("✅ Configuration file updated (comments restored/preserved).")
 	}
 }
 
@@ -672,7 +685,7 @@ func updateYamlNode(fileNode, defaultNode *yaml.Node) bool {
 // 已弃用：逻辑已移至 updateYamlNode
 //
 //nolint:unused
-func hasMissingKeys(full, file map[string]interface{}) bool {
+func hasMissingKeys(full, file map[string]any) bool {
 	// Deprecated: logic moved to updateYamlNode
 	return false
 }
@@ -841,6 +854,7 @@ func CleanDeprecatedClusterFields(target *yaml.Node) {
 
 // cleanupBackups keeps only the latest N backup files.
 func cleanupBackups(originalPath string, keep int) {
+	log := logger.Get(nil)
 	dir := filepath.Dir(originalPath)
 	baseName := filepath.Base(originalPath)
 	pattern := baseName + ".bak.*"
@@ -861,7 +875,7 @@ func cleanupBackups(originalPath string, keep int) {
 	toRemove := matches[:len(matches)-keep]
 	for _, f := range toRemove {
 		if err := os.Remove(f); err == nil {
-			log.Printf("🗑️ Removed old backup: %s", f)
+			log.Infof("🗑️ Removed old backup: %s", f)
 		}
 	}
 }

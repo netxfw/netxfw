@@ -548,7 +548,7 @@ func (m *MockManager) InvalidateStatsCache() {
 
 // PerfStats returns performance statistics.
 // PerfStats 返回性能统计。
-func (m *MockManager) PerfStats() interface{} {
+func (m *MockManager) PerfStats() any {
 	return nil
 }
 

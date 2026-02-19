@@ -337,7 +337,7 @@ func (m *MockManager) InvalidateStatsCache()                      {}
 
 // PerfStats returns a mock performance stats tracker.
 // PerfStats 返回模拟的性能统计跟踪器。
-func (m *MockManager) PerfStats() interface{} {
+func (m *MockManager) PerfStats() any {
 	return NewPerformanceStats()
 }
 

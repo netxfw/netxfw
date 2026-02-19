@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
@@ -13,7 +12,7 @@ import (
 func TestInit(t *testing.T) {
 	// Test with disabled logging
 	// 测试禁用日志
-	cfg := types.LoggingConfig{
+	cfg := logger.LoggingConfig{
 		Enabled: false,
 		Level:   "info",
 	}
@@ -56,7 +55,7 @@ func TestGet(t *testing.T) {
 func TestWithContext(t *testing.T) {
 	// Initialize logger first
 	// 先初始化 logger
-	cfg := types.LoggingConfig{
+	cfg := logger.LoggingConfig{
 		Enabled: false,
 		Level:   "info",
 	}

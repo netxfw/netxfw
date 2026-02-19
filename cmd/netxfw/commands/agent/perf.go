@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
+	"github.com/livp123/netxfw/internal/utils/fmtutil"
 	"github.com/livp123/netxfw/internal/xdp"
 	"github.com/livp123/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -207,9 +208,9 @@ func showPerformanceStats(s *sdk.SDK) error {
 	fmt.Printf("   Total Operations: %d\n", stats.MapLatency.TotalOperations)
 	fmt.Printf("   Total Errors:     %d\n", stats.MapLatency.TotalErrors)
 	if stats.MapLatency.AvgLatencyNs > 0 {
-		fmt.Printf("   Average Latency:  %s\n", formatLatency(stats.MapLatency.AvgLatencyNs))
-		fmt.Printf("   Min Latency:      %s\n", formatLatency(stats.MapLatency.MinLatencyNs))
-		fmt.Printf("   Max Latency:      %s\n", formatLatency(stats.MapLatency.MaxLatencyNs))
+		fmt.Printf("   Average Latency:  %s\n", fmtutil.FormatLatency(stats.MapLatency.AvgLatencyNs))
+		fmt.Printf("   Min Latency:      %s\n", fmtutil.FormatLatency(stats.MapLatency.MinLatencyNs))
+		fmt.Printf("   Max Latency:      %s\n", fmtutil.FormatLatency(stats.MapLatency.MaxLatencyNs))
 	}
 
 	// Cache Hit Rate Summary / 缓存命中率摘要
@@ -225,13 +226,13 @@ func showPerformanceStats(s *sdk.SDK) error {
 
 	// Traffic Summary / 流量摘要
 	fmt.Println("\n🚦 Traffic Statistics:")
-	fmt.Printf("   Current PPS:      %s\n", formatNumber(stats.Traffic.CurrentPPS))
-	fmt.Printf("   Peak PPS:         %s\n", formatNumber(stats.Traffic.PeakPPS))
-	fmt.Printf("   Average PPS:      %s\n", formatNumber(stats.Traffic.AveragePPS))
-	fmt.Printf("   Current BPS:      %s/s\n", formatBytes(stats.Traffic.CurrentBPS))
-	fmt.Printf("   Peak BPS:         %s/s\n", formatBytes(stats.Traffic.PeakBPS))
-	fmt.Printf("   Current Drop PPS: %s\n", formatNumber(stats.Traffic.CurrentDropPPS))
-	fmt.Printf("   Current Pass PPS: %s\n", formatNumber(stats.Traffic.CurrentPassPPS))
+	fmt.Printf("   Current PPS:      %s\n", fmtutil.FormatNumber(stats.Traffic.CurrentPPS))
+	fmt.Printf("   Peak PPS:         %s\n", fmtutil.FormatNumber(stats.Traffic.PeakPPS))
+	fmt.Printf("   Average PPS:      %s\n", fmtutil.FormatNumber(stats.Traffic.AveragePPS))
+	fmt.Printf("   Current BPS:      %s/s\n", fmtutil.FormatBytes(stats.Traffic.CurrentBPS))
+	fmt.Printf("   Peak BPS:         %s/s\n", fmtutil.FormatBytes(stats.Traffic.PeakBPS))
+	fmt.Printf("   Current Drop PPS: %s\n", fmtutil.FormatNumber(stats.Traffic.CurrentDropPPS))
+	fmt.Printf("   Current Pass PPS: %s\n", fmtutil.FormatNumber(stats.Traffic.CurrentPassPPS))
 
 	return nil
 }
@@ -342,28 +343,28 @@ func showTrafficStats(s *sdk.SDK) error {
 
 	// Packet rates / 数据包速率
 	fmt.Println("\n📦 Packet Rates:")
-	fmt.Printf("   Current PPS:      %s pps\n", formatNumber(stats.Traffic.CurrentPPS))
-	fmt.Printf("   Peak PPS:         %s pps\n", formatNumber(stats.Traffic.PeakPPS))
-	fmt.Printf("   Average PPS:      %s pps\n", formatNumber(stats.Traffic.AveragePPS))
+	fmt.Printf("   Current PPS:      %s pps\n", fmtutil.FormatNumber(stats.Traffic.CurrentPPS))
+	fmt.Printf("   Peak PPS:         %s pps\n", fmtutil.FormatNumber(stats.Traffic.PeakPPS))
+	fmt.Printf("   Average PPS:      %s pps\n", fmtutil.FormatNumber(stats.Traffic.AveragePPS))
 
 	// Byte rates / 字节速率
 	fmt.Println("\n📊 Bandwidth:")
-	fmt.Printf("   Current BPS:      %s/s\n", formatBytes(stats.Traffic.CurrentBPS))
-	fmt.Printf("   Peak BPS:         %s/s\n", formatBytes(stats.Traffic.PeakBPS))
-	fmt.Printf("   Average BPS:      %s/s\n", formatBytes(stats.Traffic.AverageBPS))
+	fmt.Printf("   Current BPS:      %s/s\n", fmtutil.FormatBytes(stats.Traffic.CurrentBPS))
+	fmt.Printf("   Peak BPS:         %s/s\n", fmtutil.FormatBytes(stats.Traffic.PeakBPS))
+	fmt.Printf("   Average BPS:      %s/s\n", fmtutil.FormatBytes(stats.Traffic.AverageBPS))
 
 	// Drop/Pass rates / 丢弃/通过速率
 	fmt.Println("\n🚦 Decision Rates:")
-	fmt.Printf("   Current Drop PPS: %s pps\n", formatNumber(stats.Traffic.CurrentDropPPS))
-	fmt.Printf("   Peak Drop PPS:    %s pps\n", formatNumber(stats.Traffic.PeakDropPPS))
-	fmt.Printf("   Current Pass PPS: %s pps\n", formatNumber(stats.Traffic.CurrentPassPPS))
-	fmt.Printf("   Peak Pass PPS:    %s pps\n", formatNumber(stats.Traffic.PeakPassPPS))
+	fmt.Printf("   Current Drop PPS: %s pps\n", fmtutil.FormatNumber(stats.Traffic.CurrentDropPPS))
+	fmt.Printf("   Peak Drop PPS:    %s pps\n", fmtutil.FormatNumber(stats.Traffic.PeakDropPPS))
+	fmt.Printf("   Current Pass PPS: %s pps\n", fmtutil.FormatNumber(stats.Traffic.CurrentPassPPS))
+	fmt.Printf("   Peak Pass PPS:    %s pps\n", fmtutil.FormatNumber(stats.Traffic.PeakPassPPS))
 
 	// Totals / 总计
 	fmt.Println("\n📈 Totals:")
-	fmt.Printf("   Total Packets:    %s\n", formatNumber(totalPackets))
-	fmt.Printf("   Total Drops:      %s\n", formatNumber(drops))
-	fmt.Printf("   Total Passes:     %s\n", formatNumber(pass))
+	fmt.Printf("   Total Packets:    %s\n", fmtutil.FormatNumber(totalPackets))
+	fmt.Printf("   Total Drops:      %s\n", fmtutil.FormatNumber(drops))
+	fmt.Printf("   Total Passes:     %s\n", fmtutil.FormatNumber(pass))
 	if totalPackets > 0 {
 		fmt.Printf("   Drop Rate:        %.2f%%\n", float64(drops)/float64(totalPackets)*100)
 	}
@@ -380,7 +381,7 @@ func printOpStats(name string, stats xdp.OperationStats) {
 	fmt.Printf("   %-12s: %d ops, avg %s, errors %d\n",
 		name,
 		stats.Count,
-		formatLatency(stats.AvgLatency),
+		fmtutil.FormatLatency(stats.AvgLatency),
 		stats.Errors)
 }
 
@@ -388,74 +389,4 @@ func printOpStats(name string, stats xdp.OperationStats) {
 // printCacheStats 打印缓存统计
 func printCacheStats(name string, hits, misses uint64, rate float64) {
 	fmt.Printf("   %-12s: %.2f%% (%d hits / %d misses)\n", name, rate*100, hits, misses)
-}
-
-// formatLatency formats latency in nanoseconds to human readable format
-// formatLatency 将纳秒延迟格式化为可读格式
-func formatLatency(ns uint64) string {
-	if ns == 0 {
-		return "0ns"
-	}
-	if ns < 1000 {
-		return fmt.Sprintf("%dns", ns)
-	}
-	if ns < 1000000 {
-		return fmt.Sprintf("%.2fµs", float64(ns)/1000)
-	}
-	if ns < 1000000000 {
-		return fmt.Sprintf("%.2fms", float64(ns)/1000000)
-	}
-	return fmt.Sprintf("%.2fs", float64(ns)/1000000000)
-}
-
-// formatNumber formats large numbers with K/M/G suffixes
-// formatNumber 使用 K/M/G 后缀格式化大数字
-func formatNumber(n uint64) string {
-	if n < 1000 {
-		return fmt.Sprintf("%d", n)
-	}
-	if n < 1000000 {
-		return fmt.Sprintf("%.2fK", float64(n)/1000)
-	}
-	if n < 1000000000 {
-		return fmt.Sprintf("%.2fM", float64(n)/1000000)
-	}
-	return fmt.Sprintf("%.2fG", float64(n)/1000000000)
-}
-
-// formatBytes formats bytes to human readable format
-// formatBytes 将字节格式化为可读格式
-func formatBytes(b uint64) string {
-	if b < 1024 {
-		return fmt.Sprintf("%dB", b)
-	}
-	if b < 1048576 {
-		return fmt.Sprintf("%.2fKB", float64(b)/1024)
-	}
-	if b < 1073741824 {
-		return fmt.Sprintf("%.2fMB", float64(b)/1048576)
-	}
-	return fmt.Sprintf("%.2fGB", float64(b)/1073741824)
-}
-
-// formatBPS formats bytes per second to human readable format (in bits)
-// formatBPS 将每秒字节数格式化为人类可读格式（以比特为单位）
-func formatBPS(bps uint64) string {
-	const (
-		KB = 1024
-		MB = KB * 1024
-		GB = MB * 1024
-	)
-
-	bits := bps * 8 // Convert to bits / 转换为比特
-	switch {
-	case bits >= GB*8:
-		return fmt.Sprintf("%.1f Gbps", float64(bits)/float64(GB*8))
-	case bits >= MB*8:
-		return fmt.Sprintf("%.1f Mbps", float64(bits)/float64(MB*8))
-	case bits >= KB*8:
-		return fmt.Sprintf("%.1f Kbps", float64(bits)/float64(KB*8))
-	default:
-		return fmt.Sprintf("%d bps", bits)
-	}
 }

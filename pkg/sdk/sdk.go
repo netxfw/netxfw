@@ -22,11 +22,11 @@ type SDK struct {
 type KVStore interface {
 	// Set stores a value for a key.
 	// Set 为键存储值。
-	Set(key string, value interface{})
+	Set(key string, value any)
 
 	// Get retrieves a value for a key.
 	// Get 检索键的值。
-	Get(key string) (interface{}, bool)
+	Get(key string) (any, bool)
 
 	// Delete removes a key.
 	// Delete 移除键。
@@ -39,11 +39,11 @@ type kvStoreImpl struct {
 	data sync.Map
 }
 
-func (s *kvStoreImpl) Set(key string, value interface{}) {
+func (s *kvStoreImpl) Set(key string, value any) {
 	s.data.Store(key, value)
 }
 
-func (s *kvStoreImpl) Get(key string) (interface{}, bool) {
+func (s *kvStoreImpl) Get(key string) (any, bool) {
 	return s.data.Load(key)
 }
 

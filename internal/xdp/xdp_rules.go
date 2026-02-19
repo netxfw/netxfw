@@ -619,7 +619,7 @@ func ClearLpmMap(m *ebpf.Map) error {
 }
 
 // Helper to collect keys
-func collectLpmKeys(m *ebpf.Map, value interface{}) ([]NetXfwLpmKey, error) {
+func collectLpmKeys(m *ebpf.Map, value any) ([]NetXfwLpmKey, error) {
 	var keys []NetXfwLpmKey
 	var key NetXfwLpmKey
 	iter := m.Iterate()
