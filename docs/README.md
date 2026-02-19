@@ -10,7 +10,9 @@ Welcome to the netxfw documentation. This directory contains all the documentati
 - [cli/](./cli/) - Command-line interface documentation
 - [plugins/](./plugins/) - Plugin development guides
 - [testing/](./testing/) - Testing documentation and procedures
-- [performance/](./performance/) - Performance benchmarks and optimization guides (coming soon)
+- [performance/](./performance/) - Performance benchmarks and optimization guides
+- [cloud/](./cloud/) - Cloud environment support documentation
+- [evaluation_zh.md](./evaluation_zh.md) - Comprehensive project evaluation (Chinese)
 
 ## Quick Links
 
@@ -21,6 +23,9 @@ Welcome to the netxfw documentation. This directory contains all the documentati
 - [XDP Plugin Development Guide](./plugins/xdp/development_guide.md)
 - [Go Plugin Development Guide](./plugins/golang/development_guide.md)
 - [Testing Procedures](./testing/TESTING.md)
+- [Performance Benchmarks](./performance/benchmarks_zh.md)
+- [Cloud Environment Support](./cloud/realip.md)
+- [Project Evaluation](./evaluation_zh.md)
 
 ## Getting Started
 
