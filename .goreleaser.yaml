@@ -18,6 +18,9 @@ builds:
     main: ./cmd/netxfw
     ldflags:
       - -s -w -X github.com/livp123/netxfw/internal/version.Version={{.Tag}}
+    hooks:
+      post:
+        - upx --best "{{ .Path }}"
 
   - id: netxfw-arm64
     env:
@@ -30,6 +33,9 @@ builds:
     main: ./cmd/netxfw
     ldflags:
       - -s -w -X github.com/livp123/netxfw/internal/version.Version={{.Tag}}
+    hooks:
+      post:
+        - upx --best "{{ .Path }}"
 
 archives:
   - format: tar.gz

@@ -127,8 +127,11 @@ jobs:
 
       - name: Build
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o netxfw-linux-amd64 ./cmd/netxfw
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o netxfw-linux-arm64 ./cmd/netxfw
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o netxfw-linux-amd64 ./cmd/netxfw
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o netxfw-linux-arm64 ./cmd/netxfw
+          sudo apt-get update && sudo apt-get install -y upx-ucl
+          upx --best netxfw-linux-amd64 netxfw-linux-arm64
+          ls -lh netxfw-*
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

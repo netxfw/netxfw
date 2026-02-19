@@ -51,7 +51,8 @@ jobs:
               gcc \
               linux-headers-generic \
               linux-headers-$(uname -r) \
-              gcc-aarch64-linux-gnu
+              gcc-aarch64-linux-gnu \
+              upx-ucl
 
           # Create /usr/include/asm symlink if missing (required in GitHub Actions)
           if [ ! -e /usr/include/asm ]; then
