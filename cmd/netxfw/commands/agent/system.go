@@ -105,6 +105,22 @@ var systemLoadCmd = &cobra.Command{
 	},
 }
 
+var systemUnloadCmd = &cobra.Command{
+	Use:   "unload",
+	Short: "Unload XDP driver",
+	// Short: 卸载 XDP 驱动
+	Long: `Unload XDP driver`,
+	// Long: 卸载 XDP 驱动
+	Run: func(cmd *cobra.Command, args []string) {
+		common.EnsureStandaloneMode()
+
+		if err := app.RemoveXDP(cmd.Context(), interfaces); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+	},
+}
+
 var systemReloadCmd = &cobra.Command{
 	Use:   "reload",
 	Short: "Hot-reload XDP program with new configuration",
@@ -123,6 +139,66 @@ Supports capacity changes with state migration.`,
 	},
 }
 
+// systemOnCmd is an alias for systemLoadCmd
+// systemOnCmd 是 systemLoadCmd 的别名
+var systemOnCmd = &cobra.Command{
+	Use:   "on [interface...]",
+	Short: "Load XDP driver (alias for 'load')",
+	// Short: 加载 XDP 驱动（load 的别名）
+	Long: `Load XDP driver. This is an alias for 'system load'.
+
+Examples:
+  netxfw system on              # Load with default interfaces from config
+  netxfw system on eth0         # Load on eth0
+  netxfw system on eth0 eth1    # Load on multiple interfaces`,
+	// Long: 加载 XDP 驱动。这是 'system load' 的别名。
+	Run: func(cmd *cobra.Command, args []string) {
+		common.EnsureStandaloneMode()
+
+		// Use positional args as interfaces if provided
+		// 如果提供了位置参数，使用它们作为接口
+		ifaceList := interfaces
+		if len(args) > 0 {
+			ifaceList = args
+		}
+
+		if err := app.InstallXDP(cmd.Context(), ifaceList); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+	},
+}
+
+// systemOffCmd is an alias for systemUnloadCmd
+// systemOffCmd 是 systemUnloadCmd 的别名
+var systemOffCmd = &cobra.Command{
+	Use:   "off [interface...]",
+	Short: "Unload XDP driver (alias for 'unload')",
+	// Short: 卸载 XDP 驱动（unload 的别名）
+	Long: `Unload XDP driver. This is an alias for 'system unload'.
+
+Examples:
+  netxfw system off              # Unload from all interfaces
+  netxfw system off eth0         # Unload from eth0
+  netxfw system off eth0 eth1    # Unload from multiple interfaces`,
+	// Long: 卸载 XDP 驱动。这是 'system unload' 的别名。
+	Run: func(cmd *cobra.Command, args []string) {
+		common.EnsureStandaloneMode()
+
+		// Use positional args as interfaces if provided
+		// 如果提供了位置参数，使用它们作为接口
+		ifaceList := interfaces
+		if len(args) > 0 {
+			ifaceList = args
+		}
+
+		if err := app.RemoveXDP(cmd.Context(), ifaceList); err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+	},
+}
+
 func init() {
 	SystemCmd.AddCommand(systemInitCmd)
 	SystemCmd.AddCommand(systemStatusCmd)
@@ -132,8 +208,16 @@ func init() {
 	systemLoadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to attach XDP to")
 	SystemCmd.AddCommand(systemLoadCmd)
 
+	systemUnloadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to detach XDP from")
+	SystemCmd.AddCommand(systemUnloadCmd)
+
 	systemReloadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to attach XDP to")
 	SystemCmd.AddCommand(systemReloadCmd)
+
+	// Add on/off aliases
+	// 添加 on/off 别名
+	SystemCmd.AddCommand(systemOnCmd)
+	SystemCmd.AddCommand(systemOffCmd)
 }
 
 // showStatus displays the system status including statistics and configuration
