@@ -273,13 +273,10 @@ cloud:
     # Cache TTL for real IP mappings / 真实 IP 映射缓存 TTL
     cache_ttl: "5m"
   
-  # Real IP blacklist (block based on real client IP behind LB)
-  # 真实 IP 黑名单（基于 LB 后的真实客户端 IP 封禁）
-  realip_blacklist: []
-  # Example / 示例:
-  # - ip: "192.168.1.100"
-  #   reason: "Malicious attack / 恶意攻击"
-  #   duration: "24h"
+  # Real IP blacklist is managed via API/CLI, not in config file.
+  # 真实 IP 黑名单通过 API/CLI 管理，不存储在配置文件中。
+  # Use: netxfw cloud block <ip> --reason "xxx" --duration "24h"
+  # 使用: netxfw cloud block <ip> --reason "xxx" --duration "24h"
 `
 
 // GlobalConfig represents the top-level configuration structure.
@@ -404,10 +401,11 @@ type MCPConfig struct {
 // CloudConfig defines the configuration for cloud environment support.
 // CloudConfig 定义云环境支持配置。
 type CloudConfig struct {
-	Enabled         bool                   `yaml:"enabled"`          // Enable cloud environment support / 启用云环境支持
-	Provider        string                 `yaml:"provider"`         // Cloud provider: alibaba, tencent, aws, azure, gcp, other / 云服务商
-	ProxyProtocol   ProxyProtocolConfig    `yaml:"proxy_protocol"`   // Proxy Protocol configuration / Proxy Protocol 配置
-	RealIPBlacklist []RealIPBlacklistEntry `yaml:"realip_blacklist"` // Real IP blacklist / 真实 IP 黑名单
+	Enabled       bool                `yaml:"enabled"`        // Enable cloud environment support / 启用云环境支持
+	Provider      string              `yaml:"provider"`       // Cloud provider: alibaba, tencent, aws, azure, gcp, other / 云服务商
+	ProxyProtocol ProxyProtocolConfig `yaml:"proxy_protocol"` // Proxy Protocol configuration / Proxy Protocol 配置
+	// RealIPBlacklist is managed via API/CLI, stored in dynamic_blacklist map.
+	// 真实 IP 黑名单通过 API/CLI 管理，存储在 dynamic_blacklist Map 中。
 }
 
 // ProxyProtocolConfig defines the Proxy Protocol configuration.
@@ -416,14 +414,6 @@ type ProxyProtocolConfig struct {
 	Enabled         bool     `yaml:"enabled"`           // Enable Proxy Protocol parsing / 启用 Proxy Protocol 解析
 	TrustedLBRanges []string `yaml:"trusted_lb_ranges"` // Trusted LB IP ranges (custom ranges) / 可信 LB IP 范围（自定义范围）
 	CacheTTL        string   `yaml:"cache_ttl"`         // Cache TTL / 缓存 TTL
-}
-
-// RealIPBlacklistEntry defines a real IP blacklist entry.
-// RealIPBlacklistEntry 定义真实 IP 黑名单条目。
-type RealIPBlacklistEntry struct {
-	IP       string `yaml:"ip"`       // IP address / IP 地址
-	Reason   string `yaml:"reason"`   // Block reason / 封禁原因
-	Duration string `yaml:"duration"` // Block duration / 封禁持续时间
 }
 
 // ClusterConfig defines the configuration for clustering.

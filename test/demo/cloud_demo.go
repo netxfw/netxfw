@@ -152,16 +152,15 @@ func demoRealIPBlacklist() {
 	fmt.Println("添加真实 IP 到黑名单:")
 	fmt.Println()
 
-	// 从配置加载
-	fmt.Println("1. 从配置文件加载:")
-	configEntries := []realip.BlacklistConfigEntry{
-		{IP: "192.168.1.100", Reason: "SSH 暴力破解", Duration: "24h"},
-		{IP: "192.168.1.200", Reason: "端口扫描", Duration: "1h"},
-	}
-	mgr.LoadFromConfig(configEntries)
+	// 从 CLI/API 加载
+	fmt.Println("1. 通过 CLI/API 添加:")
+	fmt.Println("   $ netxfw cloud block 192.168.1.100 --reason \"SSH 暴力破解\" --duration \"24h\"")
+	mgr.AddToBlacklistWithSource("192.168.1.100", "SSH 暴力破解", 24*time.Hour, "api")
+	fmt.Println("   $ netxfw cloud block 192.168.1.200 --reason \"端口扫描\" --duration \"1h\"")
+	mgr.AddToBlacklistWithSource("192.168.1.200", "端口扫描", 1*time.Hour, "api")
 
 	fmt.Println()
-	fmt.Println("2. 通过 API 添加:")
+	fmt.Println("2. 通过 API 批量添加:")
 	mgr.AddToBlacklistWithSource("10.0.0.50", "恶意请求", 30*time.Minute, "api")
 
 	fmt.Println()
