@@ -1,57 +1,359 @@
-# netxfw Architecture Design
+# netxfw 架构设计
 
-## Overview
-`netxfw` is a high-performance, programmable firewall built on **eBPF (Extended Berkeley Packet Filter)** and **XDP (eXpress Data Path)**. It operates at the earliest possible point in the Linux networking stack (the driver hook), allowing it to drop or redirect packets with minimal CPU overhead before they reach the kernel's networking stack (`sk_buff` allocation).
+## 概览
+`netxfw` 是一个基于 **eBPF (Extended Berkeley Packet Filter)** 和 **XDP (eXpress Data Path)** 构建的高性能可编程防火墙。它运行在 Linux 网络栈的最前端（网卡驱动钩子），能够在数据包到达内核网络栈（`sk_buff` 分配）之前，以极低的 CPU 开销丢弃或重定向数据包。
 
-## Core Components
+## 整体架构
 
-### 1. Data Plane (eBPF/XDP)
-The data plane is written in C and compiled into BPF bytecode. It runs directly in the kernel.
-*   **Location**: `bpf/`
-*   **Key Features**:
-    *   **Unified LPM Trie**: Uses a single 128-bit Longest Prefix Match (LPM) Trie for both IPv4 and IPv6 traffic. IPv4 addresses are handled as IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`).
-    *   **Lockless Design**: Uses per-CPU arrays and hash maps for statistics to minimize locking contention.
-    *   **XDP Actions**: Supports `XDP_DROP` (Block), `XDP_PASS` (Allow), and `XDP_TX` (Bounce - planned).
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              NetXFW 整体架构                                     │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │                           CLI 命令层 (cmd/)                              │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐  │   │
+│  │  │  netxfw      │  │ netxfw-agent │  │ netxfw-dp / netxfw-controller│  │   │
+│  │  │ (主命令)     │  │ (Agent 进程) │  │ (数据平面进程)               │  │   │
+│  │  └──────┬───────┘  └──────┬───────┘  └──────────────┬───────────────┘  │   │
+│  └─────────┼─────────────────┼──────────────────────────┼──────────────────┘   │
+│            │                 │                          │                       │
+│  ┌─────────▼─────────────────▼──────────────────────────▼──────────────────┐   │
+│  │                           SDK 层 (pkg/sdk/)                              │   │
+│  │  ┌──────────────────────────────────────────────────────────────────┐  │   │
+│  │  │  SDK (统一 API 接口)                                              │  │   │
+│  │  │  ├── Manager 接口 (黑名单/白名单/限速/连接跟踪...)                │  │   │
+│  │  │  ├── Stats 接口 (统计信息)                                        │  │   │
+│  │  │  └── Mock (测试模拟)                                              │  │   │
+│  │  └──────────────────────────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                          │
+│  ┌───────────────────────────────────▼─────────────────────────────────────┐   │
+│  │                         核心层 (internal/xdp/)                           │   │
+│  │  ┌─────────────────────────────────────────────────────────────────┐   │   │
+│  │  │  XDP Manager - eBPF 程序管理                                     │   │   │
+│  │  │  ├── 程序加载/卸载/热重载                                        │   │   │
+│  │  │  ├── Map 操作 (黑名单/白名单/限速/连接跟踪)                      │   │   │
+│  │  │  ├── 统计收集 (PPS/BPS/丢包率)                                   │   │   │
+│  │  │  └── 健康检查                                                    │   │   │
+│  │  └─────────────────────────────────────────────────────────────────┘   │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                          │
+│  ┌───────────────────────────────────▼─────────────────────────────────────┐   │
+│  │                         服务层 (internal/)                               │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │   │
+│  │  │   api/       │  │   daemon/    │  │   app/       │  │  config/   │  │   │
+│  │  │  HTTP API    │  │  守护进程    │  │  应用入口    │  │  配置管理  │  │   │
+│  │  │  RESTful     │  │  Agent/DP    │  │  InstallXDP  │  │  Manager   │  │   │
+│  │  │  Web UI      │  │  同步/监控   │  │  RemoveXDP   │  │  Loader    │  │   │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘  └────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                          │
+│  ┌───────────────────────────────────▼─────────────────────────────────────┐   │
+│  │                         插件层 (internal/plugins/)                       │   │
+│  │  ┌──────────────────────────────────────────────────────────────────┐  │   │
+│  │  │  plugins/                                                         │  │   │
+│  │  │  ├── types/              (插件接口定义)                           │  │   │
+│  │  │  ├── registry.go         (插件注册表)                             │  │   │
+│  │  │  └── agent/                                                       │  │   │
+│  │  │      ├── logengine/      (日志引擎插件)                           │  │   │
+│  │  │      ├── metrics/        (指标插件)                               │  │   │
+│  │  │      └── web/            (Web UI 插件)                            │  │   │
+│  │  └──────────────────────────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                          │
+│  ┌───────────────────────────────────▼─────────────────────────────────────┐   │
+│  │                       功能模块层 (internal/)                             │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │   │
+│  │  │ cloudconfig/ │  │  proxyproto/ │  │   realip/    │  │  ppfilter/ │  │   │
+│  │  │ 云服务商配置 │  │  PP 协议解析 │  │  真实IP管理  │  │  提取器    │  │   │
+│  │  │ 阿里/腾讯/AWS│  │  V1/V2       │  │  黑名单同步  │  │  连接包装  │  │   │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘  └────────────┘  │   │
+│  │                                                                         │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │   │
+│  │  │   cluster/   │  │   engine/    │  │  optimizer/  │  │  metrics/  │  │   │
+│  │  │  集群管理    │  │  TinyML引擎  │  │  规则优化    │  │  指标收集  │  │   │
+│  │  │  高可用      │  │  异常检测    │  │  CIDR合并    │  │  Prometheus│  │   │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘  └────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                          │
+│  ┌───────────────────────────────────▼─────────────────────────────────────┐   │
+│  │                        工具层 (internal/utils/)                          │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │   │
+│  │  │   logger/    │  │   fmtutil/   │  │   iputil/    │  │  ipmerge/  │  │   │
+│  │  │  日志框架    │  │  格式化工具  │  │  IP 工具     │  │  IP 合并   │  │   │
+│  │  │  Zap 封装    │  │  数字/时间   │  │  IPv4/IPv6   │  │  CIDR 优化 │  │   │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘  └────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                          │
+│  ┌───────────────────────────────────▼─────────────────────────────────────┐   │
+│  │                          eBPF 层 (bpf/)                                  │   │
+│  │  ┌──────────────────────────────────────────────────────────────────┐  │   │
+│  │  │  XDP 程序 (内核态运行)                                            │  │   │
+│  │  │  ├── include/            (公共头文件)                             │  │   │
+│  │  │  ├── protocols/          (协议处理: TCP/UDP/ICMP)                 │  │   │
+│  │  │  ├── modules/            (功能模块: 过滤/限速/连接跟踪)           │  │   │
+│  │  │  └── plugins/            (插件扩展点)                             │  │   │
+│  │  └──────────────────────────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
 
-### 2. Control Plane (Go Agent)
-The control plane is written in Go and runs in user space. It manages the lifecycle of the BPF programs and interacts with BPF maps.
-*   **Location**: `cmd/netxfw`, `internal/`
-*   **Responsibilities**:
-    *   **Load/Unload**: Loads XDP programs using `cilium/ebpf` and pins Maps to `/sys/fs/bpf/netxfw_v2`.
-    *   **Map Management**: CRUD operations on BPF Maps (add/remove rules).
-    *   **Persistence**: Syncs in-memory BPF Map state to `rules.deny.txt` and `config.yaml`.
-    *   **CLI**: User-friendly command-line interface (`netxfw rule add`, `netxfw system top`).
+## 核心组件
 
-## Unified Dual-Stack Architecture
-To simplify maintenance and reduce memory usage, `netxfw` uses a unified Map strategy:
+### 1. 数据面 (Data Plane - eBPF/XDP)
+数据面由 C 语言编写，编译为 BPF 字节码，直接在内核中运行。
+*   **位置**: `bpf/`
+*   **核心特性**:
+    *   **统一 LPM Trie**: 使用单个 128 位最长前缀匹配 (LPM) Trie 同时处理 IPv4 和 IPv6 流量。IPv4 地址在内部被处理为 IPv4 映射的 IPv6 地址 (`::ffff:a.b.c.d`)。
+    *   **无锁设计**: 使用 Per-CPU 数组和哈希表存储统计信息，最大程度减少锁竞争。
+    *   **XDP 动作**: 支持 `XDP_DROP` (拦截), `XDP_PASS` (放行), 和 `XDP_TX` (回弹 - 计划中)。
+
+### 2. 控制面 (Control Plane - Go Agent)
+控制面由 Go 语言编写，运行在用户空间，负责管理 BPF 程序的生命周期并与 BPF Map 交互。
+*   **位置**: `cmd/netxfw`, `internal/`
+*   **主要职责**:
+    *   **加载/卸载**: 使用 `cilium/ebpf` 库加载 XDP 程序并将 Map 固定 (Pin) 到 `/sys/fs/bpf/netxfw_v2`。
+    *   **Map 管理**: 对 BPF Map 进行增删改查操作 (添加/移除规则)。
+    *   **持久化**: 将内存中的 BPF Map 状态同步到 `rules.deny.txt` 和 `config.yaml`。
+    *   **CLI**: 提供用户友好的命令行接口 (`netxfw rule add`, `netxfw system status`)。
+
+## 目录结构
+
+```
+netxfw/
+├── bpf/                          # eBPF 程序源码
+│   ├── include/                  # 公共头文件
+│   ├── protocols/                # 协议处理模块
+│   ├── modules/                  # 功能模块
+│   └── plugins/                  # 插件扩展
+│
+├── cmd/                          # 命令行入口
+│   ├── netxfw/                   # 主命令
+│   │   └── commands/
+│   │       ├── agent/            # Agent 命令 (rule, limit, security, port, system)
+│   │       ├── dp/               # 数据平面命令 (conntrack)
+│   │       └── common/           # 共享代码
+│   ├── netxfw-agent/             # Agent 进程入口
+│   ├── netxfw-dp/                # 数据平面进程入口
+│   └── netxfw-controller/        # 控制器入口
+│
+├── pkg/                          # 公共包
+│   ├── sdk/                      # SDK 接口 (统一 API)
+│   │   └── mock/                 # Mock 实现 (测试)
+│   ├── rules/                    # 规则处理
+│   └── storage/                  # 存储抽象
+│
+├── internal/                     # 内部实现
+│   ├── xdp/                      # XDP 核心实现
+│   │   ├── xdp_manager.go        # XDP 管理器
+│   │   ├── xdp.go                # XDP 程序加载/附加
+│   │   ├── adapter.go            # SDK 适配器
+│   │   ├── xdp_rules.go          # IP+端口规则
+│   │   ├── xdp_stats.go          # 统计信息
+│   │   ├── incremental_update.go # 增量更新
+│   │   ├── metrics_collector.go  # 指标收集
+│   │   └── health_check.go       # 健康检查
+│   │
+│   ├── api/                      # HTTP API
+│   │   ├── server.go             # API 服务器
+│   │   ├── handlers.go           # 请求处理
+│   │   ├── auth.go               # JWT 认证
+│   │   └── ui.go                 # Web UI
+│   │
+│   ├── daemon/                   # 守护进程
+│   │   ├── agent.go              # Agent 模式
+│   │   ├── dp.go                 # DP 模式
+│   │   └── standalone.go         # 单机模式
+│   │
+│   ├── app/                      # 应用入口
+│   │   └── ops.go                # InstallXDP, RemoveXDP, ReloadXDP
+│   │
+│   ├── config/                   # 配置管理
+│   │   ├── manager.go            # 配置管理器
+│   │   └── constants.go          # 常量定义
+│   │
+│   ├── core/engine/              # 核心引擎模块
+│   │   ├── base.go               # 基础策略模块
+│   │   ├── conntrack.go          # 连接跟踪模块
+│   │   ├── port.go               # 端口管理模块
+│   │   └── ratelimit.go          # 限速模块
+│   │
+│   ├── plugins/                  # 插件系统
+│   │   ├── types/                # 插件类型定义
+│   │   ├── registry.go           # 插件注册表
+│   │   └── agent/
+│   │       ├── logengine/        # 日志引擎插件
+│   │       ├── metrics/          # 指标收集插件
+│   │       └── web/              # Web UI 插件
+│   │
+│   ├── cloudconfig/              # 云服务商配置
+│   ├── proxyproto/               # Proxy Protocol 解析
+│   ├── realip/                   # 真实 IP 管理
+│   ├── ppfilter/                 # 连接过滤器
+│   ├── cluster/                  # 集群管理
+│   ├── engine/                   # TinyML 引擎
+│   ├── optimizer/                # 规则优化
+│   ├── metrics/                  # 指标系统
+│   ├── runtime/                  # 运行时状态
+│   ├── version/                  # 版本信息
+│   │
+│   └── utils/                    # 工具函数
+│       ├── logger/               # 日志框架 (Zap)
+│       ├── fmtutil/              # 格式化工具
+│       ├── iputil/               # IP 工具
+│       ├── ipmerge/              # IP 合并
+│       └── fileutil/             # 文件工具
+│
+├── config/                       # 配置文件示例
+├── docs/                         # 文档
+├── test/                         # 测试
+│   ├── unit/                     # 单元测试
+│   ├── integration/              # 集成测试
+│   ├── demo/                     # 演示程序
+│   └── log-engine/               # 日志引擎测试
+│
+└── scripts/                      # 脚本
+```
+
+## 统一双栈架构
+为了简化维护并减少内存占用，`netxfw` 采用了统一 Map 策略：
 *   **Map**: `lock_list` (LPM Trie)
-*   **Key**: `struct lpm_key` (128-bit IPv6 address + prefix length)
-*   **IPv4 Handling**:
-    *   User input: `192.0.2.1`
-    *   Internal conversion: `::ffff:192.0.2.1`
-    *   Storage: Stored in the 128-bit Trie.
-    *   Lookup: Incoming IPv4 packets are constructed as IPv4-mapped IPv6 Keys before lookup.
+*   **Key**: `struct lpm_key` (128 位 IPv6 地址 + 前缀长度)
+*   **IPv4 处理**:
+    *   用户输入: `192.0.2.1`
+    *   内部转换: `::ffff:192.0.2.1`
+    *   存储: 存入 128 位 Trie 中。
+    *   查找: 进入的 IPv4 数据包在查找前会被构造为 IPv4 映射的 IPv6 Key。
 
-## Directory Structure
-*   `bpf/`: eBPF source code (`.c`) and headers.
-*   `cmd/netxfw/`: Main entry point for the Go binary.
-*   `internal/core/`: Business logic for rule management.
-*   `internal/xdp/`: Low-level BPF interaction (loading, Map wrappers).
-*   `rules/`: Default configuration files.
-*   `test/`: Integration and unit tests.
+## 数据流向
 
-## Data Flow
-1.  **Packet Arrival**: NIC receives packet -> XDP driver hook.
-2.  **Parsing**: `filter.bpf.c` parses Ethernet -> IP (v4/v6) -> L4 headers.
-3.  **Lookup**:
-    *   Check `whitelist` (Allow).
-    *   Check `lock_list` (Block).
-    *   Check `ip_port_rules` (Fine-grained).
-4.  **Decision**:
-    *   If Match Deny -> `XDP_DROP` + Increment drop counter.
-    *   If No Match -> `XDP_PASS` (Continue to kernel stack).
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              数据包处理流程                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────┐                                                             │
+│  │ 网卡接收    │                                                             │
+│  │ 数据包      │                                                             │
+│  └──────┬──────┘                                                             │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │                        XDP 钩子 (内核态)                                │ │
+│  │                                                                         │ │
+│  │   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                │ │
+│  │   │  以太网解析  │───▶│  IP 层解析  │───▶│  L4 层解析  │                │ │
+│  │   └─────────────┘    └─────────────┘    └─────────────┘                │ │
+│  │                                                │                        │ │
+│  │                                                ▼                        │ │
+│  │   ┌─────────────────────────────────────────────────────────────────┐  │ │
+│  │   │                        规则匹配                                  │  │ │
+│  │   │                                                                 │  │ │
+│  │   │   1. 检查白名单 (whitelist)      ──▶ 匹配 → XDP_PASS           │  │ │
+│  │   │   2. 检查黑名单 (lock_list)      ──▶ 匹配 → XDP_DROP           │  │ │
+│  │   │   3. 检查动态黑名单 (dynamic)    ──▶ 匹配 → XDP_DROP           │  │ │
+│  │   │   4. 检查 IP+端口规则            ──▶ 匹配 → 执行动作           │  │ │
+│  │   │   5. 检查限速规则 (rate_limit)   ──▶ 超限 → XDP_DROP           │  │ │
+│  │   │   6. 检查连接跟踪 (conntrack)    ──▶ 已建立 → XDP_PASS         │  │ │
+│  │   │   7. 默认策略                    ──▶ 根据配置决定              │  │ │
+│  │   │                                                                 │  │ │
+│  │   └─────────────────────────────────────────────────────────────────┘  │ │
+│  │                                                                         │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌─────────────┐     ┌─────────────┐                                        │
+│  │ XDP_DROP    │     │ XDP_PASS    │                                        │
+│  │ (丢弃)      │     │ (放行)      │                                        │
+│  └─────────────┘     └──────┬──────┘                                        │
+│                             │                                                │
+│                             ▼                                                │
+│                      ┌─────────────┐                                         │
+│                      │ 内核网络栈  │                                         │
+│                      └─────────────┘                                         │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
 
-## Persistence Model
-*   **Runtime**: `/sys/fs/bpf/netxfw_v2/*` (Pinned BPF Maps).
-*   **Storage**: `rules.deny.txt` (Plain text list) & `config.yaml`.
-*   **Sync**: `netxfw system sync` command handles bidirectional sync between runtime state and storage.
+## 持久化模型
+*   **运行时**: `/sys/fs/bpf/netxfw_v2/*` (固定的 BPF Maps)
+*   **存储**: `rules.deny.txt` (纯文本列表) & `config.yaml`
+*   **同步**: `netxfw system sync` 命令负责运行时状态与存储之间的双向同步
+
+## 运行模式
+
+### 单机模式 (Standalone)
+```bash
+# 加载 XDP 程序
+netxfw system on eth0
+
+# 启动守护进程 (指标收集 + 规则同步)
+netxfw system daemon
+```
+
+### Agent/DP 模式 (分布式)
+```bash
+# 数据平面 (XDP 程序)
+netxfw-dp --mode dp
+
+# 控制平面 (API + 管理)
+netxfw-agent --mode agent
+```
+
+## BPF Map 类型
+
+| Map 名称 | 类型 | 用途 |
+|----------|------|------|
+| `lock_list` | LPM Trie | 静态黑名单 (CIDR) |
+| `dynamic_blacklist` | LRU Hash | 动态黑名单 (单 IP) |
+| `whitelist` | LPM Trie | 白名单 (CIDR) |
+| `conntrack` | Hash | 连接跟踪表 |
+| `rate_limit` | Hash | 限速规则 |
+| `ip_port_rules` | Hash | IP+端口规则 |
+| `stats` | Per-CPU Array | 统计信息 |
+| `drop_details` | Per-CPU Hash | 丢包详情 |
+| `pass_details` | Per-CPU Hash | 通过详情 |
+
+## 插件架构
+
+```go
+// Plugin interface / 插件接口
+type Plugin interface {
+    Name() string
+    Init(ctx *PluginContext) error
+    Start(ctx *PluginContext) error
+    Stop(ctx *PluginContext) error
+    Reload(ctx *PluginContext) error
+}
+```
+
+### 内置插件
+
+| 插件 | 位置 | 功能 |
+|------|------|------|
+| **LogEngine** | `plugins/agent/logengine/` | 流量日志、规则匹配 |
+| **Metrics** | `plugins/agent/metrics/` | Prometheus 指标 |
+| **Web** | `plugins/agent/web/` | Web 管理界面 |
+
+## 云环境支持
+
+NetXFW 支持在云服务商负载均衡器环境下获取真实客户端 IP：
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   客户端    │────▶│   云 LB     │────▶│   NetXFW    │
+│  真实 IP    │     │  Proxy Proto│     │  解析真实IP │
+└─────────────┘     └─────────────┘     └─────────────┘
+```
+
+支持的云服务商：
+- 阿里云
+- 腾讯云
+- AWS (aws)
+- Azure (azure)
+- GCP (gcp)
+- 其他
+
+详见 [云环境真实 IP 获取文档](cloud/realip.md)。

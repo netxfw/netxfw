@@ -19,7 +19,7 @@
 
 | 文档 | 中文 (默认) | 英文 (辅助) |
 |------|-------------|-------------|
-| 架构概览 | [architecture_zh.md](./architecture_zh.md) | [English](./architecture.md) |
+| 架构概览 | [architecture.md](./architecture.md) | [English](./architecture_en.md) |
 | 单机版架构 | [standalone/architecture.md](./standalone/architecture.md) | - |
 | 包过滤流程 | [standalone/PACKET_FILTER_FLOW.md](./standalone/PACKET_FILTER_FLOW.md) | - |
 
@@ -42,14 +42,14 @@
 
 | 文档 | 中文 (默认) | 英文 (辅助) |
 |------|-------------|-------------|
-| 性能基准测试 | [performance/benchmarks_zh.md](./performance/benchmarks_zh.md) | [English](./performance/benchmarks.md) |
+| 性能基准测试 | [performance/benchmarks.md](./performance/benchmarks.md) | [English](./performance/benchmarks_en.md) |
 | 云环境真实 IP | [cloud/realip.md](./cloud/realip.md) | [English](./cloud/realip_en.md) |
 
 ### 项目评估
 
 | 文档 | 中文 (默认) | 英文 (辅助) |
 |------|-------------|-------------|
-| 项目评估报告 | [evaluation_zh.md](./evaluation_zh.md) | [English](./evaluation.md) |
+| 项目评估报告 | [evaluation.md](./evaluation.md) | [English](./evaluation_en.md) |
 
 ### 其他文档
 
@@ -79,4 +79,4 @@
 | 项目评估 | ✅ | ✅ | 完整 |
 | 测试指南 | ✅ | - | 仅英文 |
 
-> **说明**: 中文为默认文档，英文为辅助文档。核心文档均已提供双语版本。
+> **说明**: 中文为默认文档 (无后缀)，英文为辅助文档 (_en.md 后缀)。核心文档均已提供双语版本。

@@ -296,6 +296,6 @@ sudo journalctl -u netxfw -f
 
 ## 相关文档
 
-- [架构设计](../architecture_zh.md)
+- [架构设计](../architecture.md)
 - [CLI 命令手册](../cli/cli.md)
 - [插件开发指南](../plugins/plugins.md)
