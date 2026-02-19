@@ -25,9 +25,9 @@ func SyncLockMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, lock bo
 		// 1. 检查白名单中是否存在冲突（加锁前的只读检查）
 		conflict, err := xdpMgr.IsIPInWhitelist(cidrStr)
 		if err == nil && conflict {
-			fmt.Printf("⚠️  [Conflict] %s (Already in whitelist).\n", cidrStr)
+			log.Warnf("⚠️  [Conflict] %s (Already in whitelist).", cidrStr)
 			if !force && !AskConfirmation("Do you want to remove it from whitelist and add to blacklist?") {
-				fmt.Println("Aborted.")
+				log.Info("Aborted.")
 				return nil
 			}
 		}
@@ -157,9 +157,9 @@ func SyncWhitelistMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, po
 		// 1. 检查冲突（只读）
 		conflict, err := xdpMgr.IsIPInBlacklist(cidrStr)
 		if err == nil && conflict {
-			fmt.Printf("⚠️  [Conflict] %s (Already in blacklist).\n", cidrStr)
+			log.Warnf("⚠️  [Conflict] %s (Already in blacklist).", cidrStr)
 			if !force && !AskConfirmation("Do you want to remove it from blacklist and add to whitelist?") {
-				fmt.Println("Aborted.")
+				log.Info("Aborted.")
 				return nil
 			}
 		}
