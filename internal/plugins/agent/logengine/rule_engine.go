@@ -421,8 +421,8 @@ func (re *RuleEngine) UpdateRules(configs []types.LogEngineRule) error {
 		src = preprocessExpression(src)
 
 		// Compile (always using Env)
-		// Debug print
-		fmt.Printf("Compiling Rule %s: %s\n", cfg.ID, src)
+		// Debug log for rule compilation
+		logger.Get(nil).Debugf("Compiling Rule %s: %s", cfg.ID, src)
 		program, err := expr.Compile(src, expr.Env(&Env{}))
 
 		if err != nil {

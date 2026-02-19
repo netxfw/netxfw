@@ -5,6 +5,9 @@ import (
 	"net/netip"
 	"time"
 
+	"go.uber.org/zap"
+
+	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/pkg/sdk"
 )
 
@@ -29,6 +32,7 @@ type XDPActionHandler struct {
 	lockListFile string
 	actionChan   chan actionRequest
 	stopChan     chan struct{}
+	log          *zap.SugaredLogger
 }
 
 type actionRequest struct {
@@ -44,6 +48,7 @@ func NewXDPActionHandler(s *sdk.SDK, lockListFile string) *XDPActionHandler {
 		lockListFile: lockListFile,
 		actionChan:   make(chan actionRequest, 1024), // Buffer for burst protection
 		stopChan:     make(chan struct{}),
+		log:          logger.Get(nil),
 	}
 	go h.run()
 	return h
@@ -92,6 +97,6 @@ func (h *XDPActionHandler) execute(req actionRequest) {
 	}
 
 	if err != nil {
-		fmt.Printf("❌ [AsyncAction] Failed to execute action for %s: %v\n", req.ip, err)
+		h.log.Errorf("❌ [AsyncAction] Failed to execute action for %s: %v", req.ip, err)
 	}
 }
