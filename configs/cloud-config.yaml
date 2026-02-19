@@ -1,0 +1,88 @@
+# NetXFW Cloud Environment Configuration
+# NetXFW 云环境配置示例
+
+# Cloud provider configuration
+# 云服务商配置
+cloud:
+  # Provider: alibaba, tencent, aws, azure, gcp, other
+  # 服务商: alibaba, tencent, aws, azure, gcp, other
+  provider: alibaba
+  
+  # Method to get real client IP
+  # 获取真实客户端 IP 的方法
+  # - proxy_protocol: Use Proxy Protocol (recommended for L4 LB)
+  # - x_forwarded_for: Use X-Forwarded-For header (for L7 LB)
+  # - toa: Use TOA module (Tencent Cloud specific)
+  # - transparent: Transparent mode (DR mode)
+  # - none: No special handling
+  real_ip_method: proxy_protocol
+  
+  # Enable Proxy Protocol parsing
+  # 启用 Proxy Protocol 解析
+  proxy_protocol_enabled: true
+  
+  # Trusted proxy IP ranges (cloud LB IPs)
+  # 可信代理 IP 范围（云 LB IP）
+  trusted_proxies:
+    - "10.0.0.0/8"
+    - "100.64.0.0/10"
+    - "172.16.0.0/12"
+  
+  # Load balancer IPs (optional, for logging)
+  # 负载均衡器 IP（可选，用于日志）
+  load_balancer_ips:
+    - "10.0.1.100"
+    - "10.0.1.101"
+  
+  # HTTP headers for real IP extraction (for L7 LB)
+  # 用于提取真实 IP 的 HTTP 头（用于 L7 LB）
+  http_headers:
+    - "X-Forwarded-For"
+    - "X-Real-IP"
+    - "ClientIP"
+
+# Network configuration
+# 网络配置
+network:
+  interfaces:
+    - name: "eth0"
+      xdp_mode: "skb"
+  
+  # Connection tracking
+  # 连接跟踪
+  conntrack_timeout: 300
+
+# Security configuration
+# 安全配置
+security:
+  # Default action: pass or drop
+  # 默认动作: pass 或 drop
+  default_action: pass
+  
+  # Rate limiting
+  # 速率限制
+  rate_limit:
+    enabled: true
+    burst: 1000
+    rate: 100
+
+# Logging configuration
+# 日志配置
+logging:
+  enabled: true
+  level: info
+  path: /var/log/netxfw/netxfw.log
+  max_size: 100
+  max_backups: 10
+  max_age: 30
+  compress: true
+
+# Monitoring configuration
+# 监控配置
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9090
+  health_check:
+    enabled: true
+    port: 8080
