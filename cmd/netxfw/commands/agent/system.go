@@ -282,7 +282,6 @@ func showMapStatistics(mgr sdk.ManagerInterface) {
 	// Get map counts / 获取 Map 计数
 	blacklistCount, _ := mgr.GetLockedIPCount()
 	whitelistCount, _ := mgr.GetWhitelistCount()
-	conntrackCount, _ := mgr.GetConntrackCount()
 	dynBlacklistCount, _ := mgr.GetDynLockListCount()
 
 	// Get rate limit rules / 获取限速规则
@@ -298,7 +297,6 @@ func showMapStatistics(mgr sdk.ManagerInterface) {
 	// 从配置获取最大容量或使用 CapacityConfig 默认值
 	maxBlacklist := 2000000
 	maxWhitelist := 65536
-	maxConntrack := 100000
 	maxDynBlacklist := 2000000
 	maxIPPortRules := 65536
 	maxRateLimits := 1000
@@ -309,9 +307,6 @@ func showMapStatistics(mgr sdk.ManagerInterface) {
 		}
 		if capacityCfg.Whitelist > 0 {
 			maxWhitelist = capacityCfg.Whitelist
-		}
-		if capacityCfg.Conntrack > 0 {
-			maxConntrack = capacityCfg.Conntrack
 		}
 		if capacityCfg.DynLockList > 0 {
 			maxDynBlacklist = capacityCfg.DynLockList
@@ -339,10 +334,8 @@ func showMapStatistics(mgr sdk.ManagerInterface) {
 		"⚪ Whitelist", whitelistCount, maxWhitelist,
 		fmt.Sprintf("%.1f%%", calculatePercentGeneric(whitelistCount, uint64(maxWhitelist))),
 		getUsageIndicator(whitelistCount, maxWhitelist))
-	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
-		"🔗 Conntrack", conntrackCount, maxConntrack,
-		fmt.Sprintf("%.1f%%", calculatePercentGeneric(conntrackCount, uint64(maxConntrack))),
-		getUsageIndicator(conntrackCount, maxConntrack))
+	// Conntrack is shown in detail in Conntrack Health section, skip here
+	// Conntrack 在 Conntrack Health 部分详细显示，此处跳过
 	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
 		"📋 IP+Port Rules", len(ipPortRules), maxIPPortRules,
 		fmt.Sprintf("%.1f%%", calculatePercentGeneric(uint64(len(ipPortRules)), uint64(maxIPPortRules))),
