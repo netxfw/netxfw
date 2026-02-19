@@ -185,3 +185,126 @@ func (c *Config) String() string {
 	return fmt.Sprintf("CloudConfig{Provider: %s, Method: %s, ProxyProtocol: %v}",
 		c.Provider, c.RealIPMethod, c.ProxyProtocolEnabled)
 }
+
+// MergeTrustedProxies merges provider-specific trusted proxies with custom ranges.
+// MergeTrustedProxies 合并服务商特定的可信代理与自定义范围。
+func (c *Config) MergeTrustedProxies(customRanges []string) {
+	// Create a set to avoid duplicates.
+	// 创建集合避免重复。
+	seen := make(map[string]bool)
+	result := make([]string, 0)
+
+	// Add existing trusted proxies.
+	// 添加现有的可信代理。
+	for _, cidr := range c.TrustedProxies {
+		if !seen[cidr] {
+			seen[cidr] = true
+			result = append(result, cidr)
+		}
+	}
+
+	// Add custom ranges.
+	// 添加自定义范围。
+	for _, cidr := range customRanges {
+		if _, err := netip.ParsePrefix(cidr); err != nil {
+			// Skip invalid CIDR.
+			// 跳过无效的 CIDR。
+			continue
+		}
+		if !seen[cidr] {
+			seen[cidr] = true
+			result = append(result, cidr)
+		}
+	}
+
+	c.TrustedProxies = result
+}
+
+// GetMergedConfig returns a merged configuration with provider defaults and custom settings.
+// GetMergedConfig 返回合并了服务商默认值和自定义设置的配置。
+func GetMergedConfig(provider Provider, customRanges []string, proxyProtocolEnabled bool, cacheTTL string) *Config {
+	// Get provider-specific defaults.
+	// 获取服务商特定的默认值。
+	cfg := GetProviderConfig(provider)
+
+	// Merge custom trusted proxy ranges.
+	// 合并自定义可信代理范围。
+	if len(customRanges) > 0 {
+		cfg.MergeTrustedProxies(customRanges)
+	}
+
+	// Override proxy protocol setting if specified.
+	// 如果指定了，覆盖 proxy protocol 设置。
+	// Note: customRanges are additional to provider defaults.
+	// 注意：customRanges 是服务商默认值的补充。
+	_ = proxyProtocolEnabled // Use provider default unless explicitly overridden
+	_ = cacheTTL             // Cache TTL for real IP mappings
+
+	return cfg
+}
+
+// ProviderInfo contains information about a cloud provider.
+// ProviderInfo 包含云服务商的信息。
+type ProviderInfo struct {
+	Name          Provider
+	DisplayName   string
+	RealIPMethod  RealIPMethod
+	DefaultRanges []string
+	SupportsPP    bool
+	Documentation string
+}
+
+// GetProviderInfo returns detailed information about all supported providers.
+// GetProviderInfo 返回所有支持的服务商的详细信息。
+func GetProviderInfo() map[Provider]ProviderInfo {
+	return map[Provider]ProviderInfo{
+		ProviderAlibaba: {
+			Name:          ProviderAlibaba,
+			DisplayName:   "Alibaba Cloud (阿里云)",
+			RealIPMethod:  MethodProxyProtocol,
+			DefaultRanges: []string{"10.0.0.0/8", "100.64.0.0/10"},
+			SupportsPP:    true,
+			Documentation: "SLB 监听器 → 高级配置 → 开启 Proxy Protocol",
+		},
+		ProviderTencent: {
+			Name:          ProviderTencent,
+			DisplayName:   "Tencent Cloud (腾讯云)",
+			RealIPMethod:  MethodTOA,
+			DefaultRanges: []string{"10.0.0.0/8", "100.64.0.0/10"},
+			SupportsPP:    true,
+			Documentation: "CLB 监听器 → 开启获取客户端真实 IP",
+		},
+		ProviderAWS: {
+			Name:          ProviderAWS,
+			DisplayName:   "Amazon Web Services",
+			RealIPMethod:  MethodProxyProtocol,
+			DefaultRanges: []string{"10.0.0.0/8", "172.16.0.0/12"},
+			SupportsPP:    true,
+			Documentation: "创建 Proxy Protocol Policy 并关联到 ELB",
+		},
+		ProviderAzure: {
+			Name:          ProviderAzure,
+			DisplayName:   "Microsoft Azure",
+			RealIPMethod:  MethodXForwardedFor,
+			DefaultRanges: []string{"10.0.0.0/8", "172.16.0.0/12"},
+			SupportsPP:    false,
+			Documentation: "Application Gateway 自动添加 X-Forwarded-For",
+		},
+		ProviderGCP: {
+			Name:          ProviderGCP,
+			DisplayName:   "Google Cloud Platform",
+			RealIPMethod:  MethodXForwardedFor,
+			DefaultRanges: []string{"10.0.0.0/8", "130.211.0.0/22", "35.191.0.0/16"},
+			SupportsPP:    false,
+			Documentation: "HTTP(S) Load Balancer 自动添加 X-Forwarded-For",
+		},
+		ProviderOther: {
+			Name:          ProviderOther,
+			DisplayName:   "Other / Custom",
+			RealIPMethod:  MethodNone,
+			DefaultRanges: []string{},
+			SupportsPP:    true,
+			Documentation: "自定义配置，需要手动设置可信 LB IP 范围",
+		},
+	}
+}

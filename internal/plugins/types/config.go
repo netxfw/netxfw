@@ -243,6 +243,43 @@ logging:
   max_age: 30
   # Whether to compress old files / 是否压缩旧文件
   compress: true
+
+# Cloud Environment Configuration / 云环境配置
+# Configure for cloud load balancer environments to get real client IP
+# 配置云负载均衡器环境以获取真实客户端 IP
+cloud:
+  # Enable cloud environment support / 启用云环境支持
+  enabled: false
+  
+  # Cloud provider: alibaba, tencent, aws, azure, gcp, other
+  # 云服务商: alibaba, tencent, aws, azure, gcp, other
+  provider: "other"
+  
+  # Proxy Protocol configuration / Proxy Protocol 配置
+  proxy_protocol:
+    # Enable Proxy Protocol parsing / 启用 Proxy Protocol 解析
+    enabled: false
+    
+    # Trusted LB IP ranges (connections from these IPs will be parsed for Proxy Protocol)
+    # 可信 LB IP 范围（来自这些 IP 的连接将解析 Proxy Protocol）
+    # Predefined ranges will be added based on provider, custom ranges can be added here
+    # 预定义范围将根据服务商添加，可在此添加自定义范围
+    trusted_lb_ranges: []
+    # Examples / 示例:
+    # - "10.0.0.0/8"       # Alibaba/Tencent internal network / 阿里云/腾讯云内网
+    # - "100.64.0.0/10"    # Carrier-grade NAT / 运营商级 NAT
+    # - "172.16.0.0/12"    # AWS VPC
+    
+    # Cache TTL for real IP mappings / 真实 IP 映射缓存 TTL
+    cache_ttl: "5m"
+  
+  # Real IP blacklist (block based on real client IP behind LB)
+  # 真实 IP 黑名单（基于 LB 后的真实客户端 IP 封禁）
+  realip_blacklist: []
+  # Example / 示例:
+  # - ip: "192.168.1.100"
+  #   reason: "Malicious attack / 恶意攻击"
+  #   duration: "24h"
 `
 
 // GlobalConfig represents the top-level configuration structure.
@@ -258,6 +295,7 @@ type GlobalConfig struct {
 	LogEngine LogEngineConfig      `yaml:"log_engine"`
 	Capacity  CapacityConfig       `yaml:"capacity"`
 	Logging   logger.LoggingConfig `yaml:"logging"`
+	Cloud     CloudConfig          `yaml:"cloud"`
 	AI        AIConfig             `yaml:"ai"`
 	MCP       MCPConfig            `yaml:"mcp"`
 }
@@ -361,6 +399,31 @@ type MCPConfig struct {
 	Enabled bool   `yaml:"enabled"`
 	Port    int    `yaml:"port"`
 	Mode    string `yaml:"mode"` // "stdio", "sse"
+}
+
+// CloudConfig defines the configuration for cloud environment support.
+// CloudConfig 定义云环境支持配置。
+type CloudConfig struct {
+	Enabled         bool                   `yaml:"enabled"`          // Enable cloud environment support / 启用云环境支持
+	Provider        string                 `yaml:"provider"`         // Cloud provider: alibaba, tencent, aws, azure, gcp, other / 云服务商
+	ProxyProtocol   ProxyProtocolConfig    `yaml:"proxy_protocol"`   // Proxy Protocol configuration / Proxy Protocol 配置
+	RealIPBlacklist []RealIPBlacklistEntry `yaml:"realip_blacklist"` // Real IP blacklist / 真实 IP 黑名单
+}
+
+// ProxyProtocolConfig defines the Proxy Protocol configuration.
+// ProxyProtocolConfig 定义 Proxy Protocol 配置。
+type ProxyProtocolConfig struct {
+	Enabled         bool     `yaml:"enabled"`           // Enable Proxy Protocol parsing / 启用 Proxy Protocol 解析
+	TrustedLBRanges []string `yaml:"trusted_lb_ranges"` // Trusted LB IP ranges (custom ranges) / 可信 LB IP 范围（自定义范围）
+	CacheTTL        string   `yaml:"cache_ttl"`         // Cache TTL / 缓存 TTL
+}
+
+// RealIPBlacklistEntry defines a real IP blacklist entry.
+// RealIPBlacklistEntry 定义真实 IP 黑名单条目。
+type RealIPBlacklistEntry struct {
+	IP       string `yaml:"ip"`       // IP address / IP 地址
+	Reason   string `yaml:"reason"`   // Block reason / 封禁原因
+	Duration string `yaml:"duration"` // Block duration / 封禁持续时间
 }
 
 // ClusterConfig defines the configuration for clustering.
