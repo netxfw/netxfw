@@ -318,7 +318,7 @@ func (mc *MetricsCollector) collectTrafficMetrics() {
 // collectConntrackHealth 收集连接跟踪健康指标。
 func (mc *MetricsCollector) collectConntrackHealth() {
 	if mc.manager == nil || mc.manager.conntrackMap == nil {
-		mc.ConntrackHealth.Status = "unavailable"
+		mc.ConntrackHealth.Status = statusUnavailable
 		mc.ConntrackHealth.Message = "Conntrack map not initialized / 连接跟踪 Map 未初始化"
 		return
 	}
@@ -326,7 +326,7 @@ func (mc *MetricsCollector) collectConntrackHealth() {
 	// Get conntrack count / 获取连接跟踪计数
 	count, err := mc.manager.GetConntrackCount()
 	if err != nil {
-		mc.ConntrackHealth.Status = "error"
+		mc.ConntrackHealth.Status = statusError
 		mc.ConntrackHealth.Message = "Failed to get conntrack count / 获取连接跟踪计数失败"
 		return
 	}
@@ -410,7 +410,7 @@ func (mc *MetricsCollector) checkMapUsage(name string, mapObj *ebpf.Map, mapType
 		mc.MapUsage.Maps[name] = MapUsageDetail{
 			Name:    name,
 			Type:    mapType,
-			Status:  "unavailable",
+			Status:  statusUnavailable,
 			Message: "Map not initialized / Map 未初始化",
 		}
 		mc.MapUsage.CriticalMaps++

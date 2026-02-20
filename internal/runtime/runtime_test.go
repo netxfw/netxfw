@@ -4,6 +4,13 @@ import (
 	"testing"
 )
 
+// Test constants for runtime modes.
+// 运行时模式的测试常量。
+const (
+	modeAgent = "agent"
+	modeDP    = "dp"
+)
+
 // TestMode tests the Mode variable
 // TestMode 测试 Mode 变量
 func TestMode(t *testing.T) {
@@ -16,22 +23,22 @@ func TestMode(t *testing.T) {
 
 	// Test default value
 	// 测试默认值
-	if Mode != "" && Mode != "dp" && Mode != "agent" {
+	if Mode != "" && Mode != modeDP && Mode != modeAgent {
 		t.Logf("Mode is: %s", Mode)
 	}
 
 	// Test setting mode
 	// 测试设置模式
-	Mode = "agent"
-	if Mode != "agent" {
-		t.Errorf("Mode should be 'agent', got %s", Mode)
+	Mode = modeAgent
+	if Mode != modeAgent {
+		t.Errorf("Mode should be '%s', got %s", modeAgent, Mode)
 	}
 
 	// Test different mode
 	// 测试不同模式
-	Mode = "dp"
-	if Mode != "dp" {
-		t.Errorf("Mode should be 'dp', got %s", Mode)
+	Mode = modeDP
+	if Mode != modeDP {
+		t.Errorf("Mode should be '%s', got %s", modeDP, Mode)
 	}
 }
 

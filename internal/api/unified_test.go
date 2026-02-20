@@ -15,6 +15,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Test constants for unified tests.
+// 统一测试的常量。
+const (
+	testSecret      = "test-secret"
+	testInvalidJSON = `{"invalid json`
+)
+
 // TestHandleHealthz tests the health check endpoint
 // TestHandleHealthz 测试健康检查端点
 func TestHandleHealthz(t *testing.T) {
@@ -168,7 +175,7 @@ func TestHandleRulesPostInvalid(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	body := `{"invalid json`
+	body := testInvalidJSON
 	req := httptest.NewRequest(http.MethodPost, "/api/rules", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -221,7 +228,7 @@ func TestHandleConfigInvalidJSON(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	body := `{"invalid json`
+	body := testInvalidJSON
 	req := httptest.NewRequest(http.MethodPost, "/api/config", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -375,7 +382,7 @@ func TestSignToken(t *testing.T) {
 		Iat:  time.Now().Unix(),
 	}
 
-	token, err := signToken(claims, "test-secret")
+	token, err := signToken(claims, testSecret)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, token)
 
@@ -402,8 +409,6 @@ func TestSignToken_EmptySecret(t *testing.T) {
 // TestVerifyToken tests the verifyToken function
 // TestVerifyToken 测试 verifyToken 函数
 func TestVerifyToken(t *testing.T) {
-	secret := "test-secret"
-
 	// Create a valid token
 	// 创建一个有效令牌
 	claims := TokenClaims{
@@ -411,12 +416,12 @@ func TestVerifyToken(t *testing.T) {
 		Exp:  time.Now().Add(1 * time.Hour).Unix(),
 		Iat:  time.Now().Unix(),
 	}
-	token, err := signToken(claims, secret)
+	token, err := signToken(claims, testSecret)
 	assert.NoError(t, err)
 
 	// Verify the token
 	// 验证令牌
-	verifiedClaims, err := verifyToken(token, secret)
+	verifiedClaims, err := verifyToken(token, testSecret)
 	assert.NoError(t, err)
 	assert.Equal(t, "admin", verifiedClaims.Role)
 }
@@ -438,7 +443,6 @@ func TestVerifyToken_InvalidFormat(t *testing.T) {
 // TestVerifyToken_InvalidSignature tests verifyToken with invalid signature
 // TestVerifyToken_InvalidSignature 测试签名无效的 verifyToken
 func TestVerifyToken_InvalidSignature(t *testing.T) {
-	secret := "test-secret"
 	wrongSecret := "wrong-secret"
 
 	claims := TokenClaims{
@@ -446,7 +450,7 @@ func TestVerifyToken_InvalidSignature(t *testing.T) {
 		Exp:  time.Now().Add(1 * time.Hour).Unix(),
 		Iat:  time.Now().Unix(),
 	}
-	token, err := signToken(claims, secret)
+	token, err := signToken(claims, testSecret)
 	assert.NoError(t, err)
 
 	// Verify with wrong secret
@@ -459,8 +463,6 @@ func TestVerifyToken_InvalidSignature(t *testing.T) {
 // TestVerifyToken_ExpiredToken tests verifyToken with expired token
 // TestVerifyToken_ExpiredToken 测试过期令牌的 verifyToken
 func TestVerifyToken_ExpiredToken(t *testing.T) {
-	secret := "test-secret"
-
 	// Create an expired token
 	// 创建一个过期的令牌
 	claims := TokenClaims{
@@ -468,12 +470,12 @@ func TestVerifyToken_ExpiredToken(t *testing.T) {
 		Exp:  time.Now().Add(-1 * time.Hour).Unix(), // Expired 1 hour ago
 		Iat:  time.Now().Add(-2 * time.Hour).Unix(),
 	}
-	token, err := signToken(claims, secret)
+	token, err := signToken(claims, testSecret)
 	assert.NoError(t, err)
 
 	// Verify should fail
 	// 验证应该失败
-	_, err = verifyToken(token, secret)
+	_, err = verifyToken(token, testSecret)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "expired")
 }
@@ -718,7 +720,7 @@ func TestHandleLogin_InvalidJSON(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	body := `{"invalid json`
+	body := testInvalidJSON
 	req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -974,7 +976,7 @@ func TestHandleSync_InvalidJSON(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	body := `{"invalid json`
+	body := testInvalidJSON
 	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()

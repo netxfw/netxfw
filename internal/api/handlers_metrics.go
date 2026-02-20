@@ -271,5 +271,7 @@ func writeJSONResponse(w http.ResponseWriter, data any) {
 
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
-	encoder.Encode(data)
+	if err := encoder.Encode(data); err != nil {
+		http.Error(w, "Failed to encode JSON response", http.StatusInternalServerError)
+	}
 }

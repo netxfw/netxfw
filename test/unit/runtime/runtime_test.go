@@ -6,6 +6,13 @@ import (
 	"github.com/livp123/netxfw/internal/runtime"
 )
 
+// Test constants for runtime modes.
+// 运行时模式的测试常量。
+const (
+	testModeAgent = "agent"
+	testModeDP    = "dp"
+)
+
 // TestMode tests the Mode variable
 // TestMode 测试 Mode 变量
 func TestMode(t *testing.T) {
@@ -18,22 +25,22 @@ func TestMode(t *testing.T) {
 
 	// Test default value
 	// 测试默认值
-	if runtime.Mode != "" && runtime.Mode != "dp" && runtime.Mode != "agent" {
+	if runtime.Mode != "" && runtime.Mode != testModeDP && runtime.Mode != testModeAgent {
 		t.Logf("Mode is: %s", runtime.Mode)
 	}
 
 	// Test setting mode
 	// 测试设置模式
-	runtime.Mode = "agent"
-	if runtime.Mode != "agent" {
-		t.Errorf("Mode should be 'agent', got %s", runtime.Mode)
+	runtime.Mode = testModeAgent
+	if runtime.Mode != testModeAgent {
+		t.Errorf("Mode should be '%s', got %s", testModeAgent, runtime.Mode)
 	}
 
 	// Test different mode
 	// 测试不同模式
-	runtime.Mode = "dp"
-	if runtime.Mode != "dp" {
-		t.Errorf("Mode should be 'dp', got %s", runtime.Mode)
+	runtime.Mode = testModeDP
+	if runtime.Mode != testModeDP {
+		t.Errorf("Mode should be '%s', got %s", testModeDP, runtime.Mode)
 	}
 }
 

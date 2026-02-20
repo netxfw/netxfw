@@ -7,6 +7,13 @@ import (
 	"testing"
 )
 
+// Test constants for IP addresses used in tests.
+// 测试用的 IP 地址常量。
+const (
+	testSrcIP = "192.168.1.100"
+	testDstIP = "10.0.0.1"
+)
+
 // TestParseV2IPv4 tests Proxy Protocol v2 IPv4 parsing.
 // TestParseV2IPv4 测试 Proxy Protocol v2 IPv4 解析。
 func TestParseV2IPv4(t *testing.T) {
@@ -42,12 +49,12 @@ func TestParseV2IPv4(t *testing.T) {
 		t.Errorf("Expected consumed 28, got %d", consumed)
 	}
 
-	if result.SourceIP.String() != "192.168.1.100" {
-		t.Errorf("Expected source IP 192.168.1.100, got %s", result.SourceIP)
+	if result.SourceIP.String() != testSrcIP {
+		t.Errorf("Expected source IP %s, got %s", testSrcIP, result.SourceIP)
 	}
 
-	if result.DestinationIP.String() != "10.0.0.1" {
-		t.Errorf("Expected destination IP 10.0.0.1, got %s", result.DestinationIP)
+	if result.DestinationIP.String() != testDstIP {
+		t.Errorf("Expected destination IP %s, got %s", testDstIP, result.DestinationIP)
 	}
 
 	if result.SourcePort != 56324 {
@@ -66,19 +73,19 @@ func TestParseV1IPv4(t *testing.T) {
 
 	// v1 header string.
 	// v1 头字符串。
-	header := []byte("PROXY TCP4 192.168.1.100 10.0.0.1 56324 443\r\n")
+	header := []byte("PROXY TCP4 " + testSrcIP + " " + testDstIP + " 56324 443\r\n")
 
 	result, consumed, err := parser.Parse(header)
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
 
-	if result.SourceIP.String() != "192.168.1.100" {
-		t.Errorf("Expected source IP 192.168.1.100, got %s", result.SourceIP)
+	if result.SourceIP.String() != testSrcIP {
+		t.Errorf("Expected source IP %s, got %s", testSrcIP, result.SourceIP)
 	}
 
-	if result.DestinationIP.String() != "10.0.0.1" {
-		t.Errorf("Expected destination IP 10.0.0.1, got %s", result.DestinationIP)
+	if result.DestinationIP.String() != testDstIP {
+		t.Errorf("Expected destination IP %s, got %s", testDstIP, result.DestinationIP)
 	}
 
 	if result.SourcePort != 56324 {
@@ -99,7 +106,7 @@ func TestParseV1IPv4(t *testing.T) {
 func TestParseDisabled(t *testing.T) {
 	parser := NewParser(false)
 
-	header := []byte("PROXY TCP4 192.168.1.100 10.0.0.1 56324 443\r\n")
+	header := []byte("PROXY TCP4 " + testSrcIP + " " + testDstIP + " 56324 443\r\n")
 
 	result, consumed, err := parser.Parse(header)
 	if err != nil {
@@ -121,8 +128,8 @@ func TestRealIPCache(t *testing.T) {
 	cache := NewRealIPCache()
 
 	header := &Header{
-		SourceIP:        mustParseAddr("192.168.1.100"),
-		DestinationIP:   mustParseAddr("10.0.0.1"),
+		SourceIP:        mustParseAddr(testSrcIP),
+		DestinationIP:   mustParseAddr(testDstIP),
 		SourcePort:      56324,
 		DestinationPort: 443,
 	}
@@ -134,8 +141,8 @@ func TestRealIPCache(t *testing.T) {
 		t.Fatal("Expected to find entry in cache")
 	}
 
-	if result.SourceIP.String() != "192.168.1.100" {
-		t.Errorf("Expected source IP 192.168.1.100, got %s", result.SourceIP)
+	if result.SourceIP.String() != testSrcIP {
+		t.Errorf("Expected source IP %s, got %s", testSrcIP, result.SourceIP)
 	}
 
 	cache.Delete("test-key")
