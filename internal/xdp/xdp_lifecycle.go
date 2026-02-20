@@ -85,7 +85,7 @@ func (m *Manager) Attach(interfaces []string) error {
 
 		// Attach TC for egress tracking (required for Conntrack) / 附加 TC 用于出口追踪（连接跟踪 Conntrack 所需）
 		// 1. Ensure clsact qdisc exists / 确保 clsact qdisc 存在
-		_ = exec.Command("tc", "qdisc", "add", "dev", name, "clsact").Run()
+		_ = exec.Command("tc", "qdisc", "add", "dev", name, "clsact").Run() // #nosec G204 // name is controlled interface name from system
 
 		// 2. Attach TC program / 挂载 TC 程序
 		tcLinkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("tc_link_%s", name))

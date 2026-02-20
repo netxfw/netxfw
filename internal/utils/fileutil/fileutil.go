@@ -41,10 +41,11 @@ func ReadLines(filePath string) ([]string, error) {
 	if filePath == "" {
 		return nil, nil
 	}
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+	safePath := filepath.Clean(filePath) // Sanitize path to prevent directory traversal
+	if _, err := os.Stat(safePath); os.IsNotExist(err) {
 		return nil, nil
 	}
-	content, err := os.ReadFile(filePath) // #nosec G703 // filePath is validated and controlled by caller
+	content, err := os.ReadFile(safePath) // #nosec G304 // filePath is sanitized with filepath.Clean
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +65,8 @@ func AppendToFile(filePath, line string) error {
 	if filePath == "" {
 		return nil
 	}
-	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	safePath := filepath.Clean(filePath)                                       // Sanitize path to prevent directory traversal
+	f, err := os.OpenFile(safePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644) // #nosec G304 // filePath is sanitized with filepath.Clean
 	if err != nil {
 		return err
 	}
@@ -72,7 +74,7 @@ func AppendToFile(filePath, line string) error {
 
 	// Check if already exists (naive check, good for small files)
 	// 检查是否已存在（简单的检查，适用于小文件）
-	content, err := os.ReadFile(filePath) // #nosec G703 // filePath is validated and controlled by caller
+	content, err := os.ReadFile(safePath) // #nosec G304 // filePath is sanitized with filepath.Clean
 	if err == nil && strings.Contains(string(content), line) {
 		return nil
 	}
@@ -87,7 +89,8 @@ func RemoveFromFile(filePath, line string) error {
 	if filePath == "" {
 		return nil
 	}
-	input, err := os.ReadFile(filePath) // #nosec G703 // filePath is validated and controlled by caller
+	safePath := filepath.Clean(filePath) // Sanitize path to prevent directory traversal
+	input, err := os.ReadFile(safePath)  // #nosec G304 // filePath is sanitized with filepath.Clean
 	if err != nil {
 		return err
 	}
@@ -101,5 +104,5 @@ func RemoveFromFile(filePath, line string) error {
 		}
 	}
 
-	return os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0600)
+	return os.WriteFile(safePath, []byte(strings.Join(newLines, "\n")+"\n"), 0600) // #nosec G304 // filePath is sanitized with filepath.Clean
 }

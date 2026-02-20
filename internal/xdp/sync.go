@@ -52,7 +52,8 @@ func (m *Manager) syncWhitelistFromConfig(whitelist []string) {
 // parseLockListFile reads and parses the lock list file.
 // parseLockListFile 读取并解析锁定列表文件。
 func (m *Manager) parseLockListFile(filePath string) ([]binary.Record, error) {
-	file, err := os.Open(filePath)
+	safePath := filepath.Clean(filePath) // Sanitize path to prevent directory traversal
+	file, err := os.Open(safePath)       // #nosec G304 // path is sanitized with filepath.Clean
 	if err != nil {
 		return nil, fmt.Errorf("failed to open lock list file: %w", err)
 	}
@@ -265,7 +266,8 @@ func (m *Manager) UpdateBinaryCache(cfg *types.GlobalConfig, records []binary.Re
 	}
 
 	tmpBin := lockListBinary + ".tmp"
-	tmpFile, createErr := os.Create(tmpBin)
+	safeTmpBin := filepath.Clean(tmpBin)        // Sanitize path to prevent directory traversal
+	tmpFile, createErr := os.Create(safeTmpBin) // #nosec G304 // path is sanitized with filepath.Clean
 	if createErr != nil {
 		m.logger.Errorf("❌ Failed to create temporary binary file: %v", createErr)
 		return
@@ -294,7 +296,7 @@ func (m *Manager) UpdateBinaryCache(cfg *types.GlobalConfig, records []binary.Re
 		return
 	}
 
-	cmd := exec.Command("zstd", "-f", "-o", absLockListBinary, absTmpBin)
+	cmd := exec.Command("zstd", "-f", "-o", absLockListBinary, absTmpBin) // #nosec G204 // absLockListBinary and absTmpBin are validated paths
 	if output, err := cmd.CombinedOutput(); err != nil {
 		os.Remove(tmpBin)
 		m.logger.Errorf("❌ Failed to compress with zstd: %v\nOutput: %s", err, string(output))

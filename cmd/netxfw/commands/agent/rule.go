@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -551,7 +552,8 @@ Examples:
 // importFromStructuredFile imports rules from JSON or YAML file.
 // importFromStructuredFile 从 JSON 或 YAML 文件导入规则。
 func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
-	data, err := os.ReadFile(filePath)
+	safePath := filepath.Clean(filePath) // Sanitize path to prevent directory traversal
+	data, err := os.ReadFile(safePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}

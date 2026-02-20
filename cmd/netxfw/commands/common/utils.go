@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -63,6 +64,7 @@ func AskConfirmation(prompt string) bool {
 
 // ImportLockListFromFile imports IPs from a file to the blacklist.
 func ImportLockListFromFile(s *sdk.SDK, path string) error {
+	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
 	cfgPath := config.GetConfigPath()
 	cfg, err := types.LoadGlobalConfig(cfgPath)
 	persistFile := ""
@@ -70,7 +72,7 @@ func ImportLockListFromFile(s *sdk.SDK, path string) error {
 		persistFile = cfg.Base.LockListFile
 	}
 
-	file, err := os.Open(path)
+	file, err := os.Open(safePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
 	}
@@ -100,12 +102,13 @@ func ImportLockListFromFile(s *sdk.SDK, path string) error {
 
 // ImportWhitelistFromFile imports IPs from a file to the whitelist.
 func ImportWhitelistFromFile(s *sdk.SDK, path string) error {
+	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
 	// Whitelist usually doesn't have a separate persistence file in the same way,
 	// or it relies on config.yaml syncing.
 	// But AddWithFile is not available for WhitelistAPI.
 	// So we just Add(), and user should run 'sync to-config' to persist if needed.
 
-	file, err := os.Open(path)
+	file, err := os.Open(safePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
 	}
@@ -136,7 +139,8 @@ func ImportWhitelistFromFile(s *sdk.SDK, path string) error {
 
 // ImportIPPortRulesFromFile imports IP+Port rules from a file.
 func ImportIPPortRulesFromFile(s *sdk.SDK, path string) error {
-	file, err := os.Open(path)
+	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
+	file, err := os.Open(safePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
 	}

@@ -292,7 +292,7 @@ func showAttachedInterfaces() {
  * getXDPMode 返回给定接口的 XDP 附加模式。
  */
 func getXDPMode(iface string) string {
-	cmd := exec.Command("ip", "link", "show", iface)
+	cmd := exec.Command("ip", "link", "show", iface) // #nosec G204 // iface is controlled interface name from system
 	out, err := cmd.Output()
 	if err != nil {
 		return "Unknown"

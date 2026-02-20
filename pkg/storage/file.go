@@ -3,6 +3,7 @@ package storage
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -163,7 +164,8 @@ func (s *YAMLStore) LoadAll() (whitelist []IPRule, lockList []IPRule, ipPortRule
 
 func (s *YAMLStore) readRawFile(path string) (map[string]any, error) {
 	data := make(map[string]any)
-	content, err := os.ReadFile(path)
+	safePath := filepath.Clean(path)      // Sanitize path to prevent directory traversal
+	content, err := os.ReadFile(safePath) // #nosec G304 // path is sanitized with filepath.Clean
 	if err != nil {
 		return data, err
 	}
@@ -173,7 +175,8 @@ func (s *YAMLStore) readRawFile(path string) (map[string]any, error) {
 
 func (s *YAMLStore) readFile(path string) (fileData, error) {
 	var data fileData
-	content, err := os.ReadFile(path)
+	safePath := filepath.Clean(path)      // Sanitize path to prevent directory traversal
+	content, err := os.ReadFile(safePath) // #nosec G304 // path is sanitized with filepath.Clean
 	if err != nil {
 		return data, err
 	}

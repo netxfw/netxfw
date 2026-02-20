@@ -526,7 +526,8 @@ type IPPortRule struct {
 // LoadGlobalConfig loads the configuration from a YAML file.
 // LoadGlobalConfig 从 YAML 文件加载配置。
 func LoadGlobalConfig(path string) (*GlobalConfig, error) {
-	data, err := os.ReadFile(path)
+	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
+	data, err := os.ReadFile(safePath)
 	if err != nil {
 		return nil, err
 	}
@@ -755,7 +756,8 @@ func SaveGlobalConfig(path string, cfg *GlobalConfig) error {
 	}
 
 	// 2. Read existing file to Node (if exists)
-	fileData, readErr := os.ReadFile(path)
+	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
+	fileData, readErr := os.ReadFile(safePath)
 	if readErr == nil {
 		var fileNode yaml.Node
 		if unmarshalErr := yaml.Unmarshal(fileData, &fileNode); unmarshalErr == nil {

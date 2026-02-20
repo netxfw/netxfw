@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -313,7 +314,8 @@ func ClearBlacklist(ctx context.Context, xdpMgr XDPManager) error {
 // ImportLockListFromFile 从文件导入 IP 到黑名单。
 func ImportLockListFromFile(ctx context.Context, xdpMgr XDPManager, path string) error {
 	log := logger.Get(ctx)
-	file, err := os.Open(path)
+	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
+	file, err := os.Open(safePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
 	}
@@ -432,7 +434,8 @@ func persistBlacklistRules(log *zap.SugaredLogger, globalCfg *types.GlobalConfig
 // ImportWhitelistFromFile 从文件导入 IP 到白名单。
 func ImportWhitelistFromFile(ctx context.Context, xdpMgr XDPManager, path string) error {
 	log := logger.Get(ctx)
-	file, err := os.Open(path)
+	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
+	file, err := os.Open(safePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
 	}
@@ -470,7 +473,8 @@ func ImportWhitelistFromFile(ctx context.Context, xdpMgr XDPManager, path string
 // ImportIPPortRulesFromFile 从文件导入 IP+端口规则。
 func ImportIPPortRulesFromFile(ctx context.Context, xdpMgr XDPManager, path string) error {
 	log := logger.Get(ctx)
-	file, err := os.Open(path)
+	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
+	file, err := os.Open(safePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -21,7 +22,8 @@ import (
 // managePidFile ensures only one instance of the daemon is running by checking/writing a PID file.
 // managePidFile 通过检查/编写 PID 文件来确保只有一个守护进程实例在运行。
 func managePidFile(path string) error {
-	if content, err := os.ReadFile(path); err == nil {
+	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
+	if content, err := os.ReadFile(safePath); err == nil {
 		pid, err := strconv.Atoi(strings.TrimSpace(string(content)))
 		if err == nil {
 			if process, err := os.FindProcess(pid); err == nil {

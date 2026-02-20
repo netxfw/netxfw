@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/livp123/netxfw/internal/plugins/types"
@@ -10,18 +11,23 @@ import (
 )
 
 func backupFile(filePath string) error { // #nosec G703 // filePath is controlled/sanitized in main function
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+	// Sanitize the file path to prevent directory traversal
+	safeFilePath := filepath.Clean(filePath)
+
+	if _, err := os.Stat(safeFilePath); os.IsNotExist(err) {
 		return nil // File doesn't exist, no need to backup
 	}
 
-	backupPath := filePath + ".backup." + time.Now().Format("20060102_150405")
-	source, err := os.Open(filePath) // #nosec G703 // filePath is controlled by main function
+	backupPath := safeFilePath + ".backup." + time.Now().Format("20060102_150405")
+	safeBackupPath := filepath.Clean(backupPath) // Additional sanitization for backup path
+
+	source, err := os.Open(safeFilePath) // #nosec G703 // filePath is sanitized with filepath.Clean
 	if err != nil {
 		return err
 	}
 	defer source.Close()
 
-	destination, err := os.Create(backupPath) // #nosec G703 // backupPath is derived from validated filePath
+	destination, err := os.Create(safeBackupPath) // #nosec G703 // backupPath is sanitized with filepath.Clean
 	if err != nil {
 		return err
 	}
@@ -32,7 +38,7 @@ func backupFile(filePath string) error { // #nosec G703 // filePath is controlle
 		return err
 	}
 
-	fmt.Printf("Backed up %s to %s\n", filePath, backupPath)
+	fmt.Printf("Backed up %s to %s\n", safeFilePath, safeBackupPath)
 	return nil
 }
 

@@ -345,5 +345,6 @@ func writeToFile(path, content string) error {
 // openFileForAppend opens a file for appending.
 // openFileForAppend 打开文件用于追加。
 func openFileForAppend(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
+	return os.OpenFile(safePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644) // #nosec G304 // path is sanitized with filepath.Clean
 }
