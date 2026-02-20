@@ -85,8 +85,10 @@ jobs:
       - name: Generate BPF code
         run: make generate
 
-      - name: Run tests
-        run: go test -v -race -count=1 ./... 2>&1 | tee test_output.txt || true
+      - name: Run unit tests only
+        run: |
+          echo "Running unit tests (excluding integration tests that require real environment)..."
+          go test -v -race -count=1 ./test/unit/... ./internal/... ./cmd/... ./pkg/... 2>&1 | tee test_output.txt || true
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
