@@ -12,27 +12,6 @@ import (
 	"github.com/livp123/netxfw/internal/plugins/types"
 )
 
-// Global config indices / 全局配置索引
-const (
-	CONFIG_DEFAULT_DENY         = 0
-	CONFIG_ALLOW_RETURN_TRAFFIC = 1
-	CONFIG_ALLOW_ICMP           = 2
-	CONFIG_ENABLE_CONNTRACK     = 3
-	CONFIG_CONNTRACK_TIMEOUT    = 4
-	CONFIG_ICMP_RATE            = 5
-	CONFIG_ICMP_BURST           = 6
-	CONFIG_ENABLE_AF_XDP        = 7
-	CONFIG_CONFIG_VERSION       = 8
-	CONFIG_STRICT_PROTO         = 9
-	CONFIG_ENABLE_RATELIMIT     = 10
-	CONFIG_DROP_FRAGMENTS       = 11
-	CONFIG_STRICT_TCP           = 12
-	CONFIG_SYN_LIMIT            = 13
-	CONFIG_BOGON_FILTER         = 14
-	CONFIG_AUTO_BLOCK           = 15
-	CONFIG_AUTO_BLOCK_EXPIRY    = 16
-)
-
 /**
  * MatchesCapacity checks if the current map capacities match the provided config.
  * MatchesCapacity 检查当前的 Map 容量是否与提供的配置匹配。

@@ -31,7 +31,7 @@ func (m *Manager) updateConfig(key uint32, val uint64) error {
  * SetDefaultDeny 启用或禁用默认拒绝策略。
  */
 func (m *Manager) SetDefaultDeny(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -43,7 +43,7 @@ func (m *Manager) SetDefaultDeny(enable bool) error {
  * SetAllowReturnTraffic 启用或禁用自动允许回程流量。
  */
 func (m *Manager) SetAllowReturnTraffic(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -55,7 +55,7 @@ func (m *Manager) SetAllowReturnTraffic(enable bool) error {
  * SetAllowICMP 启用或禁用允许 ICMP 流量。
  */
 func (m *Manager) SetAllowICMP(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -86,7 +86,7 @@ func (m *Manager) SetConntrackTimeout(timeout time.Duration) error {
  * SetConntrack 启用或禁用连接跟踪。
  */
 func (m *Manager) SetConntrack(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -98,7 +98,7 @@ func (m *Manager) SetConntrack(enable bool) error {
  * SetStrictProto 启用或禁用严格协议强制执行。
  */
 func (m *Manager) SetStrictProto(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -110,7 +110,7 @@ func (m *Manager) SetStrictProto(enable bool) error {
  * SetDropFragments 启用或禁用丢弃 IP 分片。
  */
 func (m *Manager) SetDropFragments(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -122,7 +122,7 @@ func (m *Manager) SetDropFragments(enable bool) error {
  * SetStrictTCP 启用或禁用严格的 TCP 标志验证。
  */
 func (m *Manager) SetStrictTCP(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -134,7 +134,7 @@ func (m *Manager) SetStrictTCP(enable bool) error {
  * SetSYNLimit 启用或禁用仅针对 SYN 的速率限制。
  */
 func (m *Manager) SetSYNLimit(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -146,7 +146,7 @@ func (m *Manager) SetSYNLimit(enable bool) error {
  * SetEnableRateLimit 启用或禁用全局速率限制。
  */
 func (m *Manager) SetEnableRateLimit(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -158,7 +158,7 @@ func (m *Manager) SetEnableRateLimit(enable bool) error {
  * SetEnableAFXDP 启用或禁用 AF_XDP 重定向。
  */
 func (m *Manager) SetEnableAFXDP(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -170,7 +170,7 @@ func (m *Manager) SetEnableAFXDP(enable bool) error {
  * SetStrictProtocol 开启或关闭严格协议白名单模式（仅允许 IPv4, IPv6, ARP）。
  */
 func (m *Manager) SetStrictProtocol(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -182,7 +182,7 @@ func (m *Manager) SetStrictProtocol(enable bool) error {
  * SetBogonFilter 开启或关闭 Bogon IP 过滤。
  */
 func (m *Manager) SetBogonFilter(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}
@@ -194,7 +194,7 @@ func (m *Manager) SetBogonFilter(enable bool) error {
  * SetAutoBlock 开启或关闭自动封禁。
  */
 func (m *Manager) SetAutoBlock(enable bool) error {
-	var val uint64 = 0
+	var val uint64
 	if enable {
 		val = 1
 	}

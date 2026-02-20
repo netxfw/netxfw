@@ -314,7 +314,7 @@ func (m *Manager) GetGlobalStats() (*GlobalStats, error) {
 		return result, nil
 	}
 
-	var key uint32 = 0
+	var key uint32
 	// PERCPU map requires slice of values
 	// PERCPU Map 需要值切片
 	numCPU, err := ebpf.PossibleCPU()

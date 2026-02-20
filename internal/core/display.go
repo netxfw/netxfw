@@ -14,6 +14,17 @@ import (
 	"github.com/livp123/netxfw/internal/utils/logger"
 )
 
+// Protocol string constants.
+// 协议字符串常量。
+const (
+	protoTCP       = "TCP"
+	protoUDP       = "UDP"
+	protoICMP      = "ICMP"
+	protoICMPv6    = "ICMPv6"
+	statusEnabled  = "Enabled"
+	statusDisabled = "Disabled"
+)
+
 /**
  * getXDPMode returns the XDP attachment mode for a given interface.
  * getXDPMode 返回给定接口的 XDP 附加模式。
@@ -172,13 +183,13 @@ func ShowConntrack(ctx context.Context, xdpMgr XDPManager) error {
 	for _, e := range entries {
 		proto := fmt.Sprintf("%d", e.Protocol)
 		if e.Protocol == 6 {
-			proto = "TCP"
+			proto = protoTCP
 		} else if e.Protocol == 17 {
-			proto = "UDP"
+			proto = protoUDP
 		} else if e.Protocol == 1 {
-			proto = "ICMP"
+			proto = protoICMP
 		} else if e.Protocol == 58 {
-			proto = "ICMPv6"
+			proto = protoICMPv6
 		}
 		fmt.Printf("%-40s %-5d %-40s %-5d %-8s\n", e.SrcIP, e.SrcPort, e.DstIP, e.DstPort, proto)
 	}
@@ -457,9 +468,9 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 		// Check allow return traffic / 检查允许返回流量
 		key = 1 // CONFIG_ALLOW_RETURN_TRAFFIC
 		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
-			status := "Disabled"
+			status := statusDisabled
 			if val == 1 {
-				status = "Enabled"
+				status = statusEnabled
 			}
 			fmt.Printf("🔄 Allow Return Traffic: %s\n", status)
 		}
@@ -467,9 +478,9 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 		// Check allow ICMP / 检查允许 ICMP
 		key = 2 // CONFIG_ALLOW_ICMP
 		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
-			status := "Disabled"
+			status := statusDisabled
 			if val == 1 {
-				status = "Enabled"
+				status = statusEnabled
 			}
 			fmt.Printf("🏓 Allow ICMP (Ping): %s\n", status)
 
@@ -490,9 +501,9 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 		// Check conntrack / 检查连接跟踪
 		key = 3 // CONFIG_ENABLE_CONNTRACK
 		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
-			status := "Disabled"
+			status := statusDisabled
 			if val == 1 {
-				status = "Enabled"
+				status = statusEnabled
 			}
 			fmt.Printf("🕵️  Connection Tracking: %s\n", status)
 
@@ -508,9 +519,9 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 		// Check global ratelimit / 检查全局速率限制
 		key = 10 // CONFIG_ENABLE_RATELIMIT
 		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
-			status := "Disabled"
+			status := statusDisabled
 			if val == 1 {
-				status = "Enabled"
+				status = statusEnabled
 			}
 			fmt.Printf("🚀 Global Rate Limiting: %s\n", status)
 		}

@@ -269,7 +269,7 @@ func (h *HealthChecker) GetCriticalMaps() []string {
 	status := h.CheckHealth()
 	var critical []string
 	for name, mapStatus := range status.BPFMaps {
-		if mapStatus.Status == "critical" {
+		if mapStatus.Status == statusCritical {
 			critical = append(critical, name)
 		}
 	}
@@ -282,7 +282,7 @@ func (h *HealthChecker) GetWarningMaps() []string {
 	status := h.CheckHealth()
 	var warnings []string
 	for name, mapStatus := range status.BPFMaps {
-		if mapStatus.Status == "warning" {
+		if mapStatus.Status == statusWarning {
 			warnings = append(warnings, name)
 		}
 	}

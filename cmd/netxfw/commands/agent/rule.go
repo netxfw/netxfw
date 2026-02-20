@@ -16,6 +16,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Rule action string constants.
+// 规则动作字符串常量。
+const (
+	actionAllow = "allow"
+	actionDeny  = "deny"
+	actionBlock = "block"
+	actionLock  = "lock"
+	actionWhite = "white"
+)
+
 var RuleCmd = &cobra.Command{
 	Use:   "rule",
 	Short: "Manage firewall rules",
@@ -92,9 +102,9 @@ Examples:
 		// 4. Normalize Action
 		// 4. 规范化动作
 		isAllow := false
-		if actionStr == "allow" {
+		if actionStr == actionAllow {
 			isAllow = true
-		} else if actionStr == "deny" {
+		} else if actionStr == actionDeny {
 			isAllow = false
 		} else if actionStr != "" {
 			cmd.PrintErrln("❌ Invalid action. Use 'allow' or 'deny'.")
@@ -228,9 +238,9 @@ var rulePortListCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 		}
 		for _, rule := range rules {
-			action := "deny"
+			action := actionDeny
 			if rule.Action == 1 {
-				action = "allow"
+				action = actionAllow
 			}
 			fmt.Printf("%s:%d (%s)\n", rule.IP, rule.Port, action)
 		}
@@ -343,7 +353,7 @@ var ruleListCmd = &cobra.Command{
 						}
 					}
 
-					if subArg == "allow" || subArg == "white" {
+					if subArg == actionAllow || subArg == actionWhite {
 						cmd.Println("=== Whitelist (IP Rules) ===")
 						wl, _, listErr := s.Whitelist.List(limit, search)
 						if listErr != nil {
@@ -353,7 +363,7 @@ var ruleListCmd = &cobra.Command{
 							cmd.Println(ip)
 						}
 						return
-					} else if subArg == "deny" || subArg == "block" || subArg == "lock" {
+					} else if subArg == actionDeny || subArg == actionBlock || subArg == actionLock {
 						cmd.Println("=== Blacklist (IP Rules) ===")
 						bl, _, listErr := s.Blacklist.List(limit, search)
 						if listErr != nil {
@@ -420,15 +430,15 @@ var ruleListCmd = &cobra.Command{
 					cmd.PrintErrln(listErr)
 				}
 				for _, rule := range rules {
-					action := "deny"
+					action := actionDeny
 					if rule.Action == 1 {
-						action = "allow"
+						action = actionAllow
 					}
 					cmd.Printf("%s:%d (%s)\n", rule.IP, rule.Port, action)
 				}
 				return
 
-			case "whitelist", "allow":
+			case "whitelist", actionAllow:
 				// Handle original behavior - show whitelist only
 				// 处理原始行为 - 仅显示白名单
 				limit := 100
@@ -454,7 +464,7 @@ var ruleListCmd = &cobra.Command{
 				}
 				return
 
-			case "blacklist", "lock", "deny", "block":
+			case "blacklist", actionLock, actionDeny, actionBlock:
 				// Handle original behavior - show lock list only
 				// 处理原始行为 - 仅显示锁定列表
 				limit := 100
@@ -502,9 +512,9 @@ var ruleListCmd = &cobra.Command{
 					cmd.PrintErrln(listErr)
 				}
 				for _, rule := range rules {
-					action := "deny"
+					action := actionDeny
 					if rule.Action == 1 {
-						action = "allow"
+						action = actionAllow
 					}
 					cmd.Printf("%s:%d (%s)\n", rule.IP, rule.Port, action)
 				}
@@ -544,9 +554,9 @@ var ruleListCmd = &cobra.Command{
 			cmd.PrintErrln(listErr)
 		}
 		for _, rule := range rules {
-			action := "deny"
+			action := actionDeny
 			if rule.Action == 1 {
-				action = "allow"
+				action = actionAllow
 			}
 			cmd.Printf("%s:%d (%s)\n", rule.IP, rule.Port, action)
 		}
@@ -608,12 +618,12 @@ Examples:
 		// Text format import
 		// 文本格式导入
 		switch ruleType {
-		case "lock", "deny":
+		case actionLock, actionDeny:
 			if err := common.ImportLockListFromFile(s, filePath); err != nil {
 				cmd.PrintErrln(err)
 				os.Exit(1)
 			}
-		case "allow":
+		case actionAllow:
 			if err := common.ImportWhitelistFromFile(s, filePath); err != nil {
 				cmd.PrintErrln(err)
 				os.Exit(1)
@@ -690,7 +700,7 @@ func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
 			continue
 		}
 		action := uint8(2) // Deny default
-		if rule.Action == "allow" {
+		if rule.Action == actionAllow {
 			action = 1
 		}
 		if err := s.Rule.AddIPPortRule(rule.IP, uint16(rule.Port), action); err != nil {
@@ -828,9 +838,9 @@ Examples:
 			os.Exit(1)
 		}
 		for _, rule := range ipportRules {
-			action := "deny"
+			action := actionDeny
 			if rule.Action == 1 {
-				action = "allow"
+				action = actionAllow
 			}
 			exportData.IPPort = append(exportData.IPPort, ExportRule{
 				Type:   "ipport",
