@@ -321,8 +321,8 @@ func NewRuleEngine(counter *Counter, logger sdk.Logger) *RuleEngine {
 // UpdateRules compiles and updates the current rules.
 func (re *RuleEngine) UpdateRules(configs []types.LogEngineRule) error {
 	newRules := make([]Rule, 0, len(configs))
-	for _, cfg := range configs {
-		rule, err := re.compileRule(cfg)
+	for i := range configs {
+		rule, err := re.compileRule(configs[i])
 		if err != nil {
 			return err
 		}
@@ -375,18 +375,23 @@ func (re *RuleEngine) compileRule(cfg types.LogEngineRule) (Rule, error) {
 // generateExpression generates an expression from rule configuration.
 // generateExpression 从规则配置生成表达式。
 func (re *RuleEngine) generateExpression(cfg types.LogEngineRule) string {
-	var andParts []string
-	var orParts []string
-	var notParts []string
+	totalLen := len(cfg.Keywords) + len(cfg.Contains) + len(cfg.Is) + len(cfg.And) +
+		len(cfg.AnyContains) + len(cfg.Or) + len(cfg.NotContains) + len(cfg.Not)
+	if cfg.Regex != "" {
+		totalLen++
+	}
+
+	andParts := make([]string, 0, totalLen)
+	orParts := make([]string, 0, len(cfg.AnyContains)+len(cfg.Or))
+	notParts := make([]string, 0, len(cfg.NotContains)+len(cfg.Not))
 
 	genMatch := func(pattern string) string {
-		safeK := strings.ReplaceAll(pattern, "\"", "\\\"")
 		if strings.Contains(pattern, "*") {
 			quoted := regexp.QuoteMeta(pattern)
 			regexStr := strings.ReplaceAll(quoted, "\\*", ".*")
-			return fmt.Sprintf(`Line matches "%s"`, regexStr)
+			return fmt.Sprintf(`Line matches %q`, regexStr)
 		}
-		return fmt.Sprintf(`Contains(Line, "%s")`, safeK)
+		return fmt.Sprintf(`Contains(Line, %q)`, pattern)
 	}
 
 	allContains := append([]string{}, cfg.Keywords...)
@@ -410,9 +415,7 @@ func (re *RuleEngine) generateExpression(cfg types.LogEngineRule) string {
 	}
 
 	if cfg.Regex != "" {
-		safeRe := strings.ReplaceAll(cfg.Regex, "\\", "\\\\")
-		safeRe = strings.ReplaceAll(safeRe, "\"", "\\\"")
-		andParts = append(andParts, fmt.Sprintf(`Line matches "%s"`, safeRe))
+		andParts = append(andParts, fmt.Sprintf(`Line matches %q`, cfg.Regex))
 	}
 
 	return combineExpressionParts(andParts, orParts, notParts)

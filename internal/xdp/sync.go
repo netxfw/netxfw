@@ -360,7 +360,7 @@ func (m *Manager) syncIPPortRulesToConfig(cfg *types.GlobalConfig) {
 		return
 	}
 
-	var newIPPortRules []types.IPPortRule
+	newIPPortRules := make([]types.IPPortRule, 0, len(ipPortRules))
 	for key, actionStr := range ipPortRules {
 		lastColon := strings.LastIndex(key, ":")
 		if lastColon == -1 {
@@ -404,7 +404,7 @@ func (m *Manager) syncRateLimitRulesToConfig(cfg *types.GlobalConfig) {
 		return
 	}
 
-	var newRateRules []types.RateLimitRule
+	newRateRules := make([]types.RateLimitRule, 0, len(rules))
 	for target, conf := range rules {
 		newRateRules = append(newRateRules, types.RateLimitRule{
 			IP:    target,

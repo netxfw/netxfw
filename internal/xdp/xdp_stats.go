@@ -116,9 +116,9 @@ func (m *Manager) GetStats() (uint64, uint64) {
 	if err := m.statsGlobalMap.Lookup(&key, &statsSlice); err == nil {
 		// Sum values from all CPUs
 		// 汇总所有 CPU 的值
-		for _, stats := range statsSlice {
-			totalPass += stats.TotalPass
-			totalDrop += stats.TotalDrop
+		for i := range statsSlice {
+			totalPass += statsSlice[i].TotalPass
+			totalDrop += statsSlice[i].TotalDrop
 		}
 	}
 
@@ -167,8 +167,8 @@ func (m *Manager) GetDropCount() (uint64, error) {
 	// Sum values from all CPUs
 	// 汇总所有 CPU 的值
 	var totalDrop uint64
-	for _, stats := range statsSlice {
-		totalDrop += stats.TotalDrop
+	for i := range statsSlice {
+		totalDrop += statsSlice[i].TotalDrop
 	}
 	return totalDrop, nil
 }
@@ -197,8 +197,8 @@ func (m *Manager) GetPassCount() (uint64, error) {
 	// Sum values from all CPUs
 	// 汇总所有 CPU 的值
 	var totalPass uint64
-	for _, stats := range statsSlice {
-		totalPass += stats.TotalPass
+	for i := range statsSlice {
+		totalPass += statsSlice[i].TotalPass
 	}
 	return totalPass, nil
 }
@@ -328,21 +328,21 @@ func (m *Manager) GetGlobalStats() (*GlobalStats, error) {
 
 	// Sum values from all CPUs
 	// 汇总所有 CPU 的值
-	for _, stats := range statsSlice {
-		result.TotalPackets += stats.TotalPackets
-		result.TotalPass += stats.TotalPass
-		result.TotalDrop += stats.TotalDrop
-		result.DropBlacklist += stats.DropBlacklist
-		result.DropNoRule += stats.DropNoRule
-		result.DropInvalid += stats.DropInvalid
-		result.DropRateLimit += stats.DropRateLimit
-		result.DropSynFlood += stats.DropSynFlood
-		result.DropIcmpLimit += stats.DropIcmpLimit
-		result.DropPortBlocked += stats.DropPortBlocked
-		result.PassWhitelist += stats.PassWhitelist
-		result.PassRule += stats.PassRule
-		result.PassReturn += stats.PassReturn
-		result.PassEstablished += stats.PassEstablished
+	for i := range statsSlice {
+		result.TotalPackets += statsSlice[i].TotalPackets
+		result.TotalPass += statsSlice[i].TotalPass
+		result.TotalDrop += statsSlice[i].TotalDrop
+		result.DropBlacklist += statsSlice[i].DropBlacklist
+		result.DropNoRule += statsSlice[i].DropNoRule
+		result.DropInvalid += statsSlice[i].DropInvalid
+		result.DropRateLimit += statsSlice[i].DropRateLimit
+		result.DropSynFlood += statsSlice[i].DropSynFlood
+		result.DropIcmpLimit += statsSlice[i].DropIcmpLimit
+		result.DropPortBlocked += statsSlice[i].DropPortBlocked
+		result.PassWhitelist += statsSlice[i].PassWhitelist
+		result.PassRule += statsSlice[i].PassRule
+		result.PassReturn += statsSlice[i].PassReturn
+		result.PassEstablished += statsSlice[i].PassEstablished
 	}
 
 	return result, nil

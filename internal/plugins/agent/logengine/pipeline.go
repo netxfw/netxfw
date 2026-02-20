@@ -303,7 +303,8 @@ func (le *LogEngine) collectFiles() map[string]string {
 	fileMap := make(map[string]string)
 
 	// 1. Files from rules (Priority)
-	for _, r := range le.config.Rules {
+	for i := range le.config.Rules {
+		r := &le.config.Rules[i]
 		if r.Path != "" {
 			// Use rule's tail position, default to "end" if empty
 			pos := r.TailPosition

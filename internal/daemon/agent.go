@@ -55,7 +55,8 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 		pinPath := config.GetPinPath()
 		realMgr, err := xdp.NewManagerFromPins(pinPath, log)
 		if err != nil {
-			log.Fatalf("❌ Agent requires netxfw daemon to be running and maps pinned at %s: %v", pinPath, err)
+			log.Errorf("❌ Agent requires netxfw daemon to be running and maps pinned at %s: %v", pinPath, err)
+			return
 		}
 		defer realMgr.Close()
 		// Wrap manager with Adapter for interface compliance
@@ -86,8 +87,9 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 		SDK:      s,
 	}
 
-	var startedPlugins []sdk.Plugin
-	for _, p := range plugins.GetPlugins() {
+	allPlugins := plugins.GetPlugins()
+	startedPlugins := make([]sdk.Plugin, 0, len(allPlugins))
+	for _, p := range allPlugins {
 		if err := p.Init(pluginCtx); err != nil {
 			log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
 			continue

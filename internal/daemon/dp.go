@@ -72,7 +72,8 @@ func runDataPlane(ctx context.Context) {
 
 	if len(interfaces) > 0 {
 		if err := manager.Attach(interfaces); err != nil {
-			log.Fatalf("❌ Failed to attach XDP: %v", err)
+			log.Errorf("❌ Failed to attach XDP: %v", err)
+			return
 		}
 		cleanupOrphanedInterfaces(manager, interfaces)
 	} else {
@@ -94,10 +95,12 @@ func runDataPlane(ctx context.Context) {
 
 	for _, mod := range coreModules {
 		if err := mod.Init(globalCfg, s, log); err != nil {
-			log.Fatalf("❌ Failed to init core module %s: %v", mod.Name(), err)
+			log.Errorf("❌ Failed to init core module %s: %v", mod.Name(), err)
+			return
 		}
 		if err := mod.Start(); err != nil {
-			log.Fatalf("❌ Failed to start core module %s: %v", mod.Name(), err)
+			log.Errorf("❌ Failed to start core module %s: %v", mod.Name(), err)
+			return
 		}
 	}
 
