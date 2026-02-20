@@ -16,6 +16,7 @@ import (
 	"github.com/livp123/netxfw/internal/utils/ipmerge"
 	"github.com/livp123/netxfw/internal/utils/iputil"
 	"github.com/livp123/netxfw/internal/utils/logger"
+	"go.uber.org/zap"
 )
 
 // SyncIPPortRule syncs an IP+Port rule to the XDP map and config.
@@ -319,10 +320,17 @@ func ImportLockListFromFile(ctx context.Context, xdpMgr XDPManager, path string)
 	defer file.Close()
 
 	log.Infof("📦 Importing blacklist from %s...", path)
-	scanner := bufio.NewScanner(file)
-	count := 0
+	cidrs := readCIDRsFromFile(file)
+	count := importCIDRsToBlacklist(ctx, xdpMgr, cidrs)
 
-	// Use batch loading by reading all valid lines first / 首先读取所有有效行，使用批量加载
+	log.Infof("✅ Imported %d rules.", count)
+	return nil
+}
+
+// readCIDRsFromFile reads CIDR lines from a file scanner.
+// readCIDRsFromFile 从文件扫描器读取 CIDR 行。
+func readCIDRsFromFile(file *os.File) []string {
+	scanner := bufio.NewScanner(file)
 	var cidrs []string
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -330,67 +338,94 @@ func ImportLockListFromFile(ctx context.Context, xdpMgr XDPManager, path string)
 			cidrs = append(cidrs, line)
 		}
 	}
+	return cidrs
+}
 
-	// Prepare persistence update / 准备持久化更新
+// importCIDRsToBlacklist imports CIDRs to blacklist and persists them.
+// importCIDRsToBlacklist 将 CIDR 导入黑名单并持久化。
+func importCIDRsToBlacklist(ctx context.Context, xdpMgr XDPManager, cidrs []string) int {
+	log := logger.Get(ctx)
 	configPath := config.GetConfigPath()
 	types.ConfigMu.Lock()
+	defer types.ConfigMu.Unlock()
+
 	globalCfg, loadErr := types.LoadGlobalConfig(configPath)
 	if loadErr != nil {
 		globalCfg = nil
 	}
-	var persistentLines []string
-	if globalCfg != nil && globalCfg.Base.LockListFile != "" {
-		// Read existing / 读取现有内容
-		if content, err := os.ReadFile(globalCfg.Base.LockListFile); err == nil {
-			lines := strings.Split(string(content), "\n")
-			for _, l := range lines {
-				if strings.TrimSpace(l) != "" {
-					persistentLines = append(persistentLines, strings.TrimSpace(l))
-				}
-			}
-		}
-	}
+
+	persistentLines := loadExistingPersistentLines(globalCfg)
+	count := 0
 
 	for _, cidr := range cidrs {
-		// Check valid CIDR/IP / 检查有效的 CIDR/IP
-		if !strings.Contains(cidr, "/") {
-			if iputil.IsIPv6(cidr) {
-				cidr += "/128"
-			} else {
-				cidr += "/32"
-			}
-		}
+		cidr = normalizeCIDR(cidr)
 
-		// Update BPF / 更新 BPF
 		if err := xdpMgr.AddBlacklistIP(cidr); err != nil {
 			log.Warnf("⚠️  Failed to lock %s: %v", cidr, err)
 		} else {
 			count++
 		}
 
-		// Update persistent list / 更新持久化列表
 		if globalCfg != nil && globalCfg.Base.PersistRules {
 			persistentLines = append(persistentLines, cidr)
 		}
 	}
 
-	// Save persistence / 保存持久化
-	if globalCfg != nil && globalCfg.Base.PersistRules && globalCfg.Base.LockListFile != "" {
-		// Merge/Deduplicate / 合并/去重
-		merged, err := ipmerge.MergeCIDRsWithThreshold(persistentLines, globalCfg.Base.LockListMergeThreshold, globalCfg.Base.LockListV4Mask, globalCfg.Base.LockListV6Mask)
-		if err != nil {
-			merged = persistentLines
+	persistBlacklistRules(log, globalCfg, persistentLines)
+	return count
+}
+
+// normalizeCIDR normalizes a CIDR string by adding prefix if missing.
+// normalizeCIDR 通过添加缺失的前缀来规范化 CIDR 字符串。
+func normalizeCIDR(cidr string) string {
+	if !strings.Contains(cidr, "/") {
+		if iputil.IsIPv6(cidr) {
+			return cidr + "/128"
 		}
-		if err := fileutil.AtomicWriteFile(globalCfg.Base.LockListFile, []byte(strings.Join(merged, "\n")+"\n"), 0644); err != nil {
-			log.Warnf("⚠️  Failed to persist rules: %v", err)
-		} else {
-			log.Infof("📄 Persisted %d rules to %s", len(merged), globalCfg.Base.LockListFile)
+		return cidr + "/32"
+	}
+	return cidr
+}
+
+// loadExistingPersistentLines loads existing persistent lines from lock list file.
+// loadExistingPersistentLines 从锁定列表文件加载现有的持久化行。
+func loadExistingPersistentLines(globalCfg *types.GlobalConfig) []string {
+	var persistentLines []string
+	if globalCfg == nil || globalCfg.Base.LockListFile == "" {
+		return persistentLines
+	}
+
+	content, err := os.ReadFile(globalCfg.Base.LockListFile)
+	if err != nil {
+		return persistentLines
+	}
+
+	lines := strings.Split(string(content), "\n")
+	for _, l := range lines {
+		if strings.TrimSpace(l) != "" {
+			persistentLines = append(persistentLines, strings.TrimSpace(l))
 		}
 	}
-	types.ConfigMu.Unlock()
+	return persistentLines
+}
 
-	log.Infof("✅ Imported %d rules.", count)
-	return nil
+// persistBlacklistRules persists blacklist rules to file.
+// persistBlacklistRules 将黑名单规则持久化到文件。
+func persistBlacklistRules(log *zap.SugaredLogger, globalCfg *types.GlobalConfig, persistentLines []string) {
+	if globalCfg == nil || !globalCfg.Base.PersistRules || globalCfg.Base.LockListFile == "" {
+		return
+	}
+
+	merged, err := ipmerge.MergeCIDRsWithThreshold(persistentLines, globalCfg.Base.LockListMergeThreshold, globalCfg.Base.LockListV4Mask, globalCfg.Base.LockListV6Mask)
+	if err != nil {
+		merged = persistentLines
+	}
+
+	if err := fileutil.AtomicWriteFile(globalCfg.Base.LockListFile, []byte(strings.Join(merged, "\n")+"\n"), 0644); err != nil {
+		log.Warnf("⚠️  Failed to persist rules: %v", err)
+	} else {
+		log.Infof("📄 Persisted %d rules to %s", len(merged), globalCfg.Base.LockListFile)
+	}
 }
 
 // ImportWhitelistFromFile imports IPs from a file to the whitelist.

@@ -3,125 +3,58 @@
 
 package xdp
 
-/**
- * MigrateState copies all entries from an old manager's maps to this manager's maps.
- * This is used for hot-reloading to preserve conntrack state and rules.
- * MigrateState 将旧管理器的 Map 条目复制到此管理器的 Map 中，用于热加载以保留状态。
- */
+import "github.com/cilium/ebpf"
+
+// migrateMap copies all entries from source map to destination map.
+// migrateMap 将源 Map 的所有条目复制到目标 Map。
+func migrateMap[K any, V any](src, dst *ebpf.Map) {
+	if src == nil || dst == nil {
+		return
+	}
+	var key K
+	var val V
+	iter := src.Iterate()
+	for iter.Next(&key, &val) {
+		dst.Put(&key, &val)
+	}
+}
+
+// MigrateState copies all entries from an old manager's maps to this manager's maps.
+// This is used for hot-reloading to preserve conntrack state and rules.
+// MigrateState 将旧管理器的 Map 条目复制到此管理器的 Map 中，用于热加载以保留状态。
 func (m *Manager) MigrateState(old *Manager) error {
-	// Migrate Conntrack / 迁移连接跟踪 (Conntrack)
-	if old.conntrackMap != nil && m.conntrackMap != nil {
-		var key NetXfwCtKey
-		var val NetXfwCtValue
-		iter := old.conntrackMap.Iterate()
-		for iter.Next(&key, &val) {
-			m.conntrackMap.Put(&key, &val)
-		}
-	}
+	// Migrate Conntrack / 迁移连接跟踪
+	migrateMap[NetXfwCtKey, NetXfwCtValue](old.conntrackMap, m.conntrackMap)
 
-	// Migrate Static Blacklist / 迁移静态黑名单 (Static Blacklist)
-	if old.staticBlacklist != nil && m.staticBlacklist != nil {
-		var key NetXfwLpmKey
-		var val NetXfwRuleValue
-		iter := old.staticBlacklist.Iterate()
-		for iter.Next(&key, &val) {
-			m.staticBlacklist.Put(&key, &val)
-		}
-	}
+	// Migrate Static Blacklist / 迁移静态黑名单
+	migrateMap[NetXfwLpmKey, NetXfwRuleValue](old.staticBlacklist, m.staticBlacklist)
 
-	// Migrate Dynamic Blacklist / 迁移动态黑名单 (Dynamic Blacklist)
-	if old.dynamicBlacklist != nil && m.dynamicBlacklist != nil {
-		var key NetXfwIn6Addr
-		var val NetXfwRuleValue
-		iter := old.dynamicBlacklist.Iterate()
-		for iter.Next(&key, &val) {
-			m.dynamicBlacklist.Put(&key, &val)
-		}
-	}
+	// Migrate Dynamic Blacklist / 迁移动态黑名单
+	migrateMap[NetXfwIn6Addr, NetXfwRuleValue](old.dynamicBlacklist, m.dynamicBlacklist)
 
-	// Migrate Critical Blacklist / 迁移危机封锁 (Critical Blacklist)
-	if old.criticalBlacklist != nil && m.criticalBlacklist != nil {
-		var key NetXfwIn6Addr
-		var val NetXfwRuleValue
-		iter := old.criticalBlacklist.Iterate()
-		for iter.Next(&key, &val) {
-			m.criticalBlacklist.Put(&key, &val)
-		}
-	}
+	// Migrate Critical Blacklist / 迁移危机封锁
+	migrateMap[NetXfwIn6Addr, NetXfwRuleValue](old.criticalBlacklist, m.criticalBlacklist)
 
-	// Migrate Whitelist / 迁移白名单 (Whitelist)
-	if old.whitelist != nil && m.whitelist != nil {
-		var key NetXfwLpmKey
-		var val NetXfwRuleValue
-		iter := old.whitelist.Iterate()
-		for iter.Next(&key, &val) {
-			m.whitelist.Put(&key, &val)
-		}
-	}
+	// Migrate Whitelist / 迁移白名单
+	migrateMap[NetXfwLpmKey, NetXfwRuleValue](old.whitelist, m.whitelist)
 
-	// Migrate Rule Map (IP+Port Rules) / 迁移规则 Map (IP+端口规则)
-	if old.ruleMap != nil && m.ruleMap != nil {
-		var key NetXfwLpmIpPortKey
-		var val NetXfwRuleValue
-		iter := old.ruleMap.Iterate()
-		for iter.Next(&key, &val) {
-			m.ruleMap.Put(&key, &val)
-		}
-	}
+	// Migrate Rule Map (IP+Port Rules) / 迁移规则 Map
+	migrateMap[NetXfwLpmIpPortKey, NetXfwRuleValue](old.ruleMap, m.ruleMap)
 
-	// Migrate Rate Limit Map (config + state combined) / 迁移速率限制 Map（配置 + 状态合并）
-	// Uses unified ratelimit_value struct / 使用统一的 ratelimit_value 结构体
-	if old.ratelimitMap != nil && m.ratelimitMap != nil {
-		var key NetXfwIn6Addr
-		var val NetXfwRatelimitValue
-		iter := old.ratelimitMap.Iterate()
-		for iter.Next(&key, &val) {
-			m.ratelimitMap.Put(&key, &val)
-		}
-	}
+	// Migrate Rate Limit Map / 迁移速率限制 Map
+	migrateMap[NetXfwIn6Addr, NetXfwRatelimitValue](old.ratelimitMap, m.ratelimitMap)
 
-	// Migrate Global Config (ARRAY) / 迁移全局配置
-	if old.globalConfig != nil && m.globalConfig != nil {
-		var key uint32
-		var val uint64
-		iter := old.globalConfig.Iterate()
-		for iter.Next(&key, &val) {
-			m.globalConfig.Put(&key, &val)
-		}
-	}
+	// Migrate Global Config / 迁移全局配置
+	migrateMap[uint32, uint64](old.globalConfig, m.globalConfig)
 
-	// Migrate Top Drop Map (LRU HASH) / 迁移 Top 丢弃统计 Map
-	// Uses top_stats_key struct / 使用 top_stats_key 结构体
-	if old.topDropMap != nil && m.topDropMap != nil {
-		var key NetXfwTopStatsKey
-		var val uint64
-		iter := old.topDropMap.Iterate()
-		for iter.Next(&key, &val) {
-			m.topDropMap.Put(&key, &val)
-		}
-	}
+	// Migrate Top Drop Map / 迁移 Top 丢弃统计 Map
+	migrateMap[NetXfwTopStatsKey, uint64](old.topDropMap, m.topDropMap)
 
-	// Migrate Top Pass Map (LRU HASH) / 迁移 Top 通过统计 Map
-	// Uses top_stats_key struct / 使用 top_stats_key 结构体
-	if old.topPassMap != nil && m.topPassMap != nil {
-		var key NetXfwTopStatsKey
-		var val uint64
-		iter := old.topPassMap.Iterate()
-		for iter.Next(&key, &val) {
-			m.topPassMap.Put(&key, &val)
-		}
-	}
+	// Migrate Top Pass Map / 迁移 Top 通过统计 Map
+	migrateMap[NetXfwTopStatsKey, uint64](old.topPassMap, m.topPassMap)
 
-	// Migrate Stats Global Map (PERCPU ARRAY) / 迁移全局统计 Map
-	// Uses stats_global struct / 使用 stats_global 结构体
-	if old.statsGlobalMap != nil && m.statsGlobalMap != nil {
-		var key uint32
-		var val NetXfwStatsGlobal
-		iter := old.statsGlobalMap.Iterate()
-		for iter.Next(&key, &val) {
-			m.statsGlobalMap.Put(&key, &val)
-		}
-	}
+	// Migrate Stats Global Map / 迁移全局统计 Map
+	migrateMap[uint32, NetXfwStatsGlobal](old.statsGlobalMap, m.statsGlobalMap)
 
 	return nil
 }

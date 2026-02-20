@@ -3,6 +3,8 @@ package daemon
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/core/engine"
 	"github.com/livp123/netxfw/internal/plugins"
@@ -30,15 +32,51 @@ func runUnified(ctx context.Context) {
 		return
 	}
 
-	// Initialize Logging / 初始化日志
 	logger.Init(globalCfg.Logging)
 
 	if globalCfg.Base.EnablePprof {
 		startPprof(globalCfg.Base.PprofPort)
 	}
 
-	// 1. Initialize Manager / 初始化管理器
-	pinPath := config.GetPinPath()
+	manager := initXDPManager(log, config.GetPinPath(), globalCfg)
+	defer manager.Close()
+
+	attachInterfaces(manager, globalCfg, log)
+
+	if err := manager.VerifyAndRepair(globalCfg); err != nil {
+		log.Warnf("⚠️  Startup consistency check failed: %v", err)
+	} else {
+		log.Info("✅ Startup consistency check passed (Config synced to BPF).")
+	}
+
+	coreModules := initCoreModules(globalCfg, manager, log)
+	adapter := xdp.NewAdapter(manager)
+	s := sdk.NewSDK(adapter)
+
+	pluginCtx := &sdk.PluginContext{
+		Context:  ctx,
+		Firewall: adapter,
+		Manager:  adapter,
+		Config:   globalCfg,
+		Logger:   log,
+		SDK:      s,
+	}
+	startPlugins(pluginCtx, log)
+
+	ctxCleanup, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go runCleanupLoop(ctxCleanup, globalCfg)
+	go runTrafficStatsLoop(ctxCleanup, s)
+
+	log.Info("🛡️ NetXFW Unified is running.")
+
+	reloadFunc := createReloadFunc(configPath, coreModules, pluginCtx, log)
+	waitForSignal(ctx, configPath, s, reloadFunc, nil)
+}
+
+// initXDPManager initializes the XDP manager.
+// initXDPManager 初始化 XDP 管理器。
+func initXDPManager(log *zap.SugaredLogger, pinPath string, globalCfg *types.GlobalConfig) *xdp.Manager {
 	manager, err := xdp.NewManagerFromPins(pinPath, log)
 	if err != nil {
 		log.Info("ℹ️  Creating new XDP manager...")
@@ -50,9 +88,12 @@ func runUnified(ctx context.Context) {
 			log.Warnf("⚠️  Failed to pin maps: %v", err)
 		}
 	}
-	defer manager.Close()
+	return manager
+}
 
-	// 2. Attach Interfaces / 附加接口
+// attachInterfaces attaches XDP to network interfaces.
+// attachInterfaces 将 XDP 附加到网络接口。
+func attachInterfaces(manager *xdp.Manager, globalCfg *types.GlobalConfig, log *zap.SugaredLogger) {
 	var interfaces []string
 	if len(globalCfg.Base.Interfaces) > 0 {
 		interfaces = globalCfg.Base.Interfaces
@@ -61,23 +102,16 @@ func runUnified(ctx context.Context) {
 	}
 
 	if len(interfaces) > 0 {
-		// Clean up removed interfaces first / 首先清理已删除的接口
 		cleanupOrphanedInterfaces(manager, interfaces)
 		if err := manager.Attach(interfaces); err != nil {
 			log.Fatalf("❌ Failed to attach XDP: %v", err)
 		}
 	}
+}
 
-	// Consistency Check at startup (Ensure BPF maps match Config)
-	// 启动时的一致性检查（确保 BPF Map 与配置匹配）
-	if err := manager.VerifyAndRepair(globalCfg); err != nil {
-		log.Warnf("⚠️  Startup consistency check failed: %v", err)
-	} else {
-		log.Info("✅ Startup consistency check passed (Config synced to BPF).")
-	}
-
-	// 3. Initialize and Start Core Modules
-	// 初始化并启动核心模块
+// initCoreModules initializes and starts core modules.
+// initCoreModules 初始化并启动核心模块。
+func initCoreModules(globalCfg *types.GlobalConfig, manager *xdp.Manager, log *zap.SugaredLogger) []engine.CoreModule {
 	coreModules := []engine.CoreModule{
 		&engine.BaseModule{},
 		&engine.ConntrackModule{},
@@ -85,7 +119,6 @@ func runUnified(ctx context.Context) {
 		&engine.RateLimitModule{},
 	}
 
-	// Wrap manager with Adapter for interface compliance
 	adapter := xdp.NewAdapter(manager)
 	s := sdk.NewSDK(adapter)
 
@@ -97,16 +130,12 @@ func runUnified(ctx context.Context) {
 			log.Fatalf("❌ Failed to start core module %s: %v", mod.Name(), err)
 		}
 	}
+	return coreModules
+}
 
-	// 4. Load ALL Plugins / 加载所有插件
-	pluginCtx := &sdk.PluginContext{
-		Context:  ctx,
-		Firewall: adapter,
-		Manager:  adapter,
-		Config:   globalCfg,
-		Logger:   log,
-		SDK:      s,
-	}
+// startPlugins starts all plugins.
+// startPlugins 启动所有插件。
+func startPlugins(pluginCtx *sdk.PluginContext, log *zap.SugaredLogger) {
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(pluginCtx); err != nil {
 			log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
@@ -115,20 +144,13 @@ func runUnified(ctx context.Context) {
 		if err := p.Start(pluginCtx); err != nil {
 			log.Warnf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
 		}
-		defer func() { _ = p.Stop() }()
 	}
+}
 
-	// 5. Start Cleanup Loop / 启动清理循环
-	ctxCleanup, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go runCleanupLoop(ctxCleanup, globalCfg)
-
-	// 6. Start Traffic Stats Loop / 启动流量统计循环
-	go runTrafficStatsLoop(ctxCleanup, s)
-
-	log.Info("🛡️ NetXFW Unified is running.")
-
-	reloadFunc := func() error {
+// createReloadFunc creates a reload function for configuration changes.
+// createReloadFunc 创建配置变更的重载函数。
+func createReloadFunc(configPath string, coreModules []engine.CoreModule, pluginCtx *sdk.PluginContext, log *zap.SugaredLogger) func() error {
+	return func() error {
 		types.ConfigMu.RLock()
 		newCfg, err := types.LoadGlobalConfig(configPath)
 		types.ConfigMu.RUnlock()
@@ -136,14 +158,12 @@ func runUnified(ctx context.Context) {
 			return err
 		}
 
-		// Reload Core Modules
 		for _, mod := range coreModules {
 			if err := mod.Reload(newCfg); err != nil {
 				log.Warnf("⚠️  Failed to reload core module %s: %v", mod.Name(), err)
 			}
 		}
 
-		// Reload Plugins
 		pluginCtx.Config = newCfg
 		for _, p := range plugins.GetPlugins() {
 			if err := p.Reload(pluginCtx); err != nil {
@@ -152,6 +172,4 @@ func runUnified(ctx context.Context) {
 		}
 		return nil
 	}
-
-	waitForSignal(ctx, configPath, s, reloadFunc, nil)
 }

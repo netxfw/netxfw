@@ -276,108 +276,18 @@ func (u *IncrementalUpdater) ApplyDiff(diff *ConfigDiff) error {
 	}
 
 	if !diff.HasChanges() {
-		return nil // No changes to apply / 没有变更需要应用
+		return nil
 	}
 
 	var errors []error
 	var appliedCount int
 	var failedCount int
 
-	// Apply global config changes / 应用全局配置变更
-	for field, change := range diff.GlobalConfigChanges {
-		if err := u.applyGlobalConfigChange(field, change.NewValue); err != nil {
-			errors = append(errors, fmt.Errorf("failed to apply %s: %w", field, err))
-			failedCount++
-		} else {
-			appliedCount++
-		}
-	}
+	appliedCount, failedCount, errors = u.applyGlobalConfigChanges(diff, appliedCount, failedCount, errors)
+	appliedCount, failedCount, errors = u.applyBlacklistChanges(diff, appliedCount, failedCount, errors)
+	appliedCount, failedCount, errors = u.applyWhitelistChanges(diff, appliedCount, failedCount, errors)
+	appliedCount, failedCount, errors = u.applyIPPortChanges(diff, appliedCount, failedCount, errors)
 
-	// Apply blacklist changes / 应用黑名单变更
-	for _, ip := range diff.BlacklistAdded {
-		if u.mgr.staticBlacklist == nil {
-			errors = append(errors, fmt.Errorf("failed to add blacklist %s: staticBlacklist map is nil", ip))
-			failedCount++
-			continue
-		}
-		if err := u.mgr.BlockStatic(ip, ""); err != nil {
-			errors = append(errors, fmt.Errorf("failed to add blacklist %s: %w", ip, err))
-			failedCount++
-		} else {
-			appliedCount++
-		}
-	}
-	for _, ip := range diff.BlacklistRemoved {
-		if u.mgr.staticBlacklist == nil {
-			errors = append(errors, fmt.Errorf("failed to remove blacklist %s: staticBlacklist map is nil", ip))
-			failedCount++
-			continue
-		}
-		if err := UnlockIP(u.mgr.staticBlacklist, ip); err != nil {
-			errors = append(errors, fmt.Errorf("failed to remove blacklist %s: %w", ip, err))
-			failedCount++
-		} else {
-			appliedCount++
-		}
-	}
-
-	// Apply whitelist changes / 应用白名单变更
-	for _, ip := range diff.WhitelistAdded {
-		if u.mgr.whitelist == nil {
-			errors = append(errors, fmt.Errorf("failed to add whitelist %s: whitelist map is nil", ip))
-			failedCount++
-			continue
-		}
-		if err := AllowIP(u.mgr.whitelist, ip, 0); err != nil {
-			errors = append(errors, fmt.Errorf("failed to add whitelist %s: %w", ip, err))
-			failedCount++
-		} else {
-			appliedCount++
-		}
-	}
-	for _, ip := range diff.WhitelistRemoved {
-		if u.mgr.whitelist == nil {
-			errors = append(errors, fmt.Errorf("failed to remove whitelist %s: whitelist map is nil", ip))
-			failedCount++
-			continue
-		}
-		if err := UnlockIP(u.mgr.whitelist, ip); err != nil {
-			errors = append(errors, fmt.Errorf("failed to remove whitelist %s: %w", ip, err))
-			failedCount++
-		} else {
-			appliedCount++
-		}
-	}
-
-	// Apply IP+Port rule changes / 应用 IP+端口规则变更
-	for _, rule := range diff.IPPortAdded {
-		if u.mgr.ruleMap == nil {
-			errors = append(errors, fmt.Errorf("failed to add IP+Port rule %s:%d: ruleMap is nil", rule.IP, rule.Port))
-			failedCount++
-			continue
-		}
-		if err := AddIPPortRuleToMapString(u.mgr.ruleMap, rule.IP, rule.Port, rule.Action); err != nil {
-			errors = append(errors, fmt.Errorf("failed to add IP+Port rule %s:%d: %w", rule.IP, rule.Port, err))
-			failedCount++
-		} else {
-			appliedCount++
-		}
-	}
-	for _, rule := range diff.IPPortRemoved {
-		if u.mgr.ruleMap == nil {
-			errors = append(errors, fmt.Errorf("failed to remove IP+Port rule %s:%d: ruleMap is nil", rule.IP, rule.Port))
-			failedCount++
-			continue
-		}
-		if err := RemoveIPPortRuleFromMapString(u.mgr.ruleMap, rule.IP, rule.Port); err != nil {
-			errors = append(errors, fmt.Errorf("failed to remove IP+Port rule %s:%d: %w", rule.IP, rule.Port, err))
-			failedCount++
-		} else {
-			appliedCount++
-		}
-	}
-
-	// Log summary / 记录摘要
 	if u.mgr.logger != nil {
 		u.mgr.logger.Infof("📊 Incremental update: %d applied, %d failed", appliedCount, failedCount)
 	}
@@ -388,84 +298,159 @@ func (u *IncrementalUpdater) ApplyDiff(diff *ConfigDiff) error {
 	return nil
 }
 
+// applyGlobalConfigChanges applies global config changes.
+// applyGlobalConfigChanges 应用全局配置变更。
+func (u *IncrementalUpdater) applyGlobalConfigChanges(diff *ConfigDiff, applied, failed int, errors []error) (int, int, []error) {
+	for field, change := range diff.GlobalConfigChanges {
+		if err := u.applyGlobalConfigChange(field, change.NewValue); err != nil {
+			errors = append(errors, fmt.Errorf("failed to apply %s: %w", field, err))
+			failed++
+		} else {
+			applied++
+		}
+	}
+	return applied, failed, errors
+}
+
+// applyBlacklistChanges applies blacklist changes.
+// applyBlacklistChanges 应用黑名单变更。
+func (u *IncrementalUpdater) applyBlacklistChanges(diff *ConfigDiff, applied, failed int, errors []error) (int, int, []error) {
+	for _, ip := range diff.BlacklistAdded {
+		if u.mgr.staticBlacklist == nil {
+			errors = append(errors, fmt.Errorf("failed to add blacklist %s: staticBlacklist map is nil", ip))
+			failed++
+			continue
+		}
+		if err := u.mgr.BlockStatic(ip, ""); err != nil {
+			errors = append(errors, fmt.Errorf("failed to add blacklist %s: %w", ip, err))
+			failed++
+		} else {
+			applied++
+		}
+	}
+	for _, ip := range diff.BlacklistRemoved {
+		if u.mgr.staticBlacklist == nil {
+			errors = append(errors, fmt.Errorf("failed to remove blacklist %s: staticBlacklist map is nil", ip))
+			failed++
+			continue
+		}
+		if err := UnlockIP(u.mgr.staticBlacklist, ip); err != nil {
+			errors = append(errors, fmt.Errorf("failed to remove blacklist %s: %w", ip, err))
+			failed++
+		} else {
+			applied++
+		}
+	}
+	return applied, failed, errors
+}
+
+// applyWhitelistChanges applies whitelist changes.
+// applyWhitelistChanges 应用白名单变更。
+func (u *IncrementalUpdater) applyWhitelistChanges(diff *ConfigDiff, applied, failed int, errors []error) (int, int, []error) {
+	for _, ip := range diff.WhitelistAdded {
+		if u.mgr.whitelist == nil {
+			errors = append(errors, fmt.Errorf("failed to add whitelist %s: whitelist map is nil", ip))
+			failed++
+			continue
+		}
+		if err := AllowIP(u.mgr.whitelist, ip, 0); err != nil {
+			errors = append(errors, fmt.Errorf("failed to add whitelist %s: %w", ip, err))
+			failed++
+		} else {
+			applied++
+		}
+	}
+	for _, ip := range diff.WhitelistRemoved {
+		if u.mgr.whitelist == nil {
+			errors = append(errors, fmt.Errorf("failed to remove whitelist %s: whitelist map is nil", ip))
+			failed++
+			continue
+		}
+		if err := UnlockIP(u.mgr.whitelist, ip); err != nil {
+			errors = append(errors, fmt.Errorf("failed to remove whitelist %s: %w", ip, err))
+			failed++
+		} else {
+			applied++
+		}
+	}
+	return applied, failed, errors
+}
+
+// applyIPPortChanges applies IP+Port rule changes.
+// applyIPPortChanges 应用 IP+端口规则变更。
+func (u *IncrementalUpdater) applyIPPortChanges(diff *ConfigDiff, applied, failed int, errors []error) (int, int, []error) {
+	for _, rule := range diff.IPPortAdded {
+		if u.mgr.ruleMap == nil {
+			errors = append(errors, fmt.Errorf("failed to add IP+Port rule %s:%d: ruleMap is nil", rule.IP, rule.Port))
+			failed++
+			continue
+		}
+		if err := AddIPPortRuleToMapString(u.mgr.ruleMap, rule.IP, rule.Port, rule.Action); err != nil {
+			errors = append(errors, fmt.Errorf("failed to add IP+Port rule %s:%d: %w", rule.IP, rule.Port, err))
+			failed++
+		} else {
+			applied++
+		}
+	}
+	for _, rule := range diff.IPPortRemoved {
+		if u.mgr.ruleMap == nil {
+			errors = append(errors, fmt.Errorf("failed to remove IP+Port rule %s:%d: ruleMap is nil", rule.IP, rule.Port))
+			failed++
+			continue
+		}
+		if err := RemoveIPPortRuleFromMapString(u.mgr.ruleMap, rule.IP, rule.Port); err != nil {
+			errors = append(errors, fmt.Errorf("failed to remove IP+Port rule %s:%d: %w", rule.IP, rule.Port, err))
+			failed++
+		} else {
+			applied++
+		}
+	}
+	return applied, failed, errors
+}
+
 // applyGlobalConfigChange applies a single global config change.
 // applyGlobalConfigChange 应用单个全局配置变更。
 func (u *IncrementalUpdater) applyGlobalConfigChange(field string, value any) error {
-	// Validate value is not nil / 验证值不为 nil
 	if value == nil {
 		return fmt.Errorf("value for field %s is nil", field)
 	}
 
 	switch field {
 	case "default_deny":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
-		}
-		return u.mgr.SetDefaultDeny(v)
+		return u.applyBoolConfig(field, value, u.mgr.SetDefaultDeny)
 	case "allow_return_traffic":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
-		}
-		return u.mgr.SetAllowReturnTraffic(v)
+		return u.applyBoolConfig(field, value, u.mgr.SetAllowReturnTraffic)
 	case "allow_icmp":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
-		}
-		return u.mgr.SetAllowICMP(v)
+		return u.applyBoolConfig(field, value, u.mgr.SetAllowICMP)
 	case "strict_protocol":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
-		}
-		return u.mgr.SetStrictProto(v)
+		return u.applyBoolConfig(field, value, u.mgr.SetStrictProto)
 	case "strict_tcp":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
-		}
-		return u.mgr.SetStrictTCP(v)
+		return u.applyBoolConfig(field, value, u.mgr.SetStrictTCP)
 	case "syn_limit":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
-		}
-		return u.mgr.SetSYNLimit(v)
+		return u.applyBoolConfig(field, value, u.mgr.SetSYNLimit)
 	case "bogon_filter":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
-		}
-		return u.mgr.SetBogonFilter(v)
+		return u.applyBoolConfig(field, value, u.mgr.SetBogonFilter)
 	case "drop_fragments":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
-		}
-		return u.mgr.SetDropFragments(v)
+		return u.applyBoolConfig(field, value, u.mgr.SetDropFragments)
 	case "enable_af_xdp":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
-		}
-		return u.mgr.SetEnableAFXDP(v)
+		return u.applyBoolConfig(field, value, u.mgr.SetEnableAFXDP)
 	case "conntrack_enabled":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
-		}
-		return u.mgr.SetConntrack(v)
+		return u.applyBoolConfig(field, value, u.mgr.SetConntrack)
 	case "rate_limit_enabled":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
-		}
-		return u.mgr.SetEnableRateLimit(v)
+		return u.applyBoolConfig(field, value, u.mgr.SetEnableRateLimit)
 	default:
 		return fmt.Errorf("unknown config field: %s", field)
 	}
+}
+
+// applyBoolConfig applies a boolean config value.
+// applyBoolConfig 应用布尔配置值。
+func (u *IncrementalUpdater) applyBoolConfig(field string, value any, setter func(bool) error) error {
+	v, ok := value.(bool)
+	if !ok {
+		return fmt.Errorf("invalid type for %s: expected bool, got %T", field, value)
+	}
+	return setter(v)
 }
 
 // HasChanges returns true if there are any changes to apply.

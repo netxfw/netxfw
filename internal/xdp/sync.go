@@ -16,15 +16,191 @@ import (
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/fileutil"
 	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 // VerifyAndRepair ensures consistency between config and BPF maps by forcing a sync.
 // VerifyAndRepair 通过强制同步来确保配置和 BPF Map 之间的一致性。
 func (m *Manager) VerifyAndRepair(cfg *types.GlobalConfig) error {
 	m.logger.Infof("🔍 Verifying consistency between config and BPF maps (Auto-Repair)...")
-	// We use overwrite=true to ensure the map exactly matches the config, removing any ghost rules.
-	// 我们使用 overwrite=true 来确保 Map 与配置完全匹配，删除任何幽灵规则。
 	return m.SyncFromFiles(cfg, true)
+}
+
+// syncWhitelistFromConfig syncs whitelist rules from config to BPF maps.
+// syncWhitelistFromConfig 从配置同步白名单规则到 BPF Map。
+func (m *Manager) syncWhitelistFromConfig(whitelist []string) {
+	for _, rule := range whitelist {
+		cidr := rule
+		port := uint16(0)
+		if strings.Contains(rule, ":") && !strings.Contains(rule, "[") && !strings.Contains(rule, "/") {
+			parts := strings.Split(rule, ":")
+			if len(parts) == 2 {
+				cidr = parts[0]
+				if _, err := fmt.Sscanf(parts[1], "%d", &port); err != nil {
+					m.logger.Warnf("⚠️  Failed to parse port from whitelist rule %s: %v", rule, err)
+				}
+			}
+		}
+		if m.whitelist != nil {
+			if err := AllowIP(m.whitelist, cidr, port); err != nil {
+				m.logger.Warnf("⚠️  Failed to whitelist %s: %v", rule, err)
+			}
+		}
+	}
+}
+
+// parseLockListFile reads and parses the lock list file.
+// parseLockListFile 读取并解析锁定列表文件。
+func (m *Manager) parseLockListFile(filePath string) ([]binary.Record, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open lock list file: %w", err)
+	}
+	defer file.Close()
+
+	var records []binary.Record
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		record, ok := m.parseLockListLine(line)
+		if ok {
+			records = append(records, record)
+		}
+	}
+	return records, scanner.Err()
+}
+
+// parseLockListLine parses a single line from the lock list file.
+// parseLockListLine 解析锁定列表文件中的单行。
+func (m *Manager) parseLockListLine(line string) (binary.Record, bool) {
+	ip, ipNet, err := net.ParseCIDR(line)
+	var ones int
+	if err != nil {
+		ip = net.ParseIP(line)
+		if ip == nil {
+			m.logger.Warnf("⚠️  Skipping invalid IP/CIDR: %s", line)
+			return binary.Record{}, false
+		}
+		if ip.To4() != nil {
+			ones = 32
+		} else {
+			ones = 128
+		}
+	} else {
+		ones, _ = ipNet.Mask.Size()
+	}
+
+	return binary.Record{
+		IP:        ip,
+		PrefixLen: uint8(ones),
+		IsIPv6:    ip.To4() == nil,
+	}, true
+}
+
+// syncBlacklistRecords syncs blacklist records to BPF maps.
+// syncBlacklistRecords 将黑名单记录同步到 BPF Map。
+func (m *Manager) syncBlacklistRecords(records []binary.Record) {
+	for _, r := range records {
+		if m.staticBlacklist == nil {
+			continue
+		}
+		if err := LockIP(m.staticBlacklist, fmt.Sprintf("%s/%d", r.IP.String(), r.PrefixLen)); err != nil {
+			m.logger.Warnf("⚠️  Failed to lock %s/%d: %v", r.IP.String(), r.PrefixLen, err)
+		}
+	}
+}
+
+// parseIPToNet converts an IP string to an IPNet.
+// parseIPToNet 将 IP 字符串转换为 IPNet。
+func parseIPToNet(ipStr string) *net.IPNet {
+	_, ipNet, err := net.ParseCIDR(ipStr)
+	if err != nil {
+		ip := net.ParseIP(ipStr)
+		if ip != nil {
+			mask := net.CIDRMask(32, 32)
+			if ip.To4() == nil {
+				mask = net.CIDRMask(128, 128)
+			}
+			ipNet = &net.IPNet{IP: ip, Mask: mask}
+		}
+	}
+	return ipNet
+}
+
+// syncIPPortRules syncs IP+Port rules from config to BPF maps.
+// syncIPPortRules 从配置同步 IP+端口规则到 BPF Map。
+func (m *Manager) syncIPPortRules(rules []types.IPPortRule) {
+	for _, rule := range rules {
+		ipNet := parseIPToNet(rule.IP)
+		if ipNet != nil {
+			if err := m.AddIPPortRule(ipNet, rule.Port, rule.Action, nil); err != nil {
+				m.logger.Warnf("⚠️  Failed to add IP+Port rule %s:%d (action %d): %v", rule.IP, rule.Port, rule.Action, err)
+			}
+		}
+	}
+}
+
+// syncAllowedPorts syncs allowed ports from config to BPF maps.
+// syncAllowedPorts 从配置同步允许端口到 BPF Map。
+func (m *Manager) syncAllowedPorts(ports []uint16) {
+	for _, port := range ports {
+		if err := m.AllowPort(port, nil); err != nil {
+			m.logger.Warnf("⚠️  Failed to allow port %d: %v", port, err)
+		}
+	}
+}
+
+// syncRateLimitRules syncs rate limit rules from config to BPF maps.
+// syncRateLimitRules 从配置同步速率限制规则到 BPF Map。
+func (m *Manager) syncRateLimitRules(rules []types.RateLimitRule) {
+	for _, rule := range rules {
+		ipNet := parseIPToNet(rule.IP)
+		if ipNet != nil {
+			if err := m.AddRateLimitRule(ipNet, rule.Rate, rule.Burst); err != nil {
+				m.logger.Warnf("⚠️  Failed to add rate limit rule %s: %v", rule.IP, err)
+			}
+		}
+	}
+}
+
+// syncGlobalConfig syncs global configuration to BPF maps.
+// syncGlobalConfig 将全局配置同步到 BPF Map。
+func (m *Manager) syncGlobalConfig(cfg *types.GlobalConfig) {
+	m.setGlobalConfigValue(m.SetDefaultDeny, cfg.Base.DefaultDeny, "default deny")
+	m.setGlobalConfigValue(m.SetAllowReturnTraffic, cfg.Base.AllowReturnTraffic, "allow return traffic")
+	m.setGlobalConfigValue(m.SetAllowICMP, cfg.Base.AllowICMP, "allow ICMP")
+	m.setGlobalConfigValue(m.SetEnableAFXDP, cfg.Base.EnableAFXDP, "enable AF_XDP")
+	m.setGlobalConfigValue(m.SetEnableRateLimit, cfg.RateLimit.Enabled, "enable rate limit")
+	m.setGlobalConfigValue(m.SetConntrack, cfg.Conntrack.Enabled, "conntrack")
+
+	if err := m.SetICMPRateLimit(cfg.Base.ICMPRate, cfg.Base.ICMPBurst); err != nil {
+		m.logger.Warnf("⚠️  Failed to set ICMP rate limit: %v", err)
+	}
+
+	if cfg.Conntrack.TCPTimeout != "" {
+		if d, err := time.ParseDuration(cfg.Conntrack.TCPTimeout); err == nil {
+			m.SetConntrackTimeout(d)
+		}
+	}
+
+	m.SetAutoBlock(cfg.RateLimit.AutoBlock)
+	if cfg.RateLimit.AutoBlockExpiry != "" {
+		if d, err := time.ParseDuration(cfg.RateLimit.AutoBlockExpiry); err == nil {
+			m.SetAutoBlockExpiry(d)
+		}
+	}
+}
+
+// setGlobalConfigValue is a helper to set global config values with error logging.
+// setGlobalConfigValue 是设置全局配置值并记录错误的辅助函数。
+func (m *Manager) setGlobalConfigValue(setter func(bool) error, value bool, name string) {
+	if err := setter(value); err != nil {
+		m.logger.Warnf("⚠️  Failed to set %s: %v", name, err)
+	}
 }
 
 // SyncFromFiles reads rules from text files and updates BPF maps.
@@ -43,169 +219,31 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 
 	m.logger.Infof("🔄 Syncing rules from %s and config to BPF maps...", cfg.Base.LockListFile)
 
-	// 1. Sync Whitelist from config to maps / 1. 从配置同步白名单到 Map
-	for _, rule := range cfg.Base.Whitelist {
-		cidr := rule
-		port := uint16(0)
-		// Basic parsing for IP:Port in whitelist strings
-		// 对白名单字符串中的 IP:Port 进行基本解析
-		if strings.Contains(rule, ":") && !strings.Contains(rule, "[") && !strings.Contains(rule, "/") {
-			parts := strings.Split(rule, ":")
-			if len(parts) == 2 {
-				cidr = parts[0]
-				if _, err := fmt.Sscanf(parts[1], "%d", &port); err != nil {
-					m.logger.Warnf("⚠️  Failed to parse port from whitelist rule %s: %v", rule, err)
-				}
-			}
-		}
+	// 1. Sync Whitelist / 1. 同步白名单
+	m.syncWhitelistFromConfig(cfg.Base.Whitelist)
 
-		targetMap := m.whitelist
-
-		if targetMap != nil {
-			if err := AllowIP(targetMap, cidr, port); err != nil {
-				m.logger.Warnf("⚠️  Failed to whitelist %s: %v", rule, err)
-			}
-		}
-	}
-
-	// 2. Read and parse rules.deny.txt / 2. 读取并解析 rules.deny.txt
-	file, err := os.Open(cfg.Base.LockListFile)
+	// 2. Read and parse lock list file / 2. 读取并解析锁定列表文件
+	records, err := m.parseLockListFile(cfg.Base.LockListFile)
 	if err != nil {
-		return fmt.Errorf("failed to open lock list file: %w", err)
-	}
-	defer file.Close()
-
-	var records []binary.Record
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		// Skip empty lines and comments
-		// 跳过空行和注释
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		ip, ipNet, err := net.ParseCIDR(line)
-		var ones int
-		if err != nil {
-			ip = net.ParseIP(line)
-			if ip == nil {
-				m.logger.Warnf("⚠️  Skipping invalid IP/CIDR: %s", line)
-				continue
-			}
-			if ip.To4() != nil {
-				ones = 32
-			} else {
-				ones = 128
-			}
-		} else {
-			ones, _ = ipNet.Mask.Size()
-		}
-
-		records = append(records, binary.Record{
-			IP:        ip,
-			PrefixLen: uint8(ones),
-			IsIPv6:    ip.To4() == nil,
-		})
+		return err
 	}
 
-	// 3. Update BPF Maps / 3. 更新 BPF Map
-	for _, r := range records {
-		targetMap := m.staticBlacklist
+	// 3. Sync Blacklist / 3. 同步黑名单
+	m.syncBlacklistRecords(records)
 
-		if targetMap == nil {
-			continue
-		}
+	// 4. Sync IP+Port rules / 4. 同步 IP+端口规则
+	m.syncIPPortRules(cfg.Port.IPPortRules)
 
-		if err := LockIP(targetMap, fmt.Sprintf("%s/%d", r.IP.String(), r.PrefixLen)); err != nil {
-			m.logger.Warnf("⚠️  Failed to lock %s/%d: %v", r.IP.String(), r.PrefixLen, err)
-		}
-	}
+	// 5. Sync allowed ports / 5. 同步允许端口
+	m.syncAllowedPorts(cfg.Port.AllowedPorts)
 
-	// 4. Sync IP+Port rules from config to maps / 4. 从配置同步 IP+端口规则到 Map
-	for _, rule := range cfg.Port.IPPortRules {
-		_, ipNet, err := net.ParseCIDR(rule.IP)
-		if err != nil {
-			ip := net.ParseIP(rule.IP)
-			if ip != nil {
-				mask := net.CIDRMask(32, 32)
-				if ip.To4() == nil {
-					mask = net.CIDRMask(128, 128)
-				}
-				ipNet = &net.IPNet{IP: ip, Mask: mask}
-			}
-		}
-		if ipNet != nil {
-			if err := m.AddIPPortRule(ipNet, rule.Port, rule.Action, nil); err != nil {
-				m.logger.Warnf("⚠️  Failed to add IP+Port rule %s:%d (action %d): %v", rule.IP, rule.Port, rule.Action, err)
-			}
-		}
-	}
+	// 6. Sync rate limit rules / 6. 同步速率限制规则
+	m.syncRateLimitRules(cfg.RateLimit.Rules)
 
-	// 5. Sync allowed ports from config to maps / 5. 从配置同步允许端口到 Map
-	for _, port := range cfg.Port.AllowedPorts {
-		if err := m.AllowPort(port, nil); err != nil {
-			m.logger.Warnf("⚠️  Failed to allow port %d: %v", port, err)
-		}
-	}
+	// 7. Sync Global Config / 7. 同步全局配置
+	m.syncGlobalConfig(cfg)
 
-	// 6. Sync rate limit rules from config to maps / 6. 从配置同步速率限制规则到 Map
-	for _, rule := range cfg.RateLimit.Rules {
-		_, ipNet, err := net.ParseCIDR(rule.IP)
-		if err != nil {
-			ip := net.ParseIP(rule.IP)
-			if ip != nil {
-				mask := net.CIDRMask(32, 32)
-				if ip.To4() == nil {
-					mask = net.CIDRMask(128, 128)
-				}
-				ipNet = &net.IPNet{IP: ip, Mask: mask}
-			}
-		}
-		if ipNet != nil {
-			if err := m.AddRateLimitRule(ipNet, rule.Rate, rule.Burst); err != nil {
-				m.logger.Warnf("⚠️  Failed to add rate limit rule %s: %v", rule.IP, err)
-			}
-		}
-	}
-
-	// 7. Sync Global Config from config to maps / 7. 从配置同步全局设置到 Map
-	if err := m.SetDefaultDeny(cfg.Base.DefaultDeny); err != nil {
-		m.logger.Warnf("⚠️  Failed to set default deny: %v", err)
-	}
-	if err := m.SetAllowReturnTraffic(cfg.Base.AllowReturnTraffic); err != nil {
-		m.logger.Warnf("⚠️  Failed to set allow return traffic: %v", err)
-	}
-	if err := m.SetAllowICMP(cfg.Base.AllowICMP); err != nil {
-		m.logger.Warnf("⚠️  Failed to set allow ICMP: %v", err)
-	}
-	if err := m.SetEnableAFXDP(cfg.Base.EnableAFXDP); err != nil {
-		m.logger.Warnf("⚠️  Failed to set enable AF_XDP: %v", err)
-	}
-	if err := m.SetICMPRateLimit(cfg.Base.ICMPRate, cfg.Base.ICMPBurst); err != nil {
-		m.logger.Warnf("⚠️  Failed to set ICMP rate limit: %v", err)
-	}
-	if err := m.SetEnableRateLimit(cfg.RateLimit.Enabled); err != nil {
-		m.logger.Warnf("⚠️  Failed to set enable rate limit: %v", err)
-	}
-	if err := m.SetConntrack(cfg.Conntrack.Enabled); err != nil {
-		m.logger.Warnf("⚠️  Failed to set conntrack: %v", err)
-	}
-	if cfg.Conntrack.TCPTimeout != "" {
-		if d, err := time.ParseDuration(cfg.Conntrack.TCPTimeout); err == nil {
-			m.SetConntrackTimeout(d)
-		}
-	}
-
-	m.SetAutoBlock(cfg.RateLimit.AutoBlock)
-	if cfg.RateLimit.AutoBlockExpiry != "" {
-		if d, err := time.ParseDuration(cfg.RateLimit.AutoBlockExpiry); err == nil {
-			m.SetAutoBlockExpiry(d)
-		}
-	}
-
-	// 8. (Optional) Update binary cache for fast loading on restart
-	// 8. （可选）更新二进制缓存以便在重启时快速加载
+	// 8. Update binary cache / 8. 更新二进制缓存
 	go m.UpdateBinaryCache(cfg, records)
 
 	return nil
@@ -275,133 +313,164 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 
 	m.logger.Infof("💾 Syncing BPF maps to %s and config object...", cfg.Base.LockListFile)
 
-	// 1. Sync Whitelist from maps to config object / 从 Map 同步白名单到配置对象
-	wl, _, err := ListBlockedIPs(m.whitelist, false, 0, "")
-	if err == nil {
-		newWhitelist := []string{}
-		for _, entry := range wl {
-			if entry.Counter > 1 {
-				newWhitelist = append(newWhitelist, fmt.Sprintf("%s:%d", entry.IP, entry.Counter))
-			} else {
-				newWhitelist = append(newWhitelist, entry.IP)
-			}
-		}
-		cfg.Base.Whitelist = newWhitelist
-	}
-
-	// 2. List all blocked IPs / 列出所有封禁的 IP
-	ips, _, err := ListBlockedIPs(m.staticBlacklist, false, 0, "")
+	m.syncWhitelistToConfig(cfg)
+	ips, err := m.syncBlacklistToConfig(cfg)
 	if err != nil {
 		return err
 	}
+	m.syncIPPortRulesToConfig(cfg)
+	m.syncAllowedPortsToConfig(cfg)
+	m.syncRateLimitRulesToConfig(cfg)
+	m.syncGlobalConfigToConfig(cfg)
 
-	// 3. Sync IP+Port rules from maps to config object / 从 Map 同步 IP+端口规则到配置对象
+	return m.writeLockListFile(cfg, ips)
+}
+
+// syncWhitelistToConfig syncs whitelist from BPF map to config.
+// syncWhitelistToConfig 从 BPF Map 同步白名单到配置。
+func (m *Manager) syncWhitelistToConfig(cfg *types.GlobalConfig) {
+	wl, _, err := ListBlockedIPs(m.whitelist, false, 0, "")
+	if err != nil {
+		return
+	}
+
+	newWhitelist := []string{}
+	for _, entry := range wl {
+		if entry.Counter > 1 {
+			newWhitelist = append(newWhitelist, fmt.Sprintf("%s:%d", entry.IP, entry.Counter))
+		} else {
+			newWhitelist = append(newWhitelist, entry.IP)
+		}
+	}
+	cfg.Base.Whitelist = newWhitelist
+}
+
+// syncBlacklistToConfig syncs blacklist from BPF map to config.
+// syncBlacklistToConfig 从 BPF Map 同步黑名单到配置。
+func (m *Manager) syncBlacklistToConfig(cfg *types.GlobalConfig) ([]sdk.BlockedIP, error) {
+	ips, _, err := ListBlockedIPs(m.staticBlacklist, false, 0, "")
+	return ips, err
+}
+
+// syncIPPortRulesToConfig syncs IP+Port rules from BPF map to config.
+// syncIPPortRulesToConfig 从 BPF Map 同步 IP+端口规则到配置。
+func (m *Manager) syncIPPortRulesToConfig(cfg *types.GlobalConfig) {
 	ipPortRules, _, err := m.ListIPPortRules(false, 0, "")
-	if err == nil {
-		var newIPPortRules []types.IPPortRule
-
-		// Helper to parse the map back to struct / 将 Map 解析回结构体的辅助函数
-		processRules := func(rules map[string]string) {
-			for key, actionStr := range rules {
-				// Key is "IP/PrefixLen:Port" / 键格式为 "IP/PrefixLen:Port"
-				lastColon := strings.LastIndex(key, ":")
-				if lastColon != -1 {
-					ipCIDR := key[:lastColon]
-					portStr := key[lastColon+1:]
-					port := uint16(0)
-					fmt.Sscanf(portStr, "%d", &port)
-
-					action := uint8(2) // deny
-					if actionStr == "allow" {
-						action = 1
-					}
-
-					newIPPortRules = append(newIPPortRules, types.IPPortRule{
-						IP:     ipCIDR,
-						Port:   port,
-						Action: action,
-					})
-				}
-			}
-		}
-
-		processRules(ipPortRules)
-		cfg.Port.IPPortRules = newIPPortRules
+	if err != nil {
+		return
 	}
 
-	// 4. Sync allowed ports from map to config object / 从 Map 同步允许端口到配置对象
-	if ports, err := m.ListAllowedPorts(); err == nil {
-		cfg.Port.AllowedPorts = ports
+	var newIPPortRules []types.IPPortRule
+	for key, actionStr := range ipPortRules {
+		lastColon := strings.LastIndex(key, ":")
+		if lastColon == -1 {
+			continue
+		}
+
+		ipCIDR := key[:lastColon]
+		portStr := key[lastColon+1:]
+		port := uint16(0)
+		fmt.Sscanf(portStr, "%d", &port)
+
+		action := uint8(2)
+		if actionStr == "allow" {
+			action = 1
+		}
+
+		newIPPortRules = append(newIPPortRules, types.IPPortRule{
+			IP:     ipCIDR,
+			Port:   port,
+			Action: action,
+		})
+	}
+	cfg.Port.IPPortRules = newIPPortRules
+}
+
+// syncAllowedPortsToConfig syncs allowed ports from BPF map to config.
+// syncAllowedPortsToConfig 从 BPF Map 同步允许端口到配置。
+func (m *Manager) syncAllowedPortsToConfig(cfg *types.GlobalConfig) {
+	ports, err := m.ListAllowedPorts()
+	if err != nil {
+		return
+	}
+	cfg.Port.AllowedPorts = ports
+}
+
+// syncRateLimitRulesToConfig syncs rate limit rules from BPF map to config.
+// syncRateLimitRulesToConfig 从 BPF Map 同步速率限制规则到配置。
+func (m *Manager) syncRateLimitRulesToConfig(cfg *types.GlobalConfig) {
+	rules, _, err := m.ListRateLimitRules(0, "")
+	if err != nil {
+		return
 	}
 
-	// 5. Sync rate limit rules from map to config object / 从 Map 同步速率限制规则到配置对象
-	if rules, _, err := m.ListRateLimitRules(0, ""); err == nil {
-		var newRateRules []types.RateLimitRule
-		for target, conf := range rules {
-			newRateRules = append(newRateRules, types.RateLimitRule{
-				IP:    target,
-				Rate:  conf.Rate,
-				Burst: conf.Burst,
-			})
-		}
-		cfg.RateLimit.Rules = newRateRules
+	var newRateRules []types.RateLimitRule
+	for target, conf := range rules {
+		newRateRules = append(newRateRules, types.RateLimitRule{
+			IP:    target,
+			Rate:  conf.Rate,
+			Burst: conf.Burst,
+		})
+	}
+	cfg.RateLimit.Rules = newRateRules
+}
+
+// syncGlobalConfigToConfig syncs global config from BPF map to config object.
+// syncGlobalConfigToConfig 从 BPF Map 同步全局配置到配置对象。
+func (m *Manager) syncGlobalConfigToConfig(cfg *types.GlobalConfig) {
+	if m.globalConfig == nil {
+		return
 	}
 
-	// 6. Sync Global Config from map to config object / 从 Map 同步全局配置到配置对象
-	if m.globalConfig != nil {
-		var val uint64
-		var key uint32
+	var val uint64
+	var key uint32
 
-		key = configDefaultDeny
-		if err := m.globalConfig.Lookup(&key, &val); err == nil {
-			cfg.Base.DefaultDeny = (val == 1)
-		}
-		key = configAllowReturnTraffic
-		if err := m.globalConfig.Lookup(&key, &val); err == nil {
-			cfg.Base.AllowReturnTraffic = (val == 1)
-		}
-		key = configAllowICMP
-		if err := m.globalConfig.Lookup(&key, &val); err == nil {
-			cfg.Base.AllowICMP = (val == 1)
-		}
-		key = configEnableAFXDP
-		if err := m.globalConfig.Lookup(&key, &val); err == nil {
-			cfg.Base.EnableAFXDP = (val == 1)
-		}
-		key = configICMPRate
-		if err := m.globalConfig.Lookup(&key, &val); err == nil {
-			cfg.Base.ICMPRate = val
-		}
-		key = configICMPBurst
-		if err := m.globalConfig.Lookup(&key, &val); err == nil {
-			cfg.Base.ICMPBurst = val
-		}
-		key = configEnableRateLimit
-		if err := m.globalConfig.Lookup(&key, &val); err == nil {
-			cfg.RateLimit.Enabled = (val == 1)
-		}
-		key = configEnableConntrack
-		if err := m.globalConfig.Lookup(&key, &val); err == nil {
-			cfg.Conntrack.Enabled = (val == 1)
-		}
-		key = configConntrackTimeout
-		if err := m.globalConfig.Lookup(&key, &val); err == nil {
-			cfg.Conntrack.TCPTimeout = time.Duration(val).String()
-		}
+	key = configDefaultDeny
+	if err := m.globalConfig.Lookup(&key, &val); err == nil {
+		cfg.Base.DefaultDeny = (val == 1)
 	}
+	key = configAllowReturnTraffic
+	if err := m.globalConfig.Lookup(&key, &val); err == nil {
+		cfg.Base.AllowReturnTraffic = (val == 1)
+	}
+	key = configAllowICMP
+	if err := m.globalConfig.Lookup(&key, &val); err == nil {
+		cfg.Base.AllowICMP = (val == 1)
+	}
+	key = configEnableAFXDP
+	if err := m.globalConfig.Lookup(&key, &val); err == nil {
+		cfg.Base.EnableAFXDP = (val == 1)
+	}
+	key = configICMPRate
+	if err := m.globalConfig.Lookup(&key, &val); err == nil {
+		cfg.Base.ICMPRate = val
+	}
+	key = configICMPBurst
+	if err := m.globalConfig.Lookup(&key, &val); err == nil {
+		cfg.Base.ICMPBurst = val
+	}
+	key = configEnableRateLimit
+	if err := m.globalConfig.Lookup(&key, &val); err == nil {
+		cfg.RateLimit.Enabled = (val == 1)
+	}
+	key = configEnableConntrack
+	if err := m.globalConfig.Lookup(&key, &val); err == nil {
+		cfg.Conntrack.Enabled = (val == 1)
+	}
+	key = configConntrackTimeout
+	if err := m.globalConfig.Lookup(&key, &val); err == nil {
+		cfg.Conntrack.TCPTimeout = time.Duration(val).String()
+	}
+}
 
-	// 7. Write lock_list to file / 将锁定列表写入文件
+// writeLockListFile writes the lock list to file.
+// writeLockListFile 将锁定列表写入文件。
+func (m *Manager) writeLockListFile(cfg *types.GlobalConfig, ips []sdk.BlockedIP) error {
 	var buf bytes.Buffer
 	for _, entry := range ips {
-		// Only write if it's a simple block (counter == 0) and not a dynamic rule (check expiresAt?)
-		// Actually, lock_list contains static blocks. dyn_lock_list is separate.
-		// So we just dump everything from lock_list.
 		buf.WriteString(entry.IP + "\n")
 	}
-	if err := fileutil.AtomicWriteFile(cfg.Base.LockListFile, buf.Bytes(), 0644); err != nil {
-		return fmt.Errorf("failed to write lock list file: %w", err)
-	}
-	return nil
+	return fileutil.AtomicWriteFile(cfg.Base.LockListFile, buf.Bytes(), 0644)
 }
 
 // ClearMaps clears all rules from blacklist and whitelist maps.

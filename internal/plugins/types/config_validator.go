@@ -120,49 +120,68 @@ func (v *ConfigValidator) Validate(cfg *GlobalConfig) *ValidationResult {
 // validateBaseConfig validates base configuration.
 // validateBaseConfig 验证基础配置。
 func (v *ConfigValidator) validateBaseConfig(cfg *BaseConfig, result *ValidationResult) {
-	// Validate ICMP rate / 验证 ICMP 速率
+	v.validateICMPConfig(cfg, result)
+	v.validateCleanupInterval(cfg, result)
+	v.validatePprofConfig(cfg, result)
+	v.validateWhitelistCIDRs(cfg, result)
+	v.validateLockListMasks(cfg, result)
+}
+
+// validateICMPConfig validates ICMP rate and burst configuration.
+// validateICMPConfig 验证 ICMP 速率和突发量配置。
+func (v *ConfigValidator) validateICMPConfig(cfg *BaseConfig, result *ValidationResult) {
 	if cfg.ICMPRate > v.MaxRate {
 		result.AddError("base.icmp_rate",
 			fmt.Sprintf("ICMP rate exceeds maximum allowed value (%d)", v.MaxRate), cfg.ICMPRate)
 	}
 
-	// Validate ICMP burst / 验证 ICMP 突发量
 	if cfg.ICMPBurst > v.MaxBurst {
 		result.AddError("base.icmp_burst",
 			fmt.Sprintf("ICMP burst exceeds maximum allowed value (%d)", v.MaxBurst), cfg.ICMPBurst)
 	}
 
-	// Validate ICMP burst >= rate / 验证 ICMP 突发量 >= 速率
 	if cfg.ICMPBurst > 0 && cfg.ICMPRate > 0 && cfg.ICMPBurst < cfg.ICMPRate {
 		result.AddWarning("base.icmp_burst",
 			"ICMP burst should be >= rate for proper token bucket behavior", cfg.ICMPBurst)
 	}
+}
 
-	// Validate cleanup interval / 验证清理间隔
-	if cfg.CleanupInterval != "" {
-		duration, err := time.ParseDuration(cfg.CleanupInterval)
-		if err != nil {
-			result.AddError("base.cleanup_interval",
-				fmt.Sprintf("Invalid duration format: %v", err), cfg.CleanupInterval)
-		} else {
-			if duration < v.MinCleanupInterval {
-				result.AddWarning("base.cleanup_interval",
-					fmt.Sprintf("Cleanup interval is very short (min recommended: %v)", v.MinCleanupInterval), cfg.CleanupInterval)
-			}
-			if duration > v.MaxCleanupInterval {
-				result.AddWarning("base.cleanup_interval",
-					fmt.Sprintf("Cleanup interval is very long (max recommended: %v)", v.MaxCleanupInterval), cfg.CleanupInterval)
-			}
-		}
+// validateCleanupInterval validates cleanup interval configuration.
+// validateCleanupInterval 验证清理间隔配置。
+func (v *ConfigValidator) validateCleanupInterval(cfg *BaseConfig, result *ValidationResult) {
+	if cfg.CleanupInterval == "" {
+		return
 	}
 
-	// Validate pprof port / 验证 pprof 端口
+	duration, err := time.ParseDuration(cfg.CleanupInterval)
+	if err != nil {
+		result.AddError("base.cleanup_interval",
+			fmt.Sprintf("Invalid duration format: %v", err), cfg.CleanupInterval)
+		return
+	}
+
+	if duration < v.MinCleanupInterval {
+		result.AddWarning("base.cleanup_interval",
+			fmt.Sprintf("Cleanup interval is very short (min recommended: %v)", v.MinCleanupInterval), cfg.CleanupInterval)
+	}
+	if duration > v.MaxCleanupInterval {
+		result.AddWarning("base.cleanup_interval",
+			fmt.Sprintf("Cleanup interval is very long (max recommended: %v)", v.MaxCleanupInterval), cfg.CleanupInterval)
+	}
+}
+
+// validatePprofConfig validates pprof configuration.
+// validatePprofConfig 验证 pprof 配置。
+func (v *ConfigValidator) validatePprofConfig(cfg *BaseConfig, result *ValidationResult) {
 	if cfg.EnablePprof && (cfg.PprofPort < 1 || cfg.PprofPort > v.MaxPort) {
 		result.AddError("base.pprof_port",
 			fmt.Sprintf("Port must be between 1 and %d", v.MaxPort), cfg.PprofPort)
 	}
+}
 
-	// Validate whitelist CIDRs / 验证白名单 CIDR
+// validateWhitelistCIDRs validates whitelist CIDRs.
+// validateWhitelistCIDRs 验证白名单 CIDR。
+func (v *ConfigValidator) validateWhitelistCIDRs(cfg *BaseConfig, result *ValidationResult) {
 	for i, cidr := range cfg.Whitelist {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
 			if ip := net.ParseIP(cidr); ip == nil {
@@ -171,20 +190,21 @@ func (v *ConfigValidator) validateBaseConfig(cfg *BaseConfig, result *Validation
 			}
 		}
 	}
+}
 
-	// Validate lock list merge threshold / 验证锁定列表合并阈值
+// validateLockListMasks validates lock list merge threshold and masks.
+// validateLockListMasks 验证锁定列表合并阈值和掩码。
+func (v *ConfigValidator) validateLockListMasks(cfg *BaseConfig, result *ValidationResult) {
 	if cfg.LockListMergeThreshold < 0 {
 		result.AddError("base.lock_list_merge_threshold",
 			"Merge threshold cannot be negative", cfg.LockListMergeThreshold)
 	}
 
-	// Validate IPv4 mask range / 验证 IPv4 掩码范围
 	if cfg.LockListV4Mask < 0 || cfg.LockListV4Mask > 32 {
 		result.AddError("base.lock_list_v4_mask",
 			"IPv4 mask must be between 0 and 32", cfg.LockListV4Mask)
 	}
 
-	// Validate IPv6 mask range / 验证 IPv6 掩码范围
 	if cfg.LockListV6Mask < 0 || cfg.LockListV6Mask > 128 {
 		result.AddError("base.lock_list_v6_mask",
 			"IPv6 mask must be between 0 and 128", cfg.LockListV6Mask)
@@ -367,7 +387,14 @@ func (v *ConfigValidator) validateLogEngineConfig(cfg *LogEngineConfig, result *
 		return
 	}
 
-	// Validate workers / 验证工作线程数
+	v.validateLogEngineWorkers(cfg, result)
+	v.validateLogEngineMaxWindow(cfg, result)
+	v.validateLogEngineRules(cfg, result)
+}
+
+// validateLogEngineWorkers validates log engine worker count.
+// validateLogEngineWorkers 验证日志引擎工作线程数。
+func (v *ConfigValidator) validateLogEngineWorkers(cfg *LogEngineConfig, result *ValidationResult) {
 	if cfg.Workers < 1 {
 		result.AddError("log_engine.workers",
 			"At least 1 worker is required", cfg.Workers)
@@ -375,80 +402,87 @@ func (v *ConfigValidator) validateLogEngineConfig(cfg *LogEngineConfig, result *
 		result.AddWarning("log_engine.workers",
 			"Very high worker count may impact performance", cfg.Workers)
 	}
+}
 
-	// Validate max window / 验证最大窗口
+// validateLogEngineMaxWindow validates log engine max window.
+// validateLogEngineMaxWindow 验证日志引擎最大窗口。
+func (v *ConfigValidator) validateLogEngineMaxWindow(cfg *LogEngineConfig, result *ValidationResult) {
 	if cfg.MaxWindow < 0 {
 		result.AddError("log_engine.max_window",
 			"Max window cannot be negative", cfg.MaxWindow)
 	}
+}
 
-	// Validate rules / 验证规则
+// validateLogEngineRules validates log engine rules.
+// validateLogEngineRules 验证日志引擎规则。
+func (v *ConfigValidator) validateLogEngineRules(cfg *LogEngineConfig, result *ValidationResult) {
 	for i := range cfg.Rules {
 		rule := &cfg.Rules[i]
 		fieldPrefix := fmt.Sprintf("log_engine.rules[%d]", i)
+		v.validateLogEngineRule(rule, fieldPrefix, result)
+	}
+}
 
-		// Validate ID / 验证 ID
-		if rule.ID == "" {
-			result.AddError(fmt.Sprintf("%s.id", fieldPrefix),
-				"Rule ID is required", nil)
-		}
+// validateLogEngineRule validates a single log engine rule.
+// validateLogEngineRule 验证单个日志引擎规则。
+func (v *ConfigValidator) validateLogEngineRule(rule *LogEngineRule, fieldPrefix string, result *ValidationResult) {
+	if rule.ID == "" {
+		result.AddError(fmt.Sprintf("%s.id", fieldPrefix),
+			"Rule ID is required", nil)
+	}
 
-		// Validate path / 验证路径
-		if rule.Path == "" {
-			result.AddError(fmt.Sprintf("%s.path", fieldPrefix),
-				"Log path is required", nil)
-		}
+	if rule.Path == "" {
+		result.AddError(fmt.Sprintf("%s.path", fieldPrefix),
+			"Log path is required", nil)
+	}
 
-		// Validate action / 验证动作
-		if rule.Action != "" && rule.Action != "log" && rule.Action != "block" {
-			result.AddError(fmt.Sprintf("%s.action", fieldPrefix),
-				"Action must be 'log' or 'block'", rule.Action)
-		}
+	if rule.Action != "" && rule.Action != "log" && rule.Action != "block" {
+		result.AddError(fmt.Sprintf("%s.action", fieldPrefix),
+			"Action must be 'log' or 'block'", rule.Action)
+	}
 
-		// Validate TTL / 验证 TTL
-		if rule.TTL != "" {
-			if _, err := time.ParseDuration(rule.TTL); err != nil {
-				result.AddError(fmt.Sprintf("%s.ttl", fieldPrefix),
-					fmt.Sprintf("Invalid duration format: %v", err), rule.TTL)
-			}
-		}
-
-		// Validate regex / 验证正则表达式
-		if rule.Regex != "" {
-			if _, err := regexp.Compile(rule.Regex); err != nil {
-				result.AddError(fmt.Sprintf("%s.regex", fieldPrefix),
-					fmt.Sprintf("Invalid regex: %v", err), rule.Regex)
-			}
-		}
-
-		// Validate threshold / 验证阈值
-		if rule.Threshold < 0 {
-			result.AddError(fmt.Sprintf("%s.threshold", fieldPrefix),
-				"Threshold cannot be negative", rule.Threshold)
-		}
-
-		// Validate interval / 验证间隔
-		if rule.Interval < 0 {
-			result.AddError(fmt.Sprintf("%s.interval", fieldPrefix),
-				"Interval cannot be negative", rule.Interval)
-		}
-
-		// Validate tail position / 验证读取位置
-		if rule.TailPosition != "" {
-			validPositions := []string{"start", "end", "offset"}
-			valid := false
-			for _, pos := range validPositions {
-				if rule.TailPosition == pos {
-					valid = true
-					break
-				}
-			}
-			if !valid {
-				result.AddError(fmt.Sprintf("%s.tail_position", fieldPrefix),
-					fmt.Sprintf("Tail position must be one of: %v", validPositions), rule.TailPosition)
-			}
+	if rule.TTL != "" {
+		if _, err := time.ParseDuration(rule.TTL); err != nil {
+			result.AddError(fmt.Sprintf("%s.ttl", fieldPrefix),
+				fmt.Sprintf("Invalid duration format: %v", err), rule.TTL)
 		}
 	}
+
+	if rule.Regex != "" {
+		if _, err := regexp.Compile(rule.Regex); err != nil {
+			result.AddError(fmt.Sprintf("%s.regex", fieldPrefix),
+				fmt.Sprintf("Invalid regex: %v", err), rule.Regex)
+		}
+	}
+
+	if rule.Threshold < 0 {
+		result.AddError(fmt.Sprintf("%s.threshold", fieldPrefix),
+			"Threshold cannot be negative", rule.Threshold)
+	}
+
+	if rule.Interval < 0 {
+		result.AddError(fmt.Sprintf("%s.interval", fieldPrefix),
+			"Interval cannot be negative", rule.Interval)
+	}
+
+	v.validateTailPosition(rule, fieldPrefix, result)
+}
+
+// validateTailPosition validates tail position configuration.
+// validateTailPosition 验证读取位置配置。
+func (v *ConfigValidator) validateTailPosition(rule *LogEngineRule, fieldPrefix string, result *ValidationResult) {
+	if rule.TailPosition == "" {
+		return
+	}
+
+	validPositions := []string{"start", "end", "offset"}
+	for _, pos := range validPositions {
+		if rule.TailPosition == pos {
+			return
+		}
+	}
+	result.AddError(fmt.Sprintf("%s.tail_position", fieldPrefix),
+		fmt.Sprintf("Tail position must be one of: %v", validPositions), rule.TailPosition)
 }
 
 // validateCapacityConfig validates capacity configuration.
@@ -557,32 +591,45 @@ func (v *ConfigValidator) validateLoggingConfig(cfg *logger.LoggingConfig, resul
 // detectConflicts detects conflicts between different configuration sections.
 // detectConflicts 检测不同配置部分之间的冲突。
 func (v *ConfigValidator) detectConflicts(cfg *GlobalConfig, result *ValidationResult) {
-	// Check for overlapping IPs between whitelist and rate limit rules
-	// 检查白名单和速率限制规则之间的 IP 重叠
+	v.checkWhitelistRateLimitOverlap(cfg, result)
+	v.checkDuplicatePorts(cfg, result)
+	v.checkDuplicateIPPortRules(cfg, result)
+	v.checkDuplicateRateLimitRules(cfg, result)
+	v.checkPortConflicts(cfg, result)
+	v.checkDuplicateLogEngineRules(cfg, result)
+}
+
+// parseIPNet parses an IP or CIDR string into a network.
+// parseIPNet 将 IP 或 CIDR 字符串解析为网络。
+func parseIPNet(ipStr string) *net.IPNet {
+	_, ipNet, err := net.ParseCIDR(ipStr)
+	if err == nil {
+		return ipNet
+	}
+
+	if ip := net.ParseIP(ipStr); ip != nil {
+		maskBits := 32
+		if ip.To4() == nil {
+			maskBits = 128
+		}
+		return &net.IPNet{IP: ip, Mask: net.CIDRMask(maskBits, maskBits)}
+	}
+	return nil
+}
+
+// checkWhitelistRateLimitOverlap checks for overlapping IPs between whitelist and rate limit rules.
+// checkWhitelistRateLimitOverlap 检查白名单和速率限制规则之间的 IP 重叠。
+func (v *ConfigValidator) checkWhitelistRateLimitOverlap(cfg *GlobalConfig, result *ValidationResult) {
 	for _, wlCIDR := range cfg.Base.Whitelist {
-		_, wlNet, err := net.ParseCIDR(wlCIDR)
-		if err != nil {
-			if ip := net.ParseIP(wlCIDR); ip != nil {
-				wlNet = &net.IPNet{IP: ip, Mask: net.CIDRMask(32, 32)}
-				if ip.To4() == nil {
-					wlNet = &net.IPNet{IP: ip, Mask: net.CIDRMask(128, 128)}
-				}
-			} else {
-				continue
-			}
+		wlNet := parseIPNet(wlCIDR)
+		if wlNet == nil {
+			continue
 		}
 
 		for i, rlRule := range cfg.RateLimit.Rules {
-			_, rlNet, err := net.ParseCIDR(rlRule.IP)
-			if err != nil {
-				if ip := net.ParseIP(rlRule.IP); ip != nil {
-					rlNet = &net.IPNet{IP: ip, Mask: net.CIDRMask(32, 32)}
-					if ip.To4() == nil {
-						rlNet = &net.IPNet{IP: ip, Mask: net.CIDRMask(128, 128)}
-					}
-				} else {
-					continue
-				}
+			rlNet := parseIPNet(rlRule.IP)
+			if rlNet == nil {
+				continue
 			}
 
 			if v.networksOverlap(wlNet, rlNet) {
@@ -591,9 +638,11 @@ func (v *ConfigValidator) detectConflicts(cfg *GlobalConfig, result *ValidationR
 			}
 		}
 	}
+}
 
-	// Check for duplicate ports in allowed_ports
-	// 检查 allowed_ports 中的重复端口
+// checkDuplicatePorts checks for duplicate ports in allowed_ports.
+// checkDuplicatePorts 检查 allowed_ports 中的重复端口。
+func (v *ConfigValidator) checkDuplicatePorts(cfg *GlobalConfig, result *ValidationResult) {
 	portSet := make(map[uint16]int)
 	for i, port := range cfg.Port.AllowedPorts {
 		if existingIdx, exists := portSet[port]; exists {
@@ -602,9 +651,11 @@ func (v *ConfigValidator) detectConflicts(cfg *GlobalConfig, result *ValidationR
 		}
 		portSet[port] = i
 	}
+}
 
-	// Check for conflicting IP-Port rules
-	// 检查冲突的 IP-端口规则
+// checkDuplicateIPPortRules checks for conflicting IP-Port rules.
+// checkDuplicateIPPortRules 检查冲突的 IP-端口规则。
+func (v *ConfigValidator) checkDuplicateIPPortRules(cfg *GlobalConfig, result *ValidationResult) {
 	type ruleKey struct {
 		ip   string
 		port uint16
@@ -618,9 +669,11 @@ func (v *ConfigValidator) detectConflicts(cfg *GlobalConfig, result *ValidationR
 		}
 		ruleSet[key] = i
 	}
+}
 
-	// Check for conflicting rate limit rules (same IP)
-	// 检查冲突的速率限制规则（相同 IP）
+// checkDuplicateRateLimitRules checks for conflicting rate limit rules.
+// checkDuplicateRateLimitRules 检查冲突的速率限制规则。
+func (v *ConfigValidator) checkDuplicateRateLimitRules(cfg *GlobalConfig, result *ValidationResult) {
 	rlSet := make(map[string]int)
 	for i, rule := range cfg.RateLimit.Rules {
 		if existingIdx, exists := rlSet[rule.IP]; exists {
@@ -629,23 +682,25 @@ func (v *ConfigValidator) detectConflicts(cfg *GlobalConfig, result *ValidationR
 		}
 		rlSet[rule.IP] = i
 	}
+}
 
-	// Check if web and metrics use the same port
-	// 检查 Web 和指标是否使用相同端口
+// checkPortConflicts checks for port conflicts between web, metrics, and pprof.
+// checkPortConflicts 检查 Web、指标和 pprof 之间的端口冲突。
+func (v *ConfigValidator) checkPortConflicts(cfg *GlobalConfig, result *ValidationResult) {
 	if cfg.Web.Enabled && cfg.Metrics.ServerEnabled && cfg.Web.Port == cfg.Metrics.Port {
 		result.AddError("web.port",
 			fmt.Sprintf("Web and metrics server cannot use the same port (%d)", cfg.Web.Port), cfg.Web.Port)
 	}
 
-	// Check if web and pprof use the same port
-	// 检查 Web 和 pprof 是否使用相同端口
 	if cfg.Web.Enabled && cfg.Base.EnablePprof && cfg.Web.Port == cfg.Base.PprofPort {
 		result.AddWarning("base.pprof_port",
 			fmt.Sprintf("Web and pprof server use the same port (%d) - this may cause conflicts", cfg.Web.Port), cfg.Base.PprofPort)
 	}
+}
 
-	// Check for conflicting log engine rules (same path + ID)
-	// 检查冲突的日志引擎规则（相同路径 + ID）
+// checkDuplicateLogEngineRules checks for conflicting log engine rules.
+// checkDuplicateLogEngineRules 检查冲突的日志引擎规则。
+func (v *ConfigValidator) checkDuplicateLogEngineRules(cfg *GlobalConfig, result *ValidationResult) {
 	logRuleSet := make(map[string]int)
 	for i := range cfg.LogEngine.Rules {
 		rule := &cfg.LogEngine.Rules[i]

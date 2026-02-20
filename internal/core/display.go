@@ -9,21 +9,283 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/ebpf"
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins/types"
 	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/livp123/netxfw/pkg/sdk"
 )
 
 // Protocol string constants.
 // 协议字符串常量。
 const (
-	protoTCP       = "TCP"
-	protoUDP       = "UDP"
-	protoICMP      = "ICMP"
-	protoICMPv6    = "ICMPv6"
-	statusEnabled  = "Enabled"
-	statusDisabled = "Disabled"
+	protoTCP          = "TCP"
+	protoUDP          = "UDP"
+	protoICMP         = "ICMP"
+	protoICMPv6       = "ICMPv6"
+	statusEnabled     = "Enabled"
+	statusDisabled    = "Disabled"
+	maxDisplayEntries = 10
 )
+
+// dropReasonStr converts drop reason code to string.
+// dropReasonStr 将丢弃原因代码转换为字符串。
+func dropReasonStr(r uint32) string {
+	reasons := map[uint32]string{
+		0:  "UNKNOWN",
+		1:  "INVALID",
+		2:  "PROTOCOL",
+		3:  "BLACKLIST",
+		4:  "RATELIMIT",
+		5:  "STRICT_TCP",
+		6:  "DEFAULT_DENY",
+		7:  "LAND_ATTACK",
+		8:  "BOGON",
+		9:  "FRAGMENT",
+		10: "BAD_HEADER",
+		11: "TCP_FLAGS",
+		12: "SPOOF",
+		13: "GEOIP",
+	}
+	if s, ok := reasons[r]; ok {
+		return s
+	}
+	return fmt.Sprintf("UNKNOWN(%d)", r)
+}
+
+// passReasonStr converts pass reason code to string.
+// passReasonStr 将通过原因代码转换为字符串。
+func passReasonStr(r uint32) string {
+	reasons := map[uint32]string{
+		100: "UNKNOWN",
+		101: "WHITELIST",
+		102: "RETURN",
+		103: "CONNTRACK",
+		104: "DEFAULT_ALLOW",
+	}
+	if s, ok := reasons[r]; ok {
+		return s
+	}
+	return fmt.Sprintf("UNKNOWN(%d)", r)
+}
+
+// protoStr converts protocol number to string.
+// protoStr 将协议号转换为字符串。
+func protoStr(p uint8) string {
+	switch p {
+	case 6:
+		return protoTCP
+	case 17:
+		return protoUDP
+	case 1:
+		return protoICMP
+	default:
+		return fmt.Sprintf("%d", p)
+	}
+}
+
+// displayDetailStats displays detailed statistics with header.
+// displayDetailStats 显示带有标题的详细统计。
+func displayDetailStats(details []sdk.DropDetailEntry, reasonFunc func(uint32) string, header string) {
+	if len(details) == 0 {
+		return
+	}
+
+	sort.Slice(details, func(i, j int) bool {
+		return details[i].Count > details[j].Count
+	})
+
+	fmt.Printf("\n   %s:\n", header)
+	fmt.Printf("   %-20s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
+	fmt.Printf("   %s\n", strings.Repeat("-", 90))
+
+	for i, d := range details {
+		if i >= maxDisplayEntries {
+			fmt.Printf("   ... and more\n")
+			break
+		}
+		fmt.Printf("   %-20s %-8s %-40s %-8d %d\n",
+			reasonFunc(d.Reason),
+			protoStr(d.Protocol),
+			d.SrcIP,
+			d.DstPort,
+			d.Count,
+		)
+	}
+}
+
+// showDropStats displays drop statistics.
+// showDropStats 显示丢弃统计。
+func showDropStats(xdpMgr XDPManager) {
+	drops, err := xdpMgr.GetDropCount()
+	if err != nil {
+		fmt.Printf("⚠️  Could not retrieve drop statistics: %v\n", err)
+		return
+	}
+
+	fmt.Printf("📊 Global Drop Count: %d packets\n", drops)
+
+	details, err := xdpMgr.GetDropDetails()
+	if err == nil && len(details) > 0 {
+		displayDetailStats(details, dropReasonStr, "🚫 Top Drops by Reason & Source")
+	}
+}
+
+// showPassStats displays pass statistics.
+// showPassStats 显示通过统计。
+func showPassStats(xdpMgr XDPManager) {
+	passes, err := xdpMgr.GetPassCount()
+	if err != nil {
+		fmt.Printf("⚠️  Could not retrieve pass statistics: %v\n", err)
+		return
+	}
+
+	fmt.Printf("📊 Global Pass Count: %d packets\n", passes)
+
+	details, err := xdpMgr.GetPassDetails()
+	if err == nil && len(details) > 0 {
+		displayDetailStats(details, passReasonStr, "✅ Top Allowed by Reason & Source")
+	}
+}
+
+// showGlobalConfig displays global configuration.
+// showGlobalConfig 显示全局配置。
+func showGlobalConfig(globalConfig *ebpf.Map) {
+	if globalConfig == nil {
+		return
+	}
+
+	var key uint32
+	var val uint64
+
+	// Default deny policy
+	key = 0
+	if err := globalConfig.Lookup(&key, &val); err == nil {
+		status := statusDisabled
+		if val == 1 {
+			status = statusEnabled
+		}
+		fmt.Printf("🛡️  Default Deny Policy: %s\n", status)
+	}
+
+	// Allow return traffic
+	key = 1
+	if err := globalConfig.Lookup(&key, &val); err == nil {
+		status := statusDisabled
+		if val == 1 {
+			status = statusEnabled
+		}
+		fmt.Printf("🔄 Allow Return Traffic: %s\n", status)
+	}
+
+	// Allow ICMP
+	key = 2
+	if err := globalConfig.Lookup(&key, &val); err == nil {
+		status := statusDisabled
+		if val == 1 {
+			status = statusEnabled
+		}
+		fmt.Printf("🏓 Allow ICMP (Ping): %s\n", status)
+
+		if val == 1 {
+			showICMPRateLimit(globalConfig)
+		}
+	}
+
+	// Conntrack
+	key = 3
+	if err := globalConfig.Lookup(&key, &val); err == nil {
+		status := statusDisabled
+		if val == 1 {
+			status = statusEnabled
+		}
+		fmt.Printf("🕵️  Connection Tracking: %s\n", status)
+
+		if val == 1 {
+			showConntrackTimeout(globalConfig)
+		}
+	}
+
+	// Global rate limit
+	key = 10
+	if err := globalConfig.Lookup(&key, &val); err == nil {
+		status := statusDisabled
+		if val == 1 {
+			status = statusEnabled
+		}
+		fmt.Printf("🚀 Global Rate Limiting: %s\n", status)
+	}
+}
+
+// showICMPRateLimit displays ICMP rate limit configuration.
+// showICMPRateLimit 显示 ICMP 速率限制配置。
+func showICMPRateLimit(globalConfig *ebpf.Map) {
+	var rate, burst uint64
+	kRate := uint32(5)
+	kBurst := uint32(6)
+
+	if err := globalConfig.Lookup(&kRate, &rate); err == nil {
+		if err := globalConfig.Lookup(&kBurst, &burst); err == nil {
+			fmt.Printf("   ├─ Rate Limit: %d packets/sec\n", rate)
+			fmt.Printf("   └─ Burst Limit: %d packets\n", burst)
+		}
+	}
+}
+
+// showConntrackTimeout displays conntrack timeout configuration.
+// showConntrackTimeout 显示连接跟踪超时配置。
+func showConntrackTimeout(globalConfig *ebpf.Map) {
+	kTimeout := uint32(4)
+	var timeoutNs uint64
+
+	if err := globalConfig.Lookup(&kTimeout, &timeoutNs); err == nil {
+		fmt.Printf("   └─ Idle Timeout: %v\n", time.Duration(timeoutNs))
+	}
+}
+
+// showCounts displays locked IP, whitelist, and conntrack counts.
+// showCounts 显示锁定 IP、白名单和连接跟踪计数。
+func showCounts(xdpMgr XDPManager) {
+	lockedCount, err := xdpMgr.GetLockedIPCount()
+	if err == nil {
+		fmt.Printf("🔒 Locked IP Count: %d addresses\n", lockedCount)
+	}
+
+	whitelistCount, err := xdpMgr.GetWhitelistCount()
+	if err == nil {
+		fmt.Printf("⚪ Whitelist Count: %d addresses\n", whitelistCount)
+	}
+
+	ctCount, err := xdpMgr.GetConntrackCount()
+	if err == nil {
+		fmt.Printf("🕵️  Active Connections: %d\n", ctCount)
+	}
+}
+
+// showAttachedInterfaces displays attached interfaces.
+// showAttachedInterfaces 显示已附加的接口。
+func showAttachedInterfaces() {
+	fmt.Println("\n🔗 Attached Interfaces:")
+	files, err := os.ReadDir(config.GetPinPath())
+	if err != nil {
+		fmt.Println(" - Unable to read pin path")
+		return
+	}
+
+	attachedCount := 0
+	for _, f := range files {
+		if strings.HasPrefix(f.Name(), "link_") {
+			iface := strings.TrimPrefix(f.Name(), "link_")
+			mode := getXDPMode(iface)
+			fmt.Printf(" - %s (Mode: %s)\n", iface, mode)
+			attachedCount++
+		}
+	}
+
+	if attachedCount == 0 {
+		fmt.Println(" - None (Program is loaded but not attached to any interface)")
+	}
+}
 
 /**
  * getXDPMode returns the XDP attachment mode for a given interface.
@@ -273,278 +535,16 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 	log := logger.Get(ctx)
 	_, loadErr := types.LoadGlobalConfig(config.GetConfigPath())
 	if loadErr != nil {
-		// Log but continue, maybe config file is missing but XDP is running
 		log.Warnf("⚠️  Could not load global config: %v", loadErr)
 	}
 
 	fmt.Println("✅ XDP Program Status: Loaded and Running")
 
-	// Get drop stats / 获取丢弃统计
-	drops, dropErr := xdpMgr.GetDropCount()
-	if dropErr != nil {
-		fmt.Printf("⚠️  Could not retrieve drop statistics: %v\n", dropErr)
-	} else {
-		fmt.Printf("📊 Global Drop Count: %d packets\n", drops)
+	showDropStats(xdpMgr)
+	showPassStats(xdpMgr)
+	showCounts(xdpMgr)
+	showGlobalConfig(xdpMgr.GlobalConfig())
+	showAttachedInterfaces()
 
-		// Show detailed drop stats / 显示详细的丢弃统计
-		details, detailErr := xdpMgr.GetDropDetails()
-		if detailErr == nil && len(details) > 0 {
-			// Sort by count descending / 按计数降序排序
-			sort.Slice(details, func(i, j int) bool {
-				return details[i].Count > details[j].Count
-			})
-
-			fmt.Println("\n   🚫 Top Drops by Reason & Source:")
-			// Aggregate by reason for summary, or show top N entries
-			// Let's just list them nicely formatted
-			fmt.Printf("   %-20s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
-			fmt.Printf("   %s\n", strings.Repeat("-", 90))
-
-			// Simple map to string / 简单原因映射
-			reasonStr := func(r uint32) string {
-				switch r {
-				case 0:
-					return "UNKNOWN"
-				case 1:
-					return "INVALID"
-				case 2:
-					return "PROTOCOL"
-				case 3:
-					return "BLACKLIST"
-				case 4:
-					return "RATELIMIT"
-				case 5:
-					return "STRICT_TCP"
-				case 6:
-					return "DEFAULT_DENY"
-				case 7:
-					return "LAND_ATTACK"
-				case 8:
-					return "BOGON"
-				case 9:
-					return "FRAGMENT"
-				case 10:
-					return "BAD_HEADER"
-				case 11:
-					return "TCP_FLAGS"
-				case 12:
-					return "SPOOF"
-				case 13:
-					return "GEOIP"
-				default:
-					return fmt.Sprintf("UNKNOWN(%d)", r)
-				}
-			}
-
-			protoStr := func(p uint8) string {
-				switch p {
-				case 6:
-					return "TCP"
-				case 17:
-					return "UDP"
-				case 1:
-					return "ICMP"
-				default:
-					return fmt.Sprintf("%d", p)
-				}
-			}
-
-			count := 0
-			for _, d := range details {
-				if count >= 10 {
-					fmt.Printf("   ... and more\n")
-					break
-				}
-				fmt.Printf("   %-20s %-8s %-40s %-8d %d\n",
-					reasonStr(d.Reason),
-					protoStr(d.Protocol),
-					d.SrcIP,
-					d.DstPort,
-					d.Count,
-				)
-				count++
-			}
-		}
-	}
-
-	// Get pass stats / 获取通过统计
-	passes, passErr := xdpMgr.GetPassCount()
-	if passErr != nil {
-		fmt.Printf("⚠️  Could not retrieve pass statistics: %v\n", passErr)
-	} else {
-		fmt.Printf("📊 Global Pass Count: %d packets\n", passes)
-
-		// Show detailed pass stats / 显示详细的通过统计
-		details, detailErr := xdpMgr.GetPassDetails()
-		if detailErr == nil && len(details) > 0 {
-			// Sort by count descending / 按计数降序排序
-			sort.Slice(details, func(i, j int) bool {
-				return details[i].Count > details[j].Count
-			})
-
-			fmt.Println("\n   ✅ Top Allowed by Reason & Source:")
-			fmt.Printf("   %-20s %-8s %-40s %-8s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count")
-			fmt.Printf("   %s\n", strings.Repeat("-", 90))
-
-			reasonStr := func(r uint32) string {
-				switch r {
-				case 100:
-					return "UNKNOWN"
-				case 101:
-					return "WHITELIST"
-				case 102:
-					return "RETURN"
-				case 103:
-					return "CONNTRACK"
-				case 104:
-					return "DEFAULT_ALLOW"
-				default:
-					return fmt.Sprintf("UNKNOWN(%d)", r)
-				}
-			}
-
-			protoStr := func(p uint8) string {
-				switch p {
-				case 6:
-					return "TCP"
-				case 17:
-					return "UDP"
-				case 1:
-					return "ICMP"
-				default:
-					return fmt.Sprintf("%d", p)
-				}
-			}
-
-			count := 0
-			for _, d := range details {
-				if count >= 10 {
-					fmt.Printf("   ... and more\n")
-					break
-				}
-				fmt.Printf("   %-20s %-8s %-40s %-8d %d\n",
-					reasonStr(d.Reason),
-					protoStr(d.Protocol),
-					d.SrcIP,
-					d.DstPort,
-					d.Count,
-				)
-				count++
-			}
-		}
-	}
-
-	// Get locked IP count / 获取锁定 IP 计数
-	lockedCount, err := xdpMgr.GetLockedIPCount()
-	if err == nil {
-		fmt.Printf("🔒 Locked IP Count: %d addresses\n", lockedCount)
-	}
-
-	// Get whitelist count / 获取白名单计数
-	whitelistCount, err := xdpMgr.GetWhitelistCount()
-	if err == nil {
-		fmt.Printf("⚪ Whitelist Count: %d addresses\n", whitelistCount)
-	}
-
-	// Get conntrack count / 获取连接跟踪计数
-	ctCount, ctErr := xdpMgr.GetConntrackCount()
-	if ctErr == nil {
-		fmt.Printf("🕵️  Active Connections: %d\n", ctCount)
-	}
-
-	// Check default deny policy / 检查默认拒绝策略
-	var key uint32 // CONFIG_DEFAULT_DENY
-	var val uint64
-	globalConfig := xdpMgr.GlobalConfig()
-	if globalConfig != nil {
-		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
-			status := "Disabled (Allow by default)"
-			if val == 1 {
-				status = "Enabled (Deny by default)"
-			}
-			fmt.Printf("🛡️  Default Deny Policy: %s\n", status)
-		}
-
-		// Check allow return traffic / 检查允许返回流量
-		key = 1 // CONFIG_ALLOW_RETURN_TRAFFIC
-		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
-			status := statusDisabled
-			if val == 1 {
-				status = statusEnabled
-			}
-			fmt.Printf("🔄 Allow Return Traffic: %s\n", status)
-		}
-
-		// Check allow ICMP / 检查允许 ICMP
-		key = 2 // CONFIG_ALLOW_ICMP
-		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
-			status := statusDisabled
-			if val == 1 {
-				status = statusEnabled
-			}
-			fmt.Printf("🏓 Allow ICMP (Ping): %s\n", status)
-
-			if val == 1 {
-				// Check rate limits / 检查速率限制
-				var rate, burst uint64
-				kRate := uint32(5)  // CONFIG_ICMP_RATE
-				kBurst := uint32(6) // CONFIG_ICMP_BURST
-				if rateErr := globalConfig.Lookup(&kRate, &rate); rateErr == nil {
-					if burstErr := globalConfig.Lookup(&kBurst, &burst); burstErr == nil {
-						fmt.Printf("   ├─ Rate Limit: %d packets/sec\n", rate)
-						fmt.Printf("   └─ Burst Limit: %d packets\n", burst)
-					}
-				}
-			}
-		}
-
-		// Check conntrack / 检查连接跟踪
-		key = 3 // CONFIG_ENABLE_CONNTRACK
-		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
-			status := statusDisabled
-			if val == 1 {
-				status = statusEnabled
-			}
-			fmt.Printf("🕵️  Connection Tracking: %s\n", status)
-
-			if val == 1 {
-				kTimeout := uint32(4) // CONFIG_CONNTRACK_TIMEOUT
-				var timeoutNs uint64
-				if timeoutErr := globalConfig.Lookup(&kTimeout, &timeoutNs); timeoutErr == nil {
-					fmt.Printf("   └─ Idle Timeout: %v\n", time.Duration(timeoutNs))
-				}
-			}
-		}
-
-		// Check global ratelimit / 检查全局速率限制
-		key = 10 // CONFIG_ENABLE_RATELIMIT
-		if lookupErr := globalConfig.Lookup(&key, &val); lookupErr == nil {
-			status := statusDisabled
-			if val == 1 {
-				status = statusEnabled
-			}
-			fmt.Printf("🚀 Global Rate Limiting: %s\n", status)
-		}
-	}
-
-	// Check attached interfaces / 检查已附加的接口
-	fmt.Println("\n🔗 Attached Interfaces:")
-	files, readErr := os.ReadDir(config.GetPinPath())
-	if readErr != nil {
-		fmt.Println(" - Unable to read pin path")
-		return nil
-	}
-	attachedCount := 0
-	for _, f := range files {
-		if strings.HasPrefix(f.Name(), "link_") {
-			iface := strings.TrimPrefix(f.Name(), "link_")
-			mode := getXDPMode(iface)
-			fmt.Printf(" - %s (Mode: %s)\n", iface, mode)
-			attachedCount++
-		}
-	}
-	if attachedCount == 0 {
-		fmt.Println(" - None (Program is loaded but not attached to any interface)")
-	}
 	return nil
 }

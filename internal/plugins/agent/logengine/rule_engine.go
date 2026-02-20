@@ -322,177 +322,164 @@ func NewRuleEngine(counter *Counter, logger sdk.Logger) *RuleEngine {
 func (re *RuleEngine) UpdateRules(configs []types.LogEngineRule) error {
 	newRules := make([]Rule, 0, len(configs))
 	for _, cfg := range configs {
-		src := cfg.Expression
-
-		// Generate expression if empty
-		if src == "" {
-			var andParts []string
-			var orParts []string
-			var notParts []string
-
-			genMatch := func(pattern string) string {
-				safeK := strings.ReplaceAll(pattern, "\"", "\\\"")
-				if strings.Contains(pattern, "*") {
-					quoted := regexp.QuoteMeta(pattern)
-					regexStr := strings.ReplaceAll(quoted, "\\*", ".*")
-					return fmt.Sprintf(`Line matches "%s"`, regexStr)
-				}
-				return fmt.Sprintf(`Contains(Line, "%s")`, safeK)
-			}
-
-			// 1. AND Logic
-			allContains := append([]string{}, cfg.Keywords...)
-			allContains = append(allContains, cfg.Contains...)
-			allContains = append(allContains, cfg.Is...)
-			allContains = append(allContains, cfg.And...)
-			for _, k := range allContains {
-				andParts = append(andParts, genMatch(k))
-			}
-
-			// 2. OR Logic
-			allAny := append([]string{}, cfg.AnyContains...)
-			allAny = append(allAny, cfg.Or...)
-			for _, k := range allAny {
-				orParts = append(orParts, genMatch(k))
-			}
-
-			// 3. NOT Logic
-			allNot := append([]string{}, cfg.NotContains...)
-			allNot = append(allNot, cfg.Not...)
-			for _, k := range allNot {
-				notParts = append(notParts, fmt.Sprintf("!%s", genMatch(k)))
-			}
-
-			// 4. Regex
-			if cfg.Regex != "" {
-				safeRe := strings.ReplaceAll(cfg.Regex, "\\", "\\\\")
-				safeRe = strings.ReplaceAll(safeRe, "\"", "\\\"")
-				andParts = append(andParts, fmt.Sprintf(`Line matches "%s"`, safeRe))
-			}
-
-			// Combine
-			var sections []string
-			if len(andParts) > 0 {
-				sections = append(sections, fmt.Sprintf("(%s)", strings.Join(andParts, " && ")))
-			}
-			if len(orParts) > 0 {
-				sections = append(sections, fmt.Sprintf("(%s)", strings.Join(orParts, " || ")))
-			}
-			if len(notParts) > 0 {
-				sections = append(sections, strings.Join(notParts, " && "))
-			}
-
-			if len(sections) > 0 {
-				src = strings.Join(sections, " && ")
-			} else {
-				src = "true"
-			}
-		}
-
-		if cfg.Threshold > 0 {
-			interval := cfg.Interval
-			if interval <= 0 {
-				interval = 60
-			}
-			// IMPORTANT: We must ensure the counter is incremented IF the content matches.
-			// But Evaluate() is supposed to be read-only (query).
-			// The actual Inc() must happen in the caller (plugin.go).
-			// However, if Inc() happens in caller, it increments for ALL logs, or only matching ones?
-			// If only matching ones, it needs to run regex first.
-			//
-			// If we look at how `Count()` works here: it checks the CURRENT count.
-			// If we want "Trigger if > N", it implies we just incremented it.
-			//
-			// The fix for "Count not increasing" (always 2) was the `maxWindowSeconds` increase.
-			// If events are 7 mins apart and window is 5 mins, the count resets to 1 (current event) or 0 (if pre-increment).
-			// By increasing window to 1h (3600s), it will correctly sum them up.
-
-			src = fmt.Sprintf(`(%s) && Count(%d) > %d`, src, interval, cfg.Threshold)
-		}
-
-		// Preprocess expression to support lowercase aliases
-		// We use regex to safely replace function calls without affecting string literals too much
-		// Replacements:
-		// log( -> Log(
-		// logE( -> LogE(
-		// msg( -> Msg(
-		// time( -> Time(
-		// count( -> Count(
-		src = preprocessExpression(src)
-
-		// Compile (always using Env)
-		// Debug log for rule compilation
-		logger.Get(nil).Debugf("Compiling Rule %s: %s", cfg.ID, src)
-		program, err := expr.Compile(src, expr.Env(&Env{}))
-
+		rule, err := re.compileRule(cfg)
 		if err != nil {
-			return fmt.Errorf("failed to compile rule '%s': %v (expr: %s)", cfg.ID, err, src)
+			return err
 		}
-
-		// Parse Duration (TTL)
-		// Prefer "ttl" field
-		ttlStr := cfg.TTL
-		ttl := time.Duration(0)
-		if ttlStr != "" && ttlStr != "0" {
-			if d, err := time.ParseDuration(ttlStr); err == nil {
-				ttl = d
-			} else {
-				logger.Get(nil).Warnf("⚠️  Rule '%s': Invalid TTL '%s', using 0 (no expiry). Error: %v", cfg.ID, ttlStr, err)
-			}
-		}
-
-		// Parse Action Type
-		// 0/log -> Log (Default)
-		// 1/dynamic/block -> Dynamic
-		// 2/static/lock -> Static
-		actStr := strings.ToLower(strings.TrimSpace(cfg.Action))
-		var actType ActionType
-
-		switch actStr {
-		case "", "0", "log": // Explicitly handle empty string as default (Log)
-			actType = ActionLog
-		case "1", "dynamic", "dynblock", "dynblack", "block", "black":
-			actType = ActionDynamic
-			// If ttl is missing, default to 0 (no expiry) or some default?
-			// User said "action=1 can set ttl=10m, or not set let lru_hash auto eliminate".
-			// So default 0 is correct.
-		case "2", "static", "permanent", "lock", "deny":
-			actType = ActionStatic
-		default:
-			// Fallback: Check if it looks like "block:10m" legacy format
-			if strings.HasPrefix(actStr, "block:") || strings.HasPrefix(actStr, "black:") {
-				actType = ActionDynamic
-				// Try to parse duration from string if not set in Duration field
-				if ttl == 0 {
-					parts := strings.SplitN(actStr, ":", 2)
-					if len(parts) == 2 {
-						if d, err := time.ParseDuration(parts[1]); err == nil {
-							ttl = d
-						}
-					}
-				}
-			} else {
-				re.logger.Warnf("⚠️  Rule '%s': Unknown action '%s', defaulting to Log (0).", cfg.ID, cfg.Action)
-				actType = ActionLog
-			}
-		}
-
-		// Log compiled rule info for verification
-		re.logger.Infof("✅ Rule '%s' loaded: Action=%d (0=Log,1=Dyn,2=Sta), TTL=%v, Path=%s",
-			cfg.ID, actType, ttl, cfg.Path)
-
-		newRules = append(newRules, Rule{
-			ID:         cfg.ID,
-			Path:       cfg.Path,
-			Source:     src,
-			Program:    program,
-			Action:     cfg.Action,
-			ActionType: actType,
-			TTL:        ttl,
-		})
+		newRules = append(newRules, rule)
 	}
 	re.rules.Store(&newRules)
 	return nil
+}
+
+// compileRule compiles a single rule from configuration.
+// compileRule 从配置编译单个规则。
+func (re *RuleEngine) compileRule(cfg types.LogEngineRule) (Rule, error) {
+	src := cfg.Expression
+	if src == "" {
+		src = re.generateExpression(cfg)
+	}
+
+	if cfg.Threshold > 0 {
+		interval := cfg.Interval
+		if interval <= 0 {
+			interval = 60
+		}
+		src = fmt.Sprintf(`(%s) && Count(%d) > %d`, src, interval, cfg.Threshold)
+	}
+
+	src = preprocessExpression(src)
+	logger.Get(nil).Debugf("Compiling Rule %s: %s", cfg.ID, src)
+	program, err := expr.Compile(src, expr.Env(&Env{}))
+	if err != nil {
+		return Rule{}, fmt.Errorf("failed to compile rule '%s': %v (expr: %s)", cfg.ID, err, src)
+	}
+
+	ttl := re.parseTTL(cfg)
+	actType := re.parseActionType(cfg)
+
+	re.logger.Infof("✅ Rule '%s' loaded: Action=%d (0=Log,1=Dyn,2=Sta), TTL=%v, Path=%s",
+		cfg.ID, actType, ttl, cfg.Path)
+
+	return Rule{
+		ID:         cfg.ID,
+		Path:       cfg.Path,
+		Source:     src,
+		Program:    program,
+		Action:     cfg.Action,
+		ActionType: actType,
+		TTL:        ttl,
+	}, nil
+}
+
+// generateExpression generates an expression from rule configuration.
+// generateExpression 从规则配置生成表达式。
+func (re *RuleEngine) generateExpression(cfg types.LogEngineRule) string {
+	var andParts []string
+	var orParts []string
+	var notParts []string
+
+	genMatch := func(pattern string) string {
+		safeK := strings.ReplaceAll(pattern, "\"", "\\\"")
+		if strings.Contains(pattern, "*") {
+			quoted := regexp.QuoteMeta(pattern)
+			regexStr := strings.ReplaceAll(quoted, "\\*", ".*")
+			return fmt.Sprintf(`Line matches "%s"`, regexStr)
+		}
+		return fmt.Sprintf(`Contains(Line, "%s")`, safeK)
+	}
+
+	allContains := append([]string{}, cfg.Keywords...)
+	allContains = append(allContains, cfg.Contains...)
+	allContains = append(allContains, cfg.Is...)
+	allContains = append(allContains, cfg.And...)
+	for _, k := range allContains {
+		andParts = append(andParts, genMatch(k))
+	}
+
+	allAny := append([]string{}, cfg.AnyContains...)
+	allAny = append(allAny, cfg.Or...)
+	for _, k := range allAny {
+		orParts = append(orParts, genMatch(k))
+	}
+
+	allNot := append([]string{}, cfg.NotContains...)
+	allNot = append(allNot, cfg.Not...)
+	for _, k := range allNot {
+		notParts = append(notParts, fmt.Sprintf("!%s", genMatch(k)))
+	}
+
+	if cfg.Regex != "" {
+		safeRe := strings.ReplaceAll(cfg.Regex, "\\", "\\\\")
+		safeRe = strings.ReplaceAll(safeRe, "\"", "\\\"")
+		andParts = append(andParts, fmt.Sprintf(`Line matches "%s"`, safeRe))
+	}
+
+	return combineExpressionParts(andParts, orParts, notParts)
+}
+
+// combineExpressionParts combines expression parts into a single expression.
+// combineExpressionParts 将表达式部分组合成单个表达式。
+func combineExpressionParts(andParts, orParts, notParts []string) string {
+	var sections []string
+	if len(andParts) > 0 {
+		sections = append(sections, fmt.Sprintf("(%s)", strings.Join(andParts, " && ")))
+	}
+	if len(orParts) > 0 {
+		sections = append(sections, fmt.Sprintf("(%s)", strings.Join(orParts, " || ")))
+	}
+	if len(notParts) > 0 {
+		sections = append(sections, strings.Join(notParts, " && "))
+	}
+
+	if len(sections) > 0 {
+		return strings.Join(sections, " && ")
+	}
+	return "true"
+}
+
+// parseTTL parses the TTL duration from configuration.
+// parseTTL 从配置解析 TTL 持续时间。
+func (re *RuleEngine) parseTTL(cfg types.LogEngineRule) time.Duration {
+	ttlStr := cfg.TTL
+	if ttlStr == "" || ttlStr == "0" {
+		return 0
+	}
+
+	d, err := time.ParseDuration(ttlStr)
+	if err != nil {
+		re.logger.Warnf("⚠️  Rule '%s': Invalid TTL '%s', using 0 (no expiry). Error: %v", cfg.ID, ttlStr, err)
+		return 0
+	}
+	return d
+}
+
+// parseActionType parses the action type from configuration.
+// parseActionType 从配置解析动作类型。
+func (re *RuleEngine) parseActionType(cfg types.LogEngineRule) ActionType {
+	actStr := strings.ToLower(strings.TrimSpace(cfg.Action))
+
+	switch actStr {
+	case "", "0", "log":
+		return ActionLog
+	case "1", "dynamic", "dynblock", "dynblack", "block", "black":
+		return ActionDynamic
+	case "2", "static", "permanent", "lock", "deny":
+		return ActionStatic
+	default:
+		return re.parseLegacyActionType(cfg, actStr)
+	}
+}
+
+// parseLegacyActionType parses legacy action type format.
+// parseLegacyActionType 解析旧版动作类型格式。
+func (re *RuleEngine) parseLegacyActionType(cfg types.LogEngineRule, actStr string) ActionType {
+	if strings.HasPrefix(actStr, "block:") || strings.HasPrefix(actStr, "black:") {
+		return ActionDynamic
+	}
+
+	re.logger.Warnf("⚠️  Rule '%s': Unknown action '%s', defaulting to Log (0).", cfg.ID, cfg.Action)
+	return ActionLog
 }
 
 // preprocessExpression replaces lowercase function aliases with their exported (TitleCase) counterparts.

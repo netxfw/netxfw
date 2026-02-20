@@ -85,6 +85,8 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 		Logger:   log,
 		SDK:      s,
 	}
+
+	var startedPlugins []sdk.Plugin
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(pluginCtx); err != nil {
 			log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
@@ -92,9 +94,16 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 		}
 		if err := p.Start(pluginCtx); err != nil {
 			log.Warnf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
+			continue
 		}
-		defer func() { _ = p.Stop() }()
+		startedPlugins = append(startedPlugins, p)
 	}
+
+	defer func() {
+		for _, p := range startedPlugins {
+			_ = p.Stop()
+		}
+	}()
 
 	// 4. Start Cleanup Loop / 启动清理循环
 	ctxCleanup, cancel := context.WithCancel(ctx)

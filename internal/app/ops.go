@@ -22,6 +22,7 @@ import (
 	"github.com/livp123/netxfw/internal/utils/logger"
 	"github.com/livp123/netxfw/internal/xdp"
 	"github.com/livp123/netxfw/pkg/sdk"
+	"go.uber.org/zap"
 )
 
 /**
@@ -30,7 +31,6 @@ import (
  */
 func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 	log := logger.Get(ctx)
-	// Load global configuration first to get interface settings / 首先加载全局配置以获取接口设置
 	cfgManager := config.GetConfigManager()
 	err := cfgManager.LoadConfig()
 	if err != nil {
@@ -42,23 +42,9 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		return fmt.Errorf("config is nil after loading")
 	}
 
-	var interfaces []string
-	if len(cliInterfaces) > 0 {
-		interfaces = cliInterfaces
-		log.Infof("ℹ️  Using CLI provided interfaces: %v", interfaces)
-	} else if len(globalCfg.Base.Interfaces) > 0 {
-		interfaces = globalCfg.Base.Interfaces
-		log.Infof("ℹ️  Using configured interfaces: %v", interfaces)
-	} else {
-		// Auto-detect if no interfaces configured / 如果未配置接口，则自动检测
-		interfaces, err = xdp.GetPhysicalInterfaces()
-		if err != nil {
-			return fmt.Errorf("failed to get interfaces: %v", err)
-		}
-		if len(interfaces) == 0 {
-			return fmt.Errorf("no physical interfaces found")
-		}
-		log.Infof("ℹ️  Auto-detected interfaces: %v", interfaces)
+	interfaces, err := resolveInterfaces(cliInterfaces, globalCfg, log)
+	if err != nil {
+		return err
 	}
 
 	manager, err := xdp.NewManager(globalCfg.Capacity, log)
@@ -74,34 +60,9 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		return fmt.Errorf("failed to attach XDP: %v", err)
 	}
 
-	// Detach from interfaces that are not in the current configuration
-	// 移除未在当前配置中的接口上的 XDP
-	if attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath()); err == nil {
-		var toDetach []string
-		for _, attached := range attachedIfaces {
-			found := false
-			for _, configured := range interfaces {
-				if attached == configured {
-					found = true
-					break
-				}
-			}
-			if !found {
-				toDetach = append(toDetach, attached)
-			}
-		}
-		if len(toDetach) > 0 {
-			log.Infof("ℹ️  Detaching from removed interfaces: %v", toDetach)
-			if err := manager.Detach(toDetach); err != nil {
-				log.Warnf("⚠️  Failed to detach from removed interfaces: %v", err)
-			}
-		}
-	}
+	detachOrphanedInterfaces(manager, interfaces, log)
 
-	// Create SDK instance once
 	s := sdk.NewSDK(xdp.NewAdapter(manager))
-
-	// Start all plugins to apply configurations / 启动所有插件以应用配置
 	pluginCtx := &sdk.PluginContext{
 		Context: ctx,
 		Manager: s.GetManager(),
@@ -110,7 +71,6 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		SDK:     s,
 	}
 
-	// 1. Initialize and Start Core Modules / 初始化并启动核心模块
 	coreModules := []engine.CoreModule{
 		&engine.BaseModule{},
 		&engine.ConntrackModule{},
@@ -127,10 +87,8 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		}
 	}
 
-	// 2. Start Extension Plugins / 启动扩展插件
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(pluginCtx); err != nil {
-			// Plugins are extensions, log error but don't crash
 			log.Errorf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
 			continue
 		}
@@ -142,6 +100,60 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 
 	log.Infof("🚀 XDP program installed successfully and pinned to %s", config.GetPinPath())
 	return nil
+}
+
+// resolveInterfaces resolves the interfaces to use for XDP.
+// resolveInterfaces 解析用于 XDP 的接口。
+func resolveInterfaces(cliInterfaces []string, globalCfg *types.GlobalConfig, log *zap.SugaredLogger) ([]string, error) {
+	if len(cliInterfaces) > 0 {
+		log.Infof("ℹ️  Using CLI provided interfaces: %v", cliInterfaces)
+		return cliInterfaces, nil
+	}
+
+	if len(globalCfg.Base.Interfaces) > 0 {
+		log.Infof("ℹ️  Using configured interfaces: %v", globalCfg.Base.Interfaces)
+		return globalCfg.Base.Interfaces, nil
+	}
+
+	interfaces, err := xdp.GetPhysicalInterfaces()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get interfaces: %v", err)
+	}
+	if len(interfaces) == 0 {
+		return nil, fmt.Errorf("no physical interfaces found")
+	}
+	log.Infof("ℹ️  Auto-detected interfaces: %v", interfaces)
+	return interfaces, nil
+}
+
+// detachOrphanedInterfaces detaches XDP from interfaces not in the current configuration.
+// detachOrphanedInterfaces 从不在当前配置中的接口分离 XDP。
+func detachOrphanedInterfaces(manager *xdp.Manager, interfaces []string, log *zap.SugaredLogger) {
+	attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
+	if err != nil {
+		return
+	}
+
+	var toDetach []string
+	for _, attached := range attachedIfaces {
+		found := false
+		for _, configured := range interfaces {
+			if attached == configured {
+				found = true
+				break
+			}
+		}
+		if !found {
+			toDetach = append(toDetach, attached)
+		}
+	}
+
+	if len(toDetach) > 0 {
+		log.Infof("ℹ️  Detaching from removed interfaces: %v", toDetach)
+		if err := manager.Detach(toDetach); err != nil {
+			log.Warnf("⚠️  Failed to detach from removed interfaces: %v", err)
+		}
+	}
 }
 
 /**
@@ -294,7 +306,6 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 	log := logger.Get(ctx)
 	log.Info("🔄 Starting hot-reload of XDP program...")
 
-	// 1. Load global configuration / 加载全局配置
 	cfgManager := config.GetConfigManager()
 	err := cfgManager.LoadConfig()
 	if err != nil {
@@ -306,132 +317,121 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 		return fmt.Errorf("config is nil after loading")
 	}
 
-	var interfaces []string
-	if len(cliInterfaces) > 0 {
-		interfaces = cliInterfaces
-		log.Infof("ℹ️  Using CLI provided interfaces: %v", interfaces)
-	} else if len(globalCfg.Base.Interfaces) > 0 {
-		interfaces = globalCfg.Base.Interfaces
-		log.Infof("ℹ️  Using configured interfaces: %v", interfaces)
-	} else {
-		interfaces, err = xdp.GetPhysicalInterfaces()
-		if err != nil {
-			return fmt.Errorf("failed to get interfaces: %v", err)
-		}
-		log.Infof("ℹ️  Auto-detected interfaces: %v", interfaces)
+	interfaces, err := resolveInterfaces(cliInterfaces, globalCfg, log)
+	if err != nil {
+		return err
 	}
 
-	// 2. Try to load old manager from pins to check capacity
-	// 2. 尝试从固定点加载旧管理器以检查容量
 	oldManager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
-	if err == nil {
-		oldAdapter := xdp.NewAdapter(oldManager)
-		pluginCtx := &sdk.PluginContext{
-			Context: ctx,
-			Manager: oldAdapter,
-			Config:  globalCfg,
-			Logger:  log,
-		}
-
-		// Check if the current map capacities match the requested configuration
-		// 检查当前 Map 容量是否与请求的配置匹配
-		if oldManager.MatchesCapacity(globalCfg.Capacity) {
-			log.Info("⚡ Capacity unchanged. Performing incremental hot-reload...")
-
-			// Load old configuration for diff comparison
-			// 加载旧配置用于差异比较
-			oldCfg := cfgManager.GetConfig()
-
-			// Use incremental updater to compute and apply changes
-			// 使用增量更新器计算并应用变更
-			updater := oldManager.IncrementalUpdater()
-			if updater != nil {
-				diff, diffErr := updater.ComputeDiff(oldCfg, globalCfg)
-				if diffErr != nil {
-					log.Warnf("⚠️  Failed to compute config diff: %v", diffErr)
-				} else if diff.HasChanges() {
-					log.Infof("📊 Config changes detected: %s", diff.Summary())
-					if err := updater.ApplyDiff(diff); err != nil {
-						log.Warnf("⚠️  Incremental update had errors: %v", err)
-					} else {
-						log.Info("✅ Incremental config update applied successfully")
-					}
-				} else {
-					log.Info("ℹ️  No config changes detected")
-				}
-			}
-
-			// Apply new configurations to existing maps via plugins
-			// 通过插件将新配置应用到现有 Map
-			for _, p := range plugins.GetPlugins() {
-				if err := p.Init(pluginCtx); err != nil {
-					log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
-					continue
-				}
-				if err := p.Reload(pluginCtx); err != nil {
-					log.Warnf("⚠️  Failed to reload plugin %s: %v", p.Name(), err)
-				}
-			}
-
-			// Atomic update XDP program on interfaces
-			// 在接口上原子更新 XDP 程序
-			if err := oldManager.Attach(interfaces); err != nil {
-				log.Warnf("⚠️  Failed to update XDP program: %v", err)
-			}
-
-			log.Info("🚀 Incremental reload completed successfully.")
-			oldManager.Close()
-			return nil
-		}
-
-		log.Info("📦 Capacity changed. Performing full state migration...")
-		// Initialize new manager with new capacities
-		// 使用新容量初始化新管理器
-		newManager, err := xdp.NewManager(globalCfg.Capacity, log)
-		if err != nil {
-			return fmt.Errorf("failed to create new XDP manager: %v", err)
-		}
-
-		// Migrate state from old maps to new maps / 将状态从旧 Map 迁移到新 Map
-		if err := newManager.MigrateState(oldManager); err != nil {
-			log.Warnf("⚠️  State migration partial or failed: %v", err)
-		}
-		oldManager.Close()
-
-		// Update pins and attach / 更新固定路径并附加
-		if err := newManager.Pin(config.GetPinPath()); err != nil {
-			return fmt.Errorf("failed to pin new maps: %v", err)
-		}
-		if err := newManager.Attach(interfaces); err != nil {
-			return fmt.Errorf("failed to attach new XDP program: %v", err)
-		}
-
-		// Sync plugins to new manager / 将插件同步到新管理器
-		newAdapter := xdp.NewAdapter(newManager)
-		newCtx := &sdk.PluginContext{
-			Context: ctx,
-			Manager: newAdapter,
-			Config:  globalCfg,
-			Logger:  log,
-		}
-
-		for _, p := range plugins.GetPlugins() {
-			if err := p.Init(newCtx); err != nil {
-				log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
-			}
-			if err := p.Reload(newCtx); err != nil {
-				log.Warnf("⚠️  Failed to reload plugin %s: %v", p.Name(), err)
-			}
-		}
-
-		log.Info("🚀 Full hot-reload with state migration completed successfully.")
-		return nil
+	if err != nil {
+		log.Info("ℹ️  No existing XDP program found. Performing clean install...")
+		return InstallXDP(ctx, cliInterfaces)
 	}
 
-	// 3. Fallback: If no old manager found, perform a clean install
-	// 3. 回退方案：如果未发现旧管理器，则执行全新安装
-	log.Info("ℹ️  No existing XDP program found. Performing clean install...")
-	return InstallXDP(ctx, cliInterfaces)
+	return reloadExistingManager(ctx, oldManager, globalCfg, interfaces, cfgManager, log)
+}
+
+// reloadExistingManager handles reload when an existing manager is found.
+// reloadExistingManager 处理发现现有管理器时的重载。
+func reloadExistingManager(ctx context.Context, oldManager *xdp.Manager, globalCfg *types.GlobalConfig, interfaces []string, cfgManager *config.ConfigManager, log *zap.SugaredLogger) error {
+	defer oldManager.Close()
+
+	oldAdapter := xdp.NewAdapter(oldManager)
+	pluginCtx := &sdk.PluginContext{
+		Context: ctx,
+		Manager: oldAdapter,
+		Config:  globalCfg,
+		Logger:  log,
+	}
+
+	if oldManager.MatchesCapacity(globalCfg.Capacity) {
+		return performIncrementalReload(oldManager, globalCfg, interfaces, pluginCtx, cfgManager, log)
+	}
+
+	return performFullMigration(ctx, oldManager, globalCfg, interfaces, log)
+}
+
+// performIncrementalReload performs incremental reload when capacity matches.
+// performIncrementalReload 当容量匹配时执行增量重载。
+func performIncrementalReload(oldManager *xdp.Manager, globalCfg *types.GlobalConfig, interfaces []string, pluginCtx *sdk.PluginContext, cfgManager *config.ConfigManager, log *zap.SugaredLogger) error {
+	log.Info("⚡ Capacity unchanged. Performing incremental hot-reload...")
+
+	oldCfg := cfgManager.GetConfig()
+	updater := oldManager.IncrementalUpdater()
+	if updater != nil {
+		diff, diffErr := updater.ComputeDiff(oldCfg, globalCfg)
+		if diffErr != nil {
+			log.Warnf("⚠️  Failed to compute config diff: %v", diffErr)
+		} else if diff.HasChanges() {
+			log.Infof("📊 Config changes detected: %s", diff.Summary())
+			if err := updater.ApplyDiff(diff); err != nil {
+				log.Warnf("⚠️  Incremental update had errors: %v", err)
+			} else {
+				log.Info("✅ Incremental config update applied successfully")
+			}
+		} else {
+			log.Info("ℹ️  No config changes detected")
+		}
+	}
+
+	reloadPlugins(pluginCtx, log)
+
+	if err := oldManager.Attach(interfaces); err != nil {
+		log.Warnf("⚠️  Failed to update XDP program: %v", err)
+	}
+
+	log.Info("🚀 Incremental reload completed successfully.")
+	return nil
+}
+
+// performFullMigration performs full state migration when capacity changes.
+// performFullMigration 当容量变更时执行完整状态迁移。
+func performFullMigration(ctx context.Context, oldManager *xdp.Manager, globalCfg *types.GlobalConfig, interfaces []string, log *zap.SugaredLogger) error {
+	log.Info("📦 Capacity changed. Performing full state migration...")
+
+	newManager, err := xdp.NewManager(globalCfg.Capacity, log)
+	if err != nil {
+		return fmt.Errorf("failed to create new XDP manager: %v", err)
+	}
+
+	if err := newManager.MigrateState(oldManager); err != nil {
+		log.Warnf("⚠️  State migration partial or failed: %v", err)
+	}
+	oldManager.Close()
+
+	if err := newManager.Pin(config.GetPinPath()); err != nil {
+		return fmt.Errorf("failed to pin new maps: %v", err)
+	}
+	if err := newManager.Attach(interfaces); err != nil {
+		return fmt.Errorf("failed to attach new XDP program: %v", err)
+	}
+
+	newAdapter := xdp.NewAdapter(newManager)
+	newCtx := &sdk.PluginContext{
+		Context: ctx,
+		Manager: newAdapter,
+		Config:  globalCfg,
+		Logger:  log,
+	}
+
+	reloadPlugins(newCtx, log)
+
+	log.Info("🚀 Full hot-reload with state migration completed successfully.")
+	return nil
+}
+
+// reloadPlugins reloads all plugins.
+// reloadPlugins 重载所有插件。
+func reloadPlugins(pluginCtx *sdk.PluginContext, log *zap.SugaredLogger) {
+	for _, p := range plugins.GetPlugins() {
+		if err := p.Init(pluginCtx); err != nil {
+			log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
+			continue
+		}
+		if err := p.Reload(pluginCtx); err != nil {
+			log.Warnf("⚠️  Failed to reload plugin %s: %v", p.Name(), err)
+		}
+	}
 }
 
 /**
