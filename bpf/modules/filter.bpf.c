@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-2.0-or-later
 #ifndef __NETXFW_FILTER_BPF_C
 #define __NETXFW_FILTER_BPF_C
 

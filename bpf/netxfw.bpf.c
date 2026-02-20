@@ -1,4 +1,12 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * NetXfw BPF Program - Kernel Space XDP Firewall
+ * 
+ * This BPF program uses GPL-only kernel helper functions and must be
+ * licensed under GPL-2.0-or-later for kernel compatibility.
+ * 
+ * For commercial licensing options, please contact the copyright holder.
+ */
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 #include <linux/pkt_cls.h>

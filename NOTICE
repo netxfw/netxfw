@@ -1,0 +1,60 @@
+NetXfw - High Performance XDP Firewall
+Copyright 2024-2026 NetXfw Contributors
+
+This product includes software developed by the NetXfw project
+(https://github.com/livp123/netxfw).
+
+================================================================================
+                              LICENSE STRUCTURE
+================================================================================
+
+This project uses a dual-license structure:
+
+1. Go User-Space Code (Apache-2.0)
+   --------------------------------
+   Files: internal/*, cmd/*, pkg/*, test/*
+   License: Apache License, Version 2.0
+   See: LICENSE file
+
+   This includes patent protection and is suitable for commercial use.
+
+2. BPF Kernel Code (GPL-2.0-or-later)
+   -----------------------------------
+   Files: bpf/*
+   License: GNU General Public License, Version 2 or later
+   See: LICENSE-BPF file
+
+   Required for kernel compatibility due to use of GPL-only helper functions:
+   - bpf_ktime_get_ns (time tracking)
+   - bpf_tail_call (plugin system)
+   - bpf_redirect_map (AF_XDP support)
+
+================================================================================
+                           COMMERCIAL LICENSING
+================================================================================
+
+For commercial licensing options that allow proprietary modifications to the
+BPF code without the GPL requirements, please contact the copyright holder.
+
+================================================================================
+                              THIRD-PARTY CODE
+================================================================================
+
+This product may include third-party open source software components. Each
+such component is licensed under its own license terms.
+
+================================================================================
+                                DISCLAIMER
+================================================================================
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
