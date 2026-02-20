@@ -341,7 +341,7 @@ func ListIPPortRulesFromMap(mapPtr *ebpf.Map, limit int, search string) ([]IPPor
 		rules = append(rules, IPPortRule{
 			IP:     fmt.Sprintf("%s/%d", ipStr, prefixLen),
 			Port:   key.Port,
-			Action: uint8(val.Counter),
+			Action: uint8(val.Counter & 0xFF), // nolint:gosec // G115: Action is limited to 0-255
 		})
 	}
 	return rules, count, iter.Err()

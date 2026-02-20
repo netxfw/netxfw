@@ -288,7 +288,7 @@ func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
 			SrcPort:  key.SrcPort,
 			DstPort:  key.DstPort,
 			Protocol: key.Protocol,
-			LastSeen: time.Unix(0, int64(val.LastSeen)),
+			LastSeen: time.Unix(0, int64(val.LastSeen)), // nolint:gosec // G115: timestamp from BPF is always valid
 		}
 		entries = append(entries, entry)
 	}
