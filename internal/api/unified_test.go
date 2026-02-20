@@ -26,7 +26,7 @@ const (
 // TestHandleHealthz 测试健康检查端点
 func TestHandleHealthz(t *testing.T) {
 	server := NewServer(nil, 8080)
-	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req := httptest.NewRequest(http.MethodGet, "/healthz", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleHealthz(rec, req)
@@ -39,7 +39,7 @@ func TestHandleHealthz(t *testing.T) {
 // TestHandleVersion 测试版本端点
 func TestHandleVersion(t *testing.T) {
 	server := NewServer(nil, 8080)
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
+	req := httptest.NewRequest(http.MethodGet, "/version", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleVersion(rec, req)
@@ -58,7 +58,7 @@ func TestHandleStats(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/stats", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/stats", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleStats(rec, req)
@@ -83,7 +83,7 @@ func TestHandleRulesGet(t *testing.T) {
 	mockMgr.AddBlacklistIP("192.168.1.1/32")
 	mockMgr.AddWhitelistIP("10.0.0.1/32", 0)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/rules", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/rules", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleRules(rec, req)
@@ -245,7 +245,7 @@ func TestHandleSyncInvalidMethod(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/sync", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/sync", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleSync(rec, req)
@@ -257,7 +257,7 @@ func TestHandleSyncInvalidMethod(t *testing.T) {
 // TestHandleUI 测试 UI 端点
 func TestHandleUI(t *testing.T) {
 	server := NewServer(nil, 8080)
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleUI(rec, req)
@@ -667,7 +667,7 @@ func TestHandleConntrack(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/conntrack", nil)
+	req := httptest.NewRequest(http.MethodGet, "/conntrack", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleConntrack(rec, req)
@@ -707,7 +707,7 @@ func TestHandleLogin(t *testing.T) {
 
 	// Test with invalid method
 	// 测试无效方法
-	req := httptest.NewRequest(http.MethodGet, "/api/login", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/login", http.NoBody)
 	rec := httptest.NewRecorder()
 	server.handleLogin(rec, req)
 	assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
@@ -736,7 +736,7 @@ func TestHandleHealth(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/health", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleHealth(rec, req)
@@ -750,7 +750,7 @@ func TestHandleHealth(t *testing.T) {
 func TestHandleHealth_NilSDK(t *testing.T) {
 	server := NewServer(nil, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/health", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleHealth(rec, req)
@@ -764,7 +764,7 @@ func TestHandleHealthMaps(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/health/maps", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/health/maps", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleHealthMaps(rec, req)
@@ -778,7 +778,7 @@ func TestHandleHealthMaps(t *testing.T) {
 func TestHandleHealthMaps_NilSDK(t *testing.T) {
 	server := NewServer(nil, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/health/maps", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/health/maps", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleHealthMaps(rec, req)
@@ -792,7 +792,7 @@ func TestHandleHealthMap(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/health/map?name=blacklist", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/health/map?name=blacklist", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleHealthMap(rec, req)
@@ -808,7 +808,7 @@ func TestHandleHealthMap_MissingName(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/health/map", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/health/map", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleHealthMap(rec, req)
@@ -820,7 +820,7 @@ func TestHandleHealthMap_MissingName(t *testing.T) {
 func TestHandleHealthMap_NilSDK(t *testing.T) {
 	server := NewServer(nil, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/health/map?name=blacklist", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/health/map?name=blacklist", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleHealthMap(rec, req)
@@ -834,7 +834,7 @@ func TestHandlePerfStats(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/perf/stats", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/perf/stats", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handlePerfStats(rec, req)
@@ -850,7 +850,7 @@ func TestHandlePerfLatency(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/perf/latency", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/perf/latency", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handlePerfLatency(rec, req)
@@ -864,7 +864,7 @@ func TestHandlePerfCache(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/perf/cache", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/perf/cache", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handlePerfCache(rec, req)
@@ -878,7 +878,7 @@ func TestHandlePerfTraffic(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/perf/traffic", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/perf/traffic", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handlePerfTraffic(rec, req)
@@ -894,7 +894,7 @@ func TestHandlePerfReset(t *testing.T) {
 
 	// Test with invalid method
 	// 测试无效方法
-	req := httptest.NewRequest(http.MethodGet, "/api/perf/reset", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/perf/reset", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handlePerfReset(rec, req)
@@ -908,7 +908,7 @@ func TestHandlePerfReset_Post(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/perf/reset", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/perf/reset", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handlePerfReset(rec, req)
@@ -1044,7 +1044,7 @@ func TestHandleConfig_Get(t *testing.T) {
 	s := sdk.NewSDK(mockMgr)
 	server := NewServer(s, 8080)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/config", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/config", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	server.handleConfig(rec, req)

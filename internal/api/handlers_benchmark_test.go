@@ -20,7 +20,7 @@ func BenchmarkHandleHealth(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest("GET", "/health", nil)
+		req := httptest.NewRequest("GET", "/health", http.NoBody)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}
@@ -37,7 +37,7 @@ func BenchmarkHandleStats(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest("GET", "/api/stats", nil)
+		req := httptest.NewRequest("GET", "/api/stats", http.NoBody)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}
@@ -54,7 +54,7 @@ func BenchmarkHandleConfig(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest("GET", "/api/config", nil)
+		req := httptest.NewRequest("GET", "/api/config", http.NoBody)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}
@@ -71,7 +71,7 @@ func BenchmarkHandleVersion(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest("GET", "/version", nil)
+		req := httptest.NewRequest("GET", "/version", http.NoBody)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}
@@ -89,7 +89,7 @@ func BenchmarkHandleConntrack(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest("GET", "/api/conntrack", nil)
+		req := httptest.NewRequest("GET", "/api/conntrack", http.NoBody)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}
@@ -153,7 +153,7 @@ func BenchmarkServer_MultipleEndpoints(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		endpoint := endpoints[i%len(endpoints)]
-		req := httptest.NewRequest(endpoint.method, endpoint.path, nil)
+		req := httptest.NewRequest(endpoint.method, endpoint.path, http.NoBody)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}
@@ -175,13 +175,13 @@ func BenchmarkConcurrentAPIRequests(b *testing.B) {
 			var req *http.Request
 			switch i % 4 {
 			case 0:
-				req = httptest.NewRequest("GET", "/api/stats", nil)
+				req = httptest.NewRequest("GET", "/api/stats", http.NoBody)
 			case 1:
-				req = httptest.NewRequest("GET", "/health", nil)
+				req = httptest.NewRequest("GET", "/health", http.NoBody)
 			case 2:
-				req = httptest.NewRequest("GET", "/version", nil)
+				req = httptest.NewRequest("GET", "/version", http.NoBody)
 			case 3:
-				req = httptest.NewRequest("GET", "/api/config", nil)
+				req = httptest.NewRequest("GET", "/api/config", http.NoBody)
 			}
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, req)
