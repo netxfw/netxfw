@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -345,6 +346,6 @@ func writeToFile(path, content string) error {
 // openFileForAppend opens a file for appending.
 // openFileForAppend 打开文件用于追加。
 func openFileForAppend(path string) (*os.File, error) {
-	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
+	safePath := filepath.Clean(path)                                        // Sanitize path to prevent directory traversal
 	return os.OpenFile(safePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644) // #nosec G304 // path is sanitized with filepath.Clean
 }
