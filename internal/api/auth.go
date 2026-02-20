@@ -82,6 +82,8 @@ func verifyToken(tokenString string, secret string) (*TokenClaims, error) {
 
 // withAuth is a middleware for token-based authentication (Supports Bearer Token & Legacy Query Param)
 // withAuth 是用于基于令牌认证的中间件（支持 Bearer Token 和旧查询参数）
+//
+//nolint:unused // Reserved for future authentication middleware
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Use the config manager to load the configuration

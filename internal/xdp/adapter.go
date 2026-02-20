@@ -284,17 +284,7 @@ func (a *Adapter) GetDropLogs() ([]sdk.DropLogEntry, error) {
 	}
 	logs := make([]sdk.DropLogEntry, len(details))
 	for i, d := range details {
-		logs[i] = sdk.DropLogEntry{
-			Timestamp: d.Timestamp,
-			SrcIP:     d.SrcIP,
-			DstIP:     d.DstIP,
-			SrcPort:   d.SrcPort,
-			DstPort:   d.DstPort,
-			Protocol:  d.Protocol,
-			Reason:    d.Reason,
-			Count:     d.Count,
-			Payload:   d.Payload,
-		}
+		logs[i] = sdk.DropLogEntry(d)
 	}
 	return logs, nil
 }

@@ -276,8 +276,7 @@ func createProxyProtocolV2IPv4() []byte {
 	// 组合
 	data := make([]byte, 0, 28)
 	data = append(data, sig...)
-	data = append(data, verCmd)
-	data = append(data, family)
+	data = append(data, verCmd, family)
 	data = append(data, addrLen...)
 	data = append(data, srcIP...)
 	data = append(data, dstIP...)

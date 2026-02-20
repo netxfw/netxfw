@@ -43,8 +43,9 @@ func (m *MetricsServer) Start(ctx context.Context) error {
 	mux.Handle("/metrics", promhttp.Handler())
 
 	m.server = &http.Server{
-		Addr:    fmt.Sprintf(":%d", m.config.Port),
-		Handler: mux,
+		Addr:              fmt.Sprintf(":%d", m.config.Port),
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	m.running = true
@@ -130,6 +131,8 @@ func (m *MetricsServer) collectStats(ctx context.Context) {
 					metrics.RulesCount.WithLabelValues("ipport").Set(float64(ipPortRuleCount))
 				}
 			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }

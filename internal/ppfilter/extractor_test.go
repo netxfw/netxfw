@@ -153,7 +153,9 @@ func TestProxyProtocolListener(t *testing.T) {
 		trustedLBs: extractor.trustedLBs,
 	}
 
-	if ln == nil {
+	// Verify the listener was created successfully
+	// 验证监听器创建成功
+	if ln.Listener == nil {
 		t.Fatal("Expected non-nil listener")
 	}
 }

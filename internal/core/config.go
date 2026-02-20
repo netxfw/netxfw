@@ -29,7 +29,7 @@ func InitConfiguration(ctx context.Context) {
 		// 定义带有双语注释的默认配置
 		defaultConfig := types.DefaultConfigTemplate
 
-		if err := os.WriteFile(configPath, []byte(defaultConfig), 0644); err != nil {
+		if err := os.WriteFile(configPath, []byte(defaultConfig), 0600); err != nil {
 			log.Fatalf("❌ Failed to create config.yaml: %v", err)
 		}
 		log.Infof("📄 Created default global config with comments: %s", configPath)

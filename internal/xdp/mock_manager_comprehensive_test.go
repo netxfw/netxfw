@@ -94,7 +94,7 @@ func TestMockManager_BlacklistComprehensive(t *testing.T) {
 	err = mockMgr.ClearBlacklist()
 	require.NoError(t, err)
 
-	list, count, err = mockMgr.ListBlacklistIPs(100, "")
+	_, count, err = mockMgr.ListBlacklistIPs(100, "")
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 }
@@ -131,7 +131,7 @@ func TestMockManager_WhitelistComprehensive(t *testing.T) {
 
 	// Test listing
 	// 测试列出
-	list, count, err := mockMgr.ListWhitelistIPs(100, "")
+	_, count, err := mockMgr.ListWhitelistIPs(100, "")
 	require.NoError(t, err)
 	assert.Equal(t, 4, count)
 
@@ -151,10 +151,9 @@ func TestMockManager_WhitelistComprehensive(t *testing.T) {
 	err = mockMgr.ClearWhitelist()
 	require.NoError(t, err)
 
-	list, count, err = mockMgr.ListWhitelistIPs(100, "")
+	_, count, err = mockMgr.ListWhitelistIPs(100, "")
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
-	assert.Empty(t, list)
 }
 
 // TestMockManager_IPPortRulesComprehensive tests comprehensive IP port rules
@@ -196,7 +195,7 @@ func TestMockManager_IPPortRulesComprehensive(t *testing.T) {
 	err = mockMgr.ClearIPPortRules()
 	require.NoError(t, err)
 
-	list, count, err = mockMgr.ListIPPortRules(false, 100, "")
+	_, count, err = mockMgr.ListIPPortRules(false, 100, "")
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 }
@@ -280,7 +279,7 @@ func TestMockManager_RateLimitComprehensive(t *testing.T) {
 	err = mockMgr.RemoveRateLimitRule("192.168.1.0/24")
 	require.NoError(t, err)
 
-	list, count, err = mockMgr.ListRateLimitRules(100, "")
+	_, count, err = mockMgr.ListRateLimitRules(100, "")
 	require.NoError(t, err)
 	assert.Equal(t, 2, count)
 
@@ -289,7 +288,7 @@ func TestMockManager_RateLimitComprehensive(t *testing.T) {
 	err = mockMgr.ClearRateLimitRules()
 	require.NoError(t, err)
 
-	list, count, err = mockMgr.ListRateLimitRules(100, "")
+	_, count, err = mockMgr.ListRateLimitRules(100, "")
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 }

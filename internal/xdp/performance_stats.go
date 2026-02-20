@@ -474,7 +474,7 @@ func (p *PerformanceStats) SaveTrafficStats() error {
 		return err
 	}
 
-	return os.WriteFile(trafficStatsFile, fileData, 0644)
+	return os.WriteFile(trafficStatsFile, fileData, 0600)
 }
 
 // LoadTrafficStats loads traffic statistics from a shared file.

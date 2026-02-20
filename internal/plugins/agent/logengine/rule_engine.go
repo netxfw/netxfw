@@ -320,7 +320,7 @@ func NewRuleEngine(counter *Counter, logger sdk.Logger) *RuleEngine {
 
 // UpdateRules compiles and updates the current rules.
 func (re *RuleEngine) UpdateRules(configs []types.LogEngineRule) error {
-	var newRules []Rule
+	newRules := make([]Rule, 0, len(configs))
 	for _, cfg := range configs {
 		src := cfg.Expression
 
@@ -446,7 +446,7 @@ func (re *RuleEngine) UpdateRules(configs []types.LogEngineRule) error {
 		// 1/dynamic/block -> Dynamic
 		// 2/static/lock -> Static
 		actStr := strings.ToLower(strings.TrimSpace(cfg.Action))
-		var actType ActionType = ActionLog // Default to 0 (Log)
+		var actType ActionType
 
 		switch actStr {
 		case "", "0", "log": // Explicitly handle empty string as default (Log)

@@ -75,8 +75,9 @@ func (p *WebPlugin) Start(ctx *sdk.PluginContext) error {
 	mux.Handle("/", apiHandler)
 
 	p.server = &http.Server{
-		Addr:    fmt.Sprintf(":%d", p.config.Port),
-		Handler: mux,
+		Addr:              fmt.Sprintf(":%d", p.config.Port),
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	p.running = true

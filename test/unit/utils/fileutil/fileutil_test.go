@@ -1,6 +1,7 @@
 package fileutil_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,7 +34,7 @@ func TestAtomicWriteFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read file: %v", err)
 	}
-	if string(content) != string(testData) {
+	if !bytes.Equal(content, testData) {
 		t.Errorf("Content mismatch: got %s, want %s", string(content), string(testData))
 	}
 
@@ -49,7 +50,7 @@ func TestAtomicWriteFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read file: %v", err)
 	}
-	if string(content) != string(newData) {
+	if !bytes.Equal(content, newData) {
 		t.Errorf("Content mismatch after overwrite: got %s, want %s", string(content), string(newData))
 	}
 }

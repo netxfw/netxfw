@@ -265,7 +265,7 @@ func (v *ConfigValidator) validatePortConfig(cfg *PortConfig, result *Validation
 		}
 
 		// Validate port / 验证端口
-		if rule.Port < 0 || int(rule.Port) > v.MaxPort {
+		if int(rule.Port) > v.MaxPort {
 			result.AddError(fmt.Sprintf("%s.port", fieldPrefix),
 				fmt.Sprintf("Port must be between 0 and %d", v.MaxPort), rule.Port)
 		}
@@ -383,7 +383,8 @@ func (v *ConfigValidator) validateLogEngineConfig(cfg *LogEngineConfig, result *
 	}
 
 	// Validate rules / 验证规则
-	for i, rule := range cfg.Rules {
+	for i := range cfg.Rules {
+		rule := &cfg.Rules[i]
 		fieldPrefix := fmt.Sprintf("log_engine.rules[%d]", i)
 
 		// Validate ID / 验证 ID
@@ -514,7 +515,7 @@ func (v *ConfigValidator) validateLoggingConfig(cfg *logger.LoggingConfig, resul
 		validLevels := []string{"debug", "info", "warn", "error"}
 		valid := false
 		for _, level := range validLevels {
-			if strings.ToLower(cfg.Level) == level {
+			if strings.EqualFold(cfg.Level, level) {
 				valid = true
 				break
 			}
@@ -646,7 +647,8 @@ func (v *ConfigValidator) detectConflicts(cfg *GlobalConfig, result *ValidationR
 	// Check for conflicting log engine rules (same path + ID)
 	// 检查冲突的日志引擎规则（相同路径 + ID）
 	logRuleSet := make(map[string]int)
-	for i, rule := range cfg.LogEngine.Rules {
+	for i := range cfg.LogEngine.Rules {
+		rule := &cfg.LogEngine.Rules[i]
 		key := rule.Path + ":" + rule.ID
 		if existingIdx, exists := logRuleSet[key]; exists {
 			result.AddWarning(fmt.Sprintf("log_engine.rules[%d]", i),

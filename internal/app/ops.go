@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	// Import pprof for HTTP endpoint profiling / 导入 pprof 用于 HTTP 端点性能分析
+	// nolint:gosec // G108: pprof is intentionally exposed for debugging in development
 	_ "net/http/pprof"
 	"strconv"
 
@@ -159,7 +161,7 @@ func RunDaemon(ctx context.Context) {
 func HandlePluginCommand(ctx context.Context, args []string) error {
 	log := logger.Get(ctx)
 	if len(args) < 1 {
-		return fmt.Errorf("usage: netxfw plugin <load|remove> ...")
+		return fmt.Errorf("usage: netxfw plugin <load|remove>")
 	}
 
 	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
@@ -454,7 +456,17 @@ func RunWebServer(ctx context.Context, port int) error {
 	addr := fmt.Sprintf(":%d", port)
 	log.Infof("🚀 Management API and UI starting on http://localhost%s", addr)
 
-	if err := http.ListenAndServe(addr, server.Handler()); err != nil {
+	// Create HTTP server with timeouts for security
+	// 创建带有超时的 HTTP 服务器以提高安全性
+	httpServer := &http.Server{
+		Addr:         addr,
+		Handler:      server.Handler(),
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	if err := httpServer.ListenAndServe(); err != nil {
 		return fmt.Errorf("failed to start web server: %v", err)
 	}
 	return nil

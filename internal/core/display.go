@@ -104,18 +104,18 @@ func ShowTopStats(ctx context.Context, xdpMgr XDPManager, limit int, sortBy stri
 	}
 
 	// 2. Aggregate by IP / 按 IP 聚合
-	type IpStats struct {
+	type IPStats struct {
 		IP    string
 		Pass  uint64
 		Drop  uint64
 		Total uint64
 	}
-	agg := make(map[string]*IpStats)
+	agg := make(map[string]*IPStats)
 
 	// 3. Process Drop Stats / 3. 处理丢弃统计
 	for _, s := range dropDetails {
 		if _, ok := agg[s.SrcIP]; !ok {
-			agg[s.SrcIP] = &IpStats{IP: s.SrcIP}
+			agg[s.SrcIP] = &IPStats{IP: s.SrcIP}
 		}
 		agg[s.SrcIP].Drop += s.Count
 		agg[s.SrcIP].Total += s.Count
@@ -124,14 +124,14 @@ func ShowTopStats(ctx context.Context, xdpMgr XDPManager, limit int, sortBy stri
 	// 4. Process Pass Stats / 4. 处理通过统计
 	for _, s := range passDetails {
 		if _, ok := agg[s.SrcIP]; !ok {
-			agg[s.SrcIP] = &IpStats{IP: s.SrcIP}
+			agg[s.SrcIP] = &IPStats{IP: s.SrcIP}
 		}
 		agg[s.SrcIP].Pass += s.Count
 		agg[s.SrcIP].Total += s.Count
 	}
 
 	// 5. Convert to slice and sort / 5. 转换为切片并排序
-	var statsList []*IpStats
+	statsList := make([]*IPStats, 0, len(agg))
 	for _, s := range agg {
 		statsList = append(statsList, s)
 	}
@@ -453,7 +453,7 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 	}
 
 	// Check default deny policy / 检查默认拒绝策略
-	var key uint32 = 0 // CONFIG_DEFAULT_DENY
+	var key uint32 // CONFIG_DEFAULT_DENY
 	var val uint64
 	globalConfig := xdpMgr.GlobalConfig()
 	if globalConfig != nil {

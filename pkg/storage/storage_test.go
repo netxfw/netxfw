@@ -32,7 +32,6 @@ func TestIPRule(t *testing.T) {
 	// 测试有过期时间
 	expiry := time.Now().Add(24 * time.Hour)
 	ruleWithExpiry := IPRule{
-		CIDR:      "10.0.0.0/8",
 		ExpiresAt: &expiry,
 	}
 	assert.NotNil(t, ruleWithExpiry.ExpiresAt)

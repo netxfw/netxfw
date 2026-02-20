@@ -68,7 +68,7 @@ func (cm *CheckpointManager) Save() {
 		return
 	}
 
-	if err := os.WriteFile(cm.file, data, 0644); err != nil {
+	if err := os.WriteFile(cm.file, data, 0600); err != nil {
 		cm.logger.Warnf("⚠️  Failed to save checkpoints: %v", err)
 	}
 }

@@ -37,7 +37,7 @@ func managePidFile(path string) error {
 	}
 
 	pid := os.Getpid()
-	if err := os.WriteFile(path, []byte(strconv.Itoa(pid)), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(strconv.Itoa(pid)), 0600); err != nil {
 		return fmt.Errorf("failed to write PID file: %v", err)
 	}
 	return nil
@@ -59,7 +59,15 @@ func startPprof(port int) {
 	log := logger.Get(context.Background())
 	log.Infof("📊 Pprof enabled on %s", addr)
 	go func() {
-		err := http.ListenAndServe(addr, nil)
+		// Create HTTP server with timeouts for security
+		// 创建带有超时的 HTTP 服务器以提高安全性
+		pprofServer := &http.Server{
+			Addr:         addr,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  120 * time.Second,
+		}
+		err := pprofServer.ListenAndServe()
 		if err != nil {
 			log.Errorf("❌ Pprof server error: %v", err)
 		}

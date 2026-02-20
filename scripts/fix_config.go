@@ -129,7 +129,7 @@ func main() {
 		}
 	}
 
-	if writeErr := os.WriteFile(targetDenyPath, []byte("# netxfw rules - empty\n"), 0644); writeErr != nil {
+	if writeErr := os.WriteFile(targetDenyPath, []byte("# netxfw rules - empty\n"), 0600); writeErr != nil {
 		fmt.Printf("Warning: Could not clear deny rules file: %v\n", writeErr)
 	} else {
 		fmt.Printf("Cleared deny rules file: %s\n", targetDenyPath)
@@ -144,7 +144,7 @@ func main() {
 	}
 
 	// Write the fixed configuration back to file
-	if writeErr := os.WriteFile(configPath, newData, 0644); writeErr != nil {
+	if writeErr := os.WriteFile(configPath, newData, 0600); writeErr != nil {
 		fmt.Printf("Error writing config: %v\n", writeErr)
 		os.Exit(1)
 	}

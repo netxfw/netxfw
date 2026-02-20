@@ -101,5 +101,5 @@ func RemoveFromFile(filePath, line string) error {
 		}
 	}
 
-	return os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0644)
+	return os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0600)
 }

@@ -147,7 +147,7 @@ func TestMockManager_BlacklistOperations_Extended(t *testing.T) {
 	err = mockMgr.ClearBlacklist()
 	require.NoError(t, err)
 
-	ips, count, err = mockMgr.ListBlacklistIPs(100, "")
+	_, count, err = mockMgr.ListBlacklistIPs(100, "")
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 }
@@ -191,7 +191,7 @@ func TestMockManager_WhitelistOperations_Extended(t *testing.T) {
 	err = mockMgr.ClearWhitelist()
 	require.NoError(t, err)
 
-	ips, count, err = mockMgr.ListWhitelistIPs(100, "")
+	_, count, err = mockMgr.ListWhitelistIPs(100, "")
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 }
@@ -225,7 +225,7 @@ func TestMockManager_IPPortRuleOperations_Extended(t *testing.T) {
 	err = mockMgr.ClearIPPortRules()
 	require.NoError(t, err)
 
-	rules, count, err = mockMgr.ListIPPortRules(false, 100, "")
+	_, count, err = mockMgr.ListIPPortRules(false, 100, "")
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 }
@@ -290,7 +290,7 @@ func TestMockManager_RateLimitOperations_Extended(t *testing.T) {
 	err = mockMgr.RemoveRateLimitRule("192.168.100.0/24")
 	require.NoError(t, err)
 
-	rules, count, err = mockMgr.ListRateLimitRules(100, "")
+	_, count, err = mockMgr.ListRateLimitRules(100, "")
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 
@@ -301,7 +301,7 @@ func TestMockManager_RateLimitOperations_Extended(t *testing.T) {
 	err = mockMgr.ClearRateLimitRules()
 	require.NoError(t, err)
 
-	rules, count, err = mockMgr.ListRateLimitRules(100, "")
+	_, count, err = mockMgr.ListRateLimitRules(100, "")
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 }

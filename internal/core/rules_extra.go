@@ -243,16 +243,15 @@ func SyncAutoBlock(ctx context.Context, mgr XDPManager, enable bool) error {
 	defer types.ConfigMu.Unlock()
 
 	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		globalCfg.RateLimit.AutoBlock = enable
-		if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
-			log.Warnf("⚠️  Failed to save config: %v", saveErr)
-		}
-		log.Infof("🛡️ Auto Block set to: %v", enable)
-		return nil
-	} else {
+	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
+	globalCfg.RateLimit.AutoBlock = enable
+	if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+		log.Warnf("⚠️  Failed to save config: %v", saveErr)
+	}
+	log.Infof("🛡️ Auto Block set to: %v", enable)
+	return nil
 }
 
 // SyncAutoBlockExpiry updates the auto-block expiry time in config.
@@ -268,18 +267,17 @@ func SyncAutoBlockExpiry(ctx context.Context, mgr XDPManager, seconds uint32) er
 	configPath := config.GetConfigPath()
 	types.ConfigMu.Lock()
 	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		globalCfg.RateLimit.AutoBlockExpiry = fmt.Sprintf("%ds", seconds)
-		if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
-			log.Warnf("⚠️  Failed to save config: %v", saveErr)
-		}
-		log.Infof("🛡️ Auto Block Expiry set to: %d seconds", seconds)
-		types.ConfigMu.Unlock()
-		return nil
-	} else {
+	if err != nil {
 		types.ConfigMu.Unlock()
 		return fmt.Errorf("failed to load config: %v", err)
 	}
+	globalCfg.RateLimit.AutoBlockExpiry = fmt.Sprintf("%ds", seconds)
+	if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+		log.Warnf("⚠️  Failed to save config: %v", saveErr)
+	}
+	log.Infof("🛡️ Auto Block Expiry set to: %d seconds", seconds)
+	types.ConfigMu.Unlock()
+	return nil
 }
 
 // ClearBlacklist clears all entries from lock_list.

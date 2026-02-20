@@ -230,11 +230,10 @@ func SyncWhitelistMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, po
 							cidrToRemove = host
 						}
 
-						if err := xdpMgr.RemoveWhitelistIP(cidrToRemove); err != nil {
-							// Ignore if already gone / 如果已删除则忽略
-						} else {
-							log.Infof("🧹 Optimized runtime: Removed subsumed whitelist rule %s", cidrToRemove)
-						}
+						// Try to remove, ignore error if already gone
+						// 尝试移除，如果已删除则忽略错误
+						_ = xdpMgr.RemoveWhitelistIP(cidrToRemove)
+						log.Infof("🧹 Optimized runtime: Removed subsumed whitelist rule %s", cidrToRemove)
 					}
 				}
 

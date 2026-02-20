@@ -71,9 +71,9 @@ func TestNewLpmKey(t *testing.T) {
 	}
 }
 
-// TestNewLpmIpPortKey tests LPM IP port key creation
-// TestNewLpmIpPortKey 测试 LPM IP 端口键创建
-func TestNewLpmIpPortKey(t *testing.T) {
+// TestNewLpmIPPortKey tests LPM IP port key creation
+// TestNewLpmIPPortKey 测试 LPM IP 端口键创建
+func TestNewLpmIPPortKey(t *testing.T) {
 	tests := []struct {
 		name     string
 		cidr     string
@@ -87,15 +87,15 @@ func TestNewLpmIpPortKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			key, err := xdp.NewLpmIpPortKey(tt.cidr, tt.port)
+			key, err := xdp.NewLpmIPPortKey(tt.cidr, tt.port)
 			if err != nil {
-				t.Fatalf("NewLpmIpPortKey(%q) failed: %v", tt.cidr, err)
+				t.Fatalf("NewLpmIPPortKey(%q) failed: %v", tt.cidr, err)
 			}
 			if key.Prefixlen != tt.wantLen {
-				t.Errorf("NewLpmIpPortKey(%q) Prefixlen = %d, want %d", tt.cidr, key.Prefixlen, tt.wantLen)
+				t.Errorf("NewLpmIPPortKey(%q) Prefixlen = %d, want %d", tt.cidr, key.Prefixlen, tt.wantLen)
 			}
 			if key.Port != tt.wantPort {
-				t.Errorf("NewLpmIpPortKey(%q) Port = %d, want %d", tt.cidr, key.Port, tt.wantPort)
+				t.Errorf("NewLpmIPPortKey(%q) Port = %d, want %d", tt.cidr, key.Port, tt.wantPort)
 			}
 		})
 	}

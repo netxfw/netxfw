@@ -619,7 +619,7 @@ func showConntrackHealth(mgr sdk.ManagerInterface) {
 	// Get capacity configuration from config manager / 从配置管理器获取容量配置
 	cfgManager := config.GetConfigManager()
 	var maxConntrack int
-	if err := cfgManager.LoadConfig(); err == nil {
+	if loadErr := cfgManager.LoadConfig(); loadErr == nil {
 		capacityCfg := cfgManager.GetCapacityConfig()
 		if capacityCfg != nil && capacityCfg.Conntrack > 0 {
 			maxConntrack = capacityCfg.Conntrack
@@ -773,11 +773,11 @@ func showProtocolDistribution(s StatsAPI, pass, drops uint64) {
 
 // getUsageIndicator returns a visual indicator based on usage level
 // getUsageIndicator 根据使用级别返回可视化指示器
-func getUsageIndicator(current, max int) string {
-	if max == 0 {
+func getUsageIndicator(current, maximum int) string {
+	if maximum == 0 {
 		return ""
 	}
-	usage := float64(current) / float64(max) * 100
+	usage := float64(current) / float64(maximum) * 100
 	critical, high, medium := getThresholdsFromConfig()
 	if usage >= float64(critical) {
 		return "🔴 [CRITICAL]"
@@ -942,36 +942,6 @@ func showReasonSummary[T DetailEntry](details []T, cfg detailStatsConfig) {
 	}
 }
 
-// calculatePercent calculates percentage safely (legacy wrapper for backward compatibility).
-// calculatePercent 安全地计算百分比（向后兼容的传统包装器）。
-func calculatePercent(part, total any) float64 {
-	var p, t float64
-	switch v := part.(type) {
-	case int:
-		p = float64(v)
-	case uint64:
-		p = float64(v)
-	case int64:
-		p = float64(v)
-	default:
-		return 0
-	}
-	switch v := total.(type) {
-	case int:
-		t = float64(v)
-	case uint64:
-		t = float64(v)
-	case int64:
-		t = float64(v)
-	default:
-		return 0
-	}
-	if t == 0 {
-		return 0
-	}
-	return p / t * 100
-}
-
 // getTopNFromConfig returns the top N value from config, defaulting to 10
 // getTopNFromConfig 从配置获取 Top N 值，默认为 10
 func getTopNFromConfig() int {
@@ -1029,13 +999,13 @@ func showConclusionStatistics(mgr sdk.ManagerInterface, s StatsAPI) {
 	var secHits, blacklistHits, rateLimitHits uint64
 	for _, d := range dropDetails {
 		switch d.Reason {
-		case DROP_REASON_BLACKLIST:
+		case DropReasonBlacklist:
 			blacklistHits += d.Count
-		case DROP_REASON_RATELIMIT:
+		case DropReasonRatelimit:
 			rateLimitHits += d.Count
-		case DROP_REASON_STRICT_TCP, DROP_REASON_BOGON, DROP_REASON_FRAGMENT,
-			DROP_REASON_BAD_HEADER, DROP_REASON_TCP_FLAGS, DROP_REASON_SPOOF,
-			DROP_REASON_LAND_ATTACK:
+		case DropReasonStrictTCP, DropReasonBogon, DropReasonFragment,
+			DropReasonBadHeader, DropReasonTCPFlags, DropReasonSpoof,
+			DropReasonLandAttack:
 			secHits += d.Count
 		}
 	}

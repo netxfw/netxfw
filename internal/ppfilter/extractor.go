@@ -30,7 +30,6 @@ type Extractor struct {
 	cache      *ConnectionCache
 	trustedLBs []netip.Prefix
 	enabled    bool
-	mu         sync.RWMutex
 	log        *zap.SugaredLogger
 }
 

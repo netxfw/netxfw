@@ -105,7 +105,7 @@ func (m *Manager) GetStats() (uint64, uint64) {
 		return 0, 0
 	}
 
-	var key uint32 = 0
+	var key uint32
 	// PERCPU map requires slice of values
 	// PERCPU Map 需要值切片
 	numCPU, err := ebpf.PossibleCPU()
@@ -153,7 +153,7 @@ func (m *Manager) GetDropCount() (uint64, error) {
 	if m.statsGlobalMap == nil {
 		return 0, nil
 	}
-	var key uint32 = 0
+	var key uint32
 	// PERCPU map requires slice of values
 	// PERCPU Map 需要值切片
 	numCPU, err := ebpf.PossibleCPU()
@@ -183,7 +183,7 @@ func (m *Manager) GetPassCount() (uint64, error) {
 	if m.statsGlobalMap == nil {
 		return 0, nil
 	}
-	var key uint32 = 0
+	var key uint32
 	// PERCPU map requires slice of values
 	// PERCPU Map 需要值切片
 	numCPU, err := ebpf.PossibleCPU()
@@ -419,35 +419,4 @@ func (m *Manager) InvalidateStatsCache() {
 	if m.statsCache != nil {
 		m.statsCache.InvalidateAll()
 	}
-}
-
-// Helper function for case-insensitive contains
-// 用于不区分大小写包含的辅助函数
-func containsIgnoreCase(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && len(substr) > 0 && containsSubstring(s, substr)))
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		match := true
-		for j := 0; j < len(substr); j++ {
-			sc := s[i+j]
-			subc := substr[j]
-			if sc >= 'A' && sc <= 'Z' {
-				sc += 32
-			}
-			if subc >= 'A' && subc <= 'Z' {
-				subc += 32
-			}
-			if sc != subc {
-				match = false
-				break
-			}
-		}
-		if match {
-			return true
-		}
-	}
-	return false
 }

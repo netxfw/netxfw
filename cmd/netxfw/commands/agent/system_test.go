@@ -48,9 +48,9 @@ func TestShowDropReasonSummary(t *testing.T) {
 	os.Stdout = w
 
 	dropDetails := []sdk.DropDetailEntry{
-		{Reason: DROP_REASON_BLACKLIST, Count: 100},
-		{Reason: DROP_REASON_RATELIMIT, Count: 50},
-		{Reason: DROP_REASON_BLACKLIST, Count: 30},
+		{Reason: DropReasonBlacklist, Count: 100},
+		{Reason: DropReasonRatelimit, Count: 50},
+		{Reason: DropReasonBlacklist, Count: 30},
 	}
 	drops := uint64(180)
 
@@ -90,9 +90,9 @@ func TestShowPassReasonSummary(t *testing.T) {
 	os.Stdout = w
 
 	passDetails := []sdk.DropDetailEntry{
-		{Reason: PASS_REASON_WHITELIST, Count: 200},
-		{Reason: PASS_REASON_CONNTRACK, Count: 150},
-		{Reason: PASS_REASON_WHITELIST, Count: 50},
+		{Reason: PassReasonWhitelist, Count: 200},
+		{Reason: PassReasonConntrack, Count: 150},
+		{Reason: PassReasonWhitelist, Count: 50},
 	}
 	pass := uint64(400)
 
@@ -198,7 +198,7 @@ func TestShowDropReasonSummaryZeroDrops(t *testing.T) {
 	os.Stdout = w
 
 	dropDetails := []sdk.DropDetailEntry{
-		{Reason: DROP_REASON_BLACKLIST, Count: 0},
+		{Reason: DropReasonBlacklist, Count: 0},
 	}
 	drops := uint64(0)
 
@@ -236,7 +236,7 @@ func TestShowPassReasonSummaryZeroPass(t *testing.T) {
 	os.Stdout = w
 
 	passDetails := []sdk.DropDetailEntry{
-		{Reason: PASS_REASON_WHITELIST, Count: 0},
+		{Reason: PassReasonWhitelist, Count: 0},
 	}
 	pass := uint64(0)
 
@@ -294,18 +294,18 @@ func TestShowAttachedInterfaces(t *testing.T) {
 // TestDropReasonToStringAllReasons 测试所有丢弃原因映射
 func TestDropReasonToStringAllReasons(t *testing.T) {
 	reasons := map[uint32]string{
-		DROP_REASON_BLACKLIST:   "BLACKLIST",
-		DROP_REASON_RATELIMIT:   "RATELIMIT",
-		DROP_REASON_DEFAULT:     "DEFAULT_DENY",
-		DROP_REASON_INVALID:     "INVALID",
-		DROP_REASON_PROTOCOL:    "PROTOCOL",
-		DROP_REASON_STRICT_TCP:  "STRICT_TCP",
-		DROP_REASON_LAND_ATTACK: "LAND_ATTACK",
-		DROP_REASON_BOGON:       "BOGON",
-		DROP_REASON_FRAGMENT:    "FRAGMENT",
-		DROP_REASON_BAD_HEADER:  "BAD_HEADER",
-		DROP_REASON_TCP_FLAGS:   "TCP_FLAGS",
-		DROP_REASON_SPOOF:       "SPOOF",
+		DropReasonBlacklist:  "BLACKLIST",
+		DropReasonRatelimit:  "RATELIMIT",
+		DropReasonDefault:    "DEFAULT_DENY",
+		DropReasonInvalid:    "INVALID",
+		DropReasonProtocol:   "PROTOCOL",
+		DropReasonStrictTCP:  "STRICT_TCP",
+		DropReasonLandAttack: "LAND_ATTACK",
+		DropReasonBogon:      "BOGON",
+		DropReasonFragment:   "FRAGMENT",
+		DropReasonBadHeader:  "BAD_HEADER",
+		DropReasonTCPFlags:   "TCP_FLAGS",
+		DropReasonSpoof:      "SPOOF",
 	}
 
 	for reason, expected := range reasons {
@@ -318,10 +318,10 @@ func TestDropReasonToStringAllReasons(t *testing.T) {
 // TestPassReasonToStringAllReasons 测试所有通过原因映射
 func TestPassReasonToStringAllReasons(t *testing.T) {
 	reasons := map[uint32]string{
-		PASS_REASON_WHITELIST: "WHITELIST",
-		PASS_REASON_RETURN:    "RETURN",
-		PASS_REASON_CONNTRACK: "CONNTRACK",
-		PASS_REASON_DEFAULT:   "DEFAULT",
+		PassReasonWhitelist: "WHITELIST",
+		PassReasonReturn:    "RETURN",
+		PassReasonConntrack: "CONNTRACK",
+		PassReasonDefault:   "DEFAULT",
 	}
 
 	for reason, expected := range reasons {
@@ -354,8 +354,8 @@ func TestShowDropStatisticsWithDetails(t *testing.T) {
 	mockStatsAPI := new(MockStatsAPI)
 
 	dropDetails := []sdk.DropDetailEntry{
-		{Reason: DROP_REASON_BLACKLIST, SrcIP: "192.168.1.1", DstPort: 80, Protocol: 6, Count: 100},
-		{Reason: DROP_REASON_RATELIMIT, SrcIP: "10.0.0.1", DstPort: 443, Protocol: 6, Count: 50},
+		{Reason: DropReasonBlacklist, SrcIP: "192.168.1.1", DstPort: 80, Protocol: 6, Count: 100},
+		{Reason: DropReasonRatelimit, SrcIP: "10.0.0.1", DstPort: 443, Protocol: 6, Count: 50},
 	}
 
 	mockStatsAPI.On("GetDropDetails").Return(dropDetails, nil)
@@ -393,8 +393,8 @@ func TestShowPassStatisticsWithDetails(t *testing.T) {
 	mockStatsAPI := new(MockStatsAPI)
 
 	passDetails := []sdk.DropDetailEntry{
-		{Reason: PASS_REASON_WHITELIST, SrcIP: "192.168.1.100", DstPort: 22, Protocol: 6, Count: 200},
-		{Reason: PASS_REASON_CONNTRACK, SrcIP: "10.0.0.100", DstPort: 80, Protocol: 6, Count: 150},
+		{Reason: PassReasonWhitelist, SrcIP: "192.168.1.100", DstPort: 22, Protocol: 6, Count: 200},
+		{Reason: PassReasonConntrack, SrcIP: "10.0.0.100", DstPort: 80, Protocol: 6, Count: 150},
 	}
 
 	mockStatsAPI.On("GetPassDetails").Return(passDetails, nil)
@@ -464,17 +464,17 @@ func TestPercentageCalculation(t *testing.T) {
 func TestConstantsNotModified(t *testing.T) {
 	// Drop reasons should be 0-12
 	// 丢弃原因应该是 0-12
-	assert.Equal(t, 0, DROP_REASON_UNKNOWN)
-	assert.Equal(t, 12, DROP_REASON_SPOOF)
+	assert.Equal(t, 0, DropReasonUnknown)
+	assert.Equal(t, 12, DropReasonSpoof)
 
 	// Pass reasons should be 100-104
 	// 通过原因应该是 100-104
-	assert.Equal(t, 100, PASS_REASON_UNKNOWN)
-	assert.Equal(t, 104, PASS_REASON_DEFAULT)
+	assert.Equal(t, 100, PassReasonUnknown)
+	assert.Equal(t, 104, PassReasonDefault)
 
 	// Verify drop and pass reasons don't overlap
 	// 验证丢弃和通过原因不重叠
-	assert.Less(t, DROP_REASON_SPOOF, PASS_REASON_UNKNOWN)
+	assert.Less(t, DropReasonSpoof, PassReasonUnknown)
 }
 
 // TestShowDropStatisticsEmpty tests showDropStatistics with no drops
@@ -551,7 +551,7 @@ func TestShowDropStatisticsTop10(t *testing.T) {
 	dropDetails := make([]sdk.DropDetailEntry, 15)
 	for i := 0; i < 15; i++ {
 		dropDetails[i] = sdk.DropDetailEntry{
-			Reason:  DROP_REASON_BLACKLIST,
+			Reason:  DropReasonBlacklist,
 			SrcIP:   "192.168.1.1",
 			DstPort: uint16(i),
 			Count:   uint64(100 - i), // Descending order
@@ -673,10 +673,10 @@ func TestShowDropReasonSummaryAggregation(t *testing.T) {
 	os.Stdout = w
 
 	dropDetails := []sdk.DropDetailEntry{
-		{Reason: DROP_REASON_BLACKLIST, Count: 100},
-		{Reason: DROP_REASON_BLACKLIST, Count: 50},
-		{Reason: DROP_REASON_BLACKLIST, Count: 30},
-		{Reason: DROP_REASON_RATELIMIT, Count: 20},
+		{Reason: DropReasonBlacklist, Count: 100},
+		{Reason: DropReasonBlacklist, Count: 50},
+		{Reason: DropReasonBlacklist, Count: 30},
+		{Reason: DropReasonRatelimit, Count: 20},
 	}
 	drops := uint64(200)
 
@@ -717,10 +717,10 @@ func TestShowPassReasonSummaryAggregation(t *testing.T) {
 	os.Stdout = w
 
 	passDetails := []sdk.DropDetailEntry{
-		{Reason: PASS_REASON_WHITELIST, Count: 100},
-		{Reason: PASS_REASON_WHITELIST, Count: 50},
-		{Reason: PASS_REASON_CONNTRACK, Count: 30},
-		{Reason: PASS_REASON_CONNTRACK, Count: 20},
+		{Reason: PassReasonWhitelist, Count: 100},
+		{Reason: PassReasonWhitelist, Count: 50},
+		{Reason: PassReasonConntrack, Count: 30},
+		{Reason: PassReasonConntrack, Count: 20},
 	}
 	pass := uint64(200)
 
@@ -761,9 +761,9 @@ func TestShowDropStatisticsSorting(t *testing.T) {
 	// Create unsorted drop details
 	// 创建未排序的丢弃详情
 	dropDetails := []sdk.DropDetailEntry{
-		{Reason: DROP_REASON_BLACKLIST, SrcIP: "192.168.1.1", DstPort: 80, Protocol: 6, Count: 50},
-		{Reason: DROP_REASON_RATELIMIT, SrcIP: "10.0.0.1", DstPort: 443, Protocol: 6, Count: 200},
-		{Reason: DROP_REASON_INVALID, SrcIP: "172.16.0.1", DstPort: 22, Protocol: 6, Count: 100},
+		{Reason: DropReasonBlacklist, SrcIP: "192.168.1.1", DstPort: 80, Protocol: 6, Count: 50},
+		{Reason: DropReasonRatelimit, SrcIP: "10.0.0.1", DstPort: 443, Protocol: 6, Count: 200},
+		{Reason: DropReasonInvalid, SrcIP: "172.16.0.1", DstPort: 22, Protocol: 6, Count: 100},
 	}
 
 	mockStatsAPI.On("GetDropDetails").Return(dropDetails, nil)
@@ -798,9 +798,9 @@ func TestShowPassStatisticsSorting(t *testing.T) {
 	// Create unsorted pass details
 	// 创建未排序的通过详情
 	passDetails := []sdk.DropDetailEntry{
-		{Reason: PASS_REASON_WHITELIST, SrcIP: "192.168.1.1", DstPort: 22, Protocol: 6, Count: 50},
-		{Reason: PASS_REASON_CONNTRACK, SrcIP: "10.0.0.1", DstPort: 80, Protocol: 6, Count: 200},
-		{Reason: PASS_REASON_DEFAULT, SrcIP: "172.16.0.1", DstPort: 443, Protocol: 6, Count: 100},
+		{Reason: PassReasonWhitelist, SrcIP: "192.168.1.1", DstPort: 22, Protocol: 6, Count: 50},
+		{Reason: PassReasonConntrack, SrcIP: "10.0.0.1", DstPort: 80, Protocol: 6, Count: 200},
+		{Reason: PassReasonDefault, SrcIP: "172.16.0.1", DstPort: 443, Protocol: 6, Count: 100},
 	}
 
 	mockStatsAPI.On("GetPassDetails").Return(passDetails, nil)

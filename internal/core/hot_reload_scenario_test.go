@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -644,10 +643,4 @@ func TestHotReloadScenario_CompleteWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, originalDefaultDeny, cfg3.Base.DefaultDeny)
 	t.Log("Step 6: Final verification complete")
-}
-
-// Helper function to check if error is a specific type.
-// 检查错误是否为特定类型的辅助函数。
-func isSpecificError(err error, target error) bool {
-	return errors.Is(err, target) || err.Error() == target.Error()
 }

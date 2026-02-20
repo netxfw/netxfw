@@ -12,7 +12,7 @@ import (
 // AddIPPortRule adds a rule for a specific IP and Port combination to a given map.
 // AddIPPortRule 向给定 Map 添加特定 IP 和端口组合的规则。
 func AddIPPortRule(m *ebpf.Map, ipStr string, port uint16, action uint8) error {
-	key, err := NewLpmIpPortKey(ipStr, port)
+	key, err := NewLpmIPPortKey(ipStr, port)
 	if err != nil {
 		return fmt.Errorf("invalid IP or CIDR: %s", ipStr)
 	}
@@ -39,7 +39,7 @@ func RemoveRateLimitRule(m *ebpf.Map, cidrStr string) error {
 // RemoveIPPortRule removes a rule for a specific IP and Port combination.
 // RemoveIPPortRule 移除特定 IP 和端口组合的规则。
 func RemoveIPPortRule(m *ebpf.Map, ipStr string, port uint16) error {
-	key, err := NewLpmIpPortKey(ipStr, port)
+	key, err := NewLpmIPPortKey(ipStr, port)
 	if err != nil {
 		return fmt.Errorf("invalid IP or CIDR: %s", ipStr)
 	}

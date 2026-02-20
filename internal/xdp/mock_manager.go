@@ -84,7 +84,7 @@ func (m *MockManager) VerifyAndRepair(cfg *types.GlobalConfig) error {
 
 func (m *MockManager) SyncToFiles(cfg *types.GlobalConfig) error {
 	// Sync Whitelist to config
-	var wl []string
+	wl := make([]string, 0, len(m.WhitelistMap))
 	for ip := range m.WhitelistMap {
 		wl = append(wl, ip)
 	}
@@ -202,7 +202,7 @@ func (m *MockManager) IsIPInBlacklist(cidr string) (bool, error) {
 	return ok, nil
 }
 func (m *MockManager) ListBlacklistIPs(limit int, search string) ([]BlockedIP, int, error) {
-	var ips []BlockedIP
+	ips := make([]BlockedIP, 0, len(m.Blacklist))
 	for ip := range m.Blacklist {
 		if search != "" && !strings.Contains(ip, search) {
 			continue
@@ -245,15 +245,13 @@ func (m *MockManager) IsIPInWhitelist(cidr string) (bool, error) {
 	return ok, nil
 }
 func (m *MockManager) ListWhitelistIPs(limit int, search string) ([]string, int, error) {
-	var ips []string
+	ips := make([]string, 0, len(m.WhitelistMap))
 	for ip, port := range m.WhitelistMap {
 		if search != "" && !strings.Contains(ip, search) {
 			continue
 		}
 		entry := ip
-		if port > 0 {
-			// Mock format
-		}
+		_ = port // Port info not used in mock list format
 		ips = append(ips, entry)
 	}
 	return ips, len(ips), nil
@@ -274,7 +272,7 @@ func (m *MockManager) ClearIPPortRules() error {
 	return nil
 }
 func (m *MockManager) ListIPPortRules(isIPv6 bool, limit int, search string) ([]sdk.IPPortRule, int, error) {
-	var rules []sdk.IPPortRule
+	rules := make([]sdk.IPPortRule, 0, len(m.IPPortRulesMap))
 	for _, rule := range m.IPPortRulesMap {
 		rules = append(rules, rule)
 	}
@@ -295,7 +293,7 @@ func (m *MockManager) ClearAllowedPorts() error {
 	return nil
 }
 func (m *MockManager) ListAllowedPorts() ([]uint16, error) {
-	var ports []uint16
+	ports := make([]uint16, 0, len(m.AllowedPortsMap))
 	for port := range m.AllowedPortsMap {
 		ports = append(ports, port)
 	}

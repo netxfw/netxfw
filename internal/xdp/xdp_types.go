@@ -64,7 +64,8 @@ type DropDetailEntry = sdk.DropDetailEntry
  * Manager 负责 eBPF 对象和链路的生命周期管理。
  */
 type Manager struct {
-	objs   NetXfwObjects
+	objs NetXfwObjects
+	//nolint:unused // Reserved for future use
 	links  []link.Link
 	logger Logger
 
@@ -94,9 +95,14 @@ type Manager struct {
 
 	// Backward compatibility aliases (deprecated) / 向后兼容别名（已弃用）
 	// These will be removed in a future version / 这些将在未来版本中移除
-	lockList        *ebpf.Map // Deprecated: use staticBlacklist / 已弃用：使用 staticBlacklist
-	dynLockList     *ebpf.Map // Deprecated: use dynamicBlacklist / 已弃用：使用 dynamicBlacklist
+	//
+	//nolint:unused // Reserved for backward compatibility
+	lockList *ebpf.Map // Deprecated: use staticBlacklist / 已弃用：使用 staticBlacklist
+	//nolint:unused // Reserved for backward compatibility
+	dynLockList *ebpf.Map // Deprecated: use dynamicBlacklist / 已弃用：使用 dynamicBlacklist
+	//nolint:unused // Reserved for backward compatibility
 	dropReasonStats *ebpf.Map // Deprecated: use topDropMap / 已弃用：使用 topDropMap
+	//nolint:unused // Reserved for backward compatibility
 	passReasonStats *ebpf.Map // Deprecated: use topPassMap / 已弃用：使用 topPassMap
 }
 

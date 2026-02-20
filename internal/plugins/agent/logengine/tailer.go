@@ -2,7 +2,6 @@ package logengine
 
 import (
 	"sync"
-	// "time"
 
 	"github.com/livp123/netxfw/pkg/sdk"
 	"github.com/nxadm/tail"

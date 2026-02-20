@@ -670,7 +670,7 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 
 	// Backup original
 	backupPath := path + ".bak." + time.Now().Format("20060102-150405")
-	if err := os.WriteFile(backupPath, data, 0644); err != nil {
+	if err := os.WriteFile(backupPath, data, 0600); err != nil {
 		log.Warnf("⚠️  Failed to backup config file, skipping update: %v", err)
 		return
 	}
@@ -680,7 +680,7 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 
 	// Write new config (defaultNode now contains merged state)
 	// yaml.v3 Encoder adds a newline
-	if err := fileutil.AtomicWriteFile(path, buf.Bytes(), 0644); err != nil {
+	if err := fileutil.AtomicWriteFile(path, buf.Bytes(), 0600); err != nil {
 		log.Warnf("❌ Failed to update config file: %v", err)
 	} else {
 		log.Infof("✅ Configuration file updated (comments restored/preserved).")
@@ -773,12 +773,12 @@ func SaveGlobalConfig(path string, cfg *GlobalConfig) error {
 			if encodeErr := enc.Encode(&fileNode); encodeErr != nil {
 				return encodeErr
 			}
-			return fileutil.AtomicWriteFile(path, buf.Bytes(), 0644)
+			return fileutil.AtomicWriteFile(path, buf.Bytes(), 0600)
 		}
 	}
 
 	// Fallback if file doesn't exist or is malformed: just write the new config
-	return fileutil.AtomicWriteFile(path, data, 0644)
+	return fileutil.AtomicWriteFile(path, data, 0600)
 }
 
 // MergeYamlNodes updates target (existing file) with source (new config).

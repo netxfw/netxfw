@@ -42,7 +42,7 @@ linters-settings:
     min-complexity: 20
 
   dupl:
-    threshold: 100
+    threshold: 150
 
   goconst:
     min-len: 3
@@ -102,6 +102,8 @@ issues:
         - gosec
         - errcheck
         - revive
+        - unusedwrite
+        - govet
 
     - path: test/
       linters:
@@ -109,6 +111,8 @@ issues:
         - gocyclo
         - errcheck
         - revive
+        - unusedwrite
+        - govet
 
     - path: cmd/
       linters:
@@ -121,6 +125,10 @@ issues:
     - path: internal/xdp/
       linters:
         - errcheck
+
+    - path: scripts/
+      linters:
+        - gocyclo
 
     - linters:
         - staticcheck

@@ -20,7 +20,7 @@ func NewTokenizer() *Tokenizer {
 // Here we implement a fast ASCII-whitespace splitter that falls back to standard behavior.
 func (t *Tokenizer) Tokenize(s string) []string {
 	// Fast path: if string is empty
-	if len(s) == 0 {
+	if s == "" {
 		return nil
 	}
 

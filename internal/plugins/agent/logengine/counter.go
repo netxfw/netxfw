@@ -88,12 +88,10 @@ func (c *Counter) Inc(ip netip.Addr) {
 		stats.lastUnixTime = now
 		stats.lastIdx = int(now % mw)
 		shard.counts[ip] = stats
-	} else {
+	} else if stats.buckets == nil || len(stats.buckets) < c.maxWindowSeconds {
 		// Ensure buckets is initialized for existing stats
 		// 确保现有 stats 的 buckets 已初始化
-		if stats.buckets == nil || len(stats.buckets) < c.maxWindowSeconds {
-			stats.buckets = make([]uint16, c.maxWindowSeconds)
-		}
+		stats.buckets = make([]uint16, c.maxWindowSeconds)
 	}
 
 	idx := int(now % mw)
@@ -119,10 +117,6 @@ func (c *Counter) Inc(ip netip.Addr) {
 			stats.lastUnixTime = now
 			stats.lastIdx = idx
 		}
-	} else if now < stats.lastUnixTime {
-		// Clock skew or race condition?
-		// Just update the bucket for 'now' (which is in the past relative to lastUnixTime)
-		// idx calculation above handles this.
 	}
 
 	stats.buckets[idx]++

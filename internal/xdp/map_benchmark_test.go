@@ -278,9 +278,9 @@ func BenchmarkNewLpmKey(b *testing.B) {
 	}
 }
 
-// BenchmarkNewLpmIpPortKey benchmarks LPM IP+Port key creation using utility function.
-// BenchmarkNewLpmIpPortKey 基准测试使用工具函数创建 LPM IP+端口键。
-func BenchmarkNewLpmIpPortKey(b *testing.B) {
+// BenchmarkNewLpmIPPortKey benchmarks LPM IP+Port key creation using utility function.
+// BenchmarkNewLpmIPPortKey 基准测试使用工具函数创建 LPM IP+端口键。
+func BenchmarkNewLpmIPPortKey(b *testing.B) {
 	cidrs := []string{
 		"192.168.16.0/24",
 		"10.0.0.0/8",
@@ -291,7 +291,7 @@ func BenchmarkNewLpmIpPortKey(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = NewLpmIpPortKey(cidrs[i%len(cidrs)], ports[i%len(ports)])
+		_, _ = NewLpmIPPortKey(cidrs[i%len(cidrs)], ports[i%len(ports)])
 	}
 }
 

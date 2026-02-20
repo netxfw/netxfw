@@ -58,7 +58,7 @@ func TestKVStore(t *testing.T) {
 	// Test Delete
 	// 测试 Delete
 	store.Delete("key1")
-	val, ok = store.Get("key1")
+	_, ok = store.Get("key1")
 	assert.False(t, ok)
 }
 

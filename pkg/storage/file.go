@@ -206,5 +206,5 @@ func (s *YAMLStore) updateFile(path string, updater func(*fileData)) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, content, 0644)
+	return os.WriteFile(path, content, 0600)
 }

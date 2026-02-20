@@ -17,8 +17,8 @@ const (
 	Version2 = 0x20
 	Version1 = 0x10
 
-	CommandLocal  = 0x00
-	CommandProxy  = 0x01
+	CommandLocal = 0x00
+	CommandProxy = 0x01
 
 	AFUnspec = 0x00
 	AFInet   = 0x10
@@ -39,11 +39,11 @@ var (
 // Header represents a Proxy Protocol header.
 // Header 表示 Proxy Protocol 头。
 type Header struct {
-	Version      byte
-	Command      byte
-	SourceIP     netip.Addr
-	DestinationIP netip.Addr
-	SourcePort   uint16
+	Version         byte
+	Command         byte
+	SourceIP        netip.Addr
+	DestinationIP   netip.Addr
+	SourcePort      uint16
 	DestinationPort uint16
 }
 
@@ -123,16 +123,9 @@ func (p *Parser) parseV2(data []byte) (*Header, int, error) {
 		if addrLen != 12 {
 			return nil, 0, ErrInvalidHeader
 		}
-		srcIP := netip.AddrFrom4([4]byte(data[offset : offset+4]))
-		dstIP := netip.AddrFrom4([4]byte(data[offset+4 : offset+8]))
-		srcPort := binary.BigEndian.Uint16(data[offset+8 : offset+10])
-		dstPort := binary.BigEndian.Uint16(data[offset+10 : offset+12])
-
-		header.SourceIP = srcIP
-		header.DestinationIP = dstIP
-		header.SourcePort = srcPort
-		header.DestinationPort = dstPort
-
+		if err := parseIPv4Addresses(header, data, offset); err != nil {
+			return nil, 0, err
+		}
 		return header, 16 + int(addrLen), nil
 
 	case AFInet6 | StreamTCP, AFInet6 | StreamUDP:
@@ -141,16 +134,9 @@ func (p *Parser) parseV2(data []byte) (*Header, int, error) {
 		if addrLen != 36 {
 			return nil, 0, ErrInvalidHeader
 		}
-		srcIP := netip.AddrFrom16([16]byte(data[offset : offset+16]))
-		dstIP := netip.AddrFrom16([16]byte(data[offset+16 : offset+32]))
-		srcPort := binary.BigEndian.Uint16(data[offset+32 : offset+34])
-		dstPort := binary.BigEndian.Uint16(data[offset+34 : offset+36])
-
-		header.SourceIP = srcIP
-		header.DestinationIP = dstIP
-		header.SourcePort = srcPort
-		header.DestinationPort = dstPort
-
+		if err := parseIPv6Addresses(header, data, offset); err != nil {
+			return nil, 0, err
+		}
 		return header, 16 + int(addrLen), nil
 
 	case AFUnspec, AFUnix:
@@ -161,6 +147,36 @@ func (p *Parser) parseV2(data []byte) (*Header, int, error) {
 	default:
 		return nil, 0, ErrUnsupported
 	}
+}
+
+// parseIPv4Addresses parses IPv4 addresses from the PROXY protocol v2 header.
+// parseIPv4Addresses 从 PROXY 协议 v2 头部解析 IPv4 地址。
+func parseIPv4Addresses(header *Header, data []byte, offset int) error {
+	srcIP := netip.AddrFrom4([4]byte(data[offset : offset+4]))
+	dstIP := netip.AddrFrom4([4]byte(data[offset+4 : offset+8]))
+	srcPort := binary.BigEndian.Uint16(data[offset+8 : offset+10])
+	dstPort := binary.BigEndian.Uint16(data[offset+10 : offset+12])
+
+	header.SourceIP = srcIP
+	header.DestinationIP = dstIP
+	header.SourcePort = srcPort
+	header.DestinationPort = dstPort
+	return nil
+}
+
+// parseIPv6Addresses parses IPv6 addresses from the PROXY protocol v2 header.
+// parseIPv6Addresses 从 PROXY 协议 v2 头部解析 IPv6 地址。
+func parseIPv6Addresses(header *Header, data []byte, offset int) error {
+	srcIP := netip.AddrFrom16([16]byte(data[offset : offset+16]))
+	dstIP := netip.AddrFrom16([16]byte(data[offset+16 : offset+32]))
+	srcPort := binary.BigEndian.Uint16(data[offset+32 : offset+34])
+	dstPort := binary.BigEndian.Uint16(data[offset+34 : offset+36])
+
+	header.SourceIP = srcIP
+	header.DestinationIP = dstIP
+	header.SourcePort = srcPort
+	header.DestinationPort = dstPort
+	return nil
 }
 
 // parseV1 parses Proxy Protocol v1 header.

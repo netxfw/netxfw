@@ -117,7 +117,7 @@ func (m *MockManager) SyncToFiles(cfg *types.GlobalConfig) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var wl []string
+	wl := make([]string, 0, len(m.whitelist))
 	for ip := range m.whitelist {
 		wl = append(wl, ip)
 	}
@@ -366,7 +366,7 @@ func (m *MockManager) ListWhitelistIPs(limit int, search string) ([]string, int,
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []string
+	result := make([]string, 0, len(m.whitelist))
 	for ip := range m.whitelist {
 		result = append(result, ip)
 	}
@@ -403,7 +403,7 @@ func (m *MockManager) ListIPPortRules(isIPv6 bool, limit int, search string) ([]
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []IPPortRule
+	result := make([]IPPortRule, 0, len(m.ipPortRules))
 	for _, rule := range m.ipPortRules {
 		result = append(result, rule)
 	}
@@ -438,7 +438,7 @@ func (m *MockManager) ListAllowedPorts() ([]uint16, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []uint16
+	result := make([]uint16, 0, len(m.allowedPorts))
 	for port := range m.allowedPorts {
 		result = append(result, port)
 	}

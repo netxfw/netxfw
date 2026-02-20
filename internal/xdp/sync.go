@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -58,8 +59,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 			}
 		}
 
-		var targetMap *ebpf.Map
-		targetMap = m.whitelist
+		targetMap := m.whitelist
 
 		if targetMap != nil {
 			if err := AllowIP(targetMap, cidr, port); err != nil {
@@ -111,8 +111,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 
 	// 3. Update BPF Maps / 3. 更新 BPF Map
 	for _, r := range records {
-		var targetMap *ebpf.Map
-		targetMap = m.staticBlacklist
+		targetMap := m.staticBlacklist
 
 		if targetMap == nil {
 			continue
@@ -219,29 +218,52 @@ func (m *Manager) UpdateBinaryCache(cfg *types.GlobalConfig, records []binary.Re
 		return
 	}
 
-	tmpBin := cfg.Base.LockListBinary + ".tmp"
-	tmpFile, err := os.Create(tmpBin)
-	if err != nil {
-		m.logger.Errorf("❌ Failed to create temporary binary file: %v", err)
+	// Validate and sanitize paths to prevent command injection
+	// 验证并清理路径以防止命令注入
+	lockListBinary := filepath.Clean(cfg.Base.LockListBinary)
+	if strings.ContainsAny(lockListBinary, ";&|`$()") {
+		m.logger.Errorf("❌ Invalid characters in lock_list_binary path")
 		return
 	}
 
-	if err := binary.Encode(tmpFile, records); err != nil {
+	tmpBin := lockListBinary + ".tmp"
+	tmpFile, createErr := os.Create(tmpBin)
+	if createErr != nil {
+		m.logger.Errorf("❌ Failed to create temporary binary file: %v", createErr)
+		return
+	}
+
+	if encodeErr := binary.Encode(tmpFile, records); encodeErr != nil {
 		tmpFile.Close()
 		os.Remove(tmpBin)
-		m.logger.Errorf("❌ Failed to encode binary records: %v", err)
+		m.logger.Errorf("❌ Failed to encode binary records: %v", encodeErr)
 		return
 	}
 	tmpFile.Close()
 
-	cmd := exec.Command("zstd", "-f", "-o", cfg.Base.LockListBinary, tmpBin)
+	// Use absolute paths to prevent directory traversal
+	// 使用绝对路径防止目录遍历
+	absLockListBinary, err := filepath.Abs(lockListBinary)
+	if err != nil {
+		os.Remove(tmpBin)
+		m.logger.Errorf("❌ Failed to get absolute path: %v", err)
+		return
+	}
+	absTmpBin, err := filepath.Abs(tmpBin)
+	if err != nil {
+		os.Remove(tmpBin)
+		m.logger.Errorf("❌ Failed to get absolute path: %v", err)
+		return
+	}
+
+	cmd := exec.Command("zstd", "-f", "-o", absLockListBinary, absTmpBin)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		os.Remove(tmpBin)
 		m.logger.Errorf("❌ Failed to compress with zstd: %v\nOutput: %s", err, string(output))
 		return
 	}
 	os.Remove(tmpBin)
-	m.logger.Infof("✅ Successfully updated binary cache %s", cfg.Base.LockListBinary)
+	m.logger.Infof("✅ Successfully updated binary cache %s", lockListBinary)
 }
 
 // SyncToFiles dumps current BPF map rules back to text files.

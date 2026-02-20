@@ -159,11 +159,8 @@ func FuzzParseIPPort(f *testing.F) {
 			return
 		}
 
-		// Port should be in valid range
-		// 端口应在有效范围内
-		if port > 65535 {
-			t.Errorf("ParseIPPort(%q) returned invalid port: %d", input, port)
-		}
+		// Port should be in valid range (uint16 max is 65535, so always valid)
+		// 端口应在有效范围内（uint16 最大值为 65535，因此始终有效）
 	})
 }
 

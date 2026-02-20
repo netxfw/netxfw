@@ -32,9 +32,9 @@ func NewLpmKey(cidr string) (NetXfwLpmKey, error) {
 	return key, nil
 }
 
-// NewLpmIpPortKey creates a NetXfwLpmIpPortKey from a CIDR string and port.
-// NewLpmIpPortKey 从 CIDR 字符串和端口创建一个 NetXfwLpmIpPortKey。
-func NewLpmIpPortKey(cidr string, port uint16) (NetXfwLpmIpPortKey, error) {
+// NewLpmIPPortKey creates a NetXfwLpmIpPortKey from a CIDR string and port.
+// NewLpmIPPortKey 从 CIDR 字符串和端口创建一个 NetXfwLpmIpPortKey。
+func NewLpmIPPortKey(cidr string, port uint16) (NetXfwLpmIpPortKey, error) {
 	ipNet, err := iputil.ParseCIDR(cidr)
 	if err != nil {
 		return NetXfwLpmIpPortKey{}, err

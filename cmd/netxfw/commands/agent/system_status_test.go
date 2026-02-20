@@ -14,19 +14,19 @@ func TestDropReasonToString(t *testing.T) {
 		reason   uint32
 		expected string
 	}{
-		{"BLACKLIST", DROP_REASON_BLACKLIST, "BLACKLIST"},
-		{"RATELIMIT", DROP_REASON_RATELIMIT, "RATELIMIT"},
-		{"DEFAULT", DROP_REASON_DEFAULT, "DEFAULT_DENY"},
-		{"INVALID", DROP_REASON_INVALID, "INVALID"},
-		{"PROTOCOL", DROP_REASON_PROTOCOL, "PROTOCOL"},
-		{"STRICT_TCP", DROP_REASON_STRICT_TCP, "STRICT_TCP"},
-		{"LAND_ATTACK", DROP_REASON_LAND_ATTACK, "LAND_ATTACK"},
-		{"BOGON", DROP_REASON_BOGON, "BOGON"},
-		{"FRAGMENT", DROP_REASON_FRAGMENT, "FRAGMENT"},
-		{"BAD_HEADER", DROP_REASON_BAD_HEADER, "BAD_HEADER"},
-		{"TCP_FLAGS", DROP_REASON_TCP_FLAGS, "TCP_FLAGS"},
-		{"SPOOF", DROP_REASON_SPOOF, "SPOOF"},
-		{"UNKNOWN", DROP_REASON_UNKNOWN, "UNKNOWN"},
+		{"BLACKLIST", DropReasonBlacklist, "BLACKLIST"},
+		{"RATELIMIT", DropReasonRatelimit, "RATELIMIT"},
+		{"DEFAULT", DropReasonDefault, "DEFAULT_DENY"},
+		{"INVALID", DropReasonInvalid, "INVALID"},
+		{"PROTOCOL", DropReasonProtocol, "PROTOCOL"},
+		{"STRICT_TCP", DropReasonStrictTCP, "STRICT_TCP"},
+		{"LAND_ATTACK", DropReasonLandAttack, "LAND_ATTACK"},
+		{"BOGON", DropReasonBogon, "BOGON"},
+		{"FRAGMENT", DropReasonFragment, "FRAGMENT"},
+		{"BAD_HEADER", DropReasonBadHeader, "BAD_HEADER"},
+		{"TCP_FLAGS", DropReasonTCPFlags, "TCP_FLAGS"},
+		{"SPOOF", DropReasonSpoof, "SPOOF"},
+		{"UNKNOWN", DropReasonUnknown, "UNKNOWN"},
 		{"Unknown reason", 999, "UNKNOWN"},
 	}
 
@@ -46,11 +46,11 @@ func TestPassReasonToString(t *testing.T) {
 		reason   uint32
 		expected string
 	}{
-		{"WHITELIST", PASS_REASON_WHITELIST, "WHITELIST"},
-		{"RETURN", PASS_REASON_RETURN, "RETURN"},
-		{"CONNTRACK", PASS_REASON_CONNTRACK, "CONNTRACK"},
-		{"DEFAULT", PASS_REASON_DEFAULT, "DEFAULT"},
-		{"UNKNOWN", PASS_REASON_UNKNOWN, "UNKNOWN"},
+		{"WHITELIST", PassReasonWhitelist, "WHITELIST"},
+		{"RETURN", PassReasonReturn, "RETURN"},
+		{"CONNTRACK", PassReasonConntrack, "CONNTRACK"},
+		{"DEFAULT", PassReasonDefault, "DEFAULT"},
+		{"UNKNOWN", PassReasonUnknown, "UNKNOWN"},
 		{"Unknown reason", 999, "UNKNOWN"},
 	}
 
@@ -89,27 +89,27 @@ func TestProtocolToString(t *testing.T) {
 // TestDropReasonConstants tests that drop reason constants have expected values
 // TestDropReasonConstants 测试丢弃原因常量具有预期值
 func TestDropReasonConstants(t *testing.T) {
-	assert.Equal(t, 0, DROP_REASON_UNKNOWN)
-	assert.Equal(t, 1, DROP_REASON_INVALID)
-	assert.Equal(t, 2, DROP_REASON_PROTOCOL)
-	assert.Equal(t, 3, DROP_REASON_BLACKLIST)
-	assert.Equal(t, 4, DROP_REASON_RATELIMIT)
-	assert.Equal(t, 5, DROP_REASON_STRICT_TCP)
-	assert.Equal(t, 6, DROP_REASON_DEFAULT)
-	assert.Equal(t, 7, DROP_REASON_LAND_ATTACK)
-	assert.Equal(t, 8, DROP_REASON_BOGON)
-	assert.Equal(t, 9, DROP_REASON_FRAGMENT)
-	assert.Equal(t, 10, DROP_REASON_BAD_HEADER)
-	assert.Equal(t, 11, DROP_REASON_TCP_FLAGS)
-	assert.Equal(t, 12, DROP_REASON_SPOOF)
+	assert.Equal(t, 0, DropReasonUnknown)
+	assert.Equal(t, 1, DropReasonInvalid)
+	assert.Equal(t, 2, DropReasonProtocol)
+	assert.Equal(t, 3, DropReasonBlacklist)
+	assert.Equal(t, 4, DropReasonRatelimit)
+	assert.Equal(t, 5, DropReasonStrictTCP)
+	assert.Equal(t, 6, DropReasonDefault)
+	assert.Equal(t, 7, DropReasonLandAttack)
+	assert.Equal(t, 8, DropReasonBogon)
+	assert.Equal(t, 9, DropReasonFragment)
+	assert.Equal(t, 10, DropReasonBadHeader)
+	assert.Equal(t, 11, DropReasonTCPFlags)
+	assert.Equal(t, 12, DropReasonSpoof)
 }
 
 // TestPassReasonConstants tests that pass reason constants have expected values
 // TestPassReasonConstants 测试通过原因常量具有预期值
 func TestPassReasonConstants(t *testing.T) {
-	assert.Equal(t, 100, PASS_REASON_UNKNOWN)
-	assert.Equal(t, 101, PASS_REASON_WHITELIST)
-	assert.Equal(t, 102, PASS_REASON_RETURN)
-	assert.Equal(t, 103, PASS_REASON_CONNTRACK)
-	assert.Equal(t, 104, PASS_REASON_DEFAULT)
+	assert.Equal(t, 100, PassReasonUnknown)
+	assert.Equal(t, 101, PassReasonWhitelist)
+	assert.Equal(t, 102, PassReasonReturn)
+	assert.Equal(t, 103, PassReasonConntrack)
+	assert.Equal(t, 104, PassReasonDefault)
 }

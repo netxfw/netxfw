@@ -6,57 +6,57 @@ import (
 
 // Drop reason codes / 丢弃原因码
 const (
-	DROP_REASON_UNKNOWN     = 0
-	DROP_REASON_INVALID     = 1
-	DROP_REASON_PROTOCOL    = 2
-	DROP_REASON_BLACKLIST   = 3
-	DROP_REASON_RATELIMIT   = 4
-	DROP_REASON_STRICT_TCP  = 5
-	DROP_REASON_DEFAULT     = 6
-	DROP_REASON_LAND_ATTACK = 7
-	DROP_REASON_BOGON       = 8
-	DROP_REASON_FRAGMENT    = 9
-	DROP_REASON_BAD_HEADER  = 10
-	DROP_REASON_TCP_FLAGS   = 11
-	DROP_REASON_SPOOF       = 12
+	DropReasonUnknown    = 0
+	DropReasonInvalid    = 1
+	DropReasonProtocol   = 2
+	DropReasonBlacklist  = 3
+	DropReasonRatelimit  = 4
+	DropReasonStrictTCP  = 5
+	DropReasonDefault    = 6
+	DropReasonLandAttack = 7
+	DropReasonBogon      = 8
+	DropReasonFragment   = 9
+	DropReasonBadHeader  = 10
+	DropReasonTCPFlags   = 11
+	DropReasonSpoof      = 12
 )
 
 // Pass reason codes / 通过原因码
 const (
-	PASS_REASON_UNKNOWN   = 100
-	PASS_REASON_WHITELIST = 101
-	PASS_REASON_RETURN    = 102
-	PASS_REASON_CONNTRACK = 103
-	PASS_REASON_DEFAULT   = 104
+	PassReasonUnknown   = 100
+	PassReasonWhitelist = 101
+	PassReasonReturn    = 102
+	PassReasonConntrack = 103
+	PassReasonDefault   = 104
 )
 
 // dropReasonToString maps drop reason codes to human-readable strings
 // dropReasonToString 将丢弃原因码映射为可读字符串
 func dropReasonToString(reason uint32) string {
 	switch reason {
-	case DROP_REASON_BLACKLIST:
+	case DropReasonBlacklist:
 		return "BLACKLIST"
-	case DROP_REASON_RATELIMIT:
+	case DropReasonRatelimit:
 		return "RATELIMIT"
-	case DROP_REASON_DEFAULT:
+	case DropReasonDefault:
 		return "DEFAULT_DENY"
-	case DROP_REASON_INVALID:
+	case DropReasonInvalid:
 		return "INVALID"
-	case DROP_REASON_PROTOCOL:
+	case DropReasonProtocol:
 		return "PROTOCOL"
-	case DROP_REASON_STRICT_TCP:
+	case DropReasonStrictTCP:
 		return "STRICT_TCP"
-	case DROP_REASON_LAND_ATTACK:
+	case DropReasonLandAttack:
 		return "LAND_ATTACK"
-	case DROP_REASON_BOGON:
+	case DropReasonBogon:
 		return "BOGON"
-	case DROP_REASON_FRAGMENT:
+	case DropReasonFragment:
 		return "FRAGMENT"
-	case DROP_REASON_BAD_HEADER:
+	case DropReasonBadHeader:
 		return "BAD_HEADER"
-	case DROP_REASON_TCP_FLAGS:
+	case DropReasonTCPFlags:
 		return "TCP_FLAGS"
-	case DROP_REASON_SPOOF:
+	case DropReasonSpoof:
 		return "SPOOF"
 	default:
 		return "UNKNOWN"
@@ -67,13 +67,13 @@ func dropReasonToString(reason uint32) string {
 // passReasonToString 将通过原因码映射为可读字符串
 func passReasonToString(reason uint32) string {
 	switch reason {
-	case PASS_REASON_WHITELIST:
+	case PassReasonWhitelist:
 		return "WHITELIST"
-	case PASS_REASON_RETURN:
+	case PassReasonReturn:
 		return "RETURN"
-	case PASS_REASON_CONNTRACK:
+	case PassReasonConntrack:
 		return "CONNTRACK"
-	case PASS_REASON_DEFAULT:
+	case PassReasonDefault:
 		return "DEFAULT"
 	default:
 		return "UNKNOWN"

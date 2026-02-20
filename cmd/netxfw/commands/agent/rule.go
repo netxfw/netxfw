@@ -156,97 +156,6 @@ Examples:
 	},
 }
 
-var ruleIPListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List IP rules",
-	// Short: 列出 IP 规则
-	Long: `List IP-based firewall rules (whitelist and blacklist)`,
-	// Long: 列出基于 IP 的防火墙规则（白名单和黑名单）
-	Run: func(cmd *cobra.Command, args []string) {
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		limit := 100
-		search := ""
-
-		if len(args) > 0 {
-			if l, parseErr := strconv.Atoi(args[0]); parseErr == nil {
-				limit = l
-				if len(args) > 1 {
-					search = args[1]
-				}
-			} else {
-				search = args[0]
-			}
-		}
-
-		cmd.Println("=== Whitelist (IP Rules) ===")
-		// SDK List Whitelist
-		wl, _, err := s.Whitelist.List(limit, search)
-		if err != nil {
-			cmd.PrintErrln(err)
-		}
-		for _, ip := range wl {
-			cmd.Println(ip)
-		}
-
-		cmd.Println("\n=== Blacklist (IP Rules) ===")
-		// SDK List Blacklist
-		bl, _, err := s.Blacklist.List(limit, search)
-		if err != nil {
-			cmd.PrintErrln(err)
-		}
-		for _, ip := range bl {
-			cmd.Println(ip.IP)
-		}
-	},
-}
-
-var rulePortListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List port rules",
-	// Short: 列出端口规则
-	Long: `List port-based firewall rules`,
-	// Long: 列出基于端口的防火墙规则
-	Run: func(cmd *cobra.Command, args []string) {
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		limit := 100
-		search := ""
-
-		if len(args) > 0 {
-			if l, parseErr := strconv.Atoi(args[0]); parseErr == nil {
-				limit = l
-				if len(args) > 1 {
-					search = args[1]
-				}
-			} else {
-				search = args[0]
-			}
-		}
-
-		fmt.Println("=== IP+Port Rules ===")
-		rules, _, err := s.Rule.ListIPPortRules(limit, search)
-		if err != nil {
-			cmd.PrintErrln(err)
-		}
-		for _, rule := range rules {
-			action := actionDeny
-			if rule.Action == 1 {
-				action = actionAllow
-			}
-			fmt.Printf("%s:%d (%s)\n", rule.IP, rule.Port, action)
-		}
-	},
-}
-
 var ruleRemoveCmd = &cobra.Command{
 	Use:   "remove [flags] <ip> [port|allow|deny]",
 	Short: "Remove a rule",
@@ -869,7 +778,7 @@ Examples:
 
 		// Write to file
 		// 写入文件
-		if err := os.WriteFile(filePath, data, 0644); err != nil {
+		if err := os.WriteFile(filePath, data, 0600); err != nil {
 			cmd.PrintErrln("Failed to write file:", err)
 			os.Exit(1)
 		}
