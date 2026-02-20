@@ -10,12 +10,51 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/livp123/netxfw/internal/config"
 )
+
+// getBootTime returns the system boot time by reading /proc/stat
+// getBootTime 通过读取 /proc/stat 返回系统启动时间
+func getBootTime() time.Time {
+	// Read /proc/stat to get btime (boot time in seconds since epoch)
+	// 读取 /proc/stat 获取 btime（启动时间，自 epoch 以来的秒数）
+	data, err := os.ReadFile("/proc/stat")
+	if err != nil {
+		// Fallback: estimate boot time from uptime
+		// 备选方案：从 uptime 估算启动时间
+		return time.Now().Add(-getSystemUptime())
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "btime ") {
+			// btime 1708123456
+			var bootSeconds int64
+			if _, err := fmt.Sscanf(line, "btime %d", &bootSeconds); err == nil {
+				return time.Unix(bootSeconds, 0)
+			}
+		}
+	}
+
+	// Fallback: estimate from uptime
+	// 备选方案：从 uptime 估算
+	return time.Now().Add(-getSystemUptime())
+}
+
+// getSystemUptime returns system uptime using syscall
+// getSystemUptime 使用 syscall 返回系统运行时间
+func getSystemUptime() time.Duration {
+	var info syscall.Sysinfo_t
+	if err := syscall.Sysinfo(&info); err != nil {
+		return 0
+	}
+	return time.Duration(info.Uptime) * time.Second
+}
 
 /**
  * Attach mounts the XDP program to the specified network interfaces.
@@ -261,9 +300,11 @@ func GetAttachedInterfacesWithInfo(pinPath string) ([]InterfaceXDPInfo, error) {
 			if prog, err := ebpf.NewProgramFromID(ebpf.ProgramID(progID)); err == nil {
 				if progInfo, err := prog.Info(); err == nil {
 					if loadDuration, ok := progInfo.LoadTime(); ok {
-						// LoadTime is duration since boot, convert to absolute time
-						// LoadTime 是从启动开始的持续时间，转换为绝对时间
-						loadTime = time.Now().Add(-loadDuration)
+						// LoadTime is monotonic time since boot, need to convert to wall clock time
+						// LoadTime 是从启动开始的单调时间，需要转换为墙上时钟时间
+						// Formula: bootTime + loadDuration = loadTime
+						// 公式: 启动时间 + 加载持续时间 = 加载时间
+						loadTime = getBootTime().Add(loadDuration)
 					}
 				}
 				prog.Close()
