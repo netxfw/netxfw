@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/livp123/netxfw/internal/config"
 	"github.com/livp123/netxfw/internal/plugins/types"
@@ -19,14 +20,22 @@ var (
 	// MockSDK allows tests to inject a mock SDK
 	// MockSDK 允许测试注入 Mock SDK
 	MockSDK *sdk.SDK
+
+	// mockSDKMutex protects MockSDK from concurrent access
+	// mockSDKMutex 保护 MockSDK 免受并发访问
+	mockSDKMutex sync.RWMutex
 )
 
 // GetSDK returns an initialized SDK connected to the pinned maps.
 // GetSDK 返回一个连接到固定 Map 的初始化 SDK。
 func GetSDK() (*sdk.SDK, error) {
+	mockSDKMutex.RLock()
 	if MockSDK != nil {
+		defer mockSDKMutex.RUnlock()
 		return MockSDK, nil
 	}
+	mockSDKMutex.RUnlock()
+
 	pinPath := config.GetPinPath()
 	mgr, err := xdp.NewManagerFromPins(pinPath, logger.Get(nil))
 	if err != nil {
@@ -35,6 +44,14 @@ func GetSDK() (*sdk.SDK, error) {
 	// Use NewAdapter to ensure interface compliance
 	adapter := xdp.NewAdapter(mgr)
 	return sdk.NewSDK(adapter), nil
+}
+
+// SetMockSDK sets the mock SDK for testing (thread-safe)
+// SetMockSDK 设置用于测试的 Mock SDK（线程安全）
+func SetMockSDK(mock *sdk.SDK) {
+	mockSDKMutex.Lock()
+	defer mockSDKMutex.Unlock()
+	MockSDK = mock
 }
 
 // EnsureStandaloneMode ensures that the application is running in standalone mode.

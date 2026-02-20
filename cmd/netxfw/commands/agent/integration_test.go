@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,9 +14,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// cmdMutex protects command execution from concurrent access
+// cmdMutex 保护命令执行免受并发访问
+var cmdMutex sync.Mutex
+
 // executeCommand executes a cobra command and returns output.
 // executeCommand 执行 cobra 命令并返回输出。
 func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
+	cmdMutex.Lock()
+	defer cmdMutex.Unlock()
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
@@ -37,7 +44,7 @@ func setupMockSDKWithExpectations() *sdk.SDK {
 // TestRuleAddCommandIntegration tests rule add command with various inputs.
 // TestRuleAddCommandIntegration 测试规则添加命令的各种输入。
 func TestRuleAddCommandIntegration(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	tests := []struct {
 		name     string
@@ -81,7 +88,7 @@ func TestRuleAddCommandIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset mock for each test
 			// 为每个测试重置 mock
-			common.MockSDK = setupMockSDKWithExpectations()
+			common.SetMockSDK(setupMockSDKWithExpectations())
 			output, err := executeCmd(RuleCmd, tt.args...)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -98,7 +105,7 @@ func TestRuleAddCommandIntegration(t *testing.T) {
 // TestRuleListCommandIntegration tests rule list command.
 // TestRuleListCommandIntegration 测试规则列表命令。
 func TestRuleListCommandIntegration(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	tests := []struct {
 		name     string
@@ -116,7 +123,7 @@ func TestRuleListCommandIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			common.MockSDK = setupMockSDKWithExpectations()
+			common.SetMockSDK(setupMockSDKWithExpectations())
 			output, err := executeCmd(RuleCmd, tt.args...)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -133,7 +140,7 @@ func TestRuleListCommandIntegration(t *testing.T) {
 // TestRuleRemoveCommandIntegration tests rule remove command.
 // TestRuleRemoveCommandIntegration 测试规则删除命令。
 func TestRuleRemoveCommandIntegration(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	tests := []struct {
 		name     string
@@ -157,7 +164,7 @@ func TestRuleRemoveCommandIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			common.MockSDK = setupMockSDKWithExpectations()
+			common.SetMockSDK(setupMockSDKWithExpectations())
 			output, err := executeCmd(RuleCmd, tt.args...)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -174,7 +181,7 @@ func TestRuleRemoveCommandIntegration(t *testing.T) {
 // TestQuickBlockCommandIntegration tests quick block command.
 // TestQuickBlockCommandIntegration 测试快速封禁命令。
 func TestQuickBlockCommandIntegration(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	tests := []struct {
 		name     string
@@ -204,7 +211,7 @@ func TestQuickBlockCommandIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			common.MockSDK = setupMockSDKWithExpectations()
+			common.SetMockSDK(setupMockSDKWithExpectations())
 			output, err := executeCmd(QuickBlockCmd, tt.args...)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -221,7 +228,7 @@ func TestQuickBlockCommandIntegration(t *testing.T) {
 // TestQuickUnlockCommandIntegration tests quick unlock command.
 // TestQuickUnlockCommandIntegration 测试快速解封命令。
 func TestQuickUnlockCommandIntegration(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	tests := []struct {
 		name     string
@@ -239,7 +246,7 @@ func TestQuickUnlockCommandIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			common.MockSDK = setupMockSDKWithExpectations()
+			common.SetMockSDK(setupMockSDKWithExpectations())
 			output, err := executeCmd(QuickUnlockCmd, tt.args...)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -256,7 +263,7 @@ func TestQuickUnlockCommandIntegration(t *testing.T) {
 // TestQuickAllowCommandIntegration tests quick allow command.
 // TestQuickAllowCommandIntegration 测试快速允许命令。
 func TestQuickAllowCommandIntegration(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	tests := []struct {
 		name     string
@@ -280,7 +287,7 @@ func TestQuickAllowCommandIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			common.MockSDK = setupMockSDKWithExpectations()
+			common.SetMockSDK(setupMockSDKWithExpectations())
 			output, err := executeCmd(QuickAllowCmd, tt.args...)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -297,7 +304,7 @@ func TestQuickAllowCommandIntegration(t *testing.T) {
 // TestPortCommandIntegration tests port command.
 // TestPortCommandIntegration 测试端口命令。
 func TestPortCommandIntegration(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	tests := []struct {
 		name     string
@@ -315,7 +322,7 @@ func TestPortCommandIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			common.MockSDK = setupMockSDKWithExpectations()
+			common.SetMockSDK(setupMockSDKWithExpectations())
 			output, err := executeCmd(PortCmd, tt.args...)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -332,7 +339,7 @@ func TestPortCommandIntegration(t *testing.T) {
 // TestLimitCommandIntegration tests limit command.
 // TestLimitCommandIntegration 测试限速命令。
 func TestLimitCommandIntegration(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	tests := []struct {
 		name     string
@@ -362,7 +369,7 @@ func TestLimitCommandIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			common.MockSDK = setupMockSDKWithExpectations()
+			common.SetMockSDK(setupMockSDKWithExpectations())
 			output, err := executeCmd(LimitCmd, tt.args...)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -379,7 +386,7 @@ func TestLimitCommandIntegration(t *testing.T) {
 // TestCommandExecutionTime tests that commands execute within reasonable time.
 // TestCommandExecutionTime 测试命令在合理时间内执行。
 func TestCommandExecutionTime(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	commands := []struct {
 		name string
@@ -392,7 +399,7 @@ func TestCommandExecutionTime(t *testing.T) {
 
 	for _, tc := range commands {
 		t.Run(tc.name, func(t *testing.T) {
-			common.MockSDK = setupMockSDKWithExpectations()
+			common.SetMockSDK(setupMockSDKWithExpectations())
 			start := time.Now()
 			_, err := executeCmd(tc.cmd, tc.args...)
 			elapsed := time.Since(start)
@@ -406,7 +413,7 @@ func TestCommandExecutionTime(t *testing.T) {
 // TestConcurrentCommandExecution tests concurrent command execution.
 // TestConcurrentCommandExecution 测试并发命令执行。
 func TestConcurrentCommandExecution(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	const numGoroutines = 10
 	done := make(chan bool, numGoroutines)
@@ -414,7 +421,10 @@ func TestConcurrentCommandExecution(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer func() { done <- true }()
-			common.MockSDK = setupMockSDKWithExpectations()
+			// Note: In concurrent tests, we don't reset MockSDK in each goroutine
+			// to avoid race conditions. The mock is set once before the test.
+			// 注意：在并发测试中，我们不在每个 goroutine 中重置 MockSDK
+			// 以避免竞争条件。Mock 在测试前设置一次。
 			_, err := executeCmd(RuleCmd, "list")
 			assert.NoError(t, err)
 		}(i)
@@ -458,7 +468,7 @@ func TestCommandHelpOutput(t *testing.T) {
 // TestRuleImportCommand tests rule import functionality.
 // TestRuleImportCommand 测试规则导入功能。
 func TestRuleImportCommand(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	// Test with help flag to avoid file operations
 	// 使用帮助标志测试以避免文件操作
@@ -470,7 +480,7 @@ func TestRuleImportCommand(t *testing.T) {
 // TestCommandFlagParsing tests flag parsing for various commands.
 // TestCommandFlagParsing 测试各种命令的标志解析。
 func TestCommandFlagParsing(t *testing.T) {
-	common.MockSDK = setupMockSDKWithExpectations()
+	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	tests := []struct {
 		name string
@@ -483,7 +493,7 @@ func TestCommandFlagParsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			common.MockSDK = setupMockSDKWithExpectations()
+			common.SetMockSDK(setupMockSDKWithExpectations())
 			_, err := executeCmd(tt.cmd, tt.args...)
 			require.NoError(t, err)
 		})
