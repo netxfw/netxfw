@@ -98,7 +98,7 @@ func TestFrequencyControl(t *testing.T) {
 		Line:   "Another Failed attempt",
 		Source: "/var/log/auth.log",
 	}
-	action, _, id, matched = re.Evaluate(attackerIP, eventFail)
+	_, _, id, matched = re.Evaluate(attackerIP, eventFail)
 	if !matched || id != "auth_bruteforce" {
 		t.Errorf("Expected auth_bruteforce match, got %v/%s", matched, id)
 	}

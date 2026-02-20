@@ -49,14 +49,9 @@ func TestAliasFunctions(t *testing.T) {
 	}
 
 	// 2nd attempt: Count=2. Expression: ... && 2 > 1 -> True
-	_, _, id, matched := re.Evaluate(ip, evt)
+	_, _, _, matched = re.Evaluate(ip, evt)
 	if !matched {
 		t.Errorf("Should match on second attempt")
-	}
-	// It matches 'alias_test' first because it's first in the list
-	if id != "alias_test" {
-		// Wait, alias_test also uses Msg/Time but TitleCase.
-		// Let's verify 'lowercase_time_test' logic is sound by creating a separate event
 	}
 
 	// Verify 'lowercase_time_test' specifically
@@ -69,7 +64,7 @@ func TestAliasFunctions(t *testing.T) {
 	// Test Log() function
 	// Case 1: "Error" matches log("error") (insensitive), and "Error" != "DEBUG" (strict)
 	evt2 := logengine.LogEvent{Line: "Critical Error occurred"}
-	_, _, id, matched = re.Evaluate(ip, evt2)
+	_, _, id, matched := re.Evaluate(ip, evt2)
 	if !matched || id != "log_func_test" {
 		t.Errorf("Expected log_func_test for 'Critical Error', got %v/%s", matched, id)
 	}

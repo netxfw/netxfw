@@ -80,7 +80,7 @@ func TestRuleEngine(t *testing.T) {
 
 	// Not enough counts
 	// 次数不足
-	action, _, id, matched := re.Evaluate(ip, logengine.LogEvent{Line: "dummy", Source: "test"})
+	_, _, _, matched := re.Evaluate(ip, logengine.LogEvent{Line: "dummy", Source: "test"})
 	if matched {
 		t.Errorf("Should not match yet, count is 1")
 	}
@@ -93,6 +93,8 @@ func TestRuleEngine(t *testing.T) {
 	// Total 6
 	// 总共 6 次
 
+	var action logengine.ActionType
+	var id string
 	action, _, id, matched = re.Evaluate(ip, logengine.LogEvent{Line: "dummy", Source: "test"})
 	if !matched {
 		t.Errorf("Should match now")

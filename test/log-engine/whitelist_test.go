@@ -69,7 +69,7 @@ func TestWhitelistUser(t *testing.T) {
 		Line:   "Accepted password for bb from 1.2.3.4 port 1234 ssh2",
 		Source: "/var/log/auth.log",
 	}
-	action, _, id, matched = re.Evaluate(ip, eventBlocked2)
+	_, _, _, matched = re.Evaluate(ip, eventBlocked2)
 	if !matched {
 		t.Error("Should block user 'bb', but no rule matched")
 	}

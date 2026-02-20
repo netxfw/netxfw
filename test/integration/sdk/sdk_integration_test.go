@@ -112,7 +112,7 @@ func TestSDK_Integration_IPPortRulesWorkflow(t *testing.T) {
 	err = s.Rule.Remove("192.168.1.1", 80)
 	assert.NoError(t, err)
 
-	rules, total, err = s.Rule.List(false, 100, "")
+	_, total, err = s.Rule.List(false, 100, "")
 	assert.NoError(t, err)
 	assert.Equal(t, 1, total)
 }

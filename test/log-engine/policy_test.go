@@ -74,7 +74,7 @@ func TestRulePolicies(t *testing.T) {
 	}
 
 	// 3rd attempt: Should BLOCK (Count=3 > 2)
-	action, _, id, matched = re.Evaluate(ipRoot, eventRoot)
+	_, _, id, matched = re.Evaluate(ipRoot, eventRoot)
 	if !matched {
 		t.Errorf("Root rule should match on 3rd attempt")
 	}

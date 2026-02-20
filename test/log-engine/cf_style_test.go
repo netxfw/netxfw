@@ -66,8 +66,6 @@ func TestCloudflareStyle(t *testing.T) {
 	}
 
 	// Test 2: Lower Case Match
-	e2 := logengine.LogEvent{Line: `uri=/ ua=Mozilla/5.0 (compatible; Googlebot/2.1)`}
-	_, _, id, matched = re.Evaluate(ip, e2)
 	// Get("ua") extracts "Mozilla/5.0" because it splits by space in Get() implementation
 	// "ua=Mozilla/5.0 (compatible; Googlebot/2.1)"
 	// Get("ua") returns "Mozilla/5.0" because space is default delimiter after value start

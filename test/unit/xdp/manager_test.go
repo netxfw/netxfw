@@ -148,7 +148,7 @@ func TestManager_IPPortRuleOperations(t *testing.T) {
 
 	// Verify the rule was removed
 	// 验证规则已删除
-	rules, count, err = mockMgr.ListIPPortRules(false, 100, "")
+	rules, _, err = mockMgr.ListIPPortRules(false, 100, "")
 	assert.NoError(t, err)
 
 	foundRule = false
