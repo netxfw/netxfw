@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/livp123/netxfw/internal/utils/logger"
@@ -17,9 +18,18 @@ func getTestContext() context.Context {
 	return logger.WithContext(ctx, l.Sugar())
 }
 
+// skipIfNotRoot skips the test if not running as root
+// skipIfNotRoot 如果不是 root 用户则跳过测试
+func skipIfNotRoot(t *testing.T) {
+	if os.Getuid() != 0 {
+		t.Skip("Skipping test that requires root privileges")
+	}
+}
+
 // TestInstallXDP_NoConfig tests InstallXDP with missing config
 // TestInstallXDP_NoConfig 测试 InstallXDP 缺少配置的情况
 func TestInstallXDP_NoConfig(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	// Test with empty interfaces (should fail because no physical interfaces in test env)
@@ -35,6 +45,7 @@ func TestInstallXDP_NoConfig(t *testing.T) {
 // TestInstallXDP_InvalidInterface tests InstallXDP with invalid interface
 // TestInstallXDP_InvalidInterface 测试 InstallXDP 使用无效接口
 func TestInstallXDP_InvalidInterface(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	// Test with non-existent interface
@@ -58,6 +69,7 @@ func TestRunDaemon(t *testing.T) {
 // TestHandlePluginCommand_NoArgs tests HandlePluginCommand with no arguments
 // TestHandlePluginCommand_NoArgs 测试 HandlePluginCommand 无参数情况
 func TestHandlePluginCommand_NoArgs(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	err := HandlePluginCommand(ctx, []string{})
@@ -68,6 +80,7 @@ func TestHandlePluginCommand_NoArgs(t *testing.T) {
 // TestHandlePluginCommand_InvalidCommand tests HandlePluginCommand with invalid command
 // TestHandlePluginCommand_InvalidCommand 测试 HandlePluginCommand 无效命令
 func TestHandlePluginCommand_InvalidCommand(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	err := HandlePluginCommand(ctx, []string{"invalid"})
@@ -78,6 +91,7 @@ func TestHandlePluginCommand_InvalidCommand(t *testing.T) {
 // TestHandlePluginCommand_Load_NoPath tests plugin load without path
 // TestHandlePluginCommand_Load_NoPath 测试插件加载无路径
 func TestHandlePluginCommand_Load_NoPath(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	err := HandlePluginCommand(ctx, []string{"load"})
@@ -88,6 +102,7 @@ func TestHandlePluginCommand_Load_NoPath(t *testing.T) {
 // TestHandlePluginCommand_Load_InvalidIndex tests plugin load with invalid index
 // TestHandlePluginCommand_Load_InvalidIndex 测试插件加载无效索引
 func TestHandlePluginCommand_Load_InvalidIndex(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	err := HandlePluginCommand(ctx, []string{"load", "/path/to/plugin.o", "invalid"})
@@ -98,6 +113,7 @@ func TestHandlePluginCommand_Load_InvalidIndex(t *testing.T) {
 // TestHandlePluginCommand_Remove_NoIndex tests plugin remove without index
 // TestHandlePluginCommand_Remove_NoIndex 测试插件移除无索引
 func TestHandlePluginCommand_Remove_NoIndex(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	err := HandlePluginCommand(ctx, []string{"remove"})
@@ -108,6 +124,7 @@ func TestHandlePluginCommand_Remove_NoIndex(t *testing.T) {
 // TestHandlePluginCommand_Remove_InvalidIndex tests plugin remove with invalid index
 // TestHandlePluginCommand_Remove_InvalidIndex 测试插件移除无效索引
 func TestHandlePluginCommand_Remove_InvalidIndex(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	err := HandlePluginCommand(ctx, []string{"remove", "invalid"})
@@ -118,6 +135,7 @@ func TestHandlePluginCommand_Remove_InvalidIndex(t *testing.T) {
 // TestRemoveXDP_NoConfig tests RemoveXDP with no config
 // TestRemoveXDP_NoConfig 测试 RemoveXDP 无配置情况
 func TestRemoveXDP_NoConfig(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	// Test with empty interfaces
@@ -133,6 +151,7 @@ func TestRemoveXDP_NoConfig(t *testing.T) {
 // TestRemoveXDP_InvalidInterface tests RemoveXDP with invalid interface
 // TestRemoveXDP_InvalidInterface 测试 RemoveXDP 无效接口
 func TestRemoveXDP_InvalidInterface(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	err := RemoveXDP(ctx, []string{"nonexistent123"})
@@ -144,6 +163,7 @@ func TestRemoveXDP_InvalidInterface(t *testing.T) {
 // TestReloadXDP_NoConfig tests ReloadXDP with no config
 // TestReloadXDP_NoConfig 测试 ReloadXDP 无配置情况
 func TestReloadXDP_NoConfig(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	// This may succeed if XDP is already loaded in the environment
@@ -154,6 +174,7 @@ func TestReloadXDP_NoConfig(t *testing.T) {
 // TestReloadXDP_InvalidInterface tests ReloadXDP with invalid interface
 // TestReloadXDP_InvalidInterface 测试 ReloadXDP 无效接口
 func TestReloadXDP_InvalidInterface(t *testing.T) {
+	skipIfNotRoot(t)
 	ctx := getTestContext()
 
 	// This may succeed if XDP is already loaded in the environment
