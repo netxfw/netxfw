@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/livp123/netxfw/internal/metrics"
@@ -19,6 +20,7 @@ type MetricsServer struct {
 	config  *types.MetricsConfig
 	server  *http.Server
 	running bool
+	mu      sync.RWMutex // Protects running field from concurrent access / 保护 running 字段免受并发访问
 	sdk     *sdk.SDK
 }
 
@@ -29,6 +31,22 @@ func NewMetricsServer(s *sdk.SDK, config *types.MetricsConfig) *MetricsServer {
 		sdk:    s,
 		config: config,
 	}
+}
+
+// isRunning returns whether the server is running (thread-safe).
+// isRunning 返回服务器是否正在运行（线程安全）。
+func (m *MetricsServer) isRunning() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.running
+}
+
+// setRunning sets the running state (thread-safe).
+// setRunning 设置运行状态（线程安全）。
+func (m *MetricsServer) setRunning(running bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.running = running
 }
 
 // Start starts the metrics server.
@@ -48,14 +66,14 @@ func (m *MetricsServer) Start(ctx context.Context) error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	m.running = true
+	m.setRunning(true)
 
 	// Start HTTP Server
 	go func() {
 		logger.Get(ctx).Infof("📊 Metrics server starting on :%d", m.config.Port)
 		if err := m.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Get(ctx).Errorf("❌ Metrics server error: %v", err)
-			m.running = false
+			m.setRunning(false)
 		}
 	}()
 
@@ -68,7 +86,7 @@ func (m *MetricsServer) Start(ctx context.Context) error {
 // Stop stops the metrics server.
 // Stop 停止指标服务器。
 func (m *MetricsServer) Stop() error {
-	m.running = false
+	m.setRunning(false)
 	if m.server != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -83,7 +101,7 @@ func (m *MetricsServer) collectStats(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	for m.running {
+	for m.isRunning() {
 		select {
 		case <-ticker.C:
 			if m.sdk.Stats != nil {

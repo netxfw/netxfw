@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/livp123/netxfw/internal/api"
@@ -17,7 +18,24 @@ type WebPlugin struct {
 	config  *types.WebConfig
 	server  *http.Server
 	running bool
+	mu      sync.RWMutex // Protects running field from concurrent access / 保护 running 字段免受并发访问
 	api     *api.Server
+}
+
+// isRunning returns whether the plugin is running (thread-safe).
+// isRunning 返回插件是否正在运行（线程安全）。
+func (p *WebPlugin) isRunning() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.running
+}
+
+// setRunning sets the running state (thread-safe).
+// setRunning 设置运行状态（线程安全）。
+func (p *WebPlugin) setRunning(running bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.running = running
 }
 
 func (p *WebPlugin) Name() string {
@@ -80,14 +98,14 @@ func (p *WebPlugin) Start(ctx *sdk.PluginContext) error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	p.running = true
+	p.setRunning(true)
 
 	// Start HTTP Server
 	go func() {
 		ctx.Logger.Infof("🌐 Web & Metrics server starting on :%d", p.config.Port)
 		if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ctx.Logger.Errorf("❌ Web server error: %v", err)
-			p.running = false
+			p.setRunning(false)
 		}
 	}()
 
@@ -98,7 +116,7 @@ func (p *WebPlugin) Start(ctx *sdk.PluginContext) error {
 }
 
 func (p *WebPlugin) Stop() error {
-	p.running = false
+	p.setRunning(false)
 	if p.server != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -121,7 +139,7 @@ func (p *WebPlugin) collectStats(ctx *sdk.PluginContext) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	for p.running {
+	for p.isRunning() {
 		<-ticker.C
 		if p.api != nil && p.api.Sdk() != nil {
 			stats := p.api.Sdk().Stats

@@ -217,7 +217,7 @@ func TestWebPlugin_CollectStats(t *testing.T) {
 	// Run collectStats in goroutine and stop quickly
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		p.running = false
+		p.setRunning(false)
 	}()
 
 	p.collectStats(ctx)

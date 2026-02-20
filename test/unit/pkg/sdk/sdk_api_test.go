@@ -169,17 +169,17 @@ func TestSecurityAPI_SetAutoBlockExpiry(t *testing.T) {
 // TestDefaultEventBus_Subscribe 测试 Subscribe 方法
 func TestDefaultEventBus_Subscribe(t *testing.T) {
 	bus := sdk.NewEventBus()
-	called := false
+	var called int32 // Use int32 for atomic operations / 使用 int32 进行原子操作
 
 	handler := func(e sdk.Event) {
-		called = true
+		atomic.StoreInt32(&called, 1)
 	}
 
 	bus.Subscribe(sdk.EventTypeRateLimitBlock, handler)
 	bus.Publish(sdk.NewEvent(sdk.EventTypeRateLimitBlock, "test", "payload"))
 
 	time.Sleep(100 * time.Millisecond)
-	assert.True(t, called)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&called))
 }
 
 // TestDefaultEventBus_Unsubscribe tests Unsubscribe method
