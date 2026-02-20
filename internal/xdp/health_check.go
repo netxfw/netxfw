@@ -15,6 +15,7 @@ const (
 	statusCritical    = "critical"
 	statusUnavailable = "unavailable"
 	statusError       = "error"
+	statusHealthy     = "healthy"
 )
 
 // MapHealthStatus represents the health status of a single BPF map.

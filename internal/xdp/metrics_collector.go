@@ -343,13 +343,13 @@ func (mc *MetricsCollector) collectConntrackHealth() {
 
 	// Determine health status / 确定健康状态
 	if mc.ConntrackHealth.UsagePercent >= 95 {
-		mc.ConntrackHealth.Status = "critical"
+		mc.ConntrackHealth.Status = statusCritical
 		mc.ConntrackHealth.Message = "Conntrack table near capacity / 连接跟踪表接近容量"
 	} else if mc.ConntrackHealth.UsagePercent >= 80 {
-		mc.ConntrackHealth.Status = "warning"
+		mc.ConntrackHealth.Status = statusWarning
 		mc.ConntrackHealth.Message = "Conntrack table usage high / 连接跟踪表使用率较高"
 	} else {
-		mc.ConntrackHealth.Status = "healthy"
+		mc.ConntrackHealth.Status = statusHealthy
 		mc.ConntrackHealth.Message = "Conntrack table healthy / 连接跟踪表健康"
 	}
 
