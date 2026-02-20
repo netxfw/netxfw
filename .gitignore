@@ -9,6 +9,7 @@
 /netxfw-agent
 /netxfw-controller.yaml
 /netxfw-test
+/netxfw_af
 # Local config
 /etc/
 /vendor/

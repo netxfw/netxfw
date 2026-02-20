@@ -24,6 +24,14 @@ jobs:
           go-version: '1.24'
           cache: true
 
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
@@ -43,6 +51,14 @@ jobs:
           go-version: '1.24'
           cache: true
 
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
+
       - name: Run go vet
         run: go vet ./...
 
@@ -59,6 +75,14 @@ jobs:
         with:
           go-version: '1.24'
           cache: true
+
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
 
       - name: Run tests
         run: go test -v -race -count=1 ./... 2>&1 | tee test_output.txt
@@ -84,6 +108,14 @@ jobs:
         with:
           go-version: '1.24'
           cache: true
+
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
 
       - name: Generate coverage report
         run: |
@@ -125,11 +157,19 @@ jobs:
           go-version: '1.24'
           cache: true
 
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
+
       - name: Build
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o netxfw-linux-amd64 ./cmd/netxfw
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o netxfw-linux-arm64 ./cmd/netxfw
-          sudo apt-get update && sudo apt-get install -y upx-ucl
+          sudo apt-get install -y upx-ucl
           upx --best netxfw-linux-amd64 netxfw-linux-arm64
           ls -lh netxfw-*
 
@@ -148,6 +188,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
 
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master

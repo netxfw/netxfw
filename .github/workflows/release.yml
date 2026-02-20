@@ -71,6 +71,9 @@ jobs:
             esac
           fi
 
+      - name: Generate BPF code
+        run: make generate
+
 
 
       - name: Run GoReleaser
