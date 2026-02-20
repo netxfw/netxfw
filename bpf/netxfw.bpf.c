@@ -1,9 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: (BSD-2-Clause OR GPL-2.0-only)
 /*
  * NetXfw BPF Program - Kernel Space XDP Firewall
  * 
- * This BPF program uses GPL-only kernel helper functions and must be
- * licensed under GPL-2.0-or-later for kernel compatibility.
+ * This BPF program is dual-licensed under BSD-2-Clause OR GPL-2.0-only.
+ * The GPL license is required for kernel compatibility with GPL-only helper functions.
+ * The BSD license option is available for users who prefer more permissive terms.
  * 
  * For commercial licensing options, please contact the copyright holder.
  */
@@ -210,4 +211,4 @@ int xdp_firewall(struct xdp_md *ctx) {
     return action;
 }
 
-char _license[] SEC("license") = "GPL";
+char _license[] SEC("license") = "Dual BSD/GPL";

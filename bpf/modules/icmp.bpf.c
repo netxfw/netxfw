@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: (BSD-2-Clause OR GPL-2.0-only)
 #ifndef __NETXFW_ICMP_BPF_C
 #define __NETXFW_ICMP_BPF_C
 
