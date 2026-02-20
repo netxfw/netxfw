@@ -334,11 +334,11 @@ func (mc *MetricsCollector) collectConntrackHealth() {
 	// Get max entries / 获取最大条目数
 	maxEntries := int(mc.manager.conntrackMap.MaxEntries())
 	mc.ConntrackHealth.MaxEntries = maxEntries
-	mc.ConntrackHealth.CurrentEntries = int(count) // nolint:gosec // G115: count is always within int range
+	mc.ConntrackHealth.CurrentEntries = int(count) // #nosec G115 // count is always within int range
 
 	// Calculate usage / 计算使用率
 	if maxEntries > 0 {
-		mc.ConntrackHealth.UsagePercent = (int(count) * 100) / maxEntries // nolint:gosec // G115: count is always within int range
+		mc.ConntrackHealth.UsagePercent = (int(count) * 100) / maxEntries // #nosec G115 // count is always within int range
 	}
 
 	// Determine health status / 确定健康状态

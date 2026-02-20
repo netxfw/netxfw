@@ -592,7 +592,7 @@ func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
 		}
 		var port uint16
 		if rule.Port > 0 {
-			port = uint16(rule.Port)
+			port = uint16(rule.Port) // #nosec G115 // port is always 0-65535
 		}
 		if err := s.Whitelist.Add(rule.IP, port); err != nil {
 			fmt.Printf("⚠️  Failed to add whitelist %s: %v\n", rule.IP, err)
@@ -612,7 +612,7 @@ func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
 		if rule.Action == actionAllow {
 			action = 1
 		}
-		if err := s.Rule.AddIPPortRule(rule.IP, uint16(rule.Port), action); err != nil {
+		if err := s.Rule.AddIPPortRule(rule.IP, uint16(rule.Port), action); err != nil { // #nosec G115 // port is always 0-65535
 			fmt.Printf("⚠️  Failed to add IP+Port rule %s:%d: %v\n", rule.IP, rule.Port, err)
 			failedIPPort++
 		} else {

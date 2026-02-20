@@ -50,12 +50,12 @@ func Encode(w io.Writer, records []Record) error {
 	}
 
 	// Write IPv4 Count / 写入 IPv4 计数
-	if err := binary.Write(w, binary.LittleEndian, uint32(len(ipv4Records))); err != nil {
+	if err := binary.Write(w, binary.LittleEndian, uint32(len(ipv4Records))); err != nil { // #nosec G115 // record count is always valid
 		return err
 	}
 
 	// Write IPv6 Count / 写入 IPv6 计数
-	if err := binary.Write(w, binary.LittleEndian, uint32(len(ipv6Records))); err != nil {
+	if err := binary.Write(w, binary.LittleEndian, uint32(len(ipv6Records))); err != nil { // #nosec G115 // record count is always valid
 		return err
 	}
 

@@ -270,7 +270,7 @@ func (m *MockManager) AddDynamicBlacklistIP(cidr string, ttl time.Duration) erro
 	defer m.mu.Unlock()
 	m.blacklist[cidr] = &MockBlacklistEntry{
 		Counter:   0,
-		ExpiresAt: uint64(time.Now().Add(ttl).Unix()),
+		ExpiresAt: uint64(time.Now().Add(ttl).Unix()), // #nosec G115 // timestamp is always valid
 		IsDynamic: true,
 	}
 	return nil

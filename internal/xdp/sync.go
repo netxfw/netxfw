@@ -96,7 +96,7 @@ func (m *Manager) parseLockListLine(line string) (binary.Record, bool) {
 
 	return binary.Record{
 		IP:        ip,
-		PrefixLen: uint8(ones),
+		PrefixLen: uint8(ones), // nolint:gosec // G115: prefixlen is always 0-32
 		IsIPv6:    ip.To4() == nil,
 	}, true
 }
@@ -459,7 +459,7 @@ func (m *Manager) syncGlobalConfigToConfig(cfg *types.GlobalConfig) {
 	}
 	key = configConntrackTimeout
 	if err := m.globalConfig.Lookup(&key, &val); err == nil {
-		cfg.Conntrack.TCPTimeout = time.Duration(val).String()
+		cfg.Conntrack.TCPTimeout = time.Duration(val).String() // nolint:gosec // G115: timeout is always valid
 	}
 }
 

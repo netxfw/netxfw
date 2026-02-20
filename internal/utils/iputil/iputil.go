@@ -85,7 +85,7 @@ func ParseIPPort(input string) (string, uint16, error) {
 		return "", 0, fmt.Errorf("invalid IP address or CIDR: %s", ip)
 	}
 
-	return ip, uint16(port), nil
+	return ip, uint16(port), nil // nolint:gosec // G115: port is always 0-65535
 }
 
 // IsValidIP checks if the string is a valid IP address.

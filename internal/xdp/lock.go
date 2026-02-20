@@ -41,13 +41,13 @@ func CheckConflict(mapPtr *ebpf.Map, cidrStr string, isWhitelistMap bool) (bool,
 
 	if ip4 := ip.To4(); ip4 != nil {
 		// Convert to IPv4-mapped IPv6 / 转换为 IPv4 映射的 IPv6
-		key.Prefixlen = uint32(96 + ones)
+		key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
 		keyData.In6U.U6Addr8[10] = 0xff
 		keyData.In6U.U6Addr8[11] = 0xff
 		copy(keyData.In6U.U6Addr8[12:], ip4)
 	} else {
 		// IPv6 key / IPv6 键
-		key.Prefixlen = uint32(ones)
+		key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
 		copy(keyData.In6U.U6Addr8[:], ip.To16())
 	}
 	key.Data = keyData
@@ -93,13 +93,13 @@ func LockIP(mapPtr *ebpf.Map, cidrStr string) error {
 
 	if ip4 := ip.To4(); ip4 != nil {
 		// IPv4-mapped IPv6 key
-		key.Prefixlen = uint32(96 + ones)
+		key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
 		keyData.In6U.U6Addr8[10] = 0xff
 		keyData.In6U.U6Addr8[11] = 0xff
 		copy(keyData.In6U.U6Addr8[12:], ip4)
 	} else {
 		// IPv6 key
-		key.Prefixlen = uint32(ones)
+		key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
 		copy(keyData.In6U.U6Addr8[:], ip.To16())
 	}
 	key.Data = keyData
@@ -135,12 +135,12 @@ func AllowIP(mapPtr *ebpf.Map, cidrStr string, port uint16) error {
 	var keyData NetXfwIn6Addr
 
 	if ip4 := ip.To4(); ip4 != nil {
-		key.Prefixlen = uint32(96 + ones)
+		key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
 		keyData.In6U.U6Addr8[10] = 0xff
 		keyData.In6U.U6Addr8[11] = 0xff
 		copy(keyData.In6U.U6Addr8[12:], ip4)
 	} else {
-		key.Prefixlen = uint32(ones)
+		key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
 		copy(keyData.In6U.U6Addr8[:], ip.To16())
 	}
 	key.Data = keyData
@@ -165,13 +165,13 @@ func UnlockIP(mapPtr *ebpf.Map, cidrStr string) error {
 
 	if ip4 := ip.To4(); ip4 != nil {
 		// IPv4-mapped IPv6 key / IPv4 映射的 IPv6 键
-		key.Prefixlen = uint32(96 + ones)
+		key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
 		keyData.In6U.U6Addr8[10] = 0xff
 		keyData.In6U.U6Addr8[11] = 0xff
 		copy(keyData.In6U.U6Addr8[12:], ip4)
 	} else {
 		// IPv6 key / IPv6 键
-		key.Prefixlen = uint32(ones)
+		key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
 		copy(keyData.In6U.U6Addr8[:], ip.To16())
 	}
 	key.Data = keyData
@@ -210,12 +210,12 @@ func ListWhitelistIPs(mapPtr *ebpf.Map, limit int, search string) ([]string, int
 				var keyData NetXfwIn6Addr
 
 				if ip4 := ip.To4(); ip4 != nil {
-					key.Prefixlen = uint32(96 + ones)
+					key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
 					keyData.In6U.U6Addr8[10] = 0xff
 					keyData.In6U.U6Addr8[11] = 0xff
 					copy(keyData.In6U.U6Addr8[12:], ip4)
 				} else {
-					key.Prefixlen = uint32(ones)
+					key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
 					copy(keyData.In6U.U6Addr8[:], ip.To16())
 				}
 				key.Data = keyData
@@ -274,7 +274,7 @@ func CleanupExpiredRules(mapPtr *ebpf.Map, isIPv6 bool) (int, error) {
 		return 0, nil
 	}
 
-	now := uint64(time.Now().UnixNano())
+	now := uint64(time.Now().UnixNano()) // #nosec G115 // timestamp is always valid
 	removed := 0
 	iter := mapPtr.Iterate()
 
@@ -312,12 +312,12 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) ([]
 				var keyData NetXfwIn6Addr
 
 				if ip4 := ip.To4(); ip4 != nil {
-					key.Prefixlen = uint32(96 + ones)
+					key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
 					keyData.In6U.U6Addr8[10] = 0xff
 					keyData.In6U.U6Addr8[11] = 0xff
 					copy(keyData.In6U.U6Addr8[12:], ip4)
 				} else {
-					key.Prefixlen = uint32(ones)
+					key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
 					copy(keyData.In6U.U6Addr8[:], ip.To16())
 				}
 				key.Data = keyData

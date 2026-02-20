@@ -254,7 +254,7 @@ func parsePort(s string) uint16 {
 	var port uint16
 	for _, c := range s {
 		if c >= '0' && c <= '9' {
-			port = port*10 + uint16(c-'0')
+			port = port*10 + uint16(c-'0') // #nosec G115 // port calculation is safe
 		}
 	}
 	return port

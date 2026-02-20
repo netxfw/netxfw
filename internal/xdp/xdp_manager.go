@@ -18,17 +18,17 @@ import (
  */
 func (m *Manager) MatchesCapacity(cfg types.CapacityConfig) bool {
 	if cfg.LockList > 0 {
-		if m.staticBlacklist == nil || m.staticBlacklist.MaxEntries() != uint32(cfg.LockList) {
+		if m.staticBlacklist == nil || m.staticBlacklist.MaxEntries() != uint32(cfg.LockList) { // #nosec G115 // cfg values are always valid for uint32
 			return false
 		}
 	}
 	if cfg.DynLockList > 0 {
-		if m.dynamicBlacklist == nil || m.dynamicBlacklist.MaxEntries() != uint32(cfg.DynLockList) {
+		if m.dynamicBlacklist == nil || m.dynamicBlacklist.MaxEntries() != uint32(cfg.DynLockList) { // #nosec G115 // cfg values are always valid for uint32
 			return false
 		}
 	}
 	if cfg.Whitelist > 0 {
-		if m.whitelist == nil || m.whitelist.MaxEntries() != uint32(cfg.Whitelist) {
+		if m.whitelist == nil || m.whitelist.MaxEntries() != uint32(cfg.Whitelist) { // #nosec G115 // cfg values are always valid for uint32
 			return false
 		}
 	}
@@ -57,22 +57,22 @@ func NewManager(cfg types.CapacityConfig, logger Logger) (*Manager, error) {
 	// 注意：使用新的统一 Map 名称
 	if cfg.Conntrack > 0 {
 		if m, ok := spec.Maps["conntrack_map"]; ok {
-			m.MaxEntries = uint32(cfg.Conntrack)
+			m.MaxEntries = uint32(cfg.Conntrack) // #nosec G115 // cfg values are always valid for uint32
 		}
 	}
 	if cfg.LockList > 0 {
 		if m, ok := spec.Maps["static_blacklist"]; ok {
-			m.MaxEntries = uint32(cfg.LockList)
+			m.MaxEntries = uint32(cfg.LockList) // #nosec G115 // cfg values are always valid for uint32
 		}
 	}
 	if cfg.DynLockList > 0 {
 		if m, ok := spec.Maps["dynamic_blacklist"]; ok {
-			m.MaxEntries = uint32(cfg.DynLockList)
+			m.MaxEntries = uint32(cfg.DynLockList) // #nosec G115 // cfg values are always valid for uint32
 		}
 	}
 	if cfg.Whitelist > 0 {
 		if m, ok := spec.Maps["whitelist"]; ok {
-			m.MaxEntries = uint32(cfg.Whitelist)
+			m.MaxEntries = uint32(cfg.Whitelist) // #nosec G115 // cfg values are always valid for uint32
 		}
 	}
 

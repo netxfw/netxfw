@@ -152,13 +152,13 @@ func AddIPPortRuleToMap(mapPtr *ebpf.Map, ipNet *net.IPNet, port uint16, action 
 
 	if ip4 := ipNet.IP.To4(); ip4 != nil {
 		// IPv4-mapped IPv6 / IPv4 映射的 IPv6
-		key.Prefixlen = uint32(96 + ones)
+		key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
 		key.Ip.In6U.U6Addr8[10] = 0xff
 		key.Ip.In6U.U6Addr8[11] = 0xff
 		copy(key.Ip.In6U.U6Addr8[12:], ip4)
 	} else {
 		// Native IPv6 / 原生 IPv6
-		key.Prefixlen = uint32(ones)
+		key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
 		copy(key.Ip.In6U.U6Addr8[:], ipNet.IP.To16())
 	}
 
@@ -199,13 +199,13 @@ func RemoveIPPortRuleFromMap(mapPtr *ebpf.Map, ipNet *net.IPNet, port uint16) er
 
 	if ip4 := ipNet.IP.To4(); ip4 != nil {
 		// IPv4-mapped IPv6 / IPv4 映射的 IPv6
-		key.Prefixlen = uint32(96 + ones)
+		key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
 		key.Ip.In6U.U6Addr8[10] = 0xff
 		key.Ip.In6U.U6Addr8[11] = 0xff
 		copy(key.Ip.In6U.U6Addr8[12:], ip4)
 	} else {
 		// Native IPv6 / 原生 IPv6
-		key.Prefixlen = uint32(ones)
+		key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
 		copy(key.Ip.In6U.U6Addr8[:], ipNet.IP.To16())
 	}
 

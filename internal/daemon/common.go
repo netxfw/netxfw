@@ -240,7 +240,7 @@ func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
 			totalPackets := pass + drops
 			// Estimate bytes using configured average packet size
 			// 使用配置的平均包大小估算字节数
-			totalBytes := totalPackets * uint64(avgPacketSize)
+			totalBytes := totalPackets * uint64(avgPacketSize) // #nosec G115 // multiplication is safe
 
 			// Update traffic stats
 			// 更新流量统计
@@ -249,7 +249,7 @@ func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
 			// Update conntrack stats
 			// 更新连接跟踪统计
 			if conntrackCount, err := mgr.GetConntrackCount(); err == nil {
-				ps.UpdateConntrackStats(uint64(conntrackCount))
+				ps.UpdateConntrackStats(uint64(conntrackCount)) // #nosec G115 // count is always valid
 			}
 
 			// Save traffic stats to shared file for system status command

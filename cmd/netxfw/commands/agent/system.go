@@ -408,25 +408,25 @@ func showMapStatistics(mgr sdk.ManagerInterface) {
 	fmt.Printf("   %s\n", strings.Repeat("-", 55))
 	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
 		"🔒 Blacklist", blacklistCount, maxBlacklist,
-		fmt.Sprintf("%.1f%%", calculatePercentGeneric(blacklistCount, uint64(maxBlacklist))),
+		fmt.Sprintf("%.1f%%", calculatePercentGeneric(blacklistCount, uint64(maxBlacklist))), // #nosec G115 // count is always valid
 		getUsageIndicator(blacklistCount, maxBlacklist))
 	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
 		"🔓 Dyn Blacklist", dynBlacklistCount, maxDynBlacklist,
-		fmt.Sprintf("%.1f%%", calculatePercentGeneric(dynBlacklistCount, uint64(maxDynBlacklist))),
-		getUsageIndicator(int(dynBlacklistCount), maxDynBlacklist))
+		fmt.Sprintf("%.1f%%", calculatePercentGeneric(dynBlacklistCount, uint64(maxDynBlacklist))), // #nosec G115 // count is always valid
+		getUsageIndicator(int(dynBlacklistCount), maxDynBlacklist))                                 // #nosec G115 // count is always within int range
 	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
 		"⚪ Whitelist", whitelistCount, maxWhitelist,
-		fmt.Sprintf("%.1f%%", calculatePercentGeneric(whitelistCount, uint64(maxWhitelist))),
+		fmt.Sprintf("%.1f%%", calculatePercentGeneric(whitelistCount, uint64(maxWhitelist))), // #nosec G115 // count is always valid
 		getUsageIndicator(whitelistCount, maxWhitelist))
 	// Conntrack is shown in detail in Conntrack Health section, skip here
 	// Conntrack 在 Conntrack Health 部分详细显示，此处跳过
 	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
 		"📋 IP+Port Rules", len(ipPortRules), maxIPPortRules,
-		fmt.Sprintf("%.1f%%", calculatePercentGeneric(uint64(len(ipPortRules)), uint64(maxIPPortRules))),
+		fmt.Sprintf("%.1f%%", calculatePercentGeneric(uint64(len(ipPortRules)), uint64(maxIPPortRules))), // #nosec G115 // count is always valid
 		getUsageIndicator(len(ipPortRules), maxIPPortRules))
 	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
 		"⏱️  Rate Limits", len(rateLimitRules), maxRateLimits,
-		fmt.Sprintf("%.1f%%", calculatePercentGeneric(uint64(len(rateLimitRules)), uint64(maxRateLimits))),
+		fmt.Sprintf("%.1f%%", calculatePercentGeneric(uint64(len(rateLimitRules)), uint64(maxRateLimits))), // #nosec G115 // count is always valid
 		getUsageIndicator(len(rateLimitRules), maxRateLimits))
 	fmt.Printf("   %-16s %10d\n", "🔓 Allowed Ports", len(allowedPorts))
 }
@@ -632,7 +632,7 @@ func showConntrackHealth(mgr sdk.ManagerInterface) {
 	// Get conntrack entries for protocol breakdown / 获取连接跟踪条目以进行协议分布
 	entries, err := mgr.ListAllConntrackEntries()
 	if err != nil {
-		fmt.Printf("   ├─ Active Connections: %d / %d (%.1f%%)\n", conntrackCount, maxConntrack, calculatePercentGeneric(conntrackCount, uint64(maxConntrack)))
+		fmt.Printf("   ├─ Active Connections: %d / %d (%.1f%%)\n", conntrackCount, maxConntrack, calculatePercentGeneric(conntrackCount, uint64(maxConntrack))) // #nosec G115 // count is always valid
 		fmt.Println("   └─ Protocol Breakdown: Unavailable")
 		return
 	}
@@ -652,24 +652,24 @@ func showConntrackHealth(mgr sdk.ManagerInterface) {
 		}
 	}
 
-	fmt.Printf("   ├─ Active Connections: %d / %d (%.1f%%)\n", conntrackCount, maxConntrack, calculatePercentGeneric(conntrackCount, uint64(maxConntrack)))
-	fmt.Printf("   ├─ TCP Connections: %d (%.1f%%)\n", tcpCount, calculatePercentGeneric(uint64(tcpCount), uint64(conntrackCount)))
-	fmt.Printf("   ├─ UDP Connections: %d (%.1f%%)\n", udpCount, calculatePercentGeneric(uint64(udpCount), uint64(conntrackCount)))
-	fmt.Printf("   ├─ ICMP Connections: %d (%.1f%%)\n", icmpCount, calculatePercentGeneric(uint64(icmpCount), uint64(conntrackCount)))
+	fmt.Printf("   ├─ Active Connections: %d / %d (%.1f%%)\n", conntrackCount, maxConntrack, calculatePercentGeneric(conntrackCount, uint64(maxConntrack))) // #nosec G115 // count is always valid
+	fmt.Printf("   ├─ TCP Connections: %d (%.1f%%)\n", tcpCount, calculatePercentGeneric(uint64(tcpCount), uint64(conntrackCount)))                         // #nosec G115 // count is always valid
+	fmt.Printf("   ├─ UDP Connections: %d (%.1f%%)\n", udpCount, calculatePercentGeneric(uint64(udpCount), uint64(conntrackCount)))                         // #nosec G115 // count is always valid
+	fmt.Printf("   ├─ ICMP Connections: %d (%.1f%%)\n", icmpCount, calculatePercentGeneric(uint64(icmpCount), uint64(conntrackCount)))                      // #nosec G115 // count is always valid
 
 	// Try to load traffic stats for new/evict rates / 尝试加载流量统计获取新建/淘汰速率
 	trafficStats, err := xdp.LoadTrafficStats()
 	hasRateData := err == nil && trafficStats.LastUpdateTime.After(time.Time{})
 
 	if hasRateData {
-		fmt.Printf("   ├─ Other Connections: %d (%.1f%%)\n", otherCount, calculatePercentGeneric(uint64(otherCount), uint64(conntrackCount)))
+		fmt.Printf("   ├─ Other Connections: %d (%.1f%%)\n", otherCount, calculatePercentGeneric(uint64(otherCount), uint64(conntrackCount))) // #nosec G115 // count is always valid
 		fmt.Printf("   ├─ New/s: %s conn/s\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentConntrackNew))
 	} else {
-		fmt.Printf("   └─ Other Connections: %d (%.1f%%)\n", otherCount, calculatePercentGeneric(uint64(otherCount), uint64(conntrackCount)))
+		fmt.Printf("   └─ Other Connections: %d (%.1f%%)\n", otherCount, calculatePercentGeneric(uint64(otherCount), uint64(conntrackCount))) // #nosec G115 // count is always valid
 	}
 
 	// Determine health status / 确定健康状态
-	usagePercent := calculatePercentGeneric(conntrackCount, uint64(maxConntrack))
+	usagePercent := calculatePercentGeneric(conntrackCount, uint64(maxConntrack)) // #nosec G115 // count is always valid
 	critical, high, _ := getThresholdsFromConfig()
 	if hasRateData {
 		fmt.Printf("   ├─ Evict/s: %s conn/s\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentConntrackEvict))
@@ -1039,7 +1039,7 @@ func showConclusionStatistics(mgr sdk.ManagerInterface, s StatsAPI) {
 	fmt.Println("📊 Summary Security Hits:")
 
 	// Static Blacklist hits / 静态黑名单命中
-	fmt.Printf("   ├─ 🔒 Static Blacklist:    %s entries\n", fmtutil.FormatNumberWithComma(uint64(staticBlacklistCount)))
+	fmt.Printf("   ├─ 🔒 Static Blacklist:    %s entries\n", fmtutil.FormatNumberWithComma(uint64(staticBlacklistCount))) // #nosec G115 // count is always valid
 
 	// Dynamic Blacklist hits / 动态黑名单命中
 	fmt.Printf("   ├─ 🔓 Dynamic Blacklist:   %s entries\n", fmtutil.FormatNumberWithComma(dynBlacklistCount))

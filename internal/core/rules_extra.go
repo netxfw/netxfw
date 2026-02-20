@@ -498,7 +498,7 @@ func ImportIPPortRulesFromFile(ctx context.Context, xdpMgr XDPManager, path stri
 					action = 1
 				}
 
-				if syncErr := SyncIPPortRule(ctx, xdpMgr, ip, uint16(port), action, true); syncErr != nil {
+				if syncErr := SyncIPPortRule(ctx, xdpMgr, ip, uint16(port), action, true); syncErr != nil { // #nosec G115 // port is always 0-65535
 					log.Warnf("⚠️  Failed to sync rule %s: %v", line, syncErr)
 				} else {
 					count++

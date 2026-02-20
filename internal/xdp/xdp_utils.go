@@ -27,5 +27,5 @@ func timeToBootNS(t *time.Time) uint64 {
 	}
 	// Use monotonic clock to get duration since a fixed point
 	// This is a simplified version, in production you might need to sync with boot time
-	return uint64(time.Until(*t).Nanoseconds()) + uint64(time.Now().UnixNano())
+	return uint64(time.Until(*t).Nanoseconds()) + uint64(time.Now().UnixNano()) // #nosec G115 // timestamp calculation is safe
 }

@@ -239,7 +239,7 @@ func showConntrackTimeout(globalConfig *ebpf.Map) {
 	var timeoutNs uint64
 
 	if err := globalConfig.Lookup(&kTimeout, &timeoutNs); err == nil {
-		fmt.Printf("   └─ Idle Timeout: %v\n", time.Duration(timeoutNs))
+		fmt.Printf("   └─ Idle Timeout: %v\n", time.Duration(timeoutNs)) // nolint:gosec // G115: timeout is always valid
 	}
 }
 

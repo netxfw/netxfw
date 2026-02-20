@@ -200,7 +200,7 @@ func showPerformanceStats(s *sdk.SDK) error {
 	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
 
 	// Uptime / 运行时间
-	uptime := time.Duration(stats.Traffic.UptimeSeconds) * time.Second // nolint:gosec // G115: uptime is always reasonable value
+	uptime := time.Duration(stats.Traffic.UptimeSeconds) * time.Second // #nosec G115 // uptime is always reasonable value
 	fmt.Printf("\n⏱️  Uptime: %v\n", uptime.Round(time.Second))
 
 	// Map Latency Summary / Map 延迟摘要
@@ -338,7 +338,7 @@ func showTrafficStats(s *sdk.SDK) error {
 	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
 
 	// Uptime / 运行时间
-	uptime := time.Duration(stats.Traffic.UptimeSeconds) * time.Second // nolint:gosec // G115: uptime is always reasonable value
+	uptime := time.Duration(stats.Traffic.UptimeSeconds) * time.Second // #nosec G115 // uptime is always reasonable value
 	fmt.Printf("\n⏱️  Uptime: %v\n", uptime.Round(time.Second))
 
 	// Packet rates / 数据包速率

@@ -20,12 +20,12 @@ func NewLpmKey(cidr string) (NetXfwLpmKey, error) {
 	var key NetXfwLpmKey
 
 	if ip4 := ip.To4(); ip4 != nil {
-		key.Prefixlen = uint32(96 + ones)
+		key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
 		key.Data.In6U.U6Addr8[10] = 0xff
 		key.Data.In6U.U6Addr8[11] = 0xff
 		copy(key.Data.In6U.U6Addr8[12:], ip4)
 	} else {
-		key.Prefixlen = uint32(ones)
+		key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
 		copy(key.Data.In6U.U6Addr8[:], ip.To16())
 	}
 
@@ -46,12 +46,12 @@ func NewLpmIPPortKey(cidr string, port uint16) (NetXfwLpmIpPortKey, error) {
 	key.Port = port
 
 	if ip4 := ip.To4(); ip4 != nil {
-		key.Prefixlen = uint32(96 + ones)
+		key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
 		key.Ip.In6U.U6Addr8[10] = 0xff
 		key.Ip.In6U.U6Addr8[11] = 0xff
 		copy(key.Ip.In6U.U6Addr8[12:], ip4)
 	} else {
-		key.Prefixlen = uint32(ones)
+		key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
 		copy(key.Ip.In6U.U6Addr8[:], ip.To16())
 	}
 

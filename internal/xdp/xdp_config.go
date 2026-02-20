@@ -78,7 +78,7 @@ func (m *Manager) SetICMPRateLimit(rate, burst uint64) error {
  * SetConntrackTimeout 在 BPF 程序中设置连接跟踪超时。
  */
 func (m *Manager) SetConntrackTimeout(timeout time.Duration) error {
-	return m.updateConfig(configConntrackTimeout, uint64(timeout.Nanoseconds()))
+	return m.updateConfig(configConntrackTimeout, uint64(timeout.Nanoseconds())) // #nosec G115 // timeout is always valid
 }
 
 /**
@@ -206,5 +206,5 @@ func (m *Manager) SetAutoBlock(enable bool) error {
  * SetAutoBlockExpiry 设置自动封禁的 IP 解封前的持续时间。
  */
 func (m *Manager) SetAutoBlockExpiry(expiry time.Duration) error {
-	return m.updateConfig(configAutoBlockExpiry, uint64(expiry.Nanoseconds()))
+	return m.updateConfig(configAutoBlockExpiry, uint64(expiry.Nanoseconds())) // #nosec G115 // expiry is always valid
 }

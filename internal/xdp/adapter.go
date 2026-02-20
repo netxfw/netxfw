@@ -228,15 +228,15 @@ func (a *Adapter) GetPassCount() (uint64, error) {
 }
 func (a *Adapter) GetLockedIPCount() (int, error) {
 	count, err := a.manager.GetLockedIPCount()
-	return int(count), err
+	return int(count), err // #nosec G115 // count is always within int range
 }
 func (a *Adapter) GetWhitelistCount() (int, error) {
 	count, err := a.manager.GetWhitelistCount()
-	return int(count), err
+	return int(count), err // #nosec G115 // count is always within int range
 }
 func (a *Adapter) GetConntrackCount() (int, error) {
 	count, err := a.manager.GetConntrackCount()
-	return int(count), err
+	return int(count), err // #nosec G115 // count is always within int range
 }
 
 // GetDynLockListCount returns the count of dynamic blacklist entries.

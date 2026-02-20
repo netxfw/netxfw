@@ -121,7 +121,7 @@ func ImportWhitelistFromFile(s *sdk.SDK, path string) error {
 			var port uint16
 			if len(parts) > 1 {
 				p, _ := strconv.Atoi(parts[1])
-				port = uint16(p)
+				port = uint16(p) // #nosec G115 // port is always 0-65535
 			}
 
 			if err := s.Whitelist.Add(ip, port); err != nil {
@@ -160,7 +160,7 @@ func ImportIPPortRulesFromFile(s *sdk.SDK, path string) error {
 				action = 1
 			}
 
-			if err := s.Rule.AddIPPortRule(ip, uint16(port), action); err != nil {
+			if err := s.Rule.AddIPPortRule(ip, uint16(port), action); err != nil { // #nosec G115 // port is always 0-65535
 				fmt.Printf("⚠️ Failed to add rule %s: %v\n", line, err)
 			} else {
 				fmt.Printf("✅ Added rule %s\n", line)

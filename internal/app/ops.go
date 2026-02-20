@@ -7,7 +7,7 @@ import (
 	"time"
 
 	// Import pprof for HTTP endpoint profiling / 导入 pprof 用于 HTTP 端点性能分析
-	// nolint:gosec // G108: pprof is intentionally exposed for debugging in development
+	// #nosec G108 // pprof is intentionally exposed for debugging in development
 	_ "net/http/pprof"
 	"strconv"
 

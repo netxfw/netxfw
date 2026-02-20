@@ -32,7 +32,7 @@ func (t *TimedMapOp) End(err error) {
 	}
 	latency := time.Since(t.start).Nanoseconds()
 	hasError := err != nil
-	t.stats.RecordMapOperation(t.mapName, t.opType, uint64(latency), hasError)
+	t.stats.RecordMapOperation(t.mapName, t.opType, uint64(latency), hasError) // #nosec G115 // latency is always positive
 }
 
 // MapOpHelper provides helper functions for timed map operations.

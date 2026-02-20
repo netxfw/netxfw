@@ -76,7 +76,7 @@ func GetTopStatsFromMap(m *ebpf.Map, mapName string) ([]sdk.DropDetailEntry, err
 
 			results = append(results, sdk.DropDetailEntry{
 				Reason:   key.Reason,
-				Protocol: uint8(key.Protocol),
+				Protocol: uint8(key.Protocol), // #nosec G115 // protocol is always 0-255
 				SrcIP:    srcIP,
 				DstPort:  key.DstPort,
 				Count:    value,
@@ -209,7 +209,7 @@ func (m *Manager) GetPassCount() (uint64, error) {
  */
 func (m *Manager) GetLockedIPCount() (uint64, error) {
 	count, err := GetMapCount(m.staticBlacklist)
-	return uint64(count), err
+	return uint64(count), err // #nosec G115 // count is always valid
 }
 
 /**
@@ -218,7 +218,7 @@ func (m *Manager) GetLockedIPCount() (uint64, error) {
  */
 func (m *Manager) GetWhitelistCount() (uint64, error) {
 	count, err := GetMapCount(m.whitelist)
-	return uint64(count), err
+	return uint64(count), err // #nosec G115 // count is always valid
 }
 
 /**
@@ -227,7 +227,7 @@ func (m *Manager) GetWhitelistCount() (uint64, error) {
  */
 func (m *Manager) GetConntrackCount() (uint64, error) {
 	count, err := GetMapCount(m.conntrackMap)
-	return uint64(count), err
+	return uint64(count), err // #nosec G115 // count is always valid
 }
 
 /**
@@ -236,7 +236,7 @@ func (m *Manager) GetConntrackCount() (uint64, error) {
  */
 func (m *Manager) GetDynLockListCount() (uint64, error) {
 	count, err := GetMapCount(m.dynamicBlacklist)
-	return uint64(count), err
+	return uint64(count), err // #nosec G115 // count is always valid
 }
 
 /**
@@ -245,7 +245,7 @@ func (m *Manager) GetDynLockListCount() (uint64, error) {
  */
 func (m *Manager) GetCriticalBlacklistCount() (uint64, error) {
 	count, err := GetMapCount(m.criticalBlacklist)
-	return uint64(count), err
+	return uint64(count), err // #nosec G115 // count is always valid
 }
 
 /**
@@ -288,7 +288,7 @@ func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
 			SrcPort:  key.SrcPort,
 			DstPort:  key.DstPort,
 			Protocol: key.Protocol,
-			LastSeen: time.Unix(0, int64(val.LastSeen)), // nolint:gosec // G115: timestamp from BPF is always valid
+			LastSeen: time.Unix(0, int64(val.LastSeen)), // #nosec G115 // timestamp from BPF is always valid
 		}
 		entries = append(entries, entry)
 	}

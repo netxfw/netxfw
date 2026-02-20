@@ -367,18 +367,18 @@ func (p *PerformanceStats) UpdateConntrackStats(currentCount uint64) {
 	if elapsed > 0 && p.Traffic.LastUpdateTime.After(time.Time{}) {
 		// Calculate new/evict rates based on count changes
 		// 根据计数变化计算新建/淘汰速率
-		countDiff := int64(currentCount) - int64(p.Traffic.LastConntrackCount) // nolint:gosec // G115: safe subtraction for rate calculation
+		countDiff := int64(currentCount) - int64(p.Traffic.LastConntrackCount) // #nosec G115 // safe subtraction for rate calculation
 
 		if countDiff > 0 {
 			// More connections than before = new connections
 			// 连接数增加 = 新建连接
-			p.Traffic.CurrentConntrackNew = uint64(float64(countDiff) / elapsed)
+			p.Traffic.CurrentConntrackNew = uint64(float64(countDiff) / elapsed) // #nosec G115 // rate calculation is safe
 			p.Traffic.CurrentConntrackEvict = 0
 		} else if countDiff < 0 {
 			// Less connections than before = evicted connections
 			// 连接数减少 = 淘汰连接
 			p.Traffic.CurrentConntrackNew = 0
-			p.Traffic.CurrentConntrackEvict = uint64(float64(-countDiff) / elapsed)
+			p.Traffic.CurrentConntrackEvict = uint64(float64(-countDiff) / elapsed) // #nosec G115 // rate calculation is safe
 		} else {
 			p.Traffic.CurrentConntrackNew = 0
 			p.Traffic.CurrentConntrackEvict = 0
