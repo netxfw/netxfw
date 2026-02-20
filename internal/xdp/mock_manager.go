@@ -2,6 +2,7 @@ package xdp
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -11,6 +12,8 @@ import (
 )
 
 type MockManager struct {
+	mu sync.RWMutex // Protects all maps from concurrent access / 保护所有 map 免受并发访问
+
 	Blacklist       map[string]bool
 	WhitelistMap    map[string]uint16
 	IPPortRulesMap  map[string]IPPortRule
@@ -162,7 +165,9 @@ func (m *MockManager) AddBlacklistIP(cidr string) error {
 	if !strings.Contains(cidr, "/") {
 		normalized = cidr + "/32"
 	}
+	m.mu.Lock()
 	m.Blacklist[normalized] = true
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) AddBlacklistIPWithFile(cidr string, file string) error {
@@ -170,7 +175,9 @@ func (m *MockManager) AddBlacklistIPWithFile(cidr string, file string) error {
 	if !strings.Contains(cidr, "/") {
 		normalized = cidr + "/32"
 	}
+	m.mu.Lock()
 	m.Blacklist[normalized] = true
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) AddDynamicBlacklistIP(cidr string, ttl time.Duration) error {
@@ -178,7 +185,9 @@ func (m *MockManager) AddDynamicBlacklistIP(cidr string, ttl time.Duration) erro
 	if !strings.Contains(cidr, "/") {
 		normalized = cidr + "/32"
 	}
+	m.mu.Lock()
 	m.Blacklist[normalized] = true
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) RemoveBlacklistIP(cidr string) error {
@@ -186,11 +195,15 @@ func (m *MockManager) RemoveBlacklistIP(cidr string) error {
 	if !strings.Contains(cidr, "/") {
 		normalized = cidr + "/32"
 	}
+	m.mu.Lock()
 	delete(m.Blacklist, normalized)
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) ClearBlacklist() error {
+	m.mu.Lock()
 	m.Blacklist = make(map[string]bool)
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) IsIPInBlacklist(cidr string) (bool, error) {
@@ -198,10 +211,13 @@ func (m *MockManager) IsIPInBlacklist(cidr string) (bool, error) {
 	if !strings.Contains(cidr, "/") {
 		normalized = cidr + "/32"
 	}
+	m.mu.RLock()
 	_, ok := m.Blacklist[normalized]
+	m.mu.RUnlock()
 	return ok, nil
 }
 func (m *MockManager) ListBlacklistIPs(limit int, search string) ([]BlockedIP, int, error) {
+	m.mu.RLock()
 	ips := make([]BlockedIP, 0, len(m.Blacklist))
 	for ip := range m.Blacklist {
 		if search != "" && !strings.Contains(ip, search) {
@@ -209,6 +225,7 @@ func (m *MockManager) ListBlacklistIPs(limit int, search string) ([]BlockedIP, i
 		}
 		ips = append(ips, BlockedIP{IP: ip})
 	}
+	m.mu.RUnlock()
 	return ips, len(ips), nil
 }
 func (m *MockManager) ListDynamicBlacklistIPs(limit int, search string) ([]BlockedIP, int, error) {
@@ -221,7 +238,9 @@ func (m *MockManager) AddWhitelistIP(cidr string, port uint16) error {
 	if !strings.Contains(cidr, "/") {
 		normalized = cidr + "/32"
 	}
+	m.mu.Lock()
 	m.WhitelistMap[normalized] = port
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) RemoveWhitelistIP(cidr string) error {
@@ -229,11 +248,15 @@ func (m *MockManager) RemoveWhitelistIP(cidr string) error {
 	if !strings.Contains(cidr, "/") {
 		normalized = cidr + "/32"
 	}
+	m.mu.Lock()
 	delete(m.WhitelistMap, normalized)
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) ClearWhitelist() error {
+	m.mu.Lock()
 	m.WhitelistMap = make(map[string]uint16)
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) IsIPInWhitelist(cidr string) (bool, error) {
@@ -241,10 +264,13 @@ func (m *MockManager) IsIPInWhitelist(cidr string) (bool, error) {
 	if !strings.Contains(cidr, "/") {
 		normalized = cidr + "/32"
 	}
+	m.mu.RLock()
 	_, ok := m.WhitelistMap[normalized]
+	m.mu.RUnlock()
 	return ok, nil
 }
 func (m *MockManager) ListWhitelistIPs(limit int, search string) ([]string, int, error) {
+	m.mu.RLock()
 	ips := make([]string, 0, len(m.WhitelistMap))
 	for ip, port := range m.WhitelistMap {
 		if search != "" && !strings.Contains(ip, search) {
@@ -254,67 +280,93 @@ func (m *MockManager) ListWhitelistIPs(limit int, search string) ([]string, int,
 		_ = port // Port info not used in mock list format
 		ips = append(ips, entry)
 	}
+	m.mu.RUnlock()
 	return ips, len(ips), nil
 }
 
 // IP Port Rules Operations
 func (m *MockManager) AddIPPortRule(cidr string, port uint16, action uint8) error {
-	// key := cidr + "/32" // simplified - REMOVED this assumption
+	m.mu.Lock()
 	m.IPPortRulesMap[cidr] = sdk.IPPortRule{IP: cidr, Port: port, Action: action}
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) RemoveIPPortRule(cidr string, port uint16) error {
+	m.mu.Lock()
 	delete(m.IPPortRulesMap, cidr)
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) ClearIPPortRules() error {
+	m.mu.Lock()
 	m.IPPortRulesMap = make(map[string]sdk.IPPortRule)
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) ListIPPortRules(isIPv6 bool, limit int, search string) ([]sdk.IPPortRule, int, error) {
+	m.mu.RLock()
 	rules := make([]sdk.IPPortRule, 0, len(m.IPPortRulesMap))
 	for _, rule := range m.IPPortRulesMap {
 		rules = append(rules, rule)
 	}
+	m.mu.RUnlock()
 	return rules, len(rules), nil
 }
 
 // Allowed Ports Operations
 func (m *MockManager) AllowPort(port uint16) error {
+	m.mu.Lock()
 	m.AllowedPortsMap[port] = true
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) RemoveAllowedPort(port uint16) error {
+	m.mu.Lock()
 	delete(m.AllowedPortsMap, port)
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) ClearAllowedPorts() error {
+	m.mu.Lock()
 	m.AllowedPortsMap = make(map[uint16]bool)
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) ListAllowedPorts() ([]uint16, error) {
+	m.mu.RLock()
 	ports := make([]uint16, 0, len(m.AllowedPortsMap))
 	for port := range m.AllowedPortsMap {
 		ports = append(ports, port)
 	}
+	m.mu.RUnlock()
 	return ports, nil
 }
 
 // Rate Limit Operations
 func (m *MockManager) AddRateLimitRule(cidr string, rate uint64, burst uint64) error {
+	m.mu.Lock()
 	m.RateLimitRules[cidr] = sdk.RateLimitConf{Rate: rate, Burst: burst}
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) RemoveRateLimitRule(cidr string) error {
+	m.mu.Lock()
 	delete(m.RateLimitRules, cidr)
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) ClearRateLimitRules() error {
+	m.mu.Lock()
 	m.RateLimitRules = make(map[string]sdk.RateLimitConf)
+	m.mu.Unlock()
 	return nil
 }
 func (m *MockManager) ListRateLimitRules(limit int, search string) (map[string]sdk.RateLimitConf, int, error) {
-	return m.RateLimitRules, len(m.RateLimitRules), nil
+	m.mu.RLock()
+	rules := m.RateLimitRules
+	count := len(m.RateLimitRules)
+	m.mu.RUnlock()
+	return rules, count, nil
 }
 
 // Conntrack Operations
@@ -327,11 +379,21 @@ func (m *MockManager) GetDropDetails() ([]DropDetailEntry, error) { return nil, 
 func (m *MockManager) GetPassDetails() ([]DropDetailEntry, error) { return nil, nil }
 func (m *MockManager) GetDropCount() (uint64, error)              { return 0, nil }
 func (m *MockManager) GetPassCount() (uint64, error)              { return 0, nil }
-func (m *MockManager) GetLockedIPCount() (int, error)             { return len(m.Blacklist), nil }
-func (m *MockManager) GetWhitelistCount() (int, error)            { return len(m.WhitelistMap), nil }
-func (m *MockManager) GetConntrackCount() (int, error)            { return 0, nil }
-func (m *MockManager) GetDynLockListCount() (uint64, error)       { return 0, nil }
-func (m *MockManager) InvalidateStatsCache()                      {}
+func (m *MockManager) GetLockedIPCount() (int, error) {
+	m.mu.RLock()
+	count := len(m.Blacklist)
+	m.mu.RUnlock()
+	return count, nil
+}
+func (m *MockManager) GetWhitelistCount() (int, error) {
+	m.mu.RLock()
+	count := len(m.WhitelistMap)
+	m.mu.RUnlock()
+	return count, nil
+}
+func (m *MockManager) GetConntrackCount() (int, error)      { return 0, nil }
+func (m *MockManager) GetDynLockListCount() (uint64, error) { return 0, nil }
+func (m *MockManager) InvalidateStatsCache()                {}
 
 // PerfStats returns a mock performance stats tracker.
 // PerfStats 返回模拟的性能统计跟踪器。
