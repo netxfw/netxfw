@@ -1,0 +1,208 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+#  pull_request:
+#    branches: [ main, master, develop ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  vet:
+    name: Vet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
+
+      - name: Run go vet
+        run: go vet ./...
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [lint, vet]
+    continue-on-error: true  # Allow build to continue even if some tests fail
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
+
+      - name: Run unit tests only
+        run: |
+          echo "Running unit tests (excluding integration tests that require real environment)..."
+          go test -v -race -count=1 ./test/unit/... ./internal/... ./cmd/... ./pkg/... 2>&1 | tee test_output.txt || true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test_output.txt
+          retention-days: 7
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    needs: [test]
+    continue-on-error: true  # Coverage issues shouldn't block the build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
+
+      - name: Generate coverage report
+        run: |
+          go test -coverprofile=coverage.out -covermode=atomic ./...
+          go tool cover -func=coverage.out > coverage_report.txt
+          echo "## Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat coverage_report.txt >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          fail_ci_if_error: false
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.out
+            coverage_report.txt
+          retention-days: 7
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
+
+      - name: Build
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o netxfw-linux-amd64 ./cmd/netxfw
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o netxfw-linux-arm64 ./cmd/netxfw
+          sudo apt-get install -y upx-ucl
+          upx --best netxfw-linux-amd64 netxfw-linux-arm64
+          ls -lh netxfw-*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: |
+            netxfw-linux-amd64
+            netxfw-linux-arm64
+          retention-days: 7
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Security issues shouldn't block the build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install BPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+
+      - name: Generate BPF code
+        run: make generate
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: ./...

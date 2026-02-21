@@ -1,0 +1,192 @@
+# NetXFW Configuration File / NetXFW 配置文件
+#
+
+# Cluster Configuration / 集群配置
+# Default cluster config file path / 默认集群配置文件路径
+cluster:
+  enabled: false
+  configpath: "cluster.yaml"
+
+# Base Configuration / 基础配置
+base:
+  # Default Deny Policy: If true, all traffic not explicitly allowed is dropped.
+  # 默认拒绝策略：如果为 true，所有未显式允许的流量将被丢弃。
+  default_deny: true
+  # Allow Return Traffic: Stateless check (ACK + Port range).
+  # 允许回程流量：无状态检查（ACK + 端口范围）。
+  allow_return_traffic: true
+  # Allow ICMP: Allow Ping and other ICMP messages.
+  # 允许 ICMP：允许 Ping 和其他 ICMP 消息。
+  allow_icmp: true
+  # Enable AF_XDP: Enable high-performance packet redirection to userspace.
+  # 启用 AF_XDP：启用高性能数据包重定向到用户空间。
+  enable_af_xdp: false
+  # Strict Protocol Validation: Drop malformed packets.
+  # 严格协议验证：丢弃畸形数据包。
+  strict_protocol: false
+  # Drop IP Fragments: Prevent fragmentation attacks.
+  # 丢弃 IP 分片：防止分片攻击。
+  drop_fragments: true
+  # Strict TCP Validation: Check TCP flags and sequence numbers.
+  # 严格 TCP 验证：检查 TCP 标志和序列号。
+  strict_tcp: false
+  # SYN Rate Limit: Limit SYN packets to prevent flood attacks.
+  # SYN 速率限制：限制 SYN 数据包以防止泛洪攻击。
+  syn_limit: false
+  # Bogon Filter: Drop packets from reserved/private IP ranges on public interfaces.
+  # Bogon 过滤：丢弃来自保留/私有 IP 范围的数据包。
+  bogon_filter: false
+  # ICMP Rate Limit (pps) / ICMP 速率限制 (每秒包数)
+  icmp_rate: 10
+  # ICMP Burst Size / ICMP 突发大小
+  icmp_burst: 50
+  # Whitelist: Global allowed IPs/CIDRs.
+  # 白名单：全局允许的 IP/CIDR。
+  whitelist:
+    - 127.0.0.1/32
+  # Lock List File: Persistence file for blocked IPs.
+  # 锁定列表文件：被封禁 IP 的持久化文件。
+  lock_list_file: /etc/netxfw/rules.deny.txt
+  # Lock List Binary: Binary format for fast loading (optional).
+  # 锁定列表二进制文件：用于快速加载的二进制格式（可选）。
+  lock_list_binary: /etc/netxfw/rules.deny.bin.zst
+  # Lock List Merge Threshold: If > 0, merge IPs into subnets if count >= threshold.
+  # 锁定列表合并阈值：如果 > 0，当数量 >= 阈值时将 IP 合并为子网。
+  lock_list_merge_threshold: 0
+  # Lock List IPv4 Mask: Target mask for IPv4 merging (default 24).
+  # 锁定列表 IPv4 掩码：IPv4 合并的目标掩码（默认 24）。
+  lock_list_v4_mask: 24
+  # Lock List IPv6 Mask: Target mask for IPv6 merging (default 64).
+  # 锁定列表 IPv6 掩码：IPv6 合并的目标掩码（默认 64）。
+  lock_list_v6_mask: 64
+  # Enable Expiry: Automatically clean up old rules.
+  # 启用过期：自动清理旧规则。
+  enable_expiry: false
+  # Cleanup Interval: How often to run cleanup (e.g., "1m", "1h").
+  # 清理间隔：多久运行一次清理（例如 "1m", "1h"）。
+  cleanup_interval: 1m
+  # Persist Rules: Save runtime rule changes to disk.
+  # 持久化规则：将运行时规则更改保存到磁盘。
+  persist_rules: true
+  # Enable Pprof: Enable Go performance profiling.
+  # 启用 Pprof：启用 Go 性能分析。
+  enable_pprof: false
+  # Pprof Port: Port for pprof server (localhost only).
+  # Pprof 端口：pprof 服务器端口（仅限本地主机）。
+  pprof_port: 6060
+
+# Web Server Configuration / Web 服务器配置
+web:
+  enabled: false
+  port: 11811
+  token: ""
+
+# Metrics Configuration / 监控指标配置
+# When metrics.enabled = false, metrics are served via web server at /metrics path
+# 当 metrics.enabled = false 时，指标通过 web 服务器的 /metrics 路径提供
+metrics:
+  enabled: false
+  server_enabled: false
+  port: 11812
+  push_enabled: false
+  push_gateway_addr: ""
+  push_interval: 1m
+  textfile_enabled: false
+  textfile_path: ""
+
+# Port Configuration / 端口配置
+port:
+  # Allowed Ports: List of allowed destination ports (TCP/UDP).
+  # 允许端口：允许的目标端口列表 (TCP/UDP)。
+  allowed_ports:
+    - 22
+    - 8080
+  # IP-Port Rules: Specific rules for IP+Port combinations.
+  # IP-端口规则：针对 IP+端口组合的特定规则。
+  ip_port_rules:
+    - ip: 0.0.0.0/0
+      port: 7070
+      action: 2  # 1: Allow, 2: Deny
+
+# Conntrack Configuration / 连接跟踪配置
+conntrack:
+  enabled: true
+  max_entries: 100000
+  tcp_timeout: 1h
+  udp_timeout: 5m
+
+# Rate Limit Configuration / 速率限制配置
+rate_limit:
+  enabled: false
+  auto_block: false
+  # Auto Block Expiry: Duration to block IPs that exceed limits.
+  # 自动封禁过期时间：超过限制的 IP 的封禁持续时间。
+  auto_block_expiry: ""
+  rules: []
+  # Example / 示例:
+  # - ip: "10.0.0.0/24"
+  #   rate: 1000
+  #   burst: 2000
+
+# Log Engine Configuration / 日志引擎配置
+log_engine:
+  enabled: true
+  workers: 4
+
+  rules:
+    # 1. Non-Root User Login Attempt -> Block Immediately
+    # 1. 非 Root 用户登录尝试 -> 立即封禁
+    - id: "block_non_root_strict"
+      path: "/var/log/auth.log"
+      expression: '(log("password for") || log("Invalid user")) && !log("root")'
+      action: 2  # Static Block
+
+    # 2. Root User Failed Login -> Block after 2 failures (on 3rd attempt)
+    # 2. Root 用户登录失败 -> 2次失败后封禁（第3次尝试时）
+    - id: "block_root_failed"
+      path: "/var/log/auth.log"
+      expression: 'log("Failed") && log("root") && time(60) > 2'
+      action: 2  # Static Block
+
+# Capacity Configuration / 容量配置
+# Adjust these based on your system memory and requirements.
+# 根据您的系统内存和需求进行调整。
+capacity:
+  lock_list: 2000000
+  dyn_lock_list: 0
+  whitelist: 65536
+  ip_port_rules: 65536
+  allowed_ports: 1024
+  # Stats Map Capacity (per minute) / 统计 Map 容量（每分钟）
+  # Used for top IP / top port analysis with LRU_HASH auto-eviction
+  # 用于 top IP / top port 分析，使用 LRU_HASH 自动淘汰
+  drop_reason_stats: 1000000  # 1 million entries / 100 万条目
+  pass_reason_stats: 1000000  # 1 million entries / 100 万条目
+
+# MCP Configuration / MCP 配置
+mcp:
+  enabled: false
+  port: 11814
+  mode: sse  # "stdio" or "sse"
+
+# AI Configuration / AI 配置
+ai:
+  enabled: false
+  port: 11813
+  model: ""
+  api_key: ""
+  base_url: ""
+
+# Logging Configuration / 日志配置
+logging:
+  enabled: false
+  # Log file path / 日志文件路径
+  path: "/var/log/netxfw/agent.log"
+  # Max size in MB before rotation / 轮转前的最大大小 (MB)
+  max_size: 10
+  # Max number of old files to keep / 保留的旧文件最大数量
+  max_backups: 3
+  # Max number of days to keep old files / 保留旧文件的最大天数
+  max_age: 30
+  # Whether to compress old files / 是否压缩旧文件
+  compress: true

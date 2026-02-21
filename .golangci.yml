@@ -1,0 +1,151 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - typecheck
+    - gofmt
+    - goimports
+    - misspell
+    - revive
+    - gocyclo
+    - dupl
+    - goconst
+    - gocritic
+    - prealloc
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+
+  gocyclo:
+    min-complexity: 20
+
+  dupl:
+    threshold: 150
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+      - wrapperFunc
+      - unnamedResult
+      - paramTypeCombine
+      - hugeParam
+      - commentedOutCode
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - dupl
+        - gocyclo
+        - gosec
+        - errcheck
+        - revive
+        - unusedwrite
+        - govet
+
+    - path: test/
+      linters:
+        - dupl
+        - gocyclo
+        - errcheck
+        - revive
+        - unusedwrite
+        - govet
+
+    - path: cmd/
+      linters:
+        - errcheck
+
+    - path: pkg/sdk/mock/
+      linters:
+        - errcheck
+
+    - path: internal/xdp/
+      linters:
+        - errcheck
+
+    - path: scripts/
+      linters:
+        - gocyclo
+
+    - linters:
+        - staticcheck
+      text: "SA1019:"
+
+    - linters:
+        - revive
+      text: "exported:"
+
+    - linters:
+        - revive
+      text: "unused-parameter:"
+
+    - linters:
+        - staticcheck
+      text: "SA1012:"
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false

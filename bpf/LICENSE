@@ -1,0 +1,36 @@
+NetXfw BPF Code - Dual License
+Copyright 2024-2026 NetXfw Contributors
+
+================================================================================
+                           DUAL LICENSE NOTICE
+================================================================================
+
+The BPF (Berkeley Packet Filter) code in this project is dual-licensed under
+your choice of:
+
+  1. BSD-2-Clause License (see LICENSE-BSD file)
+  2. GNU General Public License v2.0 only (see LICENSE-GPL file)
+
+You may use, distribute, and modify this code under the terms of either license.
+
+================================================================================
+                              WHY DUAL LICENSE?
+================================================================================
+
+The BPF code uses GPL-only kernel helper functions (e.g., bpf_ktime_get_ns,
+bpf_tail_call, bpf_redirect_map) which require GPL-compatible licensing for
+kernel loading. The dual license provides:
+
+1. GPL-2.0-only: Required for kernel compatibility with GPL-only helpers
+2. BSD-2-Clause: More permissive option for users who don't need GPL-only helpers
+
+When the BPF program is loaded into the Linux kernel, the kernel will check
+the license string. The "Dual BSD/GPL" license string in the BPF code allows
+the kernel to recognize it as GPL-compatible.
+
+================================================================================
+                           COMMERCIAL LICENSING
+================================================================================
+
+For commercial licensing options that allow proprietary modifications without
+the requirements of either license, please contact the copyright holder.

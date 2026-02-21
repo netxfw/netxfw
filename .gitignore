@@ -1,0 +1,26 @@
+# Binaries
+/netxfw
+/netxfw-linux-amd64
+/netxfw-linux-arm64
+/netxfw_protected
+/ai-mcp
+/netxfw-controller
+/netxfw-dp
+/netxfw-agent
+/netxfw-controller.yaml
+/netxfw-test
+/netxfw_af
+# Local config
+/etc/
+/vendor/
+/config.yaml
+
+# BPF objects
+internal/xdp/netxfw_bpfel.o
+internal/xdp/netxfw_bpfeb.o
+internal/xdp/netxfw_bpfel.go
+internal/xdp/netxfw_bpfeb.go
+
+# OS metadata
+.DS_Store
+Thumbs.db

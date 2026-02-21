@@ -1,0 +1,103 @@
+package web_test
+
+import (
+	"testing"
+
+	"github.com/netxfw/netxfw/internal/plugins/agent/web"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/stretchr/testify/assert"
+)
+
+// TestWebPlugin_DefaultConfig tests the default config
+// TestWebPlugin_DefaultConfig 测试默认配置
+func TestWebPlugin_DefaultConfig(t *testing.T) {
+	p := &web.WebPlugin{}
+	cfg := p.DefaultConfig()
+	assert.IsType(t, types.WebConfig{}, cfg)
+	webCfg := cfg.(types.WebConfig)
+	assert.True(t, webCfg.Enabled)
+	assert.Equal(t, 11811, webCfg.Port)
+}
+
+// TestWebPlugin_Validate tests config validation
+// TestWebPlugin_Validate 测试配置验证
+func TestWebPlugin_Validate(t *testing.T) {
+	p := &web.WebPlugin{}
+
+	tests := []struct {
+		name    string
+		cfg     *types.GlobalConfig
+		wantErr bool
+	}{
+		{
+			name: "valid config",
+			cfg: &types.GlobalConfig{
+				Web: types.WebConfig{
+					Enabled: true,
+					Port:    8080,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid port low",
+			cfg: &types.GlobalConfig{
+				Web: types.WebConfig{
+					Enabled: true,
+					Port:    0,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid port high",
+			cfg: &types.GlobalConfig{
+				Web: types.WebConfig{
+					Enabled: true,
+					Port:    70000,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "disabled valid port",
+			cfg: &types.GlobalConfig{
+				Web: types.WebConfig{
+					Enabled: false,
+					Port:    0,
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := p.Validate(tt.cfg)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestWebPlugin_Init tests plugin initialization
+// TestWebPlugin_Init 测试插件初始化
+func TestWebPlugin_Init(t *testing.T) {
+	p := &web.WebPlugin{}
+	ctx := &sdk.PluginContext{
+		Config: &types.GlobalConfig{
+			Web: types.WebConfig{
+				Enabled: true,
+				Port:    11811,
+			},
+		},
+		SDK: &sdk.SDK{}, // Mock SDK if needed
+	}
+
+	err := p.Init(ctx)
+	assert.NoError(t, err)
+}

@@ -1,0 +1,35 @@
+package dp
+
+import (
+	"os"
+
+	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
+	"github.com/spf13/cobra"
+)
+
+var ConntrackCmd = &cobra.Command{
+	Use:   "conntrack",
+	Short: "Show conntrack table",
+	// Short: 显示连接跟踪表
+	Long: `Show current connection tracking table`,
+	// Long: 显示当前的连接跟踪表
+	Run: func(cmd *cobra.Command, args []string) {
+		common.EnsureStandaloneMode()
+
+		s, err := common.GetSDK()
+		if err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+
+		// Show conntrack table
+		// 显示连接跟踪表
+		if err := common.ShowConntrack(cmd.Context(), s); err != nil {
+			cmd.PrintErrln(err)
+		}
+	},
+}
+
+func init() {
+	// Not adding to RootCmd here
+}
