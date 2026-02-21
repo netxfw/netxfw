@@ -1,6 +1,7 @@
 # netxfw — The eXtensible eBPF Firewall
 
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![BPF License](https://img.shields.io/badge/BPF-Dual%20BSD/GPL-purple.svg)](bpf/LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/livp123/netxfw)](https://goreportcard.com/report/github.com/livp123/netxfw)
 [![Release](https://img.shields.io/github/v/release/livp123/netxfw)](https://github.com/livp123/netxfw/releases)
 [![Chinese README](https://img.shields.io/badge/README-中文-red.svg)](README.md)
@@ -135,4 +136,10 @@ sudo ./netxfw system load
 - [Changelog](CHANGELOG.md)
 
 ## 📄 License
-This project is licensed under the [MIT License](LICENSE).
+
+This project uses a dual-license structure:
+
+- **Go User-Space Code**: [Apache-2.0](LICENSE)
+- **BPF Kernel Code**: [Dual BSD/GPL](bpf/LICENSE) (BSD-2-Clause OR GPL-2.0-only)
+
+See [NOTICE](NOTICE) for details on the license structure.

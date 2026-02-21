@@ -1,6 +1,7 @@
 # netxfw — 可扩展的 eBPF 防火墙
 
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![BPF License](https://img.shields.io/badge/BPF-Dual%20BSD/GPL-purple.svg)](bpf/LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/livp123/netxfw)](https://goreportcard.com/report/github.com/livp123/netxfw)
 [![Release](https://img.shields.io/github/v/release/livp123/netxfw)](https://github.com/livp123/netxfw/releases)
 [![English README](https://img.shields.io/badge/README-English-blue.svg)](README_en.md)
@@ -138,4 +139,10 @@ sudo ./netxfw system load
 - [变更日志](CHANGELOG_zh.md)
 
 ## 📄 开源协议
-本项目采用 [MIT License](LICENSE) 协议。
+
+本项目采用混合许可证：
+
+- **Go 用户空间代码**: [Apache-2.0](LICENSE)
+- **BPF 内核代码**: [Dual BSD/GPL](bpf/LICENSE) (BSD-2-Clause OR GPL-2.0-only)
+
+详见 [NOTICE](NOTICE) 文件了解许可证结构。
