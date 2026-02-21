@@ -1,24 +1,23 @@
-# Security Policy
+# 安全策略
 
-## Supported Versions
+## 支持的版本
 
-| Version | Supported          |
-| ------- | ------------------ |
-| v0.1.x  | :white_check_mark: |
-| < v0.1  | :x:                |
+| 版本 | 是否支持 |
+| --- | --- |
+| v0.1.x | :white_check_mark: |
+| < v0.1 | :x: |
 
-## Reporting a Vulnerability
+## 报告安全漏洞
 
-If you discover a security vulnerability in this project, please report it privately.
+如果您在本工程中发现了安全漏洞，请私下报告。
 
-**Do not open a public issue.**
+**请不要公开提交 Issue。**
 
-Please email the maintainers directly or use the GitHub Security Advisory feature (if enabled). We will respond as quickly as possible to assess the issue.
+请直接通过邮件联系维护者，或使用 GitHub Security Advisory 功能（如果已启用）。我们将尽快响应并评估问题。
 
-### Process
-1.  **Report**: Send a detailed report including steps to reproduce.
-2.  **Ack**: We will acknowledge receipt within 48 hours.
-3.  **Assessment**: We will investigate the impact.
-4.  **Fix**: A patch will be prepared and released.
-5.  **Disclosure**: A public advisory will be published after the fix is available.
-
+### 处理流程
+1.  **报告**: 发送详细的报告，包括复现步骤。
+2.  **确认**: 我们将在 48 小时内确认收到报告。
+3.  **评估**: 我们将调查漏洞的影响范围。
+4.  **修复**: 准备并发布修复补丁。
+5.  **披露**: 在修复发布后，将发布公开的安全公告。

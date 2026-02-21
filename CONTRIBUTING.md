@@ -1,72 +1,50 @@
-# Contributing to netxfw
+# 贡献指南
 
-Thank you for your interest in contributing to `netxfw`! We welcome contributions from everyone, whether it's bug reports, feature requests, documentation improvements, or code contributions.
+感谢您对 `netxfw` 感兴趣！我们欢迎任何形式的贡献，无论是提交 Bug 报告、功能建议、文档改进还是代码提交。
 
-## Prerequisites
+## 准备工作
 
-Before you start, ensure you have the following tools installed:
+在开始之前，请确保您的环境中安装了以下工具：
 
-*   **Go**: Version 1.22 or later.
-*   **Clang/LLVM**: Version 11 or later (required for compiling BPF programs).
-*   **Make**: Standard build tool.
-*   **Linux Kernel Headers**: Required for BPF compilation (`linux-headers-$(uname -r)`).
+*   **Go**: 版本 1.22 或更高。
+*   **Clang/LLVM**: 版本 11 或更高（编译 BPF 程序需要）。
+*   **Make**: 标准构建工具。
+*   **Linux Kernel Headers**: BPF 编译需要 (`linux-headers-$(uname -r)`)。
 
-## Development Workflow
+## 开发流程
 
-1.  **Fork** the repository on GitHub.
-2.  **Clone** your fork locally:
+1.  **Fork** 本仓库到您的 GitHub 账户。
+2.  **Clone** 您的 Fork 到本地：
     ```bash
     git clone https://github.com/your-username/netxfw.git
     cd netxfw
     ```
-3.  **Create a Branch** for your changes:
+3.  **创建分支** (Branch) 进行开发：
     ```bash
     git checkout -b feature/my-new-feature
     ```
-4.  **Make Changes**: Write your code and tests.
-5.  **Build**:
+4.  **修改代码**: 编写代码和测试。
+5.  **构建**:
     ```bash
     make build
     ```
-    To verify BPF compilation (if modifying C code):
+    如果您修改了 C 代码，请验证 BPF 编译：
     ```bash
     make generate
     ```
 
-## Testing
+## 测试
 
-Integration tests require `root` privileges because they interact with BPF maps.
+集成测试需要 `root` 权限，因为它们需要与 BPF Map 进行交互。
 
-Run the CLI integration test suite:
+运行 CLI 集成测试套件：
 ```bash
 sudo test/integration/cli/run_tests.sh
 ```
 
-Ensure all tests pass before submitting a Pull Request.
+在提交 Pull Request 之前，请确保所有测试通过。
 
-## Code Style
+## 代码风格
 
-*   **Go**: Run `go fmt ./...` before committing.
-*   **C (BPF)**: Follow standard Linux kernel coding style where applicable.
-
-## Commit Messages
-
-We encourage the use of [Conventional Commits](https://www.conventionalcommits.org/):
-
-*   `feat: add support for ...`
-*   `fix: resolve issue with ...`
-*   `docs: update README for ...`
-*   `test: add integration test for ...`
-
-## Submitting a Pull Request
-
-1.  Push your changes to your fork.
-2.  Open a Pull Request against the `main` branch of the original repository.
-3.  Provide a clear description of the changes and link any related issues.
-
-## Reporting Issues
-
-If you find a bug or have a feature request, please open an issue on the repository issue tracker. Provide as much detail as possible, including:
-*   Netxfw version (`netxfw version`)
-*   Kernel version (`uname -r`)
-*   Steps to reproduce
+*   **Go**: 提交前请运行 `go fmt ./...`。
+*   **C (BPF)**: 尽可能遵循标准的 Linux 内核代码风格。
