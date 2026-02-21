@@ -83,11 +83,11 @@ Download the latest version from the [Releases](https://github.com/netxfw/netxfw
 
 - **x86_64 (amd64)**:
   ```bash
-  wget https://github.com/netxfw/netxfw/releases/download/v1.0.18/netxfw_Linux_x86_64.tar.gz
+  wget https://github.com/netxfw/netxfw/releases/latest/download/netxfw_Linux_x86_64.tar.gz
   ```
 - **ARM64 (aarch64)**:
   ```bash
-  wget https://github.com/netxfw/netxfw/releases/download/v1.0.18/netxfw_Linux_arm64.tar.gz
+  wget https://github.com/netxfw/netxfw/releases/latest/download/netxfw_Linux_arm64.tar.gz
   ```
 
 **Install**:
