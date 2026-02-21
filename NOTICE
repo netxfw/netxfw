@@ -22,7 +22,7 @@ This project uses a dual-license structure:
    -------------------------------
    Files: bpf/*
    License: BSD-2-Clause OR GPL-2.0-only (your choice)
-   See: bpf/LICENSE file
+   See: bpf/LICENSE, bpf/LICENSE-BSD, bpf/LICENSE-GPL files
 
    The dual license provides flexibility:
    - BSD-2-Clause: More permissive, commercial-friendly
