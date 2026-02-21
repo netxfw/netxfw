@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
 // TestInit tests logger initialization

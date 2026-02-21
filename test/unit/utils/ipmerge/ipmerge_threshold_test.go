@@ -5,7 +5,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/livp123/netxfw/internal/utils/ipmerge"
+	"github.com/netxfw/netxfw/internal/utils/ipmerge"
 )
 
 // TestMergeCIDRsWithThreshold tests CIDR merging with threshold

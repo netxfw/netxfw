@@ -3,7 +3,7 @@ package version_test
 import (
 	"testing"
 
-	"github.com/livp123/netxfw/internal/version"
+	"github.com/netxfw/netxfw/internal/version"
 )
 
 // TestVersion tests that version is set

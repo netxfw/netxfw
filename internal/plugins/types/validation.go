@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 )
 
 // Validate checks the configuration for errors.

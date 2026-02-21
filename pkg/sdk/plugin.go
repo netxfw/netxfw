@@ -3,7 +3,7 @@ package sdk
 import (
 	"context"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/plugins/types"
 )
 
 // PluginContext provides the environment for a plugin to operate in.

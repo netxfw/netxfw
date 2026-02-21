@@ -3,7 +3,7 @@ package sdk_test
 import (
 	"testing"
 
-	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/stretchr/testify/assert"
 )
 

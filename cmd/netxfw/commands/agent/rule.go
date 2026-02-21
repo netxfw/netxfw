@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
-	"github.com/livp123/netxfw/internal/utils/iputil"
-	"github.com/livp123/netxfw/internal/utils/logger"
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

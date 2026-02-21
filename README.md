@@ -2,8 +2,8 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![BPF License](https://img.shields.io/badge/BPF-Dual%20BSD/GPL-purple.svg)](bpf/LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/livp123/netxfw)](https://goreportcard.com/report/github.com/livp123/netxfw)
-[![Release](https://img.shields.io/github/v/release/livp123/netxfw)](https://github.com/livp123/netxfw/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/netxfw/netxfw)](https://goreportcard.com/report/github.com/netxfw/netxfw)
+[![Release](https://img.shields.io/github/v/release/netxfw/netxfw)](https://github.com/netxfw/netxfw/releases)
 [![English README](https://img.shields.io/badge/README-English-blue.svg)](README_en.md)
 
 > **轻量 · 高性能 · 易扩展**
@@ -82,15 +82,15 @@ rate_limit:
 ### 1. 安装方式
 
 #### 方式 A：直接下载二进制文件（推荐）
-从 [Releases](https://github.com/livp123/netxfw/releases) 页面下载：
+从 [Releases](https://github.com/netxfw/netxfw/releases) 页面下载：
 
 - **x86_64 (amd64)**:
   ```bash
-  wget https://github.com/livp123/netxfw/releases/download/v0.2.2/netxfw_Linux_x86_64.tar.gz
+  wget https://github.com/netxfw/netxfw/releases/download/v1.0.18/netxfw_Linux_x86_64.tar.gz
   ```
 - **ARM64 (aarch64)**:
   ```bash
-  wget https://github.com/livp123/netxfw/releases/download/v0.2.2/netxfw_Linux_arm64.tar.gz
+  wget https://github.com/netxfw/netxfw/releases/download/v1.0.18/netxfw_Linux_arm64.tar.gz
   ```
 
 **安装**:
@@ -113,7 +113,7 @@ sudo apt-get install -y clang llvm libelf-dev libbpf-dev make
 
 **编译**:
 ```bash
-git clone https://github.com/livp123/netxfw.git
+git clone https://github.com/netxfw/netxfw.git
 cd netxfw
 make generate
 make

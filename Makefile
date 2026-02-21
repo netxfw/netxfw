@@ -18,7 +18,11 @@ help:
 	@echo "  make clean           - Clean build artifacts"
 
 build:
-	go build -ldflags="-s -w" -trimpath -o netxfw ./cmd/netxfw
+	go build -ldflags="-s -w -X 'github.com/netxfw/netxfw/internal/version.Version=$(VERSION)' -X 'github.com/netxfw/netxfw/internal/version.GitCommit=$(COMMIT)'" -trimpath -o netxfw ./cmd/netxfw
+
+# Default build target with dev version
+build-dev:
+	go build -ldflags="-s -w -X 'github.com/netxfw/netxfw/internal/version.Version=dev'" -trimpath -o netxfw ./cmd/netxfw
 
 build-compressed: build
 	@echo "Compressing binary with UPX..."

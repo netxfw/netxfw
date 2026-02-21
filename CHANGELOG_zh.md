@@ -6,10 +6,12 @@
 
 ## [Unreleased]
 
+## [v1.0.18] - 2026-02-21
+
 ### 新增
-- **XDP 加载时间**: 使用系统启动时间计算，准确显示 XDP 程序加载时间。
-- **许可证结构**: 实现双许可证结构（Go 代码使用 Apache-2.0，BPF 代码使用 Dual BSD/GPL）。
-- **CI/CD 优化**: 分离单元测试和集成测试，提高 CI 可靠性。
+- **多个版本**: 包含从1.0.9到1.0.18版本的功能和修复
+- **增强稳定性**: 各种改进和错误修复
+- **性能优化**: 持续的性能改进
 
 ## [v1.0.8] - 2025-02-20
 
@@ -55,4 +57,4 @@
 
 ---
 
-更早版本请查看 [GitHub Releases](https://github.com/livp123/netxfw/releases)。
+更早版本请查看 [GitHub Releases](https://github.com/netxfw/netxfw/releases)。

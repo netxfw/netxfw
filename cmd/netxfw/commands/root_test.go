@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/livp123/netxfw/cmd/netxfw/commands/agent"
-	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
-	"github.com/livp123/netxfw/pkg/sdk"
-	"github.com/livp123/netxfw/pkg/sdk/mock"
+	"github.com/netxfw/netxfw/cmd/netxfw/commands/agent"
+	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
+	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/pkg/sdk/mock"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/livp123/netxfw/internal/plugins/agent/logengine"
+	"github.com/netxfw/netxfw/internal/plugins/agent/logengine"
 )
 
 func TestRealWorldSSHLogs(t *testing.T) {

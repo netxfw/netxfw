@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/xdp"
 )
 
 // handleHealth returns the health status of the service including BPF maps.

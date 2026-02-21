@@ -2,8 +2,8 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![BPF License](https://img.shields.io/badge/BPF-Dual%20BSD/GPL-purple.svg)](bpf/LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/livp123/netxfw)](https://goreportcard.com/report/github.com/livp123/netxfw)
-[![Release](https://img.shields.io/github/v/release/livp123/netxfw)](https://github.com/livp123/netxfw/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/netxfw/netxfw)](https://goreportcard.com/report/github.com/netxfw/netxfw)
+[![Release](https://img.shields.io/github/v/release/netxfw/netxfw)](https://github.com/netxfw/netxfw/releases)
 [![Chinese README](https://img.shields.io/badge/README-中文-red.svg)](README.md)
 
 > **Lightweight · High-Performance · Extensible**
@@ -79,15 +79,15 @@ rate_limit:
 ### 1. Installation
 
 #### Method A: Binary Download (Recommended)
-Download the latest version from the [Releases](https://github.com/livp123/netxfw/releases) page:
+Download the latest version from the [Releases](https://github.com/netxfw/netxfw/releases) page:
 
 - **x86_64 (amd64)**:
   ```bash
-  wget https://github.com/livp123/netxfw/releases/download/v0.2.2/netxfw_Linux_x86_64.tar.gz
+  wget https://github.com/netxfw/netxfw/releases/download/v1.0.18/netxfw_Linux_x86_64.tar.gz
   ```
 - **ARM64 (aarch64)**:
   ```bash
-  wget https://github.com/livp123/netxfw/releases/download/v0.2.2/netxfw_Linux_arm64.tar.gz
+  wget https://github.com/netxfw/netxfw/releases/download/v1.0.18/netxfw_Linux_arm64.tar.gz
   ```
 
 **Install**:
@@ -110,7 +110,7 @@ sudo apt-get install -y clang llvm libelf-dev libbpf-dev make
 
 **Build**:
 ```bash
-git clone https://github.com/livp123/netxfw.git
+git clone https://github.com/netxfw/netxfw.git
 cd netxfw
 make generate
 make

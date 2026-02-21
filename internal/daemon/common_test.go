@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/plugins/types"
 )
 
 // TestManagePidFile_NewFile_Extended tests managePidFile with a new PID file (extended version)

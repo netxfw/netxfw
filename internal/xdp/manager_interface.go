@@ -1,7 +1,7 @@
 package xdp
 
 import (
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // ManagerInterface is now a type alias to sdk.ManagerInterface to avoid circular dependencies.

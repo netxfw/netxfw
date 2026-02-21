@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/livp123/netxfw/internal/config"
-	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/stretchr/testify/assert"
 )
 

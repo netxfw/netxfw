@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/livp123/netxfw/internal/core"
+	"github.com/netxfw/netxfw/internal/core"
 )
 
 // TestAskConfirmation tests the confirmation prompt

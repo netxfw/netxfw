@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/plugins/types"
 )
 
 // MockManager is a unified mock implementation of ManagerInterface for testing.

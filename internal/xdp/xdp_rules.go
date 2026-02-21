@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	"github.com/livp123/netxfw/internal/utils/fileutil"
-	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/utils/fileutil"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 )
 
 // BlockStatic adds an IP to the static blocklist (LPM trie) and optionally persists it to a file.

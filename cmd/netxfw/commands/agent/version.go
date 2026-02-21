@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
-	"github.com/livp123/netxfw/internal/version"
+	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
+	"github.com/netxfw/netxfw/internal/version"
 	"github.com/spf13/cobra"
 )
 

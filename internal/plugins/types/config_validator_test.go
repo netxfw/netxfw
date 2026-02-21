@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )

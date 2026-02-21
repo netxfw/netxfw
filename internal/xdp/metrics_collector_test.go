@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/livp123/netxfw/internal/utils/fmtutil"
+	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 )
 
 // TestMetricsCollector_NewMetricsCollector tests NewMetricsCollector function.

@@ -4,9 +4,9 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/livp123/netxfw/internal/plugins/agent/logengine"
+	"github.com/netxfw/netxfw/internal/plugins/agent/logengine"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/plugins/types"
 )
 
 // TestCloudflareStyle demonstrates how to write rules that mimic Cloudflare's syntax.

@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/livp123/netxfw/internal/config"
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/utils/iputil"
-	"github.com/livp123/netxfw/internal/version"
+	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/version"
 )
 
 // handleHealthz returns the health status of the service.

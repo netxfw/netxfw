@@ -15,7 +15,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
-	"github.com/livp123/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/config"
 )
 
 // getBootTime returns the system boot time by reading /proc/stat

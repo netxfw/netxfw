@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/livp123/netxfw/internal/utils/fileutil"
+	"github.com/netxfw/netxfw/internal/utils/fileutil"
 )
 
 // TestAtomicWriteFile tests atomic file writing

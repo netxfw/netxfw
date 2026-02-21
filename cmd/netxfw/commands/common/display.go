@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // ShowConntrack reads and prints all active connections.

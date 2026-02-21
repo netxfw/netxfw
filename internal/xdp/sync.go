@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	"github.com/livp123/netxfw/internal/binary"
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/utils/fileutil"
-	"github.com/livp123/netxfw/internal/utils/logger"
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/binary"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/utils/fileutil"
+	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // VerifyAndRepair ensures consistency between config and BPF maps by forcing a sync.

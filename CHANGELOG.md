@@ -7,10 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.18] - 2026-02-21
+
 ### Added
-- **XDP Load Time**: Added accurate XDP program load time display using system boot time calculation.
-- **License Structure**: Implemented dual-license structure (Apache-2.0 for Go code, Dual BSD/GPL for BPF code).
-- **CI/CD Optimization**: Separated unit tests from integration tests for better CI reliability.
+- **Multiple releases**: Contains features and fixes from versions 1.0.9 through 1.0.18
+- **Enhanced stability**: Various improvements and bug fixes
+- **Performance optimizations**: Continued performance improvements
 
 ## [v1.0.8] - 2025-02-20
 
@@ -56,4 +58,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-For older versions, see [GitHub Releases](https://github.com/livp123/netxfw/releases).
+For older versions, see [GitHub Releases](https://github.com/netxfw/netxfw/releases).

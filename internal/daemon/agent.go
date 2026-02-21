@@ -3,11 +3,11 @@ package daemon
 import (
 	"context"
 
-	"github.com/livp123/netxfw/internal/config"
-	"github.com/livp123/netxfw/internal/plugins"
-	"github.com/livp123/netxfw/internal/utils/logger"
-	"github.com/livp123/netxfw/internal/xdp"
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/plugins"
+	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // runControlPlane handles API, Web, Log Engine, and high-level management.

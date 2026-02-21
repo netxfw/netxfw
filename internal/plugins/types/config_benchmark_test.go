@@ -3,7 +3,7 @@ package types
 import (
 	"testing"
 
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
 // BenchmarkLoadGlobalConfig benchmarks global config loading.

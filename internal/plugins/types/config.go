@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/livp123/netxfw/internal/utils/fileutil"
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/utils/fileutil"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 	"gopkg.in/yaml.v3"
 )
 

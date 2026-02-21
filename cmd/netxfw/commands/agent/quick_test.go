@@ -3,8 +3,8 @@ package agent
 import (
 	"testing"
 
-	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
-	"github.com/livp123/netxfw/pkg/sdk/mock"
+	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
+	"github.com/netxfw/netxfw/pkg/sdk/mock"
 	"github.com/stretchr/testify/assert"
 )
 

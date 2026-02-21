@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/livp123/netxfw/pkg/sdk/mock"
+	"github.com/netxfw/netxfw/pkg/sdk/mock"
 )
 
 // BenchmarkHandleHealth benchmarks health handler.
