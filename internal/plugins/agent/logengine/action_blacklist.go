@@ -7,8 +7,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/livp123/netxfw/internal/utils/logger"
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // ActionType defines the type of action

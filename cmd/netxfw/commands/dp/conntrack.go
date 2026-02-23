@@ -3,7 +3,7 @@ package dp
 import (
 	"os"
 
-	"github.com/livp123/netxfw/cmd/netxfw/commands/common"
+	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
 	"github.com/spf13/cobra"
 )
 

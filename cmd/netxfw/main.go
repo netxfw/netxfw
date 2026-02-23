@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/livp123/netxfw/cmd/netxfw/commands"
+	"github.com/netxfw/netxfw/cmd/netxfw/commands"
 )
 
 func main() {

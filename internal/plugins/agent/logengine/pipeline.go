@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // LogEngine is the main orchestrator.

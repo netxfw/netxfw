@@ -3,8 +3,8 @@ package logengine
 import (
 	"fmt"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // LogEnginePlugin implements the Plugin interface.

@@ -1,9 +1,9 @@
 package plugins
 
 import (
-	"github.com/livp123/netxfw/internal/plugins/agent/logengine"
-	"github.com/livp123/netxfw/internal/plugins/agent/metrics"
-	"github.com/livp123/netxfw/internal/plugins/agent/web"
+	"github.com/netxfw/netxfw/internal/plugins/agent/logengine"
+	"github.com/netxfw/netxfw/internal/plugins/agent/metrics"
+	"github.com/netxfw/netxfw/internal/plugins/agent/web"
 )
 
 var (

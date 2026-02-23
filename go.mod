@@ -1,4 +1,4 @@
-module github.com/livp123/netxfw
+module github.com/netxfw/netxfw
 
 go 1.24.0
 

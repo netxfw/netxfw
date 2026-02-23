@@ -5,7 +5,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/livp123/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/xdp"
 )
 
 // TestNewLpmKey tests LPM key creation

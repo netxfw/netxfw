@@ -3,7 +3,7 @@ package utils
 import (
 	"testing"
 
-	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 )
 
 // TestParseCIDR tests CIDR parsing

@@ -3,7 +3,7 @@ package storage
 import (
 	"time"
 
-	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 )
 
 // RuleType defines the type of security rule

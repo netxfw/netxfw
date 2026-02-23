@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 
-	"github.com/livp123/netxfw/internal/config"
-	"github.com/livp123/netxfw/internal/core"
-	"github.com/livp123/netxfw/internal/daemon"
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/runtime"
-	"github.com/livp123/netxfw/internal/utils/logger"
-	"github.com/livp123/netxfw/internal/version"
+	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/core"
+	"github.com/netxfw/netxfw/internal/daemon"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/runtime"
+	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/version"
 )
 
 func main() {

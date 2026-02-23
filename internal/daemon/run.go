@@ -3,7 +3,7 @@ package daemon
 import (
 	"context"
 
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
 // Run starts the daemon in the specified mode.

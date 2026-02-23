@@ -14,9 +14,9 @@ import (
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/utils/logger"
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // Rule represents a compiled rule.

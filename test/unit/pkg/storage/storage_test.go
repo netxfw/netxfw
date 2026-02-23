@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/livp123/netxfw/pkg/storage"
+	"github.com/netxfw/netxfw/pkg/storage"
 )
 
 // TestRuleType tests rule type constants

@@ -3,9 +3,9 @@ package optimizer
 import (
 	"fmt"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/utils/ipmerge"
-	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/utils/ipmerge"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 )
 
 // OptimizeWhitelistConfig optimizes the whitelist in the configuration.

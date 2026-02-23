@@ -3,9 +3,9 @@ package metrics
 import (
 	"fmt"
 
-	"github.com/livp123/netxfw/internal/api"
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/api"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type MetricsPlugin struct {

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	"github.com/livp123/netxfw/internal/utils/fmtutil"
+	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 )
 
 // MetricsCollector collects comprehensive firewall metrics.

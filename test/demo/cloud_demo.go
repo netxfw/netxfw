@@ -7,9 +7,9 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/livp123/netxfw/internal/cloudconfig"
-	"github.com/livp123/netxfw/internal/proxyproto"
-	"github.com/livp123/netxfw/internal/realip"
+	"github.com/netxfw/netxfw/internal/cloudconfig"
+	"github.com/netxfw/netxfw/internal/proxyproto"
+	"github.com/netxfw/netxfw/internal/realip"
 )
 
 func main() {

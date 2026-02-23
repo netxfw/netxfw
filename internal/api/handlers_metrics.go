@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/livp123/netxfw/internal/xdp"
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // MetricsHandler handles metrics API requests.

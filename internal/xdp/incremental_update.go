@@ -3,7 +3,7 @@ package xdp
 import (
 	"fmt"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/plugins/types"
 )
 
 // ConfigDiff represents the difference between two configurations.

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/livp123/netxfw/internal/plugins/agent/logengine"
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/plugins/agent/logengine"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
 // MockActionHandler records calls for verification

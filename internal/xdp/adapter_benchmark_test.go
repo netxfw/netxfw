@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/plugins/types"
 )
 
 // BenchmarkNewMockManager benchmarks NewMockManager function

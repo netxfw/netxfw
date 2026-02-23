@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
 

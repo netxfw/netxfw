@@ -1,6 +1,6 @@
 # This is an example .goreleaser.yml file with some sensible defaults.
 # Make sure to check the documentation at https://goreleaser.com
-version: 1
+version: 2
 
 before:
   hooks:
@@ -17,7 +17,7 @@ builds:
       - amd64
     main: ./cmd/netxfw
     ldflags:
-      - -s -w -X github.com/livp123/netxfw/internal/version.Version={{.Tag}}
+      - "-s -w -X github.com/netxfw/netxfw/internal/version.Version={{.Tag}}"
     hooks:
       post:
         - upx --best "{{ .Path }}"
@@ -32,31 +32,27 @@ builds:
       - arm64
     main: ./cmd/netxfw
     ldflags:
-      - -s -w -X github.com/livp123/netxfw/internal/version.Version={{.Tag}}
+      - "-s -w -X github.com/netxfw/netxfw/internal/version.Version={{.Tag}}"
     hooks:
       post:
         - upx --best "{{ .Path }}"
 
 archives:
-  - format: tar.gz
+  - formats:
+      - tar.gz
     # this name template makes the OS and Arch compatible with the results of uname.
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ if eq .Arch \"amd64\" }}x86_64{{ else if eq .Arch \"386\" }}i386{{ else }}{{ .Arch }}{{ end }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
     # use zip for windows archives
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
 
 checksum:
   name_template: 'checksums.txt'
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
@@ -67,7 +63,8 @@ changelog:
 
 release:
   github:
-    owner: livp123
+    owner: netxfw
     name: netxfw
   draft: false
   prerelease: auto
+  replace_existing_artifacts: true

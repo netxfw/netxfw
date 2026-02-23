@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 )
 
 // generateRandomToken generates a random hex string of given length.

@@ -6,7 +6,7 @@ package xdp
 import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // Logger defines the logging interface used by the XDP manager.

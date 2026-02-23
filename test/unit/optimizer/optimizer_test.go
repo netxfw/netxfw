@@ -3,8 +3,8 @@ package optimizer_test
 import (
 	"testing"
 
-	"github.com/livp123/netxfw/internal/optimizer"
-	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/optimizer"
+	"github.com/netxfw/netxfw/internal/plugins/types"
 )
 
 // TestOptimizeWhitelistConfig tests whitelist config optimization

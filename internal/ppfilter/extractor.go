@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/livp123/netxfw/internal/proxyproto"
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/proxyproto"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 
 	"go.uber.org/zap"
 )

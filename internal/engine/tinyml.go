@@ -3,7 +3,7 @@ package engine
 import (
 	"context"
 
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
 // TinyMLEngine represents a lightweight machine learning engine for traffic analysis.

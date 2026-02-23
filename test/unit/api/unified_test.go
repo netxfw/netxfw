@@ -3,8 +3,8 @@ package api_test
 import (
 	"testing"
 
-	"github.com/livp123/netxfw/internal/api"
-	"github.com/livp123/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/api"
+	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/stretchr/testify/assert"
 )
 

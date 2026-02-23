@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/livp123/netxfw/internal/config"
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
 // InitConfiguration initializes the default configuration files if they don't exist.

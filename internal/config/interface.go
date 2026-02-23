@@ -1,9 +1,9 @@
 package config
 
 import (
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/runtime"
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/runtime"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
 // Configurable represents the interface for configuration management

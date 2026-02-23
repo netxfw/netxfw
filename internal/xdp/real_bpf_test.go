@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/livp123/netxfw/internal/config"
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

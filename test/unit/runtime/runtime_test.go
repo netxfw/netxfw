@@ -3,7 +3,7 @@ package runtime_test
 import (
 	"testing"
 
-	"github.com/livp123/netxfw/internal/runtime"
+	"github.com/netxfw/netxfw/internal/runtime"
 )
 
 // Test constants for runtime modes.

@@ -3,8 +3,8 @@ package config
 import (
 	"sync"
 
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
 // ConfigManager handles all configuration-related operations in a centralized manner

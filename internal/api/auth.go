@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/livp123/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/config"
 )
 
 // TokenClaims represents the payload of the JWT-like token

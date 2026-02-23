@@ -1,6 +1,6 @@
 package sdk
 
-import "github.com/livp123/netxfw/internal/plugins/types"
+import "github.com/netxfw/netxfw/internal/plugins/types"
 
 // syncImpl implements SyncAPI interface.
 // syncImpl 实现 SyncAPI 接口。

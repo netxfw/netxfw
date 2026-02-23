@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 )
 
 // NewLpmKey creates a NetXfwLpmKey from a CIDR string.

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	"github.com/livp123/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 )
 
 // TimedMapOperations provides timed map operation wrappers.

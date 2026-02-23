@@ -1,7 +1,7 @@
 package plugins
 
 import (
-	"github.com/livp123/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // Plugin is an alias for sdk.Plugin to maintain internal compatibility

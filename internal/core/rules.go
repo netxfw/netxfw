@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/livp123/netxfw/internal/config"
-	"github.com/livp123/netxfw/internal/optimizer"
-	"github.com/livp123/netxfw/internal/plugins/types"
-	"github.com/livp123/netxfw/internal/utils/fileutil"
-	"github.com/livp123/netxfw/internal/utils/ipmerge"
-	"github.com/livp123/netxfw/internal/utils/iputil"
-	"github.com/livp123/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/optimizer"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/utils/fileutil"
+	"github.com/netxfw/netxfw/internal/utils/ipmerge"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
 // handleLockWhitelistConflict handles conflict when locking an IP that's in whitelist.
