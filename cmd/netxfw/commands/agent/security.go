@@ -31,14 +31,14 @@ func runSecurityBoolCommand(cmd *cobra.Command, args []string, setter func(*sdk.
 
 	enable, err := strconv.ParseBool(args[0])
 	if err != nil {
-		logger.Get(nil).Fatalf("❌ Invalid boolean value: %v", err)
+		logger.Get(cmd.Context()).Fatalf("❌ Invalid boolean value: %v", err)
 	}
 
 	if err := setter(s, enable); err != nil {
 		cmd.PrintErrln(err)
 		os.Exit(1)
 	}
-	logger.Get(nil).Infof("✅ %s set to %v", settingName, enable)
+	logger.Get(cmd.Context()).Infof("✅ %s set to %v", settingName, enable)
 }
 
 var securityFragmentsCmd = &cobra.Command{
@@ -123,14 +123,14 @@ var securityAutoBlockExpiryCmd = &cobra.Command{
 
 		expiry, err := strconv.Atoi(args[0])
 		if err != nil {
-			logger.Get(nil).Fatalf("❌ Invalid expiry value: %v", err)
+			logger.Get(cmd.Context()).Fatalf("❌ Invalid expiry value: %v", err)
 		}
 		duration := time.Duration(expiry) * time.Second
 		if err := s.Security.SetAutoBlockExpiry(duration); err != nil {
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		logger.Get(nil).Infof("✅ Auto-block expiry set to %v", duration)
+		logger.Get(cmd.Context()).Infof("✅ Auto-block expiry set to %v", duration)
 	},
 }
 

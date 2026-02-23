@@ -78,10 +78,12 @@ base:
   # Bogon 过滤：丢弃来自保留/私有 IP 范围的数据包。
   bogon_filter: false
 
-  # ICMP Rate Limit (pps) / ICMP 速率限制 (每秒包数)
+  # ICMP Rate Limit (pps)
+  # ICMP 速率限制 (每秒包数)
   icmp_rate: 10
 
-  # ICMP Burst Size / ICMP 突发大小
+  # ICMP Burst Size
+  # ICMP 突发大小
   icmp_burst: 50
 
   # Whitelist: Global allowed IPs/CIDRs.
@@ -149,13 +151,25 @@ metrics:
   # Top N: Number of top entries to display in status output (default 10)
   # Top N：状态输出中显示的 Top 条目数量（默认 10）
   top_n: 10
-  # Usage Thresholds for status indicators / 状态指示器的使用率阈值
-  threshold_critical: 90  # Critical threshold / 危机阈值
-  threshold_high: 75      # High threshold / 高阈值
-  threshold_medium: 50    # Medium threshold / 中等阈值
-  # Traffic Stats Collection Settings / 流量统计收集设置
-  stats_interval: "1s"    # Stats collection interval / 统计收集间隔
-  avg_packet_size: 500    # Average packet size for BPS estimation / 用于 BPS 估算的平均包大小
+  # Usage Thresholds for status indicators
+  # 状态指示器的使用率阈值
+  # Critical threshold
+  # 危机阈值
+  threshold_critical: 90
+  # High threshold
+  # 高阈值
+  threshold_high: 75
+  # Medium threshold
+  # 中等阈值
+  threshold_medium: 50
+  # Traffic Stats Collection Settings
+  # 流量统计收集设置
+  # Stats collection interval
+  # 统计收集间隔
+  stats_interval: "1s"
+  # Average packet size for BPS estimation
+  # 用于 BPS 估算的平均包大小
+  avg_packet_size: 500
 
 
 # Port Configuration / 端口配置
@@ -167,6 +181,7 @@ port:
   # IP-Port Rules: Specific rules for IP+Port combinations.
   # IP-端口规则：针对 IP+端口组合的特定规则。
   ip_port_rules: []
+
   # Example / 示例:
   # - ip: "192.168.1.100"
   #   port: 80
@@ -198,19 +213,28 @@ log_engine:
   workers: 4
   
   rules: []
-  # Example 1: SSH Brute Force Protection / 示例 1：SSH 防爆破
+  # Example 1: SSH Brute Force Protection
+  # 示例 1：SSH 防爆破
   # - id: "ssh_brute_force"
   #   path: "/var/log/auth.log"
-  #   tail_position: "end" # "start", "end", "offset" (default: end)
-  #   # Expression Syntax / 表达式语法:
-  #   # log("pattern")  -> Case-insensitive match / 不区分大小写匹配
-  #   # logE("pattern") -> Case-sensitive match (Exact) / 区分大小写匹配 (精确)
-  #   # time(seconds)   -> Count occurrences in last N seconds / 过去 N 秒内的计数
+  #   tail_position: "end"
+  #   # Expression Syntax
+  #   # 表达式语法:
+  #   # log("pattern")  -> Case-insensitive match
+  #   # 不区分大小写匹配
+  #   # logE("pattern") -> Case-sensitive match (Exact)
+  #   # 区分大小写匹配 (精确)
+  #   # time(seconds)   -> Count occurrences in last N seconds
+  #   # 过去 N 秒内的计数
   #   expression: 'log("Failed password") && log("root") && time(60) > 5'
-  #   action: "block"   # Actions: 0="log", 1="block" (dynamic), 2="static" (permanent)
-  #   ttl: "10m"        # Block duration / 封禁时长
+  #   # Actions: 0="log", 1="block" (dynamic), 2="static" (permanent)
+  #   action: "block"
+  #   # Block duration
+  #   # 封禁时长
+  #   ttl: "10m"
 
-  # Example 2: Nginx 404 Flood / 示例 2：Nginx 404 洪水攻击
+  # Example 2: Nginx 404 Flood
+  # 示例 2：Nginx 404 洪水攻击
   # - id: "nginx_404_flood"
   #   path: "/var/log/nginx/access.log"
   #   expression: 'log(" 404 ") && time(10) > 20'
@@ -221,19 +245,36 @@ log_engine:
 # Adjust these based on your system memory and requirements.
 # 根据您的系统内存和需求进行调整。
 capacity:
-  lock_list: 2000000       # Static blacklist capacity / 静态黑名单容量
-  dyn_lock_list: 2000000   # Dynamic blacklist capacity / 动态黑名单容量
-  whitelist: 65536         # Whitelist capacity / 白名单容量
-  ip_port_rules: 65536     # IP+Port rules capacity / IP+端口规则容量
-  allowed_ports: 1024      # Allowed ports capacity / 允许端口容量
-  rate_limits: 1000        # Rate limit rules capacity / 限速规则容量
-  drop_reason_stats: 1000000  # Drop reason stats capacity (per minute) / 丢弃原因统计容量（每分钟）
-  pass_reason_stats: 1000000  # Pass reason stats capacity (per minute) / 通过原因统计容量（每分钟）
+  # Static blacklist capacity
+  # 静态黑名单容量
+  lock_list: 2000000
+  # Dynamic blacklist capacity
+  # 动态黑名单容量
+  dyn_lock_list: 2000000
+  # Whitelist capacity
+  # 白名单容量
+  whitelist: 65536
+  # IP+Port rules capacity
+  # IP+端口规则容量
+  ip_port_rules: 65536
+  # Allowed ports capacity
+  # 允许端口容量
+  allowed_ports: 1024
+  # Rate limit rules capacity
+  # 限速规则容量
+  rate_limits: 1000
+  # Drop reason stats capacity (per minute)
+  # 丢弃原因统计容量（每分钟）
+  drop_reason_stats: 1000000
+  # Pass reason stats capacity (per minute)
+  # 通过原因统计容量（每分钟）
+  pass_reason_stats: 1000000
 
 # Logging Configuration / 日志配置
 logging:
   enabled: false
-  # Log file path / 日志文件路径
+  # Log file path
+  # 日志文件路径
   path: "/var/log/netxfw/agent.log"
   # Max size in MB before rotation / 轮转前的最大大小 (MB)
   max_size: 10
@@ -300,68 +341,82 @@ type GlobalConfig struct {
 // LogEngineConfig defines the configuration for the log engine.
 // LogEngineConfig 定义日志引擎配置。
 type LogEngineConfig struct {
-	Enabled   bool `yaml:"enabled"`
-	Workers   int  `yaml:"workers"`
-	MaxWindow int  `yaml:"max_window"` // Max history window in seconds (default 3600)
+	Enabled bool `yaml:"enabled"`
+	Workers int  `yaml:"workers"`
+	// Max history window in seconds (default 3600)
 	// MaxWindow: 最大历史窗口（秒，默认 3600）
-	Rules []LogEngineRule `yaml:"rules"`
+	MaxWindow int             `yaml:"max_window"`
+	Rules     []LogEngineRule `yaml:"rules"`
 }
 
 // LogEngineRule defines a rule for the log engine.
 // LogEngineRule 定义日志引擎规则。
 type LogEngineRule struct {
-	ID   string `yaml:"id"`
-	Path string `yaml:"path"` // Optional: File path pattern (glob or substring)
+	ID string `yaml:"id"`
+	// Optional: File path pattern (glob or substring)
 	// Path: 可选：文件路径模式（glob 或子字符串）
+	Path string `yaml:"path"`
 
 	// Tail Position: "start", "end" (default), "offset"
 	// 读取位置："start" (从头开始), "end" (从末尾开始), "offset" (从上次记录位置开始)
 	TailPosition string `yaml:"tail_position"`
 
 	Expression string `yaml:"expression"`
-	Action     string `yaml:"action"` // "block", "log"
 	// Action: 执行动作 ("block", "log")
+	Action string `yaml:"action"` // "block", "log"
 
 	// Simplified Configuration (alternative to Expression)
 	// 简化配置（Expression 的替代方案）
-	Keywords []string `yaml:"keywords"` // Deprecated: Use Contains instead (AND logic)
+	// Deprecated: Use Contains instead (AND logic)
 	// Keywords: 已弃用：请改用 Contains (AND 逻辑)
-	Contains []string `yaml:"contains"` // AND logic: Must contain ALL of these (supports * wildcard)
+	Keywords []string `yaml:"keywords"`
+	// AND logic: Must contain ALL of these (supports * wildcard)
 	// Contains: AND 逻辑：必须包含所有这些（支持 * 通配符）
-	AnyContains []string `yaml:"any_contains"` // OR logic: Must contain AT LEAST ONE of these (supports * wildcard)
+	Contains []string `yaml:"contains"`
+	// OR logic: Must contain AT LEAST ONE of these (supports * wildcard)
 	// AnyContains: OR 逻辑：必须包含其中至少一个（支持 * 通配符）
-	NotContains []string `yaml:"not_contains"` // NOT logic: Must NOT contain ANY of these (supports * wildcard)
+	AnyContains []string `yaml:"any_contains"`
+	// NOT logic: Must NOT contain ANY of these (supports * wildcard)
 	// NotContains: NOT 逻辑：不能包含其中任何一个（支持 * 通配符）
+	NotContains []string `yaml:"not_contains"`
 
 	// Aliases for better UX (User preference)
 	// 为了更好的用户体验提供的别名
-	And []string `yaml:"and"` // Alias for Contains (AND logic)
+	// Alias for Contains (AND logic)
 	// And: Contains 的别名 (AND 逻辑)
-	Is []string `yaml:"is"` // Alias for Contains (AND logic)
+	And []string `yaml:"and"`
+	// Alias for Contains (AND logic)
 	// Is: Contains 的别名 (AND 逻辑)
-	Or []string `yaml:"or"` // Alias for AnyContains (OR logic)
+	Is []string `yaml:"is"`
+	// Alias for AnyContains (OR logic)
 	// Or: AnyContains 的别名 (OR 逻辑)
-	Not []string `yaml:"not"` // Alias for NotContains (NOT logic)
+	Or []string `yaml:"or"`
+	// Alias for NotContains (NOT logic)
 	// Not: NotContains 的别名 (NOT 逻辑)
+	Not []string `yaml:"not"`
 
-	Regex string `yaml:"regex"` // Regular expression to match
+	// Regular expression to match
 	// Regex: 正则表达式匹配
-	Threshold int `yaml:"threshold"` // Trigger count
+	Regex string `yaml:"regex"`
+	// Trigger count
 	// Threshold: 触发阈值
-	Interval int `yaml:"interval"` // Time window in seconds (default 60)
+	Threshold int `yaml:"threshold"`
+	// Time window in seconds (default 60)
 	// Interval: 时间窗口（秒，默认 60）
-	TTL string `yaml:"ttl"` // Block duration (e.g., "10m", "1h"). Empty or "0" means permanent/static or LRU auto-evict.
+	Interval int `yaml:"interval"`
+	// Block duration (e.g., "10m", "1h"). Empty or "0" means permanent/static or LRU auto-evict.
 	// TTL: 封禁持续时间（例如 "10m", "1h"）。为空或 "0" 表示永久或 LRU 自动驱逐。
+	TTL string `yaml:"ttl"`
 }
 
 // RateLimitConfig defines the configuration for rate limiting.
 // RateLimitConfig 定义速率限制配置。
 type RateLimitConfig struct {
-	Enabled         bool   `yaml:"enabled"`
-	AutoBlock       bool   `yaml:"auto_block"`
-	AutoBlockExpiry string `yaml:"auto_block_expiry"` // e.g., "5m", "1h"
+	Enabled   bool `yaml:"enabled"`
+	AutoBlock bool `yaml:"auto_block"`
 	// AutoBlockExpiry: 自动封禁过期时间（例如 "5m", "1h"）
-	Rules []RateLimitRule `yaml:"rules"`
+	AutoBlockExpiry string          `yaml:"auto_block_expiry"`
+	Rules           []RateLimitRule `yaml:"rules"`
 }
 
 // RateLimitRule defines a rate limit rule for a specific IP/CIDR.
@@ -401,9 +456,12 @@ type MCPConfig struct {
 // CloudConfig defines the configuration for cloud environment support.
 // CloudConfig 定义云环境支持配置。
 type CloudConfig struct {
-	Enabled       bool                `yaml:"enabled"`        // Enable cloud environment support / 启用云环境支持
-	Provider      string              `yaml:"provider"`       // Cloud provider: alibaba, tencent, aws, azure, gcp, other / 云服务商
-	ProxyProtocol ProxyProtocolConfig `yaml:"proxy_protocol"` // Proxy Protocol configuration / Proxy Protocol 配置
+	// Enable cloud environment support / 启用云环境支持
+	Enabled bool `yaml:"enabled"`
+	// Cloud provider: alibaba, tencent, aws, azure, gcp, other / 云服务商
+	Provider string `yaml:"provider"`
+	// Proxy Protocol configuration / Proxy Protocol 配置
+	ProxyProtocol ProxyProtocolConfig `yaml:"proxy_protocol"`
 	// RealIPBlacklist is managed via API/CLI, stored in dynamic_blacklist map.
 	// 真实 IP 黑名单通过 API/CLI 管理，存储在 dynamic_blacklist Map 中。
 }
@@ -411,9 +469,12 @@ type CloudConfig struct {
 // ProxyProtocolConfig defines the Proxy Protocol configuration.
 // ProxyProtocolConfig 定义 Proxy Protocol 配置。
 type ProxyProtocolConfig struct {
-	Enabled         bool     `yaml:"enabled"`           // Enable Proxy Protocol parsing / 启用 Proxy Protocol 解析
-	TrustedLBRanges []string `yaml:"trusted_lb_ranges"` // Trusted LB IP ranges (custom ranges) / 可信 LB IP 范围（自定义范围）
-	CacheTTL        string   `yaml:"cache_ttl"`         // Cache TTL / 缓存 TTL
+	// Enable Proxy Protocol parsing / 启用 Proxy Protocol 解析
+	Enabled bool `yaml:"enabled"`
+	// Trusted LB IP ranges (custom ranges) / 可信 LB IP 范围（自定义范围）
+	TrustedLBRanges []string `yaml:"trusted_lb_ranges"`
+	// Cache TTL / 缓存 TTL
+	CacheTTL string `yaml:"cache_ttl"`
 }
 
 // ClusterConfig defines the configuration for clustering.
@@ -429,13 +490,15 @@ type ClusterConfig struct {
 // CapacityConfig defines the capacity settings for BPF maps.
 // CapacityConfig 定义 BPF Map 的容量设置。
 type CapacityConfig struct {
-	Conntrack    int `yaml:"-"` // Deprecated: Use Conntrack.MaxEntries / 已弃用：使用 Conntrack.MaxEntries
+	// Deprecated: Use Conntrack.MaxEntries / 已弃用：使用 Conntrack.MaxEntries
+	Conntrack    int `yaml:"-"`
 	LockList     int `yaml:"lock_list"`
 	DynLockList  int `yaml:"dyn_lock_list"`
 	Whitelist    int `yaml:"whitelist"`
 	IPPortRules  int `yaml:"ip_port_rules"`
 	AllowedPorts int `yaml:"allowed_ports"`
-	RateLimits   int `yaml:"rate_limits"` // Rate limit rules capacity / 限速规则容量
+	// Rate limit rules capacity / 限速规则容量
+	RateLimits int `yaml:"rate_limits"`
 	// Stats map capacities (per minute capacity for top IP/port analysis)
 	// 统计 Map 容量（每分钟容量，用于 top IP/端口分析）
 	DropReasonStats int `yaml:"drop_reason_stats"` // Drop reason stats map size / 丢弃原因统计 Map 大小
@@ -445,32 +508,39 @@ type CapacityConfig struct {
 // BaseConfig defines the base firewall settings.
 // BaseConfig 定义基础防火墙设置。
 type BaseConfig struct {
-	DefaultDeny        bool `yaml:"default_deny"`
-	AllowReturnTraffic bool `yaml:"allow_return_traffic"` // Stateless check (ACK + Port range)
+	DefaultDeny bool `yaml:"default_deny"`
+	// Stateless check (ACK + Port range)
 	// AllowReturnTraffic: 无状态检查（ACK + 端口范围）
-	AllowICMP      bool     `yaml:"allow_icmp"`
-	Interfaces     []string `yaml:"interfaces"`
-	EnableAFXDP    bool     `yaml:"enable_af_xdp"`
-	StrictProtocol bool     `yaml:"strict_protocol"`
-	DropFragments  bool     `yaml:"drop_fragments"`
-	StrictTCP      bool     `yaml:"strict_tcp"`
-	SYNLimit       bool     `yaml:"syn_limit"`
-	BogonFilter    bool     `yaml:"bogon_filter"`
-	ICMPRate       uint64   `yaml:"icmp_rate"` // packets per second
+	AllowReturnTraffic bool     `yaml:"allow_return_traffic"`
+	AllowICMP          bool     `yaml:"allow_icmp"`
+	Interfaces         []string `yaml:"interfaces"`
+	EnableAFXDP        bool     `yaml:"enable_af_xdp"`
+	StrictProtocol     bool     `yaml:"strict_protocol"`
+	DropFragments      bool     `yaml:"drop_fragments"`
+	StrictTCP          bool     `yaml:"strict_tcp"`
+	SYNLimit           bool     `yaml:"syn_limit"`
+	BogonFilter        bool     `yaml:"bogon_filter"`
+	// packets per second
 	// ICMPRate: 每秒包数
-	ICMPBurst uint64 `yaml:"icmp_burst"` // max burst
+	ICMPRate uint64 `yaml:"icmp_rate"`
+	// max burst
 	// ICMPBurst: 最大突发量
-	Whitelist              []string `yaml:"whitelist"`
-	LockListFile           string   `yaml:"lock_list_file"`
-	LockListBinary         string   `yaml:"lock_list_binary"`
-	LockListMergeThreshold int      `yaml:"lock_list_merge_threshold"` // If > 0, merge IPs into /24 (IPv4) or /64 (IPv6) if count >= threshold
+	ICMPBurst      uint64   `yaml:"icmp_burst"`
+	Whitelist      []string `yaml:"whitelist"`
+	LockListFile   string   `yaml:"lock_list_file"`
+	LockListBinary string   `yaml:"lock_list_binary"`
+	// If > 0, merge IPs into /24 (IPv4) or /64 (IPv6) if count >= threshold
 	// LockListMergeThreshold: 如果 > 0，当数量 >= 阈值时将 IP 合并为子网
-	LockListV4Mask int `yaml:"lock_list_v4_mask"` // Target mask for IPv4 merging (default 24)
+	LockListMergeThreshold int `yaml:"lock_list_merge_threshold"`
+	// Target mask for IPv4 merging (default 24)
 	// LockListV4Mask: IPv4 合并的目标掩码（默认 24）
-	LockListV6Mask int `yaml:"lock_list_v6_mask"` // Target mask for IPv6 merging (default 64)
+	LockListV4Mask int `yaml:"lock_list_v4_mask"`
+	// Target mask for IPv6 merging (default 64)
 	// LockListV6Mask: IPv6 合并的目标掩码（默认 64）
-	BPFPinPath string `yaml:"bpf_pin_path"` // Path to pin BPF maps (override default)
+	LockListV6Mask int `yaml:"lock_list_v6_mask"`
+	// Path to pin BPF maps (override default)
 	// BPFPinPath: 固定 BPF Map 的路径（覆盖默认值）
+	BPFPinPath      string `yaml:"bpf_pin_path"`
 	EnableExpiry    bool   `yaml:"enable_expiry"`
 	CleanupInterval string `yaml:"cleanup_interval"`
 	PersistRules    bool   `yaml:"persist_rules"`
@@ -498,14 +568,18 @@ type MetricsConfig struct {
 	PushInterval    string `yaml:"push_interval"`
 	TextfileEnabled bool   `yaml:"textfile_enabled"`
 	TextfilePath    string `yaml:"textfile_path"`
-	TopN            int    `yaml:"top_n"` // Number of top entries to display in status output / 状态输出中显示的 Top 条目数量
-	// Usage thresholds for status display / 状态显示的使用率阈值
-	ThresholdCritical int `yaml:"threshold_critical"` // Critical usage threshold (default 90) / 危机使用率阈值（默认 90）
-	ThresholdHigh     int `yaml:"threshold_high"`     // High usage threshold (default 75) / 高使用率阈值（默认 75）
-	ThresholdMedium   int `yaml:"threshold_medium"`   // Medium usage threshold (default 50) / 中等使用率阈值（默认 50）
-	// Traffic stats collection settings / 流量统计收集设置
-	StatsInterval string `yaml:"stats_interval"`  // Traffic stats collection interval (default "1s") / 流量统计收集间隔（默认 "1s"）
-	AvgPacketSize int    `yaml:"avg_packet_size"` // Average packet size in bytes for BPS estimation (default 500) / 用于 BPS 估算的平均包大小（默认 500）
+	// Number of top entries to display in status output / 状态输出中显示的 Top 条目数量
+	TopN int `yaml:"top_n"`
+	// Critical usage threshold (default 90) / 危机使用率阈值（默认 90）
+	ThresholdCritical int `yaml:"threshold_critical"`
+	// High usage threshold (default 75) / 高使用率阈值（默认 75）
+	ThresholdHigh int `yaml:"threshold_high"`
+	// Medium usage threshold (default 50) / 中等使用率阈值（默认 50）
+	ThresholdMedium int `yaml:"threshold_medium"`
+	// Traffic stats collection interval (default "1s") / 流量统计收集间隔（默认 "1s"）
+	StatsInterval string `yaml:"stats_interval"`
+	// Average packet size in bytes for BPS estimation (default 500) / 用于 BPS 估算的平均包大小（默认 500）
+	AvgPacketSize int `yaml:"avg_packet_size"`
 }
 
 // PortConfig defines the configuration for port filtering.

@@ -36,11 +36,11 @@ var limitAddCmd = &cobra.Command{
 		ip := args[0]
 		rate, err := strconv.ParseUint(args[1], 10, 64)
 		if err != nil {
-			logger.Get(nil).Fatalf("❌ Invalid rate: %v", err)
+			logger.Get(cmd.Context()).Fatalf("❌ Invalid rate: %v", err)
 		}
 		burst, err := strconv.ParseUint(args[2], 10, 64)
 		if err != nil {
-			logger.Get(nil).Fatalf("❌ Invalid burst: %v", err)
+			logger.Get(cmd.Context()).Fatalf("❌ Invalid burst: %v", err)
 		}
 		// Add rate limit rule
 		// 添加限速规则
@@ -48,7 +48,7 @@ var limitAddCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		logger.Get(nil).Infof("✅ Rate limit rule added for %s: %d/s (burst %d)", ip, rate, burst)
+		logger.Get(cmd.Context()).Infof("✅ Rate limit rule added for %s: %d/s (burst %d)", ip, rate, burst)
 	},
 }
 
@@ -75,7 +75,7 @@ var limitRemoveCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		logger.Get(nil).Infof("✅ Rate limit rule removed for %s", ip)
+		logger.Get(cmd.Context()).Infof("✅ Rate limit rule removed for %s", ip)
 	},
 }
 

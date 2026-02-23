@@ -34,11 +34,11 @@ var portAddCmd = &cobra.Command{
 		}
 
 		if len(args) < 1 {
-			logger.Get(nil).Fatalf("❌ Missing port number")
+			logger.Get(cmd.Context()).Fatalf("❌ Missing port number")
 		}
 		port, err := strconv.ParseUint(args[0], 10, 16)
 		if err != nil {
-			logger.Get(nil).Fatalf("❌ Invalid port: %v", err)
+			logger.Get(cmd.Context()).Fatalf("❌ Invalid port: %v", err)
 		}
 		// Add allowed port
 		// 添加允许的端口
@@ -46,7 +46,7 @@ var portAddCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		logger.Get(nil).Infof("✅ Port %d added to allowed list", port)
+		logger.Get(cmd.Context()).Infof("✅ Port %d added to allowed list", port)
 	},
 }
 
@@ -68,7 +68,7 @@ var portRemoveCmd = &cobra.Command{
 
 		port, err := strconv.Atoi(args[0])
 		if err != nil {
-			logger.Get(nil).Fatalf("❌ Invalid port: %v", err)
+			logger.Get(cmd.Context()).Fatalf("❌ Invalid port: %v", err)
 		}
 		// Remove allowed port
 		// 移除允许的端口
@@ -76,7 +76,7 @@ var portRemoveCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		logger.Get(nil).Infof("✅ Port %d removed from allowed list", port)
+		logger.Get(cmd.Context()).Infof("✅ Port %d removed from allowed list", port)
 	},
 }
 

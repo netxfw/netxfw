@@ -651,7 +651,7 @@ var ruleClearCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		logger.Get(nil).Infof("✅ Blacklist cleared")
+		logger.Get(cmd.Context()).Infof("✅ Blacklist cleared")
 	},
 }
 

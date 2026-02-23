@@ -34,7 +34,7 @@ var QuickBlockCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		logger.Get(nil).Infof("✅ %s added to blacklist", args[0])
+		logger.Get(cmd.Context()).Infof("✅ %s added to blacklist", args[0])
 	},
 }
 
@@ -50,7 +50,7 @@ var QuickUnlockCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		logger.Get(nil).Infof("✅ %s removed from blacklist", args[0])
+		logger.Get(cmd.Context()).Infof("✅ %s removed from blacklist", args[0])
 	},
 }
 
@@ -66,7 +66,7 @@ var QuickAllowCmd = &cobra.Command{
 		if len(args) > 1 {
 			p, err := strconv.ParseUint(args[1], 10, 16)
 			if err != nil {
-				logger.Get(nil).Fatalf("❌ Invalid port: %v", err)
+				logger.Get(cmd.Context()).Fatalf("❌ Invalid port: %v", err)
 			}
 			port = uint16(p)
 		}
@@ -75,7 +75,7 @@ var QuickAllowCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		logger.Get(nil).Infof("✅ %s added to whitelist (port: %d)", args[0], port)
+		logger.Get(cmd.Context()).Infof("✅ %s added to whitelist (port: %d)", args[0], port)
 	},
 }
 
@@ -91,7 +91,7 @@ var QuickUnallowCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
-		logger.Get(nil).Infof("✅ %s removed from whitelist", args[0])
+		logger.Get(cmd.Context()).Infof("✅ %s removed from whitelist", args[0])
 	},
 }
 
@@ -107,7 +107,7 @@ var QuickClearCmd = &cobra.Command{
 				cmd.PrintErrln(err)
 				os.Exit(1)
 			}
-			logger.Get(nil).Infof("✅ Blacklist cleared")
+			logger.Get(cmd.Context()).Infof("✅ Blacklist cleared")
 		}
 	},
 }
