@@ -138,7 +138,7 @@ else
 fi
 
 # 9. Optional: Setup Auto-Update Cron (Daily check)
-if [ "$1" == "--enable-auto-update" ] || [ ! -f "/etc/cron.daily/netxfw-update" ]; then
+if [ "$1" == "--enable-auto-update" ]; then
     echo -e "${YELLOW}Setting up daily auto-update check...${NC}"
     cat <<EOF > /etc/cron.daily/netxfw-update
 #!/bin/bash

@@ -40,7 +40,7 @@
         - **KV Store**: 共享的内存键值存储 (`sdk.Store`)，用于插件间共享运行时上下文（如威胁情报、信任分）。
 - 🏗️ **模块化设计**：BPF 代码采用模块化结构（Filter, Ratelimit, Conntrack, Protocols），逻辑清晰，易于维护。
 - 🛠️ **命令行控制**：极简的 CLI 操作，支持动态加载规则和插件，无需重启服务。
-- 🔄 **自动更新**：支持通过 `netxfw system update` 一键升级二进制文件，并可配置每日自动检查更新。
+- 🔄 **手动更新**：支持通过 `netxfw system update` 一键检测并升级二进制文件。
 
 
 ---
@@ -137,18 +137,17 @@ sudo netxfw system load
 
 ### 3. 系统维护与更新
 
-#### 手动更新
-你可以随时检测并升级到最新版本：
+#### 手动更新 (默认)
+为了系统稳定性，`netxfw` 默认不会自动更新。你可以通过以下命令随时检测并升级到最新版本：
 ```bash
 sudo netxfw system update
 ```
 
-#### 开启自动更新
-如果你希望系统每天自动检查并安装更新（推荐），可以使用安装脚本开启：
+#### 开启自动更新 (可选)
+如果你作为实验性用途，希望系统每天自动检查并安装更新，可以使用安装脚本显式开启：
 ```bash
 curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | sudo bash -s -- --enable-auto-update
 ```
-这会配置一个每日执行的 `cron` 任务。
 
 ### 4. 卸载
 
