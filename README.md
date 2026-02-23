@@ -40,6 +40,7 @@
         - **KV Store**: 共享的内存键值存储 (`sdk.Store`)，用于插件间共享运行时上下文（如威胁情报、信任分）。
 - 🏗️ **模块化设计**：BPF 代码采用模块化结构（Filter, Ratelimit, Conntrack, Protocols），逻辑清晰，易于维护。
 - 🛠️ **命令行控制**：极简的 CLI 操作，支持动态加载规则和插件，无需重启服务。
+- 🔄 **自动更新**：支持通过 `netxfw system update` 一键升级二进制文件，并可配置每日自动检查更新。
 
 
 ---
@@ -101,9 +102,9 @@ sudo mv netxfw /usr/local/bin/
 
 #### 方式 B：从源码构建
 
-**环境要求**：
-- Linux Kernel >= 5.4 (推荐 5.10+)
-- Go >= 1.21
+**使用的开发环境**：
+- Linux Kernel >= 6.x
+- Go >= 1.22
 
 **安装编译工具**：
 ```bash
@@ -121,9 +122,39 @@ make
 
 ### 2. 运行
 
+#### 🚀 XDP 运行模式与自适应降级
+`netxfw` 支持 XDP 的多种运行模式，并根据硬件驱动支持情况自动尝试加载，按性能排序：
+- **Offloaded (`xdp_hw`)**: 硬件卸载模式，直接在网卡 SOC 上执行，不占用主机 CPU，性能最强。
+- **Native (`xdp_drv`)**: 本地驱动模式，在驱动接收路径直接处理，性能极佳。
+- **Generic (`xdp_skb`)**: 通用模式，由内核模拟（SKB 之后），无需驱动支持，兼容性最强（适用于云服务器/虚拟机）。
+
+> **💡 性能提示**: 即使在性能最低的 `Generic` 模式下，由于 eBPF 使用了高效的 Map（哈希表）进行 O(1) 匹配，其吞吐量和大规模规则拦截效率依然远高于传统的 `iptables`（基于 O(N) 链式线性匹配）。
+
 ```bash
-# 使用默认配置加载防火墙
-sudo ./netxfw system load
+# 使用默认配置加载并执行自适应加载
+sudo netxfw system load
+```
+
+### 3. 系统维护与更新
+
+#### 手动更新
+你可以随时检测并升级到最新版本：
+```bash
+sudo netxfw system update
+```
+
+#### 开启自动更新
+如果你希望系统每天自动检查并安装更新（推荐），可以使用安装脚本开启：
+```bash
+curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | sudo bash -s -- --enable-auto-update
+```
+这会配置一个每日执行的 `cron` 任务。
+
+### 4. 卸载
+
+```bash
+# 卸载防火墙并移除 BPF 程序
+sudo netxfw system unload
 ```
 
 ---

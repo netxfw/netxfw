@@ -62,7 +62,7 @@ fi
 
 # 5. Extract Download URL for tar.gz
 # Pattern: netxfw_Linux_x86_64.tar.gz or netxfw_Linux_arm64.tar.gz
-DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep "browser_download_url" | grep "Linux" | grep "$BINARY_ARCH" | grep "tar.gz" | cut -d '"' -f 4 | head -n 1)
+DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep "browser_download_url" | grep -i "linux" | grep "$BINARY_ARCH" | grep "tar.gz" | cut -d '"' -f 4 | head -n 1)
 
 if [ -z "$DOWNLOAD_URL" ]; then
     echo -e "${RED}Error: Could not find suitable asset for $BINARY_ARCH Linux.${NC}"

@@ -38,6 +38,7 @@
         - **KV Store**: Shared in-memory key-value store (`sdk.Store`) for sharing runtime context (e.g., Threat Intel, Trust Scores).
 - 🏗️ **Modular Design**: Structured BPF code (Filter, Ratelimit, Conntrack, Protocols) for clarity and maintainability.
 - 🛠️ **CLI-Driven Control**: Minimalist CLI for dynamic rule and plugin management without service restarts.
+- 🔄 **Auto-Update**: Supports one-click binary upgrades via `netxfw system update` and automatic daily update checks.
 
 ---
 
@@ -121,6 +122,28 @@ make
 ```bash
 # Load the firewall with default configuration
 sudo ./netxfw system load
+```
+
+### 3. Maintenance & Updates
+
+#### Manual Update
+You can check for and install the latest version at any time:
+```bash
+sudo netxfw system update
+```
+
+#### Enable Auto-Update
+If you want the system to automatically check and install updates daily (recommended), use the installation script:
+```bash
+curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | sudo bash -s -- --enable-auto-update
+```
+This configures a daily `cron` job.
+
+### 4. Uninstallation
+
+```bash
+# Unload the firewall and remove BPF programs
+sudo ./netxfw system unload
 ```
 
 ---
