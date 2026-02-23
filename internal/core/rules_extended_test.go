@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/stretchr/testify/assert"
 )
@@ -113,56 +112,7 @@ func TestSyncWhitelistMap_IPv6(t *testing.T) {
 	assert.True(t, contains)
 }
 
-// TestSyncBoolSettingWithConfig tests the syncBoolSettingWithConfig helper
-// TestSyncBoolSettingWithConfig 测试 syncBoolSettingWithConfig 辅助函数
-func TestSyncBoolSettingWithConfig(t *testing.T) {
-	mockMgr := xdp.NewMockManager()
-	ctx := context.Background()
-
-	err := syncBoolSettingWithConfig(ctx, mockMgr, true,
-		mockMgr.SetDefaultDeny,
-		func(cfg *types.GlobalConfig, v bool) { cfg.Base.DefaultDeny = v },
-		"test setting", "Test setting set to: %v")
-	assert.NoError(t, err)
-}
-
-// Table-driven tests for Sync functions
-// Sync 函数的表驱动测试
-
-// TestTableDriven_SyncBoolSettings tests all boolean sync functions
-// TestTableDriven_SyncBoolSettings 测试所有布尔同步函数
-func TestTableDriven_SyncBoolSettings(t *testing.T) {
-	mockMgr := xdp.NewMockManager()
-	ctx := context.Background()
-
-	testCases := []struct {
-		name     string
-		syncFunc func(context.Context, xdp.ManagerInterface, bool) error
-		enable   bool
-	}{
-		{"SyncDefaultDeny_Enable", SyncDefaultDeny, true},
-		{"SyncDefaultDeny_Disable", SyncDefaultDeny, false},
-		{"SyncEnableAFXDP_Enable", SyncEnableAFXDP, true},
-		{"SyncEnableAFXDP_Disable", SyncEnableAFXDP, false},
-		{"SyncEnableRateLimit_Enable", SyncEnableRateLimit, true},
-		{"SyncEnableRateLimit_Disable", SyncEnableRateLimit, false},
-		{"SyncDropFragments_Enable", SyncDropFragments, true},
-		{"SyncDropFragments_Disable", SyncDropFragments, false},
-		{"SyncStrictTCP_Enable", SyncStrictTCP, true},
-		{"SyncStrictTCP_Disable", SyncStrictTCP, false},
-		{"SyncSYNLimit_Enable", SyncSYNLimit, true},
-		{"SyncSYNLimit_Disable", SyncSYNLimit, false},
-		{"SyncBogonFilter_Enable", SyncBogonFilter, true},
-		{"SyncBogonFilter_Disable", SyncBogonFilter, false},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := tc.syncFunc(ctx, mockMgr, tc.enable)
-			assert.NoError(t, err)
-		})
-	}
-}
+// TestShowLockList_WithLimit tests ShowLockList with limit
 
 // TestShowLockList_WithLimit tests ShowLockList with limit
 // TestShowLockList_WithLimit 测试带限制的 ShowLockList

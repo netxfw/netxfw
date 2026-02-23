@@ -11,6 +11,10 @@ import (
 	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
+// configBoolSetter is a function type for setting boolean config fields.
+// configBoolSetter 是设置布尔配置字段的函数类型。
+type configBoolSetter func(*types.GlobalConfig, bool)
+
 // ConfigCache provides a cached configuration manager with delayed persistence.
 // ConfigCache 提供带延迟持久化的配置缓存管理器。
 type ConfigCache struct {
@@ -256,9 +260,9 @@ func (c *ConfigCache) Stop() error {
 	return nil
 }
 
-// syncBoolSettingWithConfigOptimized is an optimized version that uses the cache.
-// syncBoolSettingWithConfigOptimized 是使用缓存的优化版本。
-func syncBoolSettingWithConfigOptimized(ctx context.Context, xdpMgr XDPManager, enable bool,
+// syncBoolSettingWithConfig is an optimized version that uses the cache.
+// syncBoolSettingWithConfig 是使用缓存的优化版本。
+func syncBoolSettingWithConfig(ctx context.Context, xdpMgr XDPManager, enable bool,
 	setter func(bool) error, configSetter configBoolSetter, settingName, logMsg string) error {
 
 	log := logger.Get(ctx)
@@ -285,64 +289,64 @@ func syncBoolSettingWithConfigOptimized(ctx context.Context, xdpMgr XDPManager, 
 	return nil
 }
 
-// SyncDefaultDenyOptimized sets the default deny policy with optimized config sync.
-// SyncDefaultDenyOptimized 设置默认拒绝策略并使用优化的配置同步。
-func SyncDefaultDenyOptimized(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	return syncBoolSettingWithConfigOptimized(ctx, xdpMgr, enable,
+// SyncDefaultDeny sets the default deny policy with optimized config sync.
+// SyncDefaultDeny 设置默认拒绝策略并使用优化的配置同步。
+func SyncDefaultDeny(ctx context.Context, xdpMgr XDPManager, enable bool) error {
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetDefaultDeny,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.DefaultDeny = v },
 		"default deny", "🛡️ Default deny policy set to: %v")
 }
 
-// SyncEnableAFXDPOptimized enables or disables AF_XDP with optimized config sync.
-// SyncEnableAFXDPOptimized 启用或禁用 AF_XDP 并使用优化的配置同步。
-func SyncEnableAFXDPOptimized(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	return syncBoolSettingWithConfigOptimized(ctx, xdpMgr, enable,
+// SyncEnableAFXDP enables or disables AF_XDP with optimized config sync.
+// SyncEnableAFXDP 启用或禁用 AF_XDP 并使用优化的配置同步。
+func SyncEnableAFXDP(ctx context.Context, xdpMgr XDPManager, enable bool) error {
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetEnableAFXDP,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.EnableAFXDP = v },
 		"enable AF_XDP", "🚀 AF_XDP redirection set to: %v")
 }
 
-// SyncEnableRateLimitOptimized enables or disables rate limiting with optimized config sync.
-// SyncEnableRateLimitOptimized 启用或禁用速率限制并使用优化的配置同步。
-func SyncEnableRateLimitOptimized(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	return syncBoolSettingWithConfigOptimized(ctx, xdpMgr, enable,
+// SyncEnableRateLimit enables or disables rate limiting with optimized config sync.
+// SyncEnableRateLimit 启用或禁用速率限制并使用优化的配置同步。
+func SyncEnableRateLimit(ctx context.Context, xdpMgr XDPManager, enable bool) error {
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetEnableRateLimit,
 		func(cfg *types.GlobalConfig, v bool) { cfg.RateLimit.Enabled = v },
 		"enable ratelimit", "🚀 Global rate limit set to: %v")
 }
 
-// SyncDropFragmentsOptimized enables or disables fragment dropping with optimized config sync.
-// SyncDropFragmentsOptimized 启用或禁用分片丢弃并使用优化的配置同步。
-func SyncDropFragmentsOptimized(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	return syncBoolSettingWithConfigOptimized(ctx, xdpMgr, enable,
+// SyncDropFragments enables or disables fragment dropping with optimized config sync.
+// SyncDropFragments 启用或禁用分片丢弃并使用优化的配置同步。
+func SyncDropFragments(ctx context.Context, xdpMgr XDPManager, enable bool) error {
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetDropFragments,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.DropFragments = v },
 		"drop fragments", "🛡️ IP Fragment dropping set to: %v")
 }
 
-// SyncStrictTCPOptimized enables or disables strict TCP with optimized config sync.
-// SyncStrictTCPOptimized 启用或禁用严格 TCP 并使用优化的配置同步。
-func SyncStrictTCPOptimized(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	return syncBoolSettingWithConfigOptimized(ctx, xdpMgr, enable,
+// SyncStrictTCP enables or disables strict TCP with optimized config sync.
+// SyncStrictTCP 启用或禁用严格 TCP 并使用优化的配置同步。
+func SyncStrictTCP(ctx context.Context, xdpMgr XDPManager, enable bool) error {
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetStrictTCP,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.StrictTCP = v },
 		"strict tcp", "🛡️ Strict TCP validation set to: %v")
 }
 
-// SyncSYNLimitOptimized enables or disables SYN limit with optimized config sync.
-// SyncSYNLimitOptimized 启用或禁用 SYN 限制并使用优化的配置同步。
-func SyncSYNLimitOptimized(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	return syncBoolSettingWithConfigOptimized(ctx, xdpMgr, enable,
+// SyncSYNLimit enables or disables SYN limit with optimized config sync.
+// SyncSYNLimit 启用或禁用 SYN 限制并使用优化的配置同步。
+func SyncSYNLimit(ctx context.Context, xdpMgr XDPManager, enable bool) error {
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetSYNLimit,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.SYNLimit = v },
 		"syn limit", "🛡️ SYN Rate Limit set to: %v")
 }
 
-// SyncBogonFilterOptimized enables or disables bogon filter with optimized config sync.
-// SyncBogonFilterOptimized 启用或禁用 bogon 过滤并使用优化的配置同步。
-func SyncBogonFilterOptimized(ctx context.Context, xdpMgr XDPManager, enable bool) error {
-	return syncBoolSettingWithConfigOptimized(ctx, xdpMgr, enable,
+// SyncBogonFilter enables or disables bogon filter with optimized config sync.
+// SyncBogonFilter 启用或禁用 bogon 过滤并使用优化的配置同步。
+func SyncBogonFilter(ctx context.Context, xdpMgr XDPManager, enable bool) error {
+	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetBogonFilter,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.BogonFilter = v },
 		"bogon filter", "🛡️ Bogon Filter set to: %v")

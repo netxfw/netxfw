@@ -35,8 +35,10 @@ static __always_inline int check_ratelimit(struct in6_addr *ip) {
         }
 
         // Calculate new tokens based on elapsed time
+        // Using pre-scaled rate to avoid division: (elapsed * rate_scaled) >> 32
         // 根据经过的时间计算新令牌
-        __u64 tokens_to_add = (elapsed * val->rate) / 1000000000ULL;
+        // 使用预缩放速率避免除法：(elapsed * rate_scaled) >> 32
+        __u64 tokens_to_add = (elapsed * val->rate_scaled) >> 32;
         __u64 new_tokens = val->tokens + tokens_to_add;
         if (new_tokens > val->burst) new_tokens = val->burst;
 

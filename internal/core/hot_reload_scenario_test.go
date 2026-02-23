@@ -106,13 +106,13 @@ func TestHotReloadScenario_DataMigration(t *testing.T) {
 		name string
 		fn   func(context.Context, xdp.ManagerInterface, bool) error
 	}{
-		{"SyncDefaultDeny", SyncDefaultDenyOptimized},
-		{"SyncEnableAFXDP", SyncEnableAFXDPOptimized},
-		{"SyncEnableRateLimit", SyncEnableRateLimitOptimized},
-		{"SyncDropFragments", SyncDropFragmentsOptimized},
-		{"SyncStrictTCP", SyncStrictTCPOptimized},
-		{"SyncSYNLimit", SyncSYNLimitOptimized},
-		{"SyncBogonFilter", SyncBogonFilterOptimized},
+		{"SyncDefaultDeny", SyncDefaultDeny},
+		{"SyncEnableAFXDP", SyncEnableAFXDP},
+		{"SyncEnableRateLimit", SyncEnableRateLimit},
+		{"SyncDropFragments", SyncDropFragments},
+		{"SyncStrictTCP", SyncStrictTCP},
+		{"SyncSYNLimit", SyncSYNLimit},
+		{"SyncBogonFilter", SyncBogonFilter},
 	}
 
 	for _, sf := range syncFuncs {

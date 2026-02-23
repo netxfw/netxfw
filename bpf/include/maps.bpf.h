@@ -62,6 +62,7 @@ struct rule_value {
 struct ratelimit_value {
     // Config part / 配置部分
     __u64 rate;            // Packets per second / 每秒数据包数
+    __u64 rate_scaled;     // Pre-calculated scaled rate for optimization / 预计算的缩放速率因子
     __u64 burst;           // Max tokens / 最大令牌数
     __u64 config_version;  // Config version for hot reload / 配置版本用于热加载
     // State part / 状态部分

@@ -250,13 +250,13 @@ func TestSyncSettings_HotReload(t *testing.T) {
 		name     string
 		syncFunc func(context.Context, xdp.ManagerInterface, bool) error
 	}{
-		{"DefaultDeny", SyncDefaultDenyOptimized},
-		{"EnableAFXDP", SyncEnableAFXDPOptimized},
-		{"EnableRateLimit", SyncEnableRateLimitOptimized},
-		{"DropFragments", SyncDropFragmentsOptimized},
-		{"StrictTCP", SyncStrictTCPOptimized},
-		{"SYNLimit", SyncSYNLimitOptimized},
-		{"BogonFilter", SyncBogonFilterOptimized},
+		{"DefaultDeny", SyncDefaultDeny},
+		{"EnableAFXDP", SyncEnableAFXDP},
+		{"EnableRateLimit", SyncEnableRateLimit},
+		{"DropFragments", SyncDropFragments},
+		{"StrictTCP", SyncStrictTCP},
+		{"SYNLimit", SyncSYNLimit},
+		{"BogonFilter", SyncBogonFilter},
 	}
 
 	for _, tc := range testCases {

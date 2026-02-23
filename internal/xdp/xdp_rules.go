@@ -461,8 +461,13 @@ func AddRateLimitRuleToMap(ratelimitMap *ebpf.Map, ipNet *net.IPNet, rate, burst
 		copy(key.In6U.U6Addr8[:], ip6)
 	}
 
+	// Pre-calculate scaled rate for division-less kernel math:
+	// rate_scaled = (rate * 2^32) / 10^9
+	rateScaled := (rate << 32) / 1000000000
+
 	val := NetXfwRatelimitValue{
 		Rate:          rate,
+		RateScaled:    rateScaled,
 		Burst:         burst,
 		ConfigVersion: 1,
 		LastTime:      0,

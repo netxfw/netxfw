@@ -54,96 +54,96 @@ func TestConfigCache_InvalidateCache(t *testing.T) {
 	assert.False(t, cache.IsDirty())
 }
 
-// TestSyncBoolSettingWithConfigOptimized tests optimized sync function
-// TestSyncBoolSettingWithConfigOptimized 测试优化的同步函数
-func TestSyncBoolSettingWithConfigOptimized(t *testing.T) {
+// TestSyncBoolSettingWithConfig tests optimized sync function
+// TestSyncBoolSettingWithConfig 测试优化的同步函数
+func TestSyncBoolSettingWithConfig(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
-	err := syncBoolSettingWithConfigOptimized(ctx, mockMgr, true,
+	err := syncBoolSettingWithConfig(ctx, mockMgr, true,
 		mockMgr.SetDefaultDeny,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.DefaultDeny = v },
 		"test setting", "Test setting set to: %v")
 	assert.NoError(t, err)
 }
 
-// TestSyncDefaultDenyOptimized tests optimized SyncDefaultDeny
-// TestSyncDefaultDenyOptimized 测试优化的 SyncDefaultDeny
-func TestSyncDefaultDenyOptimized(t *testing.T) {
+// TestSyncDefaultDeny tests optimized SyncDefaultDeny
+// TestSyncDefaultDeny 测试优化的 SyncDefaultDeny
+func TestSyncDefaultDeny(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
-	err := SyncDefaultDenyOptimized(ctx, mockMgr, true)
+	err := SyncDefaultDeny(ctx, mockMgr, true)
 	assert.NoError(t, err)
 	assert.True(t, mockMgr.DefaultDeny)
 
-	err = SyncDefaultDenyOptimized(ctx, mockMgr, false)
+	err = SyncDefaultDeny(ctx, mockMgr, false)
 	assert.NoError(t, err)
 	assert.False(t, mockMgr.DefaultDeny)
 }
 
-// TestSyncEnableAFXDPOptimized tests optimized SyncEnableAFXDP
-// TestSyncEnableAFXDPOptimized 测试优化的 SyncEnableAFXDP
-func TestSyncEnableAFXDPOptimized(t *testing.T) {
+// TestSyncEnableAFXDP tests optimized SyncEnableAFXDP
+// TestSyncEnableAFXDP 测试优化的 SyncEnableAFXDP
+func TestSyncEnableAFXDP(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
-	err := SyncEnableAFXDPOptimized(ctx, mockMgr, true)
+	err := SyncEnableAFXDP(ctx, mockMgr, true)
 	assert.NoError(t, err)
 	assert.True(t, mockMgr.EnableAFXDP)
 }
 
-// TestSyncEnableRateLimitOptimized tests optimized SyncEnableRateLimit
-// TestSyncEnableRateLimitOptimized 测试优化的 SyncEnableRateLimit
-func TestSyncEnableRateLimitOptimized(t *testing.T) {
+// TestSyncEnableRateLimit tests optimized SyncEnableRateLimit
+// TestSyncEnableRateLimit 测试优化的 SyncEnableRateLimit
+func TestSyncEnableRateLimit(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
-	err := SyncEnableRateLimitOptimized(ctx, mockMgr, true)
+	err := SyncEnableRateLimit(ctx, mockMgr, true)
 	assert.NoError(t, err)
 	assert.True(t, mockMgr.EnableRateLimit)
 }
 
-// TestSyncDropFragmentsOptimized tests optimized SyncDropFragments
-// TestSyncDropFragmentsOptimized 测试优化的 SyncDropFragments
-func TestSyncDropFragmentsOptimized(t *testing.T) {
+// TestSyncDropFragments tests optimized SyncDropFragments
+// TestSyncDropFragments 测试优化的 SyncDropFragments
+func TestSyncDropFragments(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
-	err := SyncDropFragmentsOptimized(ctx, mockMgr, true)
+	err := SyncDropFragments(ctx, mockMgr, true)
 	assert.NoError(t, err)
 	assert.True(t, mockMgr.DropFragments)
 }
 
-// TestSyncStrictTCPOptimized tests optimized SyncStrictTCP
-// TestSyncStrictTCPOptimized 测试优化的 SyncStrictTCP
-func TestSyncStrictTCPOptimized(t *testing.T) {
+// TestSyncStrictTCP tests optimized SyncStrictTCP
+// TestSyncStrictTCP 测试优化的 SyncStrictTCP
+func TestSyncStrictTCP(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
-	err := SyncStrictTCPOptimized(ctx, mockMgr, true)
+	err := SyncStrictTCP(ctx, mockMgr, true)
 	assert.NoError(t, err)
 	assert.True(t, mockMgr.StrictTCP)
 }
 
-// TestSyncSYNLimitOptimized tests optimized SyncSYNLimit
-// TestSyncSYNLimitOptimized 测试优化的 SyncSYNLimit
-func TestSyncSYNLimitOptimized(t *testing.T) {
+// TestSyncSYNLimit tests optimized SyncSYNLimit
+// TestSyncSYNLimit 测试优化的 SyncSYNLimit
+func TestSyncSYNLimit(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
-	err := SyncSYNLimitOptimized(ctx, mockMgr, true)
+	err := SyncSYNLimit(ctx, mockMgr, true)
 	assert.NoError(t, err)
 	assert.True(t, mockMgr.SYNLimit)
 }
 
-// TestSyncBogonFilterOptimized tests optimized SyncBogonFilter
-// TestSyncBogonFilterOptimized 测试优化的 SyncBogonFilter
-func TestSyncBogonFilterOptimized(t *testing.T) {
+// TestSyncBogonFilter tests optimized SyncBogonFilter
+// TestSyncBogonFilter 测试优化的 SyncBogonFilter
+func TestSyncBogonFilter(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
-	err := SyncBogonFilterOptimized(ctx, mockMgr, true)
+	err := SyncBogonFilter(ctx, mockMgr, true)
 	assert.NoError(t, err)
 	assert.True(t, mockMgr.BogonFilter)
 }
@@ -151,9 +151,9 @@ func TestSyncBogonFilterOptimized(t *testing.T) {
 // Table-driven tests for optimized sync functions
 // 优化同步函数的表驱动测试
 
-// TestTableDriven_SyncBoolSettingsOptimized tests all optimized boolean sync functions
-// TestTableDriven_SyncBoolSettingsOptimized 测试所有优化的布尔同步函数
-func TestTableDriven_SyncBoolSettingsOptimized(t *testing.T) {
+// TestTableDriven_SyncBoolSettings tests all optimized boolean sync functions
+// TestTableDriven_SyncBoolSettings 测试所有优化的布尔同步函数
+func TestTableDriven_SyncBoolSettings(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
@@ -162,20 +162,20 @@ func TestTableDriven_SyncBoolSettingsOptimized(t *testing.T) {
 		syncFunc func(context.Context, xdp.ManagerInterface, bool) error
 		enable   bool
 	}{
-		{"SyncDefaultDenyOptimized_Enable", SyncDefaultDenyOptimized, true},
-		{"SyncDefaultDenyOptimized_Disable", SyncDefaultDenyOptimized, false},
-		{"SyncEnableAFXDPOptimized_Enable", SyncEnableAFXDPOptimized, true},
-		{"SyncEnableAFXDPOptimized_Disable", SyncEnableAFXDPOptimized, false},
-		{"SyncEnableRateLimitOptimized_Enable", SyncEnableRateLimitOptimized, true},
-		{"SyncEnableRateLimitOptimized_Disable", SyncEnableRateLimitOptimized, false},
-		{"SyncDropFragmentsOptimized_Enable", SyncDropFragmentsOptimized, true},
-		{"SyncDropFragmentsOptimized_Disable", SyncDropFragmentsOptimized, false},
-		{"SyncStrictTCPOptimized_Enable", SyncStrictTCPOptimized, true},
-		{"SyncStrictTCPOptimized_Disable", SyncStrictTCPOptimized, false},
-		{"SyncSYNLimitOptimized_Enable", SyncSYNLimitOptimized, true},
-		{"SyncSYNLimitOptimized_Disable", SyncSYNLimitOptimized, false},
-		{"SyncBogonFilterOptimized_Enable", SyncBogonFilterOptimized, true},
-		{"SyncBogonFilterOptimized_Disable", SyncBogonFilterOptimized, false},
+		{"SyncDefaultDeny_Enable", SyncDefaultDeny, true},
+		{"SyncDefaultDeny_Disable", SyncDefaultDeny, false},
+		{"SyncEnableAFXDP_Enable", SyncEnableAFXDP, true},
+		{"SyncEnableAFXDP_Disable", SyncEnableAFXDP, false},
+		{"SyncEnableRateLimit_Enable", SyncEnableRateLimit, true},
+		{"SyncEnableRateLimit_Disable", SyncEnableRateLimit, false},
+		{"SyncDropFragments_Enable", SyncDropFragments, true},
+		{"SyncDropFragments_Disable", SyncDropFragments, false},
+		{"SyncStrictTCP_Enable", SyncStrictTCP, true},
+		{"SyncStrictTCP_Disable", SyncStrictTCP, false},
+		{"SyncSYNLimit_Enable", SyncSYNLimit, true},
+		{"SyncSYNLimit_Disable", SyncSYNLimit, false},
+		{"SyncBogonFilter_Enable", SyncBogonFilter, true},
+		{"SyncBogonFilter_Disable", SyncBogonFilter, false},
 	}
 
 	for _, tc := range testCases {
@@ -241,9 +241,9 @@ func BenchmarkSyncDefaultDeny_Original(b *testing.B) {
 	}
 }
 
-// BenchmarkSyncDefaultDeny_Optimized benchmarks optimized SyncDefaultDeny
-// BenchmarkSyncDefaultDeny_Optimized 基准测试优化的 SyncDefaultDeny
-func BenchmarkSyncDefaultDeny_Optimized(b *testing.B) {
+// BenchmarkSyncDefaultDeny_ benchmarks optimized SyncDefaultDeny
+// BenchmarkSyncDefaultDeny_ 基准测试优化的 SyncDefaultDeny
+func BenchmarkSyncDefaultDeny_(b *testing.B) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
@@ -253,7 +253,7 @@ func BenchmarkSyncDefaultDeny_Optimized(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = SyncDefaultDenyOptimized(ctx, mockMgr, true)
+		_ = SyncDefaultDeny(ctx, mockMgr, true)
 	}
 }
 
@@ -272,9 +272,9 @@ func BenchmarkSyncBoolSetting_Original(b *testing.B) {
 	}
 }
 
-// BenchmarkSyncBoolSetting_Optimized benchmarks optimized sync function
-// BenchmarkSyncBoolSetting_Optimized 基准测试优化的同步函数
-func BenchmarkSyncBoolSetting_Optimized(b *testing.B) {
+// BenchmarkSyncBoolSetting_ benchmarks optimized sync function
+// BenchmarkSyncBoolSetting_ 基准测试优化的同步函数
+func BenchmarkSyncBoolSetting_(b *testing.B) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
@@ -284,7 +284,7 @@ func BenchmarkSyncBoolSetting_Optimized(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = syncBoolSettingWithConfigOptimized(ctx, mockMgr, true,
+		_ = syncBoolSettingWithConfig(ctx, mockMgr, true,
 			mockMgr.SetDefaultDeny,
 			func(cfg *types.GlobalConfig, v bool) { cfg.Base.DefaultDeny = v },
 			"test", "Test: %v")
@@ -330,9 +330,9 @@ func BenchmarkConfigCache_SaveConfigDelayed(b *testing.B) {
 	}
 }
 
-// BenchmarkParallel_SyncDefaultDeny_Optimized benchmarks parallel optimized sync
-// BenchmarkParallel_SyncDefaultDeny_Optimized 基准测试并行优化同步
-func BenchmarkParallel_SyncDefaultDeny_Optimized(b *testing.B) {
+// BenchmarkParallel_SyncDefaultDeny_ benchmarks parallel optimized sync
+// BenchmarkParallel_SyncDefaultDeny_ 基准测试并行优化同步
+func BenchmarkParallel_SyncDefaultDeny_(b *testing.B) {
 	mockMgr := xdp.NewMockManager()
 	ctx := context.Background()
 
@@ -342,7 +342,7 @@ func BenchmarkParallel_SyncDefaultDeny_Optimized(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_ = SyncDefaultDenyOptimized(ctx, mockMgr, true)
+			_ = SyncDefaultDeny(ctx, mockMgr, true)
 		}
 	})
 }

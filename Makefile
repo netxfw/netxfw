@@ -13,6 +13,8 @@ help:
 	@echo "  make build           - Build binary (stripped)"
 	@echo "  make build-compressed - Build binary with UPX compression (smallest)"
 	@echo "  make generate        - Generate BPF code"
+	@echo "  make fmt             - Format Go code"
+	@echo "  make lint            - Run golangci-lint"
 	@echo "  make install         - Install binary and config"
 	@echo "  make uninstall       - Remove binary and config"
 	@echo "  make clean           - Clean build artifacts"
@@ -43,14 +45,20 @@ endif
 	@echo "#endif" >> bpf/include/bpf_features.h
 	cd internal/xdp && go generate
 
+fmt:
+	go fmt ./...
+
+lint:
+	golangci-lint run
+
 plugins:
 	@mkdir -p bpf/plugins/out
 	@for f in bpf/plugins/*.bpf.c; do \
 		name=$$(basename $$f .bpf.c); \
 		echo "Compiling plugin: $$name"; \
-		clang -g -O2 -target bpf -D__TARGET_ARCH_x86 -I/usr/include/x86_64-linux-gnu -I./bpf -I./bpf/include $(BPF_CFLAGS) -c $$f -o bpf/plugins/out/$$name.o; \
+		clang -g -O3 -target bpf -D__TARGET_ARCH_x86 -I/usr/include/x86_64-linux-gnu -I./bpf -I./bpf/include $(BPF_CFLAGS) -c $$f -o bpf/plugins/out/$$name.o; \
 	done
-	@echo "✅ Plugins compiled to bpf/plugins/out/"
+	@echo "✅ Plugins compiled to bpf/plugins/out/ (Optimized with -O3)"
 
 install: build
 	mkdir -p /etc/netxfw

@@ -31,7 +31,7 @@
 #define CONFIG_AUTO_BLOCK_EXPIRY 16
 
 // Configuration refresh optimization constants
-#define CONFIG_REFRESH_INTERVAL 1000  // Refresh every 1000 packets
+#define CONFIG_REFRESH_INTERVAL 1024  // Refresh every 1024 packets (Power of 2 for optimization)
 
 // Global cached config version (defined in config.bpf.h)
 extern __u64 cached_version;

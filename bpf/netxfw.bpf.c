@@ -61,7 +61,9 @@ static __always_inline void check_config_refresh() {
         // Optimization: No atomic needed for PERCPU_ARRAY
         // 优化：PERCPU_ARRAY 不需要原子操作
         stats->total_packets += 1;
-        if (unlikely(stats->total_packets % CONFIG_REFRESH_INTERVAL == 0)) {
+        // Bitwise optimization: interval must be a power of 2
+        // 位运算优化：间隔必须是 2 的幂
+        if (unlikely((stats->total_packets & (CONFIG_REFRESH_INTERVAL - 1)) == 0)) {
             refresh_config();
         }
     }
