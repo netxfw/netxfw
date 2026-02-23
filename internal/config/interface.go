@@ -64,6 +64,12 @@ func GetConfigPath() string {
 	return DefaultConfigPath
 }
 
+// SetConfigPath sets the configuration file path
+// SetConfigPath 设置配置文件路径
+func SetConfigPath(path string) {
+	runtime.ConfigPath = path
+}
+
 // GetPinPath returns the BPF pinning path
 // GetPinPath 返回BPF固定路径
 func GetPinPath() string {

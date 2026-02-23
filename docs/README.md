@@ -12,6 +12,7 @@
 - [testing/](./testing/) - 测试文档
 - [performance/](./performance/) - 性能基准测试
 - [cloud/](./cloud/) - 云环境支持文档
+- [features/](./features/) - 特性文档
 
 ## 快速链接
 
@@ -37,6 +38,12 @@
 | 插件开发指南 | [plugins/plugins.md](./plugins/plugins.md) | [English](./plugins/plugins_en.md) |
 | XDP 插件开发 | [plugins/xdp/development_guide.md](./plugins/xdp/development_guide.md) | - |
 | Go 插件开发 | [plugins/golang/development_guide.md](./plugins/golang/development_guide.md) | - |
+
+### 特性文档
+
+| 文档 | 中文 (默认) | 英文 (辅助) |
+|------|-------------|-------------|
+| 接口特定 Agent 模式 | [features/interface_specific_agent.md](./features/interface_specific_agent.md) | [English](./features/interface_specific_agent_en.md) |
 
 ### 性能与云环境
 

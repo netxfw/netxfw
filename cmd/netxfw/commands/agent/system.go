@@ -35,6 +35,15 @@ var systemInitCmd = &cobra.Command{
 	Long: `Initialize default configuration file in /root/netxfw/`,
 	// Long: 在 /root/netxfw/ 中初始化默认配置文件
 	Run: func(cmd *cobra.Command, args []string) {
+		// Set config file if provided
+		// 如果提供了配置文件，则设置它
+		configFile, _ := cmd.Flags().GetString("config")
+		if configFile != "" {
+			config.SetConfigPath(configFile)
+		}
+
+		common.EnsureStandaloneMode()
+
 		// Initialize configuration
 		// 初始化配置
 		core.InitConfiguration(cmd.Context())
@@ -48,16 +57,11 @@ var systemStatusCmd = &cobra.Command{
 	Long: `Show current runtime status and statistics`,
 	// Long: 显示当前的运行时状态和统计信息
 	Run: func(cmd *cobra.Command, args []string) {
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-		// Show system status
-		// 显示系统状态
-		if err := showStatus(cmd.Context(), s); err != nil {
-			cmd.PrintErrln(err)
-		}
+		Execute(cmd, args, func(s *sdk.SDK) error {
+			// Show system status
+			// 显示系统状态
+			return showStatus(cmd.Context(), s)
+		})
 	},
 }
 
@@ -68,6 +72,15 @@ var systemTestCmd = &cobra.Command{
 	Long: `Test configuration validity`,
 	// Long: 测试配置有效性
 	Run: func(cmd *cobra.Command, args []string) {
+		// Set config file if provided
+		// 如果提供了配置文件，则设置它
+		configFile, _ := cmd.Flags().GetString("config")
+		if configFile != "" {
+			config.SetConfigPath(configFile)
+		}
+
+		common.EnsureStandaloneMode()
+
 		// Test configuration
 		// 测试配置
 		daemon.TestConfiguration(cmd.Context())
@@ -81,6 +94,15 @@ var systemDaemonCmd = &cobra.Command{
 	Long: `Start background process`,
 	// Long: 启动后台进程
 	Run: func(cmd *cobra.Command, args []string) {
+		// Set config file if provided
+		// 如果提供了配置文件，则设置它
+		configFile, _ := cmd.Flags().GetString("config")
+		if configFile != "" {
+			config.SetConfigPath(configFile)
+		}
+
+		common.EnsureStandaloneMode()
+
 		// Run as daemon
 		// 以守护进程方式运行
 		app.RunDaemon(cmd.Context())
@@ -238,6 +260,14 @@ func init() {
 	// 添加 on/off 别名
 	SystemCmd.AddCommand(systemOnCmd)
 	SystemCmd.AddCommand(systemOffCmd)
+
+	RegisterCommonFlags(systemInitCmd)
+	RegisterCommonFlags(systemStatusCmd)
+	RegisterCommonFlags(systemTestCmd)
+	RegisterCommonFlags(systemDaemonCmd)
+	RegisterCommonFlags(systemUpdateCmd)
+	RegisterCommonFlags(systemOnCmd)
+	RegisterCommonFlags(systemOffCmd)
 }
 
 // showStatus displays the system status including statistics and configuration

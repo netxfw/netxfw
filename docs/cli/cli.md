@@ -12,6 +12,8 @@
 | `system load` | `[-i interface]` | 加载 BPF 程序并挂载到指定网卡 |
 | `system unload` | `[-i interface]` | 卸载 BPF 程序并清理固定 Map |
 | `system reload` | `[-i interface]` | 热重载配置并无损更新 BPF 程序 |
+| `system init` | `[--config path]` | 初始化默认配置文件 |
+| `system update` | 无 | 检查并安装最新版本 (手动更新) |
 | `plugin load` | `<path> <index>` | 动态加载 BPF 插件到指定索引 (2-15) |
 | `plugin remove`| `<index>` | 移除指定索引位的 BPF 插件 |
 | `conntrack` | 无 | 查看当前内核中的活跃连接追踪表 |
@@ -25,13 +27,17 @@
 | `lock` | `<IP>` | 快捷命令：全局封禁指定 IP |
 | `allow` | `<IP> [port]` | 快捷命令：将 IP 加入白名单 |
 | `system sync` | `to-config / to-map` | 同步内存规则到配置文件，或从配置文件加载到内存 |
-| `system status`| 无 | 查看系统状态和统计信息 |
+| `system status`| `[-c config] [-i interface]` | 查看系统状态、统计信息及资源利用率，支持指定配置文件和网络接口 |
+| `system agent` | `[-i interface]` | 启动 Agent 进程，支持指定网络接口 |
+| `system daemon` | `[-i interface]` | 启动守护进程，支持指定网络接口 |
+| `version` | `[--short]` | 查看版本号 (及详细 SDK/Stats 状态) |
 | `perf show` | 无 | 显示所有性能统计信息 |
 | `perf latency` | 无 | 显示 Map 操作延迟统计 |
 | `perf cache` | 无 | 显示缓存命中率统计 |
 | `perf traffic` | 无 | 显示实时流量统计 |
 | `perf reset` | 无 | 重置性能统计计数器 |
 | `web` | `start / stop` | 管理 Web 控制台服务 |
+| `quick` | `start / stop` | 快速开始引导 (互动式加载/卸载) |
 
 ---
 
@@ -261,15 +267,81 @@ sudo netxfw perf reset
 - **缓存命中率**：统计全局统计、丢弃详情、通过详情、Map 计数等缓存命中情况
 - **实时流量**：显示当前/峰值/平均 PPS、BPS、丢弃率等流量指标
 
-### 12. 插件管理 (plugin)
-允许在不停止防火墙的情况下，动态扩展数据包处理逻辑。
-- **加载插件**：
-  ```bash
-  # 将编译好的插件加载到索引 2
-  sudo netxfw plugin load ./my_plugin.o 2
-  ```
-- **卸载插件**：
-  ```bash
-  sudo netxfw plugin remove 2
-  ```
+### 12. 系统状态与 Agent (system status/agent)
+
+#### 系统状态 (system status)
+显示当前防火墙系统的运行状态、统计信息和资源利用率。
+
+```bash
+# 显示系统状态
+sudo netxfw system status
+
+# 使用指定配置文件查看状态
+sudo netxfw system status -c /path/to/custom/config.yaml
+
+# 显示特定接口的状态
+sudo netxfw system status -i eth0
+
+# 使用指定配置文件并显示特定接口的状态
+sudo netxfw system status -c /path/to/custom/config.yaml -i eth0,eth1
+```
+
+#### Agent 模式 (system agent)
+启动 Agent 进程，支持指定特定网络接口运行。
+
+```bash
+# 启动 Agent（使用配置文件中指定的接口）
+sudo netxfw system agent
+
+# 指定特定接口启动 Agent
+sudo netxfw system agent -i eth0
+
+# 指定多个接口启动 Agent
+sudo netxfw system agent -i eth0,eth1
+
+# 使用命令行参数覆盖配置文件中的接口设置
+sudo netxfw system agent -i eth2 eth3
+```
+
+#### 守护进程模式 (system daemon)
+启动守护进程，支持指定特定网络接口运行。
+
+```bash
+# 启动守护进程（使用配置文件中指定的接口）
+sudo netxfw system daemon
+
+# 指定特定接口启动守护进程
+sudo netxfw system daemon -i eth0
+
+# 指定多个接口启动守护进程
+sudo netxfw system daemon -i eth0,eth1
+```
+
+**PID 文件管理**：
+- 当使用特定接口运行 Agent 时，会为每个接口创建独立的 PID 文件：`/var/run/netxfw_<interface>.pid`
+- 当未指定接口时，使用默认 PID 文件：`/var/run/netxfw.pid`
+- 此设计支持在同一系统上运行多个独立的 Agent 实例，每个实例管理不同的网络接口
+
+---
+
+### 14. 版本信息 (version)
+查看当前运行的版本以及 BPF SDK 的状态。
+
+```bash
+# 查看详细版本和运行时状态
+netxfw version
+
+# 仅输出版本号 (适用于脚本集成)
+netxfw version --short
+```
+
+---
+
+### 15. 快速体验 (quick)
+为新手提供的互动式命令，帮助快速完成加载或卸载流程。
+
+```bash
+sudo netxfw quick start
+```
+
 详情请参考 [插件开发指南](plugins.md)。

@@ -9,6 +9,10 @@ const (
 	// DefaultPidPath 是守护进程 PID 文件的位置。
 	DefaultPidPath = "/var/run/netxfw.pid"
 
+	// InterfacePidPathPattern is the pattern for interface-specific PID files.
+	// InterfacePidPathPattern 是接口特定 PID 文件的模式。
+	InterfacePidPathPattern = "/var/run/netxfw_%s.pid"
+
 	// BPFPinPath is the filesystem path where BPF maps and programs are pinned.
 	// BPFPinPath 是 BPF Map 和程序固定的文件系统路径。
 	// We use _v2 to allow parallel existence during migration/upgrades or to avoid conflicts with old versions.

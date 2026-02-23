@@ -12,6 +12,8 @@
 | `reload xdp` | None | Hot-reloads configuration and updates BPF programs losslessly |
 | `plugin load` | `<path> <index>` | Dynamically loads a BPF plugin to the specified index (2-15) |
 | `plugin remove`| `<index>` | Removes the BPF plugin at the specified index |
+| `system init` | `[--config path]` | Initializes a default configuration file |
+| `system update` | None | Checks and installs the latest version (manual update) |
 | `conntrack` | None | Views the current active connection tracking table in the kernel |
 | `rule add` | `<IP> [port] <allow/deny>` | Adds an IP or IP+Port rule |
 | `rule list` | `rules / conntrack` | Lists rules or connections |
@@ -23,13 +25,17 @@
 | `lock` | `<IP>` | Shortcut: Globally bans a specific IP |
 | `allow` | `<IP> [port]` | Shortcut: Adds an IP to the whitelist |
 | `system sync` | `to-config / to-map` | Syncs memory rules to config file, or loads rules from config to memory |
-| `system status`| None | Views system status and statistics |
+| `system status`| `[-c config] [-i interface]` | Views system status, statistics, and resource usage, supports specifying config file and network interfaces |
+| `system agent` | `[-i interface]` | Starts Agent process, supports specifying network interfaces |
+| `system daemon` | `[-i interface]` | Starts daemon process, supports specifying network interfaces |
+| `version` | `[--short]` | Views version number (and detailed SDK/Stats status) |
 | `perf show` | None | Shows all performance statistics |
 | `perf latency` | None | Shows map operation latency statistics |
 | `perf cache` | None | Shows cache hit rate statistics |
 | `perf traffic` | None | Shows real-time traffic statistics |
 | `perf reset` | None | Resets performance statistics counters |
 | `web` | `start / stop` | Manages the Web Console service |
+| `quick` | `start / stop` | Quick-start guide (interactive load/unload) |
 
 ---
 
@@ -235,4 +241,99 @@ Allows dynamic extension of packet processing logic without stopping the firewal
   ```bash
   sudo netxfw plugin remove 2
   ```
+
+### 12. System Status and Agent (system status/agent)
+
+#### System Status (system status)
+Displays the current runtime status, statistics, and resource utilization of the firewall system.
+
+```bash
+# Display system status
+sudo netxfw system status
+
+# Display status using a specified config file
+sudo netxfw system status -c /path/to/custom/config.yaml
+
+# Display status for specific interfaces
+sudo netxfw system status -i eth0
+
+# Display status using a specified config file and specific interfaces
+sudo netxfw system status -c /path/to/custom/config.yaml -i eth0,eth1
+```
+
+#### Agent Mode (system agent)
+Starts the Agent process, supporting the specification of specific network interfaces.
+
+```bash
+# Start Agent (using interfaces specified in config file)
+sudo netxfw system agent
+
+# Start Agent on specific interface
+sudo netxfw system agent -i eth0
+
+# Start Agent on multiple interfaces
+sudo netxfw system agent -i eth0,eth1
+
+# Use command-line parameters to override interface settings in config file
+sudo netxfw system agent -i eth2 eth3
+```
+
+#### Daemon Mode (system daemon)
+Starts the Daemon process, supporting the specification of specific network interfaces.
+
+```bash
+# Start daemon (using interfaces specified in config file)
+sudo netxfw system daemon
+
+# Start daemon on specific interface
+sudo netxfw system daemon -i eth0
+
+# Start daemon on multiple interfaces
+sudo netxfw system daemon -i eth0,eth1
+```
+
+**PID File Management**:
+- When running Agent with specific interfaces, individual PID files are created for each interface: `/var/run/netxfw_<interface>.pid`
+- When no interface is specified, the default PID file is used: `/var/run/netxfw.pid`
+- This design supports running multiple independent Agent instances on the same system, each managing different network interfaces
+
+---
+
+### 13. Version Information (version)
+View the current version and BPF SDK status.
+
+```bash
+# View detailed version and runtime state
+netxfw version
+
+# Print only the version number (useful for script integration)
+netxfw version --short
+```
+
+---
+
+### 13. System Init & Update (init/update)
+
+Convenient lifecycle management tools for operations.
+
+- **Initialize Config**:
+  Use this after installation or to restore defaults.
+  ```bash
+  sudo netxfw system init
+  ```
+- **Manual Update**:
+  Fetches the latest release from GitHub and automatically replaces the binary. Restarts the service to apply changes.
+  ```bash
+  sudo netxfw system update
+  ```
+
+---
+
+### 14. Quick Start Guide (quick)
+Interactive commands to help beginners load or unload the firewall easily.
+
+```bash
+sudo netxfw quick start
+```
+
 See [Plugin Development Guide](../plugins/plugins.md) for details.

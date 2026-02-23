@@ -167,6 +167,19 @@ func RunDaemon(ctx context.Context) {
 }
 
 /**
+ * RunDaemonWithInterfaces starts the background process for metrics and rule synchronization with specific interfaces.
+ * RunDaemonWithInterfaces 启动用于指标和规则同步的后台进程，支持指定接口。
+ */
+func RunDaemonWithInterfaces(ctx context.Context, interfaces []string) {
+	core.InitConfiguration(ctx)
+	daemon.TestConfiguration(ctx)
+	opts := &daemon.DaemonOptions{
+		Interfaces: interfaces,
+	}
+	daemon.Run(ctx, runtime.Mode, opts)
+}
+
+/**
  * HandlePluginCommand processes plugin-related CLI commands.
  * HandlePluginCommand 处理与插件相关的 CLI 命令。
  */

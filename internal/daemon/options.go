@@ -12,4 +12,10 @@ type DaemonOptions struct {
 	// If nil, the default manager will be created.
 	// 如果为 nil，将创建默认管理器。
 	Manager xdp.ManagerInterface
+
+	// Interfaces specifies the network interfaces to bind to.
+	// If nil or empty, all interfaces will be used.
+	// Interfaces 指定要绑定的网络接口。
+	// 如果为 nil 或为空，则使用所有接口。
+	Interfaces []string
 }

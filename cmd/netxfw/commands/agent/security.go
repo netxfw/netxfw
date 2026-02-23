@@ -1,11 +1,10 @@
 package agent
 
 import (
-	"os"
+	"fmt"
 	"strconv"
 	"time"
 
-	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -21,24 +20,18 @@ netxfw 的安全管理命令`,
 // runSecurityBoolCommand executes a security command with boolean argument.
 // runSecurityBoolCommand 执行带有布尔参数的安全命令。
 func runSecurityBoolCommand(cmd *cobra.Command, args []string, setter func(*sdk.SDK, bool) error, settingName string) {
-	common.EnsureStandaloneMode()
+	Execute(cmd, args, func(s *sdk.SDK) error {
+		enable, err := strconv.ParseBool(args[0])
+		if err != nil {
+			return fmt.Errorf("❌ Invalid boolean value: %v", err)
+		}
 
-	s, err := common.GetSDK()
-	if err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(1)
-	}
-
-	enable, err := strconv.ParseBool(args[0])
-	if err != nil {
-		logger.Get(cmd.Context()).Fatalf("❌ Invalid boolean value: %v", err)
-	}
-
-	if err := setter(s, enable); err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(1)
-	}
-	logger.Get(cmd.Context()).Infof("✅ %s set to %v", settingName, enable)
+		if err := setter(s, enable); err != nil {
+			return err
+		}
+		logger.Get(cmd.Context()).Infof("✅ %s set to %v", settingName, enable)
+		return nil
+	})
 }
 
 var securityFragmentsCmd = &cobra.Command{
@@ -113,24 +106,18 @@ var securityAutoBlockExpiryCmd = &cobra.Command{
 设置自动封锁过期时间（秒）`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
-
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		expiry, err := strconv.Atoi(args[0])
-		if err != nil {
-			logger.Get(cmd.Context()).Fatalf("❌ Invalid expiry value: %v", err)
-		}
-		duration := time.Duration(expiry) * time.Second
-		if err := s.Security.SetAutoBlockExpiry(duration); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-		logger.Get(cmd.Context()).Infof("✅ Auto-block expiry set to %v", duration)
+		Execute(cmd, args, func(s *sdk.SDK) error {
+			expiry, err := strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("❌ Invalid expiry value: %v", err)
+			}
+			duration := time.Duration(expiry) * time.Second
+			if err := s.Security.SetAutoBlockExpiry(duration); err != nil {
+				return err
+			}
+			logger.Get(cmd.Context()).Infof("✅ Auto-block expiry set to %v", duration)
+			return nil
+		})
 	},
 }
 
@@ -141,4 +128,11 @@ func init() {
 	SecurityCmd.AddCommand(securityBogonCmd)
 	SecurityCmd.AddCommand(securityAutoBlockCmd)
 	SecurityCmd.AddCommand(securityAutoBlockExpiryCmd)
+
+	RegisterCommonFlags(securityFragmentsCmd)
+	RegisterCommonFlags(securityStrictTCPCmd)
+	RegisterCommonFlags(securitySYNLimitCmd)
+	RegisterCommonFlags(securityBogonCmd)
+	RegisterCommonFlags(securityAutoBlockCmd)
+	RegisterCommonFlags(securityAutoBlockExpiryCmd)
 }

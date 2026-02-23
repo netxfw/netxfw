@@ -19,10 +19,17 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 
 	log.Info("🚀 Starting netxfw in Agent (Control Plane) mode")
 
-	if err := managePidFile(pidPath); err != nil {
+	// Use the interfaces from options if provided
+	// 如果提供了选项中的接口，则使用它们
+	var interfaces []string
+	if opts != nil {
+		interfaces = opts.Interfaces
+	}
+
+	if err := managePidFileWithInterfaces(pidPath, interfaces); err != nil {
 		log.Fatalf("❌ %v", err)
 	}
-	defer removePidFile(pidPath)
+	defer removePidFileWithInterfaces(pidPath, interfaces)
 
 	// Use the config manager to load the configuration
 	cfgManager := config.GetConfigManager()
@@ -46,7 +53,7 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 
 	// 1. Initialize Manager
 	var manager xdp.ManagerInterface
-	if opts.Manager != nil {
+	if opts != nil && opts.Manager != nil {
 		log.Info("Using injected Manager (e.g. for testing)")
 		manager = opts.Manager
 	} else {

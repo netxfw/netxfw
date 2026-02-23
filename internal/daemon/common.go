@@ -22,6 +22,34 @@ import (
 // managePidFile ensures only one instance of the daemon is running by checking/writing a PID file.
 // managePidFile 通过检查/编写 PID 文件来确保只有一个守护进程实例在运行。
 func managePidFile(path string) error {
+	return managePidFileWithInterfaces(path, nil)
+}
+
+// managePidFileWithInterfaces ensures only one instance of the daemon is running by checking/writing a PID file.
+// If interfaces are provided, it creates interface-specific PID files.
+// managePidFileWithInterfaces 通过检查/编写 PID 文件来确保只有一个守护进程实例在运行。
+// 如果提供了接口，则创建接口特定的 PID 文件。
+func managePidFileWithInterfaces(path string, interfaces []string) error {
+	// If no interfaces specified, use the default behavior
+	// 如果没有指定接口，使用默认行为
+	if len(interfaces) == 0 {
+		return manageSinglePidFile(path)
+	}
+
+	// For each interface, create a specific PID file
+	// 对于每个接口，创建特定的 PID 文件
+	for _, iface := range interfaces {
+		pidPath := fmt.Sprintf(config.InterfacePidPathPattern, iface)
+		if err := manageSinglePidFile(pidPath); err != nil {
+			return fmt.Errorf("failed to manage PID file for interface %s: %v", iface, err)
+		}
+	}
+	return nil
+}
+
+// manageSinglePidFile manages a single PID file.
+// manageSinglePidFile 管理单个 PID 文件。
+func manageSinglePidFile(path string) error {
 	safePath := filepath.Clean(path) // Sanitize path to prevent directory traversal
 	if content, err := os.ReadFile(safePath); err == nil {
 		pid, err := strconv.Atoi(strings.TrimSpace(string(content)))
@@ -45,9 +73,35 @@ func managePidFile(path string) error {
 	return nil
 }
 
-// removePidFile deletes the PID file on shutdown.
+// removePidFile removes the PID file on shutdown.
 // removePidFile 在关机时删除 PID 文件。
 func removePidFile(path string) {
+	removePidFileWithInterfaces(path, nil)
+}
+
+// removePidFileWithInterfaces removes PID files on shutdown.
+// If interfaces are provided, it removes interface-specific PID files.
+// removePidFileWithInterfaces 在关机时删除 PID 文件。
+// 如果提供了接口，则删除接口特定的 PID 文件。
+func removePidFileWithInterfaces(path string, interfaces []string) {
+	// If no interfaces specified, use the default behavior
+	// 如果没有指定接口，使用默认行为
+	if len(interfaces) == 0 {
+		removeSinglePidFile(path)
+		return
+	}
+
+	// For each interface, remove the specific PID file
+	// 对于每个接口，删除特定的 PID 文件
+	for _, iface := range interfaces {
+		pidPath := fmt.Sprintf(config.InterfacePidPathPattern, iface)
+		removeSinglePidFile(pidPath)
+	}
+}
+
+// removeSinglePidFile removes a single PID file.
+// removeSinglePidFile 删除单个 PID 文件。
+func removeSinglePidFile(path string) {
 	log := logger.Get(context.Background())
 	if err := os.Remove(path); err != nil {
 		log.Warnf("⚠️  Failed to remove PID file: %v", err)

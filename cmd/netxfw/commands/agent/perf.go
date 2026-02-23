@@ -2,10 +2,8 @@ package agent
 
 import (
 	"fmt"
-	"os"
 	"time"
 
-	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
@@ -32,18 +30,7 @@ var perfShowCmd = &cobra.Command{
 	Long: `Show all performance statistics including map latency, cache hit rates, and traffic stats.`,
 	// Long: 显示所有性能统计，包括 Map 延迟、缓存命中率和流量统计。
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
-
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		if err := showPerformanceStats(s); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
+		Execute(cmd, args, showPerformanceStats)
 	},
 }
 
@@ -56,18 +43,7 @@ var perfLatencyCmd = &cobra.Command{
 	Long: `Show map operation latency statistics.`,
 	// Long: 显示 Map 操作延迟统计。
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
-
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		if err := showMapLatency(s); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
+		Execute(cmd, args, showMapLatency)
 	},
 }
 
@@ -80,18 +56,7 @@ var perfCacheCmd = &cobra.Command{
 	Long: `Show cache hit rate statistics.`,
 	// Long: 显示缓存命中率统计。
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
-
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		if err := showCacheHitRates(s); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
+		Execute(cmd, args, showCacheHitRates)
 	},
 }
 
@@ -104,18 +69,7 @@ var perfTrafficCmd = &cobra.Command{
 	Long: `Show real-time traffic statistics including PPS, BPS, and drop rates.`,
 	// Long: 显示实时流量统计，包括 PPS、BPS 和丢弃速率。
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
-
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		if err := showTrafficStats(s); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
+		Execute(cmd, args, showTrafficStats)
 	},
 }
 
@@ -128,22 +82,16 @@ var perfResetCmd = &cobra.Command{
 	Long: `Reset all performance statistics counters.`,
 	// Long: 重置所有性能统计计数器。
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
+		Execute(cmd, args, func(s *sdk.SDK) error {
+			perfStats, err := getPerfStats(s)
+			if err != nil {
+				return err
+			}
 
-		s, err := common.GetSDK()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		perfStats, err := getPerfStats(s)
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-
-		perfStats.Reset()
-		fmt.Println("✅ Performance statistics reset successfully")
+			perfStats.Reset()
+			fmt.Println("✅ Performance statistics reset successfully")
+			return nil
+		})
 	},
 }
 
@@ -162,6 +110,12 @@ func init() {
 	// 为持续监控添加 watch 标志
 	perfShowCmd.Flags().BoolVarP(&watchFlag, "watch", "w", false, "Continuously display stats")
 	perfTrafficCmd.Flags().BoolVarP(&watchFlag, "watch", "w", false, "Continuously display stats")
+
+	RegisterCommonFlags(perfShowCmd)
+	RegisterCommonFlags(perfLatencyCmd)
+	RegisterCommonFlags(perfCacheCmd)
+	RegisterCommonFlags(perfTrafficCmd)
+	RegisterCommonFlags(perfResetCmd)
 }
 
 // getPerfStats retrieves the performance stats from the manager
