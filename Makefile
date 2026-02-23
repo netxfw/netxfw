@@ -1,5 +1,8 @@
 .PHONY: build build-compressed generate clean
 
+VERSION ?= $(shell git describe --tags --always --dirty)
+COMMIT  ?= $(shell git rev-parse --short HEAD)
+
 BPF_CFLAGS :=
 # Default to ipv6=yes if not specified
 ipv6 ?= yes

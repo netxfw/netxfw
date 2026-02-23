@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var versionShort bool
+
 var VersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
@@ -16,12 +18,16 @@ var VersionCmd = &cobra.Command{
 	Long: `Show the current version of netxfw`,
 	// Long: 显示 netxfw 的当前版本
 	Run: func(cmd *cobra.Command, args []string) {
+		if versionShort {
+			fmt.Println(version.Version)
+			return
+		}
 		showVersion(cmd.Context())
 	},
 }
 
 func init() {
-	// RootCmd.AddCommand(versionCmd)
+	VersionCmd.Flags().BoolVarP(&versionShort, "short", "s", false, "Only print version number")
 }
 
 func showVersion(ctx context.Context) {

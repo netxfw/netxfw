@@ -199,11 +199,31 @@ Examples:
 	},
 }
 
+var systemUpdateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Check and install updates",
+	// Short: 检查并安装更新
+	Long: `Check for the latest version on GitHub and install it.
+This will restart the netxfw service if an update is performed.`,
+	// Long: 检查 GitHub 上的最新版本并安装。如果执行了更新，将重新启动 netxfw 服务。
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("🚀 Checking for updates...")
+		// Execute the deploy.sh script from GitHub
+		// This is a simple and effective way to update
+		execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
+		if err := fmtutil.RunShellCommand(execCmd); err != nil {
+			fmt.Printf("❌ Update failed: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
 func init() {
 	SystemCmd.AddCommand(systemInitCmd)
 	SystemCmd.AddCommand(systemStatusCmd)
 	SystemCmd.AddCommand(systemTestCmd)
 	SystemCmd.AddCommand(systemDaemonCmd)
+	SystemCmd.AddCommand(systemUpdateCmd)
 
 	systemLoadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to attach XDP to")
 	SystemCmd.AddCommand(systemLoadCmd)
