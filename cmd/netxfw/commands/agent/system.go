@@ -409,25 +409,25 @@ func showMapStatistics(mgr sdk.ManagerInterface) {
 	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
 		"🔒 Blacklist", blacklistCount, maxBlacklist,
 		fmt.Sprintf("%.1f%%", calculatePercentGeneric(blacklistCount, uint64(maxBlacklist))), // #nosec G115 // count is always valid
-		getUsageIndicator(blacklistCount, maxBlacklist))
+		getUsageIndicator(blacklistCount, maxBlacklist, false))
 	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
 		"🔓 Dyn Blacklist", dynBlacklistCount, maxDynBlacklist,
 		fmt.Sprintf("%.1f%%", calculatePercentGeneric(dynBlacklistCount, uint64(maxDynBlacklist))), // #nosec G115 // count is always valid
-		getUsageIndicator(int(dynBlacklistCount), maxDynBlacklist))                                 // #nosec G115 // count is always within int range
+		getUsageIndicator(int(dynBlacklistCount), maxDynBlacklist, true))                           // #nosec G115 // count is always within int range
 	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
 		"⚪ Whitelist", whitelistCount, maxWhitelist,
 		fmt.Sprintf("%.1f%%", calculatePercentGeneric(whitelistCount, uint64(maxWhitelist))), // #nosec G115 // count is always valid
-		getUsageIndicator(whitelistCount, maxWhitelist))
+		getUsageIndicator(whitelistCount, maxWhitelist, false))
 	// Conntrack is shown in detail in Conntrack Health section, skip here
 	// Conntrack 在 Conntrack Health 部分详细显示，此处跳过
 	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
 		"📋 IP+Port Rules", len(ipPortRules), maxIPPortRules,
 		fmt.Sprintf("%.1f%%", calculatePercentGeneric(uint64(len(ipPortRules)), uint64(maxIPPortRules))), // #nosec G115 // count is always valid
-		getUsageIndicator(len(ipPortRules), maxIPPortRules))
+		getUsageIndicator(len(ipPortRules), maxIPPortRules, false))
 	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
 		"⏱️  Rate Limits", len(rateLimitRules), maxRateLimits,
 		fmt.Sprintf("%.1f%%", calculatePercentGeneric(uint64(len(rateLimitRules)), uint64(maxRateLimits))), // #nosec G115 // count is always valid
-		getUsageIndicator(len(rateLimitRules), maxRateLimits))
+		getUsageIndicator(len(rateLimitRules), maxRateLimits, false))
 	fmt.Printf("   %-16s %10d\n", "🔓 Allowed Ports", len(allowedPorts))
 }
 
@@ -671,23 +671,32 @@ func showConntrackHealth(mgr sdk.ManagerInterface) {
 	// Determine health status / 确定健康状态
 	usagePercent := calculatePercentGeneric(conntrackCount, uint64(maxConntrack)) // #nosec G115 // count is always valid
 	critical, high, _ := getThresholdsFromConfig()
-	if hasRateData {
-		fmt.Printf("   ├─ Evict/s: %s conn/s\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentConntrackEvict))
-		if usagePercent >= float64(critical) {
-			fmt.Println("   └─ ⚠️  Status: CRITICAL - Near capacity")
+
+	// For LRU maps, full is not necessarily critical unless evict rate is too high
+	// 对于 LRU map，满不一定是紧急的，除非淘汰率过高
+	isLRU := true // Conntrack is LRU
+	statusMsg := "✅ Status: Healthy"
+	if isLRU {
+		if hasRateData && trafficStats.CurrentConntrackEvict > uint64(maxConntrack/10) { // arbitrary threshold: 10% of capacity evicted per second
+			statusMsg = "⚠️  Status: STRESSED - High eviction rate"
+		} else if usagePercent >= 99.9 {
+			statusMsg = "✅ Status: Healthy (LRU Full)"
 		} else if usagePercent >= float64(high) {
-			fmt.Println("   └─ ⚠️  Status: HIGH - Approaching capacity")
-		} else {
-			fmt.Println("   └─ ✅ Status: Healthy")
+			statusMsg = "✅ Status: Healthy (LRU Warming up)"
 		}
 	} else {
 		if usagePercent >= float64(critical) {
-			fmt.Println("   ⚠️  Status: CRITICAL - Near capacity")
+			statusMsg = "⚠️  Status: CRITICAL - Near capacity"
 		} else if usagePercent >= float64(high) {
-			fmt.Println("   ⚠️  Status: HIGH - Approaching capacity")
-		} else {
-			fmt.Println("   ✅ Status: Healthy")
+			statusMsg = "⚠️  Status: HIGH - Approaching capacity"
 		}
+	}
+
+	if hasRateData {
+		fmt.Printf("   ├─ Evict/s: %s conn/s\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentConntrackEvict))
+		fmt.Printf("   └─ %s\n", statusMsg)
+	} else {
+		fmt.Printf("   %s\n", statusMsg)
 	}
 }
 
@@ -773,12 +782,17 @@ func showProtocolDistribution(s StatsAPI, pass, drops uint64) {
 
 // getUsageIndicator returns a visual indicator based on usage level
 // getUsageIndicator 根据使用级别返回可视化指示器
-func getUsageIndicator(current, maximum int) string {
+func getUsageIndicator(current, maximum int, isLRU bool) string {
 	if maximum == 0 {
 		return ""
 	}
 	usage := float64(current) / float64(maximum) * 100
 	critical, high, medium := getThresholdsFromConfig()
+
+	if isLRU && usage >= 99.0 {
+		return "🟢 [OK (LRU Full)]"
+	}
+
 	if usage >= float64(critical) {
 		return "🔴 [CRITICAL]"
 	} else if usage >= float64(high) {
