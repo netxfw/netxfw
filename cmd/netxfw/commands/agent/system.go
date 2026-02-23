@@ -636,18 +636,7 @@ func showConntrackHealth(mgr sdk.ManagerInterface) {
 		return
 	}
 
-	// Get capacity configuration from config manager / 从配置管理器获取容量配置
-	cfgManager := config.GetConfigManager()
-	var maxConntrack int
-	if loadErr := cfgManager.LoadConfig(); loadErr == nil {
-		capacityCfg := cfgManager.GetCapacityConfig()
-		if capacityCfg != nil && capacityCfg.Conntrack > 0 {
-			maxConntrack = capacityCfg.Conntrack
-		}
-	}
-	if maxConntrack == 0 {
-		maxConntrack = 100000 // Default from CapacityConfig / 来自 CapacityConfig 的默认值
-	}
+	maxConntrack := getConntrackMax()
 
 	// Get conntrack entries for protocol breakdown / 获取连接跟踪条目以进行协议分布
 	entries, err := mgr.ListAllConntrackEntries()
@@ -658,19 +647,7 @@ func showConntrackHealth(mgr sdk.ManagerInterface) {
 	}
 
 	// Count by protocol / 按协议计数
-	var tcpCount, udpCount, icmpCount, otherCount int
-	for _, entry := range entries {
-		switch entry.Protocol {
-		case 6: // TCP
-			tcpCount++
-		case 17: // UDP
-			udpCount++
-		case 1: // ICMP
-			icmpCount++
-		default:
-			otherCount++
-		}
-	}
+	tcpCount, udpCount, icmpCount, otherCount := getConntrackProtocolStats(entries)
 
 	fmt.Printf("   ├─ Active Connections: %d / %d (%.1f%%)\n", conntrackCount, maxConntrack, calculatePercentGeneric(conntrackCount, uint64(maxConntrack))) // #nosec G115 // count is always valid
 	fmt.Printf("   ├─ TCP Connections: %d (%.1f%%)\n", tcpCount, calculatePercentGeneric(uint64(tcpCount), uint64(conntrackCount)))                         // #nosec G115 // count is always valid
@@ -689,35 +666,63 @@ func showConntrackHealth(mgr sdk.ManagerInterface) {
 	}
 
 	// Determine health status / 确定健康状态
-	usagePercent := calculatePercentGeneric(conntrackCount, uint64(maxConntrack)) // #nosec G115 // count is always valid
-	critical, high, _ := getThresholdsFromConfig()
-
-	// For LRU maps, full is not necessarily critical unless evict rate is too high
-	// 对于 LRU map，满不一定是紧急的，除非淘汰率过高
-	isLRU := true // Conntrack is LRU
-	statusMsg := "✅ Status: Healthy"
-	if isLRU {
-		if hasRateData && trafficStats.CurrentConntrackEvict > uint64(maxConntrack/10) { // arbitrary threshold: 10% of capacity evicted per second
-			statusMsg = "⚠️  Status: STRESSED - High eviction rate"
-		} else if usagePercent >= 99.9 {
-			statusMsg = "✅ Status: Healthy (LRU Full)"
-		} else if usagePercent >= float64(high) {
-			statusMsg = "✅ Status: Healthy (LRU Warming up)"
-		}
-	} else {
-		if usagePercent >= float64(critical) {
-			statusMsg = "⚠️  Status: CRITICAL - Near capacity"
-		} else if usagePercent >= float64(high) {
-			statusMsg = "⚠️  Status: HIGH - Approaching capacity"
-		}
-	}
+	statusMsg := getConntrackHealthStatus(uint64(conntrackCount), uint64(maxConntrack), hasRateData, trafficStats)
 
 	if hasRateData {
 		fmt.Printf("   ├─ Evict/s: %s conn/s\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentConntrackEvict))
 		fmt.Printf("   └─ %s\n", statusMsg)
 	} else {
-		fmt.Printf("   %s\n", statusMsg)
+		fmt.Printf("   └─ %s\n", statusMsg)
 	}
+}
+
+// getConntrackMax returns max capacity for conntrack from config or default
+func getConntrackMax() int {
+	cfgManager := config.GetConfigManager()
+	if err := cfgManager.LoadConfig(); err == nil {
+		capacityCfg := cfgManager.GetCapacityConfig()
+		if capacityCfg != nil && capacityCfg.Conntrack > 0 {
+			return capacityCfg.Conntrack
+		}
+	}
+	return 100000 // Default from CapacityConfig
+}
+
+// getConntrackProtocolStats counts connections by protocol
+func getConntrackProtocolStats(entries []sdk.ConntrackEntry) (tcp, udp, icmp, other int) {
+	for _, entry := range entries {
+		switch entry.Protocol {
+		case 6:
+			tcp++
+		case 17:
+			udp++
+		case 1:
+			icmp++
+		default:
+			other++
+		}
+	}
+	return
+}
+
+// getConntrackHealthStatus determines the health message for conntrack
+func getConntrackHealthStatus(count uint64, maxVal uint64, hasRate bool, stats xdp.TrafficStats) string {
+	usagePercent := calculatePercentGeneric(count, maxVal)
+	critical, high, _ := getThresholdsFromConfig()
+
+	// Conntrack is LRU
+	if hasRate && stats.CurrentConntrackEvict > uint64(maxVal/10) {
+		return "⚠️  Status: STRESSED - High eviction rate"
+	} else if usagePercent >= 99.9 {
+		return "✅ Status: Healthy (LRU Full)"
+	} else if usagePercent >= float64(high) {
+		return "✅ Status: Healthy (LRU Warming up)"
+	} else if usagePercent >= float64(critical) {
+		return "⚠️  Status: CRITICAL - Near capacity"
+	} else if usagePercent >= float64(high) {
+		return "⚠️  Status: HIGH - Approaching capacity"
+	}
+	return "✅ Status: Healthy"
 }
 
 // showProtocolDistribution displays protocol distribution statistics
