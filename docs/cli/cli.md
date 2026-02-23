@@ -1,64 +1,120 @@
 # 命令行手册 (CLI Manual)
 
-`netxfw` 提供了一个简单的命令行界面，用于管理防火墙服务和操作 IP 锁定列表。
+`netxfw` 提供了一个简单的命令行界面，用于管理防火墙服务和操作 IP 规则列表。
+
+## 通用标志
+
+以下标志适用于大多数子命令：
+
+| 标志 | 简写 | 说明 |
+|---|---|---|
+| `--config <path>` | `-c` | 指定配置文件路径（默认 `/etc/netxfw/config.yaml`） |
+| `--interface <name>` | `-i` | 指定网络接口 |
+| `--mode <dp\|agent>` | - | 运行模式（`dp` 数据面 / `agent` 控制面） |
+
+---
 
 ## 命令概览
 
-| 命令 | 参数 | 描述 |
-| :--- | :--- | :--- |
-| `daemon` | 无 | 启动守护进程，负责指标收集、规则清理和 API 服务 |
-| `system on` | `[interface...]` | 加载 XDP 程序 (load 的别名) |
-| `system off` | `[interface...]` | 卸载 XDP 程序 (unload 的别名) |
-| `system load` | `[-i interface]` | 加载 BPF 程序并挂载到指定网卡 |
-| `system unload` | `[-i interface]` | 卸载 BPF 程序并清理固定 Map |
-| `system reload` | `[-i interface]` | 热重载配置并无损更新 BPF 程序 |
-| `system init` | `[--config path]` | 初始化默认配置文件 |
-| `system update` | 无 | 检查并安装最新版本 (手动更新) |
-| `plugin load` | `<path> <index>` | 动态加载 BPF 插件到指定索引 (2-15) |
-| `plugin remove`| `<index>` | 移除指定索引位的 BPF 插件 |
-| `conntrack` | 无 | 查看当前内核中的活跃连接追踪表 |
-| `rule add` | `<IP> [port] <allow/deny>` | 添加 IP 或 IP+端口 规则 |
-| `rule list` | `rules / conntrack` | 查看规则列表或连接列表 |
-| `rule import` | `[type] <file>` | 导入规则（支持文本/JSON/YAML） |
-| `rule export` | `<file> [--format]` | 导出规则到文件（支持 JSON/YAML/CSV） |
-| `limit add` | `<IP> <rate> <burst>` | 为指定 IP 设置 PPS 限速 |
-| `limit remove`| `<IP>` | 移除限速规则 |
+### 快捷命令
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `block <ip>` | IP/CIDR | 快速封禁 IP（加入黑名单） |
+| `unlock <ip>` | IP/CIDR | 快速解封 IP（从黑名单移除） |
+| `allow <ip> [port]` | IP/CIDR [端口] | 快速加入白名单 |
+| `unallow <ip>` | IP/CIDR | 快速从白名单移除 |
+| `clear` | 无 | 清空黑名单 |
+
+### system 系统管理
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `system on [iface...]` | 接口名 | 加载 XDP 程序（`load` 别名） |
+| `system off [iface...]` | 接口名 | 卸载 XDP 程序（`unload` 别名） |
+| `system load` | `-i <iface>` | 加载 XDP 驱动到指定接口 |
+| `system unload` | `-i <iface>` | 卸载 XDP 驱动 |
+| `system reload` | `-i <iface>` | 热重载 XDP 程序（无损更新） |
+| `system daemon` | `-c -i` | 启动后台守护进程 |
+| `system status` | `-c -i` | 查看运行时状态和统计信息 |
+| `system init` | `-c` | 初始化默认配置文件 |
+| `system test` | `-c` | 测试配置文件有效性 |
+| `system update` | 无 | 从 GitHub 检查并安装更新 |
+| `system sync to-config` | `-c -i` | 将 BPF Map 状态同步到配置文件 |
+| `system sync to-map` | `-c -i` | 将配置文件加载到 BPF Map |
+
+### rule 规则管理
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `rule add <ip> [port] <allow\|deny>` | IP, 端口, 动作 | 添加 IP 或 IP+端口规则 |
+| `rule remove <ip>` | IP/CIDR | 移除规则 |
+| `rule list` | 可选过滤参数 | 查看所有规则列表 |
+| `rule import <type> <file>` | 类型, 文件 | 批量导入规则（TXT/JSON/YAML） |
+| `rule export <file> [--format]` | 文件名, 格式 | 导出规则（JSON/YAML/CSV） |
+| `rule clear` | 无 | 清空黑名单 |
+
+### limit 限速管理
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `limit add <ip> <rate> <burst>` | IP, 速率, 突发 | 为指定 IP 设置 PPS 限速 |
+| `limit remove <ip>` | IP | 移除限速规则 |
 | `limit list` | 无 | 查看所有限速规则 |
-| `lock` | `<IP>` | 快捷命令：全局封禁指定 IP |
-| `allow` | `<IP> [port]` | 快捷命令：将 IP 加入白名单 |
-| `system sync` | `to-config / to-map` | 同步内存规则到配置文件，或从配置文件加载到内存 |
-| `system status`| `[-c config] [-i interface]` | 查看系统状态、统计信息及资源利用率，支持指定配置文件和网络接口 |
-| `system agent` | `[-i interface]` | 启动 Agent 进程，支持指定网络接口 |
-| `system daemon` | `[-i interface]` | 启动守护进程，支持指定网络接口 |
-| `version` | `[--short]` | 查看版本号 (及详细 SDK/Stats 状态) |
-| `perf show` | 无 | 显示所有性能统计信息 |
-| `perf latency` | 无 | 显示 Map 操作延迟统计 |
-| `perf cache` | 无 | 显示缓存命中率统计 |
-| `perf traffic` | 无 | 显示实时流量统计 |
-| `perf reset` | 无 | 重置性能统计计数器 |
-| `web` | `start / stop` | 管理 Web 控制台服务 |
-| `quick` | `start / stop` | 快速开始引导 (互动式加载/卸载) |
+
+### security 安全策略
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `security fragments <true\|false>` | 布尔值 | 启用/禁用分片包丢弃 |
+| `security strict-tcp <true\|false>` | 布尔值 | 启用/禁用严格 TCP 标志验证 |
+| `security syn-limit <true\|false>` | 布尔值 | 启用/禁用 SYN Flood 保护 |
+| `security bogon <true\|false>` | 布尔值 | 启用/禁用 Bogon 过滤 |
+| `security auto-block <true\|false>` | 布尔值 | 启用/禁用自动封锁 |
+| `security auto-block-expiry <seconds>` | 秒数 | 设置自动封锁过期时间 |
+
+### port 端口管理
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `port add <port>` | 端口号 | 将端口加入全局允许列表 |
+| `port remove <port>` | 端口号 | 从允许列表移除端口 |
+
+### perf 性能监控
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `perf show` | `-c -i` | 显示所有性能统计 |
+| `perf latency` | `-c -i` | 显示 Map 操作延迟统计 |
+| `perf cache` | `-c -i` | 显示缓存命中率统计 |
+| `perf traffic` | `-c -i` | 显示实时流量统计（PPS/BPS/丢包率） |
+| `perf reset` | `-c -i` | 重置性能统计计数器 |
+
+### 其他
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `conntrack` | 无 | 查看内核活跃连接追踪表 |
+| `version` | `[--short]` | 查看版本及 SDK 状态 |
+| `web` | 无 | 显示 Web 控制台信息 |
 
 ---
 
 ## 详细说明
 
-### 1. XDP 程序管理 (system on/off/load/unload)
+### 1. XDP 程序管理
 
 `netxfw` 提供多种方式管理 XDP 程序的加载和卸载：
 
-#### 命令对照表
-
-| 功能 | 命令格式 1 | 命令格式 2 | 命令格式 3 |
-|------|-----------|-----------|-----------|
-| **加载 XDP** | `netxfw system load -i eth0` | `netxfw system on -i eth0` | `netxfw system on eth0` |
-| **卸载 XDP** | `netxfw system unload -i eth0` | `netxfw system off -i eth0` | `netxfw system off eth0` |
-| **卸载全部** | `netxfw system unload` | `netxfw system off` | - |
-
-#### 使用示例
+| 功能 | 命令 |
+|---|---|
+| 加载 XDP | `netxfw system on eth0` 或 `netxfw system load -i eth0` |
+| 卸载 XDP | `netxfw system off eth0` 或 `netxfw system unload -i eth0` |
+| 卸载全部 | `netxfw system off` |
+| 热重载 | `netxfw system reload -i eth0` |
 
 ```bash
-# 加载 XDP 到指定网卡
+# 加载到指定网卡
 sudo netxfw system on eth0
 
 # 加载到多个网卡
@@ -67,281 +123,230 @@ sudo netxfw system on eth0 eth1 eth2
 # 使用配置文件中的默认网卡
 sudo netxfw system on
 
-# 卸载指定网卡上的 XDP
-sudo netxfw system off eth0
-
 # 卸载所有网卡上的 XDP
 sudo netxfw system off
 
-# 使用 -i 标志指定网卡
-sudo netxfw system load -i eth0
-sudo netxfw system unload -i eth0
+# 热重载（无损更新，不中断现有连接）
+sudo netxfw system reload -i eth0
 ```
 
-### 2. 守护进程 (daemon)
-`netxfw` 的核心运行模式。在 `daemon` 模式下，程序会：
-- 监控内核 BPF Map 状态。
-- 自动清理过期的动态规则。
-- 暴露 Prometheus 指标 (默认 :9100)。
-- 启动 Web API 供 CLI 和 Web UI 调用。
+### 2. 系统状态 (system status)
+
+显示防火墙运行状态、统计信息和资源利用率。
 
 ```bash
-sudo netxfw daemon
+# 查看系统状态
+sudo netxfw system status
+
+# 指定配置文件
+sudo netxfw system status -c /etc/netxfw/config.yaml
+
+# 查看特定接口的统计
+sudo netxfw system status -i eth0
 ```
 
-### 3. 规则管理 (rule)
-支持细粒度的访问控制。
-- **添加规则**：
-  ```bash
-  # 允许来自 1.2.3.4 的所有流量
-  sudo netxfw rule add 1.2.3.4 allow
-  # 拦截来自 5.6.7.8 访问 80 端口的流量
-  sudo netxfw rule add 5.6.7.8 80 deny
-  ```
-- **查看规则**：
-  ```bash
-  sudo netxfw rule list rules
-  ```
+**输出内容包含**：流量速率、通过/丢弃统计、连接追踪健康度、BPF Map 使用率、协议分布、安全策略概览、接口状态。
 
-### 4. 连接追踪 (conntrack)
-实时查看内核中的有状态连接。这对于排查网络连通性问题非常有用。
+### 3. 快捷封禁与解封
+
+针对紧急情况的快捷命令，无需 SDK 子命令：
 
 ```bash
-sudo netxfw conntrack
-```
-**输出示例：**
-```text
-Source          Port  Destination     Port  Protocol
---------------------------------------------------------------------------------
-192.168.1.100   54321 1.1.1.1         443   TCP
-```
+# 立即封禁 IP
+sudo netxfw block 1.2.3.4
 
-### 5. 快速封禁与解封 (lock/unlock)
-针对紧急情况的快捷命令。
+# 封禁 CIDR 网段
+sudo netxfw block 192.168.100.0/24
 
-```bash
-# 立即封禁
-sudo netxfw lock 1.2.3.4
 # 立即解封
 sudo netxfw unlock 1.2.3.4
+
+# 加入白名单
+sudo netxfw allow 1.2.3.4
+
+# 指定白名单端口
+sudo netxfw allow 1.2.3.4 443
+
+# 从白名单移除
+sudo netxfw unallow 1.2.3.4
+
+# 清空黑名单
+sudo netxfw clear
 ```
 
-### 6. 流量控制 (limit)
-在 XDP 层面对指定 IP 或网段进行 PPS（每秒数据包数）限速。支持 IPv4 和 IPv6。
+### 4. 规则管理 (rule)
 
-- **开启全局限速功能**：
-  ```bash
-  sudo netxfw system ratelimit true
-  ```
-- **添加限速规则**：
-  ```bash
-  # 限制 1.2.3.4 的流量为每秒 100 个包，最大突发 200 个包
-  sudo netxfw limit add 1.2.3.4 100 200
-
-  # 限制 IPv6 地址 ::1 的流量为每秒 500 个包
-  sudo netxfw limit add ::1 500 1000
-
-  # 限制整个网段 192.168.1.0/24
-  sudo netxfw limit add 192.168.1.0/24 1000 2000
-  ```
-- **查看限速状态**：
-  ```bash
-  sudo netxfw limit list
-  ```
-- **移除限速规则**：
-  ```bash
-  sudo netxfw limit remove 1.2.3.4
-  ```
-
-### 7. 热重载 (reload)
-当您修改了 `/etc/netxfw/config.yaml`（例如调整了 Map 容量或默认策略）后，可以使用此命令实现无损重载。
+支持细粒度的访问控制。
 
 ```bash
-sudo netxfw reload xdp
+# 将 IP 加入白名单（允许所有流量）
+sudo netxfw rule add 1.2.3.4 allow
+
+# 将 IP 加入黑名单（封禁所有流量）
+sudo netxfw rule add 5.6.7.8 deny
+
+# 封禁特定 IP 访问特定端口
+sudo netxfw rule add 5.6.7.8 80 deny
+
+# 查看所有规则
+sudo netxfw rule list
+
+# 移除规则
+sudo netxfw rule remove 1.2.3.4
 ```
-该命令会自动将旧 Map 中的数据迁移到新 Map，确保现有连接不中断。
 
-### 8. 配置同步 (sync)
-支持内存状态（BPF Maps）与配置文件（config.yaml）之间的双向同步，确保运维一致性。
+### 5. 批量导入 (rule import)
 
-- **同步到配置文件**（Memory -> Disk）：
-  将当前 BPF Map 中的动态规则（黑名单、限速规则等）写入 `config.yaml`，实现持久化。
-  ```bash
-  sudo netxfw system sync to-config
-  ```
+支持从文本或结构化文件批量导入规则。
 
-- **同步到内存**（Disk -> Memory）：
-  将 `config.yaml` 中的规则重新加载到 BPF Map 中（类似于热重载，但不重启 BPF 程序）。
-  ```bash
-  sudo netxfw system sync to-map
-  ```
-
-### 9. 批量导入 (import)
-支持从文本文件或结构化文件（JSON/YAML）批量导入规则。
-
-#### 文本格式导入
 ```bash
-# 导入黑名单（每行一个 IP 或网段）
+# 导入黑名单（每行一个 IP/CIDR）
 sudo netxfw rule import deny blacklist.txt
 
-# 导入白名单（每行一个 IP 或网段）
+# 导入白名单
 sudo netxfw rule import allow whitelist.txt
 
-# 导入 IP+端口规则（每行格式：IP:Port:Action）
-sudo netxfw rule import rules ipport.txt
-```
-**文本文件格式示例**：
-```text
-# 每行一个 IP 或网段
-1.2.3.4
-192.168.0.0/24
-2001:db8::1
-```
-
-#### JSON/YAML 格式导入
-支持导入 `rule export` 导出的结构化文件，实现规则备份与恢复的完整闭环。
-
-```bash
-# 从 JSON 文件导入所有规则
+# 从 JSON/YAML 文件导入所有规则
 sudo netxfw rule import all rules.json
-
-# 从 YAML 文件导入所有规则
 sudo netxfw rule import all rules.yaml
 ```
-**JSON 文件格式示例**：
+
+**文本格式**：每行一个 IP 或 CIDR，支持 `#` 注释。
+
+**JSON 格式**：
 ```json
 {
-  "blacklist": [
-    {"type": "blacklist", "ip": "10.0.0.1"},
-    {"type": "blacklist", "ip": "192.168.0.0/24"}
-  ],
-  "whitelist": [
-    {"type": "whitelist", "ip": "127.0.0.1/32"}
-  ],
-  "ipport_rules": [
-    {"type": "ipport", "ip": "192.168.1.1", "port": 80, "action": "allow"},
-    {"type": "ipport", "ip": "10.0.0.2", "port": 443, "action": "deny"}
-  ]
+  "blacklist": [{"type": "blacklist", "ip": "10.0.0.1"}],
+  "whitelist": [{"type": "whitelist", "ip": "127.0.0.1/32"}],
+  "ipport_rules": [{"type": "ipport", "ip": "192.168.1.1", "port": 80, "action": "allow"}]
 }
 ```
 
-### 10. 规则导出 (export)
-支持将当前所有防火墙规则导出为 JSON、YAML 或 CSV 格式的文件。
+### 6. 规则导出 (rule export)
 
 ```bash
-# 导出为 JSON 格式（默认）
+# 导出为 JSON（默认）
 sudo netxfw rule export rules.json
 
-# 导出为 YAML 格式
+# 导出为 YAML
 sudo netxfw rule export rules.yaml --format yaml
 
-# 导出为 CSV 格式
+# 导出为 CSV
 sudo netxfw rule export rules.csv --format csv
 ```
-**导出内容包含**：
-- 黑名单列表
-- 白名单列表
-- IP+端口规则
+
+### 7. 限速管理 (limit)
+
+在 XDP 层对指定 IP 或网段进行 PPS（每秒包数）限速，支持 IPv4/IPv6/CIDR。
+
+```bash
+# 限制 1000 pps，最大突发 2000
+sudo netxfw limit add 1.2.3.4 1000 2000
+
+# 限制 IPv6 地址
+sudo netxfw limit add 2001:db8::1 500 1000
+
+# 限制整个网段
+sudo netxfw limit add 192.168.1.0/24 5000 10000
+
+# 查看限速规则
+sudo netxfw limit list
+
+# 移除限速规则
+sudo netxfw limit remove 1.2.3.4
+```
+
+### 8. 安全策略 (security)
+
+动态调整防火墙的安全行为，立即生效，无需重载。
+
+```bash
+# 禁用分片包丢弃
+sudo netxfw security fragments false
+
+# 启用严格 TCP 标志验证
+sudo netxfw security strict-tcp true
+
+# 启用 SYN Flood 保护
+sudo netxfw security syn-limit true
+
+# 启用 Bogon 过滤
+sudo netxfw security bogon true
+
+# 启用自动封锁
+sudo netxfw security auto-block true
+
+# 设置自动封锁过期时间（600 秒）
+sudo netxfw security auto-block-expiry 600
+```
+
+### 9. 端口管理 (port)
+
+管理全局允许端口列表。
+
+```bash
+# 允许特定端口
+sudo netxfw port add 8080
+
+# 移除允许端口
+sudo netxfw port remove 8080
+```
+
+### 10. 配置同步 (system sync)
+
+在 BPF Map（运行时）与配置文件（磁盘）之间双向同步。
+
+```bash
+# 将运行时状态持久化到配置文件
+sudo netxfw system sync to-config
+
+# 将配置文件重新加载到运行时
+sudo netxfw system sync to-map
+```
 
 ### 11. 性能监控 (perf)
-提供实时性能监控功能，包括 Map 操作延迟、缓存命中率和流量统计。
 
 ```bash
-# 显示所有性能统计信息
-sudo netxfw perf show
-
-# 显示 Map 操作延迟统计
-sudo netxfw perf latency
-
-# 显示缓存命中率统计
-sudo netxfw perf cache
-
-# 显示实时流量统计
-sudo netxfw perf traffic
-
-# 重置性能统计计数器
-sudo netxfw perf reset
-```
-**性能统计包含**：
-- **Map 操作延迟**：记录各类 BPF Map 操作的延迟统计（读/写/删除/迭代）
-- **缓存命中率**：统计全局统计、丢弃详情、通过详情、Map 计数等缓存命中情况
-- **实时流量**：显示当前/峰值/平均 PPS、BPS、丢弃率等流量指标
-
-### 12. 系统状态与 Agent (system status/agent)
-
-#### 系统状态 (system status)
-显示当前防火墙系统的运行状态、统计信息和资源利用率。
-
-```bash
-# 显示系统状态
-sudo netxfw system status
-
-# 使用指定配置文件查看状态
-sudo netxfw system status -c /path/to/custom/config.yaml
-
-# 显示特定接口的状态
-sudo netxfw system status -i eth0
-
-# 使用指定配置文件并显示特定接口的状态
-sudo netxfw system status -c /path/to/custom/config.yaml -i eth0,eth1
+sudo netxfw perf show       # 显示所有性能统计
+sudo netxfw perf latency    # Map 操作延迟
+sudo netxfw perf cache      # 缓存命中率
+sudo netxfw perf traffic    # 实时流量 PPS/BPS
+sudo netxfw perf reset      # 重置统计计数器
 ```
 
-#### Agent 模式 (system agent)
-启动 Agent 进程，支持指定特定网络接口运行。
+### 12. 守护进程模式 (system daemon)
 
 ```bash
-# 启动 Agent（使用配置文件中指定的接口）
-sudo netxfw system agent
-
-# 指定特定接口启动 Agent
-sudo netxfw system agent -i eth0
-
-# 指定多个接口启动 Agent
-sudo netxfw system agent -i eth0,eth1
-
-# 使用命令行参数覆盖配置文件中的接口设置
-sudo netxfw system agent -i eth2 eth3
-```
-
-#### 守护进程模式 (system daemon)
-启动守护进程，支持指定特定网络接口运行。
-
-```bash
-# 启动守护进程（使用配置文件中指定的接口）
+# 使用配置文件中指定的接口启动
 sudo netxfw system daemon
 
-# 指定特定接口启动守护进程
+# 指定接口启动
 sudo netxfw system daemon -i eth0
 
-# 指定多个接口启动守护进程
-sudo netxfw system daemon -i eth0,eth1
+# 指定配置文件和接口
+sudo netxfw system daemon -c /etc/netxfw/config.yaml -i eth0
 ```
 
-**PID 文件管理**：
-- 当使用特定接口运行 Agent 时，会为每个接口创建独立的 PID 文件：`/var/run/netxfw_<interface>.pid`
-- 当未指定接口时，使用默认 PID 文件：`/var/run/netxfw.pid`
-- 此设计支持在同一系统上运行多个独立的 Agent 实例，每个实例管理不同的网络接口
+> **PID 文件说明**：
+> - 指定接口时：`/var/run/netxfw_<interface>.pid`（支持多实例并行）
+> - 未指定接口时：`/var/run/netxfw.pid`
 
----
-
-### 14. 版本信息 (version)
-查看当前运行的版本以及 BPF SDK 的状态。
+### 13. 版本信息 (version)
 
 ```bash
-# 查看详细版本和运行时状态
-netxfw version
-
-# 仅输出版本号 (适用于脚本集成)
-netxfw version --short
+netxfw version           # 详细版本及 SDK 状态
+netxfw version --short   # 仅输出版本号（适用于脚本）
 ```
 
----
-
-### 15. 快速体验 (quick)
-为新手提供的互动式命令，帮助快速完成加载或卸载流程。
+### 14. 配置初始化与验证
 
 ```bash
-sudo netxfw quick start
-```
+# 初始化默认配置文件
+sudo netxfw system init
 
-详情请参考 [插件开发指南](plugins.md)。
+# 测试配置文件是否有效
+sudo netxfw system test
+
+# 手动检查并安装更新
+sudo netxfw system update
+```

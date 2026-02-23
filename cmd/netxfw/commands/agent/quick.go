@@ -100,10 +100,22 @@ var QuickClearCmd = &cobra.Command{
 	},
 }
 
+// QuickLockCmd is an alias for QuickBlockCmd (backward-compatible)
+// QuickLockCmd 是 QuickBlockCmd 的别名（向后兼容）
+var QuickLockCmd = &cobra.Command{
+	Use:        "lock <ip>",
+	Short:      "Block an IP (alias for 'block')",
+	Long:       `Block an IP by adding it to the blacklist. This is an alias for 'block'.`,
+	Args:       cobra.ExactArgs(1),
+	Deprecated: "use 'block' instead",
+	Run:        QuickBlockCmd.Run,
+}
+
 func init() {
 	RegisterCommonFlags(QuickBlockCmd)
 	RegisterCommonFlags(QuickUnlockCmd)
 	RegisterCommonFlags(QuickAllowCmd)
 	RegisterCommonFlags(QuickUnallowCmd)
 	RegisterCommonFlags(QuickClearCmd)
+	RegisterCommonFlags(QuickLockCmd)
 }

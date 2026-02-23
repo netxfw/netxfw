@@ -1,339 +1,352 @@
 # CLI Manual
 
-`netxfw` provides a simple command-line interface for managing firewall services and manipulating IP lock lists.
+`netxfw` provides a simple command-line interface for managing the firewall and IP rule lists.
+
+## Global Flags
+
+The following flags are available on most subcommands:
+
+| Flag | Short | Description |
+|---|---|---|
+| `--config <path>` | `-c` | Path to config file (default: `/etc/netxfw/config.yaml`) |
+| `--interface <name>` | `-i` | Network interface to target |
+| `--mode <dp\|agent>` | - | Operation mode: `dp` (Data Plane) / `agent` (Control Plane) |
+
+---
 
 ## Command Overview
 
+### Quick Commands
+
 | Command | Arguments | Description |
-| :--- | :--- | :--- |
-| `daemon` | None | Starts the daemon process, responsible for metrics collection, rule cleanup, and API service |
-| `load xdp` | None | Loads BPF programs and attaches them to all physical network interfaces |
-| `unload xdp` | None | Unloads BPF programs and cleans up pinned Maps |
-| `reload xdp` | None | Hot-reloads configuration and updates BPF programs losslessly |
-| `plugin load` | `<path> <index>` | Dynamically loads a BPF plugin to the specified index (2-15) |
-| `plugin remove`| `<index>` | Removes the BPF plugin at the specified index |
-| `system init` | `[--config path]` | Initializes a default configuration file |
-| `system update` | None | Checks and installs the latest version (manual update) |
-| `conntrack` | None | Views the current active connection tracking table in the kernel |
-| `rule add` | `<IP> [port] <allow/deny>` | Adds an IP or IP+Port rule |
-| `rule list` | `rules / conntrack` | Lists rules or connections |
-| `rule import` | `[type] <file>` | Import rules (text/JSON/YAML) |
-| `rule export` | `<file> [--format]` | Exports rules to file (JSON/YAML/CSV supported) |
-| `limit add` | `<IP> <rate> <burst>` | Sets PPS rate limit for a specific IP |
-| `limit remove`| `<IP>` | Removes a rate limit rule |
-| `limit list` | None | Lists all rate limit rules |
-| `lock` | `<IP>` | Shortcut: Globally bans a specific IP |
-| `allow` | `<IP> [port]` | Shortcut: Adds an IP to the whitelist |
-| `system sync` | `to-config / to-map` | Syncs memory rules to config file, or loads rules from config to memory |
-| `system status`| `[-c config] [-i interface]` | Views system status, statistics, and resource usage, supports specifying config file and network interfaces |
-| `system agent` | `[-i interface]` | Starts Agent process, supports specifying network interfaces |
-| `system daemon` | `[-i interface]` | Starts daemon process, supports specifying network interfaces |
-| `version` | `[--short]` | Views version number (and detailed SDK/Stats status) |
-| `perf show` | None | Shows all performance statistics |
-| `perf latency` | None | Shows map operation latency statistics |
-| `perf cache` | None | Shows cache hit rate statistics |
-| `perf traffic` | None | Shows real-time traffic statistics |
-| `perf reset` | None | Resets performance statistics counters |
-| `web` | `start / stop` | Manages the Web Console service |
-| `quick` | `start / stop` | Quick-start guide (interactive load/unload) |
+|---|---|---|
+| `block <ip>` | IP/CIDR | Quickly block an IP (add to blacklist) |
+| `unlock <ip>` | IP/CIDR | Quickly unblock an IP (remove from blacklist) |
+| `allow <ip> [port]` | IP/CIDR [port] | Quickly whitelist an IP |
+| `unallow <ip>` | IP/CIDR | Quickly remove from whitelist |
+| `clear` | None | Clear the entire blacklist |
+
+### system — System Management
+
+| Command | Flags | Description |
+|---|---|---|
+| `system on [iface...]` | positional args | Load XDP program (alias for `load`) |
+| `system off [iface...]` | positional args | Unload XDP program (alias for `unload`) |
+| `system load` | `-i <iface>` | Load XDP driver onto interface |
+| `system unload` | `-i <iface>` | Unload XDP driver |
+| `system reload` | `-i <iface>` | Hot-reload XDP program (lossless) |
+| `system daemon` | `-c -i` | Start background daemon process |
+| `system status` | `-c -i` | Show runtime status and statistics |
+| `system init` | `-c` | Initialize default configuration file |
+| `system test` | `-c` | Test configuration validity |
+| `system update` | None | Check and install updates from GitHub |
+| `system sync to-config` | `-c -i` | Dump BPF maps → config file (persist) |
+| `system sync to-map` | `-c -i` | Load config file → BPF maps |
+
+### rule — Rule Management
+
+| Command | Arguments | Description |
+|---|---|---|
+| `rule add <ip> [port] <allow\|deny>` | IP, port, action | Add IP or IP+Port rule |
+| `rule remove <ip>` | IP/CIDR | Remove a rule |
+| `rule list` | optional filters | List all rules |
+| `rule import <type> <file>` | type, file | Bulk import rules (TXT/JSON/YAML) |
+| `rule export <file> [--format]` | file, format | Export rules (JSON/YAML/CSV) |
+| `rule clear` | None | Clear the blacklist |
+
+### limit — Rate Limiting
+
+| Command | Arguments | Description |
+|---|---|---|
+| `limit add <ip> <rate> <burst>` | IP, pps, burst | Set PPS rate limit for an IP |
+| `limit remove <ip>` | IP | Remove a rate limit rule |
+| `limit list` | None | List all rate limit rules |
+
+### security — Security Policies
+
+| Command | Arguments | Description |
+|---|---|---|
+| `security fragments <true\|false>` | bool | Enable/disable dropping fragmented packets |
+| `security strict-tcp <true\|false>` | bool | Enable/disable strict TCP flag validation |
+| `security syn-limit <true\|false>` | bool | Enable/disable SYN flood protection |
+| `security bogon <true\|false>` | bool | Enable/disable bogon IP filtering |
+| `security auto-block <true\|false>` | bool | Enable/disable auto-blocking |
+| `security auto-block-expiry <seconds>` | int | Set auto-block expiry duration |
+
+### port — Port Management
+
+| Command | Arguments | Description |
+|---|---|---|
+| `port add <port>` | port number | Add port to global allow list |
+| `port remove <port>` | port number | Remove port from allow list |
+
+### perf — Performance Monitoring
+
+| Command | Flags | Description |
+|---|---|---|
+| `perf show` | `-c -i` | Show all performance statistics |
+| `perf latency` | `-c -i` | Show BPF map operation latency |
+| `perf cache` | `-c -i` | Show cache hit rate statistics |
+| `perf traffic` | `-c -i` | Show real-time traffic (PPS/BPS/drops) |
+| `perf reset` | `-c -i` | Reset all performance counters |
+
+### Other
+
+| Command | Arguments | Description |
+|---|---|---|
+| `conntrack` | None | Show active kernel connection tracking table |
+| `version` | `[--short]` | Show version and SDK status |
+| `web` | None | Show Web UI information |
 
 ---
 
-## Detailed Description
+## Detailed Reference
 
-### 1. Daemon (daemon)
-The core running mode of `netxfw`. In `daemon` mode, the program will:
-- Monitor kernel BPF Map status.
-- Automatically clean up expired dynamic rules.
-- Expose Prometheus metrics (default :9100).
-- Start the Web API for CLI and Web UI calls.
+### 1. XDP Program Management
 
-```bash
-sudo netxfw daemon
-```
+`netxfw` provides several ways to load and unload the XDP program:
 
-### 2. Rule Management (rule)
-Supports fine-grained access control.
-- **Add Rule**:
-  ```bash
-  # Allow all traffic from 1.2.3.4
-  sudo netxfw rule add 1.2.3.4 allow
-  # Block traffic from 5.6.7.8 to port 80
-  sudo netxfw rule add 5.6.7.8 80 deny
-  ```
-- **List Rules**:
-  ```bash
-  sudo netxfw rule list rules
-  ```
-
-### 3. Connection Tracking (conntrack)
-View stateful connections in the kernel in real-time. This is very useful for troubleshooting network connectivity issues.
+| Action | Command |
+|---|---|
+| Load XDP | `netxfw system on eth0` or `netxfw system load -i eth0` |
+| Unload XDP | `netxfw system off eth0` or `netxfw system unload -i eth0` |
+| Unload all | `netxfw system off` |
+| Hot-reload | `netxfw system reload -i eth0` |
 
 ```bash
-sudo netxfw conntrack
-```
-**Output Example:**
-```text
-Source          Port  Destination     Port  Protocol
---------------------------------------------------------------------------------
-192.168.1.100   54321 1.1.1.1         443   TCP
+# Load onto a specific interface
+sudo netxfw system on eth0
+
+# Load onto multiple interfaces
+sudo netxfw system on eth0 eth1 eth2
+
+# Use default interfaces from config
+sudo netxfw system on
+
+# Unload all interfaces
+sudo netxfw system off
+
+# Hot-reload: applies new config without dropping connections
+sudo netxfw system reload -i eth0
 ```
 
-### 4. Quick Lock & Unlock (lock/unlock)
-Shortcut commands for emergency situations.
+### 2. System Status (system status)
+
+Displays runtime status, statistics, and resource utilization.
 
 ```bash
-# Block immediately
-sudo netxfw lock 1.2.3.4
-# Unlock immediately
+# Show system status (all interfaces)
+sudo netxfw system status
+
+# Use a custom config file
+sudo netxfw system status -c /etc/netxfw/config.yaml
+
+# Show stats for a specific interface
+sudo netxfw system status -i eth0
+```
+
+**Output includes**: traffic rates, pass/drop counters, conntrack health, BPF map usage, protocol distribution, policy configuration, attached interfaces.
+
+### 3. Quick Commands (block/unlock/allow/unallow/clear)
+
+Fast-path commands for emergency situations — no subcommand required:
+
+```bash
+# Block an IP immediately
+sudo netxfw block 1.2.3.4
+
+# Block an entire subnet
+sudo netxfw block 192.168.100.0/24
+
+# Unblock an IP
 sudo netxfw unlock 1.2.3.4
+
+# Whitelist an IP
+sudo netxfw allow 1.2.3.4
+
+# Whitelist an IP on a specific port only
+sudo netxfw allow 1.2.3.4 443
+
+# Remove from whitelist
+sudo netxfw unallow 1.2.3.4
+
+# Clear the entire blacklist
+sudo netxfw clear
 ```
 
-### 5. Traffic Control (limit)
-Apply PPS (Packets Per Second) rate limiting to specific IPs or subnets at the XDP layer. Supports IPv4 and IPv6.
+### 4. Rule Management (rule)
 
-- **Enable Global Rate Limiting**:
-  ```bash
-  sudo netxfw system ratelimit true
-  ```
-- **Add Rate Limit Rule**:
-  ```bash
-  # Limit 1.2.3.4 to 100 pps, with a burst of 200 packets
-  sudo netxfw limit add 1.2.3.4 100 200
-
-  # Limit IPv6 address ::1 to 500 pps
-  sudo netxfw limit add ::1 500 1000
-
-  # Limit subnet 192.168.1.0/24
-  sudo netxfw limit add 192.168.1.0/24 1000 2000
-  ```
-- **View Rate Limit Status**:
-  ```bash
-  sudo netxfw limit list
-  ```
-- **Remove Rate Limit Rule**:
-  ```bash
-  sudo netxfw limit remove 1.2.3.4
-  ```
-
-### 6. Hot Reload (reload)
-Use this command to reload losslessly after modifying `/etc/netxfw/config.yaml` (e.g., adjusting Map capacity or default policies).
+Fine-grained access control for IPs, CIDRs, and IP+Port combinations.
 
 ```bash
-sudo netxfw reload xdp
+# Whitelist an IP (allow all traffic)
+sudo netxfw rule add 1.2.3.4 allow
+
+# Blacklist an IP (block all traffic)
+sudo netxfw rule add 5.6.7.8 deny
+
+# Block a specific IP:port
+sudo netxfw rule add 5.6.7.8 80 deny
+
+# List all rules
+sudo netxfw rule list
+
+# Remove a rule
+sudo netxfw rule remove 1.2.3.4
 ```
-This command automatically migrates data from old Maps to new Maps, ensuring existing connections are not interrupted.
 
-### 7. Configuration Sync (sync)
-Supports bidirectional synchronization between memory state (BPF Maps) and the configuration file (`config.yaml`), ensuring operational consistency.
+### 5. Bulk Import (rule import)
 
-- **Sync to Config** (Memory -> Disk):
-  Writes dynamic rules (blacklist, rate limits, etc.) from current BPF Maps to `config.yaml` for persistence.
-  ```bash
-  sudo netxfw system sync to-config
-  ```
+Import rules from text or structured files.
 
-- **Sync to Memory** (Disk -> Memory):
-  Reloads rules from `config.yaml` into BPF Maps (similar to hot reload, but without restarting BPF programs).
-  ```bash
-  sudo netxfw system sync to-map
-  ```
-
-### 8. Batch Import (import)
-Supports importing rules from text files or structured files (JSON/YAML).
-
-#### Text Format Import
 ```bash
-# Import blacklist (one IP or subnet per line)
+# Import blacklist (one IP/CIDR per line)
 sudo netxfw rule import deny blacklist.txt
 
-# Import whitelist (one IP or subnet per line)
+# Import whitelist
 sudo netxfw rule import allow whitelist.txt
 
-# Import IP+Port rules (format: IP:Port:Action per line)
-sudo netxfw rule import rules ipport.txt
-```
-**Text File Format Example**:
-```text
-# One IP or subnet per line
-1.2.3.4
-192.168.0.0/24
-2001:db8::1
-```
-
-#### JSON/YAML Format Import
-Supports importing structured files exported by `rule export`, enabling a complete backup and restore workflow.
-
-```bash
-# Import all rules from JSON file
+# Import all rules from JSON/YAML
 sudo netxfw rule import all rules.json
-
-# Import all rules from YAML file
 sudo netxfw rule import all rules.yaml
 ```
-**JSON File Format Example**:
+
+**Text format**: one IP or CIDR per line, `#` comments supported.
+
+**JSON format**:
 ```json
 {
-  "blacklist": [
-    {"type": "blacklist", "ip": "10.0.0.1"},
-    {"type": "blacklist", "ip": "192.168.0.0/24"}
-  ],
-  "whitelist": [
-    {"type": "whitelist", "ip": "127.0.0.1/32"}
-  ],
-  "ipport_rules": [
-    {"type": "ipport", "ip": "192.168.1.1", "port": 80, "action": "allow"},
-    {"type": "ipport", "ip": "10.0.0.2", "port": 443, "action": "deny"}
-  ]
+  "blacklist": [{"type": "blacklist", "ip": "10.0.0.1"}],
+  "whitelist": [{"type": "whitelist", "ip": "127.0.0.1/32"}],
+  "ipport_rules": [{"type": "ipport", "ip": "192.168.1.1", "port": 80, "action": "allow"}]
 }
 ```
 
-### 9. Rule Export (export)
-Supports exporting all current firewall rules to JSON, YAML, or CSV format files.
+### 6. Rule Export (rule export)
 
 ```bash
-# Export to JSON format (default)
+# Export as JSON (default)
 sudo netxfw rule export rules.json
 
-# Export to YAML format
+# Export as YAML
 sudo netxfw rule export rules.yaml --format yaml
 
-# Export to CSV format
+# Export as CSV
 sudo netxfw rule export rules.csv --format csv
 ```
-**Export contents include**:
-- Blacklist entries
-- Whitelist entries
-- IP+Port rules
 
-### 10. Performance Monitoring (perf)
-Provides real-time performance monitoring, including map operation latency, cache hit rates, and traffic statistics.
+### 7. Rate Limiting (limit)
+
+XDP-layer PPS rate limiting per IP or subnet. Supports IPv4, IPv6, and CIDR.
 
 ```bash
-# Show all performance statistics
-sudo netxfw perf show
+# Limit to 1000 pps, burst up to 2000
+sudo netxfw limit add 1.2.3.4 1000 2000
 
-# Show map operation latency statistics
-sudo netxfw perf latency
+# Limit an IPv6 address
+sudo netxfw limit add 2001:db8::1 500 1000
 
-# Show cache hit rate statistics
-sudo netxfw perf cache
+# Limit a subnet
+sudo netxfw limit add 192.168.1.0/24 5000 10000
 
-# Show real-time traffic statistics
-sudo netxfw perf traffic
+# List active rate limits
+sudo netxfw limit list
 
-# Reset performance statistics counters
-sudo netxfw perf reset
-```
-**Performance statistics include**:
-- **Map Operation Latency**: Records latency statistics for various BPF map operations (read/write/delete/iterate)
-- **Cache Hit Rate**: Statistics for global stats, drop details, pass details, map counts cache hits
-- **Real-time Traffic**: Displays current/peak/average PPS, BPS, drop rates and other traffic metrics
-
-### 11. Plugin Management (plugin)
-Allows dynamic extension of packet processing logic without stopping the firewall.
-- **Load Plugin**:
-  ```bash
-  # Load compiled plugin to index 2
-  sudo netxfw plugin load ./my_plugin.o 2
-  ```
-- **Remove Plugin**:
-  ```bash
-  sudo netxfw plugin remove 2
-  ```
-
-### 12. System Status and Agent (system status/agent)
-
-#### System Status (system status)
-Displays the current runtime status, statistics, and resource utilization of the firewall system.
-
-```bash
-# Display system status
-sudo netxfw system status
-
-# Display status using a specified config file
-sudo netxfw system status -c /path/to/custom/config.yaml
-
-# Display status for specific interfaces
-sudo netxfw system status -i eth0
-
-# Display status using a specified config file and specific interfaces
-sudo netxfw system status -c /path/to/custom/config.yaml -i eth0,eth1
+# Remove a rate limit
+sudo netxfw limit remove 1.2.3.4
 ```
 
-#### Agent Mode (system agent)
-Starts the Agent process, supporting the specification of specific network interfaces.
+### 8. Security Policies (security)
+
+Dynamically adjust firewall security behavior. Changes take effect immediately without a reload.
 
 ```bash
-# Start Agent (using interfaces specified in config file)
-sudo netxfw system agent
+# Disable dropping of fragmented packets
+sudo netxfw security fragments false
 
-# Start Agent on specific interface
-sudo netxfw system agent -i eth0
+# Enable strict TCP flag validation
+sudo netxfw security strict-tcp true
 
-# Start Agent on multiple interfaces
-sudo netxfw system agent -i eth0,eth1
+# Enable SYN flood protection
+sudo netxfw security syn-limit true
 
-# Use command-line parameters to override interface settings in config file
-sudo netxfw system agent -i eth2 eth3
+# Enable bogon IP filtering
+sudo netxfw security bogon true
+
+# Enable auto-block for rate-limit violators
+sudo netxfw security auto-block true
+
+# Set auto-block expiry to 10 minutes
+sudo netxfw security auto-block-expiry 600
 ```
 
-#### Daemon Mode (system daemon)
-Starts the Daemon process, supporting the specification of specific network interfaces.
+### 9. Port Management (port)
+
+Manage the global list of allowed source/destination ports.
 
 ```bash
-# Start daemon (using interfaces specified in config file)
+# Allow a port globally
+sudo netxfw port add 8080
+
+# Remove a port from the allow list
+sudo netxfw port remove 8080
+```
+
+### 10. Configuration Sync (system sync)
+
+Bidirectional synchronization between BPF maps (runtime) and `config.yaml` (disk).
+
+```bash
+# Persist runtime state to config file (Memory → Disk)
+sudo netxfw system sync to-config
+
+# Reload config file into runtime BPF maps (Disk → Memory)
+sudo netxfw system sync to-map
+```
+
+### 11. Performance Monitoring (perf)
+
+```bash
+sudo netxfw perf show       # All performance statistics
+sudo netxfw perf latency    # BPF map operation latency
+sudo netxfw perf cache      # Cache hit rates
+sudo netxfw perf traffic    # Real-time PPS/BPS/drop rates
+sudo netxfw perf reset      # Reset all counters
+```
+
+### 12. Daemon Mode (system daemon)
+
+```bash
+# Start with interfaces from config
 sudo netxfw system daemon
 
-# Start daemon on specific interface
+# Start on a specific interface
 sudo netxfw system daemon -i eth0
 
-# Start daemon on multiple interfaces
-sudo netxfw system daemon -i eth0,eth1
+# Start with a custom config and interface
+sudo netxfw system daemon -c /etc/netxfw/config.yaml -i eth0
 ```
 
-**PID File Management**:
-- When running Agent with specific interfaces, individual PID files are created for each interface: `/var/run/netxfw_<interface>.pid`
-- When no interface is specified, the default PID file is used: `/var/run/netxfw.pid`
-- This design supports running multiple independent Agent instances on the same system, each managing different network interfaces
+> **PID File Behavior**:
+> - With specific interfaces: `/var/run/netxfw_<interface>.pid` (supports multiple parallel instances)
+> - Without specifying an interface: `/var/run/netxfw.pid`
 
----
-
-### 13. Version Information (version)
-View the current version and BPF SDK status.
+### 13. Version (version)
 
 ```bash
-# View detailed version and runtime state
-netxfw version
-
-# Print only the version number (useful for script integration)
-netxfw version --short
+netxfw version           # Detailed version and runtime SDK status
+netxfw version --short   # Version string only (for scripting)
 ```
 
----
-
-### 13. System Init & Update (init/update)
-
-Convenient lifecycle management tools for operations.
-
-- **Initialize Config**:
-  Use this after installation or to restore defaults.
-  ```bash
-  sudo netxfw system init
-  ```
-- **Manual Update**:
-  Fetches the latest release from GitHub and automatically replaces the binary. Restarts the service to apply changes.
-  ```bash
-  sudo netxfw system update
-  ```
-
----
-
-### 14. Quick Start Guide (quick)
-Interactive commands to help beginners load or unload the firewall easily.
+### 14. Config Init, Test & Update
 
 ```bash
-sudo netxfw quick start
-```
+# Initialize a fresh default config
+sudo netxfw system init
 
-See [Plugin Development Guide](../plugins/plugins.md) for details.
+# Validate the current config file
+sudo netxfw system test
+
+# Check for and install the latest update
+sudo netxfw system update
+```
