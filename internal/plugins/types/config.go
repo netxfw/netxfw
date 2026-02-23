@@ -180,7 +180,10 @@ port:
   
   # IP-Port Rules: Specific rules for IP+Port combinations.
   # IP-端口规则：针对 IP+端口组合的特定规则。
-  ip_port_rules: []
+  ip_port_rules:
+    - ip: "0.0.0.0"
+      port: 22
+      action: 1
 
   # Example / 示例:
   # - ip: "192.168.1.100"
