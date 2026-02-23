@@ -60,23 +60,23 @@ base:
 
   # Strict Protocol Validation: Drop malformed packets.
   # 严格协议验证：丢弃畸形数据包。
-  strict_protocol: false
+  strict_protocol: true
 
   # Drop IP Fragments: Prevent fragmentation attacks.
   # 丢弃 IP 分片：防止分片攻击。
-  drop_fragments: false
+  drop_fragments: true
 
   # Strict TCP Validation: Check TCP flags and sequence numbers.
   # 严格 TCP 验证：检查 TCP 标志和序列号。
-  strict_tcp: false
+  strict_tcp: true
 
   # SYN Rate Limit: Limit SYN packets to prevent flood attacks.
   # SYN 速率限制：限制 SYN 数据包以防止泛洪攻击。
-  syn_limit: false
+  syn_limit: true
 
   # Bogon Filter: Drop packets from reserved/private IP ranges on public interfaces.
   # Bogon 过滤：丢弃来自保留/私有 IP 范围的数据包。
-  bogon_filter: false
+  bogon_filter: true
 
   # ICMP Rate Limit (pps)
   # ICMP 速率限制 (每秒包数)
@@ -366,7 +366,8 @@ type LogEngineRule struct {
 
 	Expression string `yaml:"expression"`
 	// Action: 执行动作 ("block", "log")
-	Action string `yaml:"action"` // "block", "log"
+	// "block", "log"
+	Action string `yaml:"action"`
 
 	// Simplified Configuration (alternative to Expression)
 	// 简化配置（Expression 的替代方案）
@@ -595,9 +596,10 @@ type PortConfig struct {
 // IPPortRule defines a filtering rule for a specific IP and port.
 // IPPortRule 定义特定 IP 和端口的过滤规则。
 type IPPortRule struct {
-	IP     string `yaml:"ip"`
-	Port   uint16 `yaml:"port"`
-	Action uint8  `yaml:"action"` // 1: allow, 2: deny
+	IP   string `yaml:"ip"`
+	Port uint16 `yaml:"port"`
+	// Action: 1: allow, 2: deny
+	Action uint8 `yaml:"action"`
 }
 
 // LoadGlobalConfig loads the configuration from a YAML file.
