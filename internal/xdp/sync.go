@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
+	"github.com/klauspost/compress/zstd"
 	"github.com/netxfw/netxfw/internal/binary"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
@@ -204,9 +205,9 @@ func (m *Manager) setGlobalConfigValue(setter func(bool) error, value bool, name
 	}
 }
 
-// SyncFromFiles reads rules from text files and updates BPF maps.
+// SyncFromFiles reads rules from text or binary files and updates BPF maps.
 // If overwrite is true, it clears existing rules in the maps first.
-// SyncFromFiles 从文本文件读取规则并更新 BPF Map。
+// SyncFromFiles 从文本或二进制文件读取规则并更新 BPF Map。
 // 如果 overwrite 为 true，则先清除 Map 中的现有规则。
 func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	if cfg.Base.LockListFile == "" || cfg.Base.LockListBinary == "" {
@@ -218,15 +219,37 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		m.ClearMaps()
 	}
 
-	m.logger.Infof("🔄 Syncing rules from %s and config to BPF maps...", cfg.Base.LockListFile)
+	// NEW: Try to load from binary file first for better performance
+	loadedFromBinary := false
+	if err := m.loadFromBinaryFile(cfg); err != nil {
+		m.logger.Warnf("⚠️  Failed to load from binary file: %v, falling back to text file", err)
+	} else {
+		m.logger.Infof("✅ Successfully loaded rules from binary file")
+		loadedFromBinary = true
+	}
 
 	// 1. Sync Whitelist / 1. 同步白名单
 	m.syncWhitelistFromConfig(cfg.Base.Whitelist)
 
-	// 2. Read and parse lock list file / 2. 读取并解析锁定列表文件
-	records, err := m.parseLockListFile(cfg.Base.LockListFile)
-	if err != nil {
-		return err
+	var records []binary.Record
+	if loadedFromBinary {
+		// If we loaded from binary, we still need records for UpdateBinaryCache
+		// Read from text file just to get records for cache update
+		var err error
+		records, err = m.parseLockListFile(cfg.Base.LockListFile)
+		if err != nil {
+			m.logger.Warnf("⚠️  Could not read text file for cache update: %v", err)
+			// We can still continue if we have loaded from binary
+		}
+	} else {
+		// Original behavior: load from text file
+		var err error
+		records, err = m.parseLockListFile(cfg.Base.LockListFile)
+		if err != nil {
+			return err
+		}
+		// Log that we're syncing from text file
+		m.logger.Infof("🔄 Syncing rules from %s and config to BPF maps...", cfg.Base.LockListFile)
 	}
 
 	// 3. Sync Blacklist / 3. 同步黑名单
@@ -247,6 +270,34 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	// 8. Update binary cache / 8. 更新二进制缓存
 	go m.UpdateBinaryCache(cfg, records)
 
+	return nil
+}
+
+// loadFromBinaryFile loads rules directly from the binary file
+func (m *Manager) loadFromBinaryFile(cfg *types.GlobalConfig) error {
+	// Open and decompress the binary file
+	file, err := os.Open(cfg.Base.LockListBinary)
+	if err != nil {
+		return fmt.Errorf("failed to open binary file: %v", err)
+	}
+	defer file.Close()
+
+	decoder, err := zstd.NewReader(file)
+	if err != nil {
+		return fmt.Errorf("failed to create zstd decoder: %v", err)
+	}
+	defer decoder.Close()
+
+	// Decode the binary records
+	records, err := binary.Decode(decoder)
+	if err != nil {
+		return fmt.Errorf("failed to decode binary records: %v", err)
+	}
+
+	// Update BPF maps with the decoded records
+	m.syncBlacklistRecords(records)
+
+	m.logger.Infof("✅ Loaded %d rules from binary file", len(records))
 	return nil
 }
 
@@ -481,13 +532,42 @@ func (m *Manager) ClearMaps() {
 	maps := []*ebpf.Map{m.staticBlacklist, m.dynamicBlacklist, m.criticalBlacklist, m.whitelist, m.ruleMap}
 	for _, emap := range maps {
 		if emap == nil {
+			logger.Get(nil).Warnf("Map is nil, skipping")
 			continue
 		}
-		var key []byte
+
+		// 安全地迭代并删除所有键值对
+		var keys [][]byte
+
 		iter := emap.Iterate()
-		for iter.Next(&key, nil) {
-			if emap != nil {
-				emap.Delete(key)
+		for {
+			var k []byte
+			var v interface{} // 临时值，虽然我们不使用它
+
+			// 使用迭代器安全地获取键值对
+			hasNext := iter.Next(&k, &v)
+			if !hasNext {
+				break
+			}
+
+			// 将键复制并保存
+			if k != nil {
+				keyCopy := make([]byte, len(k))
+				copy(keyCopy, k)
+				keys = append(keys, keyCopy)
+			}
+		}
+
+		// 释放迭代器
+		_ = iter.Err() // 检查迭代错误但不处理
+
+		// 删除所有收集到的键
+		for _, key := range keys {
+			if key != nil {
+				err := emap.Delete(key)
+				if err != nil {
+					logger.Get(nil).Warnf("Failed to delete key from map: %v", err)
+				}
 			}
 		}
 	}
