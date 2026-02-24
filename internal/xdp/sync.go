@@ -486,7 +486,9 @@ func (m *Manager) ClearMaps() {
 		var key []byte
 		iter := emap.Iterate()
 		for iter.Next(&key, nil) {
-			emap.Delete(key)
+			if emap != nil {
+				emap.Delete(key)
+			}
 		}
 	}
 	logger.Get(nil).Infof("✅ All BPF maps cleared.")
@@ -495,14 +497,20 @@ func (m *Manager) ClearMaps() {
 // ClearMap clears all rules from a specific BPF map.
 // ClearMap 清除特定 BPF Map 中的所有规则。
 func ClearMap(mapPtr *ebpf.Map) (int, error) {
+	if mapPtr == nil {
+		return 0, fmt.Errorf("mapPtr is nil")
+	}
+
 	removed := 0
 	iter := mapPtr.Iterate()
 	// Use []byte for generic iteration / 使用 []byte 进行通用遍历
 	var k []byte
 	var v []byte
 	for iter.Next(&k, &v) {
-		if err := mapPtr.Delete(k); err == nil {
-			removed++
+		if mapPtr != nil {
+			if err := mapPtr.Delete(k); err == nil {
+				removed++
+			}
 		}
 	}
 	return removed, iter.Err()
