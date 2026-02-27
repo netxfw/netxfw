@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Multi-NIC**: Fixed -i -c parameters issue for multi-NIC support
+- **BPF Maps**: Fixed nil pointer issue in clearmap
+- **Binary Compression**: Fixed bin.zst logic issue after refactoring
+
+## [v1.0.23] - 2026-02-23
+
+### Changed
+- **CLI Docs**: Updated CLI documentation
+- **Default Settings**: Disabled auto-updates by default and updated documentation
+- **Docs**: Updated README download links to use latest release instead of hardcoded version
+
+## [v1.0.22] - 2026-02-21
+
+### Changed
+- **Docs**: Updated documentation renaming related content
+
+## [v1.0.21] - 2026-02-23
+
+### Changed
+- **Config**: Finalized comment refactoring and fixed minor field issues
+- **CI**: Allow GoReleaser to replace existing artifacts and fix v2 deprecations
+
+## [v1.0.20] - 2026-02-23
+
+### Fixed
+- **Lint**: Refactored showConntrackHealth to reduce complexity and fix lint errors
+
+### Added
+- **System**: Added auto-update support via CLI and enhanced deployment script
+- **Config**: Restore default port 22 allow rule in config template
+
+## [v1.0.19] - 2026-02-23
+
+### Changed
+- **Config**: Cleaned up comments in DefaultConfigTemplate and fixed nil context lints in CLI
+- **CLI**: Enhanced health check logic for LRU maps (Conntrack/DynBlacklist)
+- **Standalone**: Optimized BPF path (bitwise/scaling) and refactored Go config sync logic
+
 ## [v1.0.18] - 2026-02-21
 
 ### Added

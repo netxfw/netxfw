@@ -13,35 +13,56 @@
 
 ---
 
+## 📋 目录
+
+- [✨ 核心特性](#-核心特性)
+- [⚙️ 核心配置](#️-核心配置)
+- [🏗️ 架构概览](#️-架构概览)
+- [🚀 快速开始](#-快速开始)
+- [🔧 系统维护与更新](#-系统维护与更新)
+- [📚 相关文档](#-相关文档)
+
+---
+
 ## ✨ 核心特性
 
+### 性能优势
 - 🚀 **极致性能**：在网卡驱动层（XDP）直接丢弃恶意包，绕过内核网络栈，CPU 占用极低。
 - 🌍 **全协议支持**：原生支持 IPv4 和 IPv6，支持 CIDR 网段封禁。
-- 🧠 **有状态检测 (Conntrack)**：内置高效的连接追踪引擎，自动放行已建立连接的回包。
-- 🛡️ **细粒度规则**：支持 IP+端口 级别的 Allow/Deny 规则，满足复杂业务需求。
 - ⚡ **动态黑名单**：引入基于 `LRU_HASH` 的高速单 IP 匹配机制，专为拦截高频变化的恶意 IP 设计。
+
+### 安全防护
+- 🛡️ **细粒度规则**：支持 IP+端口 级别的 Allow/Deny 规则，满足复杂业务需求。
 - 🤖 **自动拦截 (Auto-Blocking)**：**防御 DDoS 的利器**。当 IP 触发限速阈值时，系统可自动将其加入动态黑名单，实现内核级的毫秒级封禁。支持配置拦截时长，利用 LRU 特性自动淘汰。
-- ⚡ **无损热重载**：支持运行时调整 Map 容量并热重载程序，通过状态迁移确保业务零中断。
-    - **增量更新 (Incremental)**: 当 Map 容量未变更时，直接更新现有 Map，避免全量迁移，实现毫秒级重载。
-    - **全量迁移 (Full Migration)**: 当容量变更时，自动迁移旧 Map 数据到新 Map，确保连接跟踪和规则不丢失。
-- 🌊 **流量整形**：内置基于令牌桶算法的 IP 级别限速与 ICMP 限速。引入 **O(1) 配置缓存** 机制，避免了每个数据包的复杂查找。
 - 🛡️ **安全加固**：
-    - **Bogon 过滤**：自动识别并丢弃来自保留/私有 IP 地址段的恶意流量。
-    - **严格 TCP 校验**：校验 TCP 标志位组合，有效防御 Null Scan、Xmas Scan 等探测攻击。
-    - **分片保护**：支持配置丢弃所有 IP 分片包，防御分片攻击。
-    - **SYN 洪水防御**：支持仅对 SYN 包应用限速，确保在遭遇 SYN Flood 时正常业务不受影响。
-- 📊 **可观测性**：内置 Web 管理界面（默认 11811 端口）与 Prometheus Exporter，实时监控丢包速率与活跃连接。
+  - **Bogon 过滤**：自动识别并丢弃来自保留/私有 IP 地址段的恶意流量。
+  - **严格 TCP 校验**：校验 TCP 标志位组合，有效防御 Null Scan、Xmas Scan 等探测攻击。
+  - **分片保护**：支持配置丢弃所有 IP 分片包，防御分片攻击。
+  - **SYN 洪水防御**：支持仅对 SYN 包应用限速，确保在遭遇 SYN Flood 时正常业务不受影响。
+
+### 高可用性
+- ⚡ **无损热重载**：支持运行时调整 Map 容量并热重载程序，通过状态迁移确保业务零中断。
+  - **增量更新 (Incremental)**: 当 Map 容量未变更时，直接更新现有 Map，避免全量迁移，实现毫秒级重载。
+  - **全量迁移 (Full Migration)**: 当容量变更时，自动迁移旧 Map 数据到新 Map，确保连接跟踪和规则不丢失。
+
+### 流量控制
+- 🌊 **流量整形**：内置基于令牌桶算法的 IP 级别限速与 ICMP 限速。引入 **O(1) 配置缓存** 机制，避免了每个数据包的复杂查找。
+- 🧠 **有状态检测 (Conntrack)**：内置高效的连接追踪引擎，自动放行已建立连接的回包。
+
+### 扩展性
 - 🧩 **插件化架构 (SDK)**：
-    - **Plugin SDK**: 提供标准化的 Go 接口 (`sdk.Plugin`)，允许开发者轻松扩展防火墙功能。
-    - **CEL 规则引擎**: 集成 Google CEL 表达式语言，支持对日志进行复杂的 JSON/KV 解析和正则匹配 (`JSON()`, `KV()`, `Match()`)。
-    - **动态加载**: 支持通过 eBPF Tail Call 动态加载第三方插件。详情请参考 [插件开发指南](docs/plugins/plugins.md)。
-    - **插件间通信 (IPC)**:
-        - **EventBus**: 基于发布/订阅模式的事件总线，实现插件解耦通信（如日志引擎 -> AI 分析）。
-        - **KV Store**: 共享的内存键值存储 (`sdk.Store`)，用于插件间共享运行时上下文（如威胁情报、信任分）。
+  - **Plugin SDK**: 提供标准化的 Go 接口 (`sdk.Plugin`)，允许开发者轻松扩展防火墙功能。
+  - **CEL 规则引擎**: 集成 Google CEL 表达式语言，支持对日志进行复杂的 JSON/KV 解析和正则匹配 (`JSON()`, `KV()`, `Match()`)。
+  - **动态加载**: 支持通过 eBPF Tail Call 动态加载第三方插件。详情请参考 [插件开发指南](docs/plugins/plugins.md)。
+  - **插件间通信 (IPC)**:
+    - **EventBus**: 基于发布/订阅模式的事件总线，实现插件解耦通信（如日志引擎 -> AI 分析）。
+    - **KV Store**: 共享的内存键值存储 (`sdk.Store`)，用于插件间共享运行时上下文（如威胁情报、信任分）。
+
+### 管理与监控
+- 📊 **可观测性**：内置 Web 管理界面（默认 11811 端口）与 Prometheus Exporter，实时监控丢包速率与活跃连接。
 - 🏗️ **模块化设计**：BPF 代码采用模块化结构（Filter, Ratelimit, Conntrack, Protocols），逻辑清晰，易于维护。
 - 🛠️ **命令行控制**：极简的 CLI 操作，支持动态加载规则和插件，无需重启服务。
 - 🔄 **手动更新**：支持通过 `netxfw system update` 一键检测并升级二进制文件。
-
 
 ---
 
@@ -65,16 +86,18 @@ rate_limit:
 ## 🏗️ 架构概览
 
 `netxfw` 采用控制面与数据面分离的架构：
-1. **数据面 (eBPF/XDP/TC)**：
-    - **XDP**：在网络驱动层进行极速包过滤（统一 IPv4/IPv6 LPM 匹配、连接追踪状态检查）。
-    - **TC (Egress)**：在流量出站时更新连接追踪状态。
-    - **优化**：使用 `Per-CPU Map` 存储统计信息，消除多核竞争。
-2. **控制面 (Go)**：
-    - **Manager**：负责 BPF 程序的加载、固定（Pinning）及生命周期管理。
-    - **State Migrator**：实现热重载期间的 BPF Map 数据无缝迁移。
-    - **Web UI**：提供极简的可视化管理界面，查看实时统计与活跃连接。
-    - **CLI/API**：提供用户交互接口。
-    - **Metrics**：暴露 Prometheus 监控指标。
+
+### 数据面 (eBPF/XDP/TC)
+- **XDP**：在网络驱动层进行极速包过滤（统一 IPv4/IPv6 LPM 匹配、连接追踪状态检查）。
+- **TC (Egress)**：在流量出站时更新连接追踪状态。
+- **优化**：使用 `Per-CPU Map` 存储统计信息，消除多核竞争。
+
+### 控制面 (Go)
+- **Manager**：负责 BPF 程序的加载、固定（Pinning）及生命周期管理。
+- **State Migrator**：实现热重载期间的 BPF Map 数据无缝迁移。
+- **Web UI**：提供极简的可视化管理界面，查看实时统计与活跃连接。
+- **CLI/API**：提供用户交互接口。
+- **Metrics**：暴露 Prometheus 监控指标。
 
 ---
 
@@ -135,21 +158,23 @@ make
 sudo netxfw system load
 ```
 
-### 3. 系统维护与更新
+---
 
-#### 手动更新 (默认)
+## 🔧 系统维护与更新
+
+### 手动更新 (默认)
 为了系统稳定性，`netxfw` 默认不会自动更新。你可以通过以下命令随时检测并升级到最新版本：
 ```bash
 sudo netxfw system update
 ```
 
-#### 开启自动更新 (可选)
+### 开启自动更新 (可选)
 如果你作为实验性用途，希望系统每天自动检查并安装更新，可以使用安装脚本显式开启：
 ```bash
 curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | sudo bash -s -- --enable-auto-update
 ```
 
-### 4. 卸载
+### 卸载
 
 ```bash
 # 卸载防火墙并移除 BPF 程序
@@ -160,13 +185,28 @@ sudo netxfw system unload
 
 ## 📚 相关文档
 
-- [架构设计](docs/architecture_zh.md)
-- [命令行手册](docs/cli/cli.md)
-- [插件开发指南](docs/plugins/plugins.md)
-- [贡献指南](CONTRIBUTING_zh.md)
-- [安全策略](SECURITY_zh.md)
-- [行为准则](CODE_OF_CONDUCT_zh.md)
-- [变更日志](CHANGELOG_zh.md)
+### 核心文档
+- [架构设计](docs/architecture.md) - 详细的系统架构设计文档
+- [命令行手册](docs/cli/cli.md) - 完整的 CLI 命令参考
+- [插件开发指南](docs/plugins/plugins.md) - 插件开发详细指南
+
+### 特性文档
+- [接口特定 Agent 模式](docs/features/interface_specific_agent.md) - 针对特定接口的 Agent 模式配置
+- [单机版架构](docs/standalone/) - 单机版详细配置和使用说明
+
+### 开发与测试
+- [贡献指南](CONTRIBUTING.md) - 如何为项目做贡献
+- [安全策略](SECURITY.md) - 安全漏洞报告指南
+- [行为准则](CODE_OF_CONDUCT.md) - 社区行为准则
+- [变更日志](CHANGELOG.md) - 详细的版本变更记录
+
+### 其他资源
+- [API 参考](docs/api/reference.md) - API 接口详细文档
+- [性能基准测试](docs/performance/benchmarks.md) - 性能测试结果和基准
+- [云环境支持](docs/cloud/realip.md) - 云环境配置指南
+- [完整文档索引](docs/INDEX.md) - 完整的文档目录和导航
+
+---
 
 ## 📄 开源协议
 
