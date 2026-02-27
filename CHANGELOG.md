@@ -4,7 +4,7 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，并且本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/spec/v2.0.0.html) 语义化版本规范。
 
-## [Unreleased]
+## [v1.0.24] - 2026-02-26
 
 ### 修复
 - **多网卡**: 修复多网卡支持的 -i -c 参数问题

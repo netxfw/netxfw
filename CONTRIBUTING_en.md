@@ -16,7 +16,7 @@ Before you start, ensure you have the following tools installed:
 1.  **Fork** the repository on GitHub.
 2.  **Clone** your fork locally:
     ```bash
-    git clone https://github.com/your-username/netxfw.git
+    git clone https://github.com/netxfw/netxfw.git
     cd netxfw
     ```
 3.  **Create a Branch** for your changes:

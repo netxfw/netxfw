@@ -14,7 +14,9 @@ import (
 	"github.com/netxfw/netxfw/internal/core"
 	"github.com/netxfw/netxfw/internal/daemon"
 	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -145,19 +147,46 @@ var systemUnloadCmd = &cobra.Command{
 
 var systemReloadCmd = &cobra.Command{
 	Use:   "reload",
-	Short: "Hot-reload XDP program with new configuration",
-	// Short: 使用新配置热重载 XDP 程序
-	Long: `Hot-reload XDP program: applies new configuration without dropping connections.
-Supports capacity changes with state migration.`,
-	// Long: 热重载 XDP 程序：应用新配置而不中断连接。支持容量变更时的状态迁移。
+	Short: "Reload configuration and sync to BPF maps",
+	// Short: 重载配置并同步到 BPF Map
+	Long: `Reload configuration and sync to BPF maps: reads configuration from files and updates BPF maps without reloading XDP program.
+This is faster than full reload and maintains existing connections.
+重载配置并同步到 BPF Map：从文件读取配置并更新 BPF Map，而不重新加载 XDP 程序。
+这比完全重载更快，并且保持现有连接。`,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.EnsureStandaloneMode()
 
-		if err := app.ReloadXDP(cmd.Context(), interfaces); err != nil {
-			cmd.PrintErrln(err)
+		// Load configuration
+		// 加载配置
+		configPath := runtime.ConfigPath
+		if configPath == "" {
+			configPath = config.DefaultConfigPath
+		}
+
+		globalCfg, err := types.LoadGlobalConfig(configPath)
+		if err != nil {
+			cmd.PrintErrln("❌ Failed to load configuration:", err)
 			os.Exit(1)
 		}
-		fmt.Println("✅ XDP program reloaded successfully")
+
+		// Get existing XDP manager
+		// 获取现有的 XDP 管理器
+		log := logger.Get(cmd.Context())
+		manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+		if err != nil {
+			cmd.PrintErrln("❌ Failed to load XDP manager:", err)
+			os.Exit(1)
+		}
+		defer manager.Close()
+
+		// Sync configuration to BPF maps
+		// 同步配置到 BPF Map
+		if err := manager.SyncFromFiles(globalCfg, false); err != nil {
+			cmd.PrintErrln("❌ Failed to sync configuration to BPF maps:", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("✅ Configuration reloaded and synced to BPF maps successfully")
 	},
 }
 

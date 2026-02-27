@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/netxfw/netxfw/cmd/netxfw/commands/agent"
-	"github.com/netxfw/netxfw/cmd/netxfw/commands/dp"
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/runtime"
@@ -57,25 +56,33 @@ func init() {
 	// 配置文件路径
 	RootCmd.PersistentFlags().StringVarP(&runtime.ConfigPath, "config", "c", "", fmt.Sprintf("Path to configuration file (default: %s)", config.DefaultConfigPath))
 
-	// Register Agent commands
-	// 注册 Agent 命令
-	RootCmd.AddCommand(agent.RuleCmd)
-	RootCmd.AddCommand(agent.LimitCmd)
-	RootCmd.AddCommand(agent.SecurityCmd)
-	RootCmd.AddCommand(agent.PortCmd)
-	RootCmd.AddCommand(agent.WebCmd)
-	RootCmd.AddCommand(agent.QuickBlockCmd)
-	RootCmd.AddCommand(agent.QuickUnlockCmd)
-	RootCmd.AddCommand(agent.QuickAllowCmd)
-	RootCmd.AddCommand(agent.QuickUnallowCmd)
-	RootCmd.AddCommand(agent.QuickClearCmd)
-	RootCmd.AddCommand(agent.SystemCmd)
-	RootCmd.AddCommand(agent.PerfCmd)
-	RootCmd.AddCommand(agent.VersionCmd)
+	// Register simplified core commands
+	// 注册精简版核心命令
+	RootCmd.AddCommand(agent.SimpleStatusCmd)
+	RootCmd.AddCommand(agent.SimpleStartCmd)
+	RootCmd.AddCommand(agent.SimpleStopCmd)
+	RootCmd.AddCommand(agent.SimpleReloadCmd)
+	RootCmd.AddCommand(agent.SimpleVersionCmd)
 
-	// Register DP commands
-	// 注册 DP 命令
-	RootCmd.AddCommand(dp.ConntrackCmd)
+	// Register ufw-style command aliases
+	// 注册 ufw 风格的命令别名
+	RootCmd.AddCommand(agent.UfwEnableCmd)
+	RootCmd.AddCommand(agent.UfwDisableCmd)
+	RootCmd.AddCommand(agent.UfwDenyCmd)
+	RootCmd.AddCommand(agent.UfwResetCmd)
+	RootCmd.AddCommand(agent.UfwDeleteCmd)
+
+	// Register verbose flag for status command
+	// 为 status 命令注册 verbose 标志
+	agent.SimpleStatusCmd.Flags().BoolP("verbose", "v", false, "Show verbose output with detailed statistics")
+	// agent.SimpleStatusCmd.Flags().BoolP("verbose", "v", false, "显示详细统计信息")
+
+	// Register XDP layer commands (recommended for blocking IPs)
+	// 注册 XDP 层命令（推荐用于封禁 IP）
+	RootCmd.AddCommand(agent.SimpleBlockCmd)
+	RootCmd.AddCommand(agent.SimpleUnblockCmd)
+	RootCmd.AddCommand(agent.SimpleListCmd)
+	RootCmd.AddCommand(agent.SimpleClearCmd)
 }
 
 func Execute() {

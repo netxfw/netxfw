@@ -16,7 +16,7 @@
 1.  **Fork** 本仓库到您的 GitHub 账户。
 2.  **Clone** 您的 Fork 到本地：
     ```bash
-    git clone https://github.com/your-username/netxfw.git
+    git clone https://github.com/netxfw/netxfw.git
     cd netxfw
     ```
 3.  **创建分支** (Branch) 进行开发：
