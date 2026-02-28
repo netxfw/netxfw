@@ -43,6 +43,10 @@ func (b *blacklistImpl) Remove(cidr string) error {
 	return b.mgr.RemoveBlacklistIP(cidr)
 }
 
+func (b *blacklistImpl) RemoveDynamic(cidr string) error {
+	return b.mgr.RemoveDynamicBlacklistIP(cidr)
+}
+
 func (b *blacklistImpl) Clear() error {
 	return b.mgr.ClearBlacklist()
 }

@@ -97,6 +97,6 @@ func (h *XDPActionHandler) execute(req actionRequest) {
 	}
 
 	if err != nil {
-		h.log.Errorf("❌ [AsyncAction] Failed to execute action for %s: %v", req.ip, err)
+		h.log.Errorf("[ERROR] [AsyncAction] Failed to execute action for %s: %v", req.ip, err)
 	}
 }

@@ -23,12 +23,12 @@ func (m *BaseModule) Init(cfg *types.GlobalConfig, s *sdk.SDK, logger sdk.Logger
 }
 
 func (m *BaseModule) Start() error {
-	m.logger.Infof("🚀 [Core] Starting Base Module...")
+	m.logger.Infof("[START] [Core] Starting Base Module...")
 	return m.Sync()
 }
 
 func (m *BaseModule) Reload(cfg *types.GlobalConfig) error {
-	m.logger.Infof("🔄 [Core] Reloading Base Module...")
+	m.logger.Infof("[RELOAD] [Core] Reloading Base Module...")
 	m.config = &cfg.Base
 	return m.Sync()
 }
@@ -43,32 +43,32 @@ func (m *BaseModule) Sync() error {
 	}
 	// Sync all base configurations to BPF
 	if err := m.manager.SetDefaultDeny(m.config.DefaultDeny); err != nil {
-		m.logger.Warnf("⚠️  [Base] Failed to set default deny: %v", err)
+		m.logger.Warnf("[WARN]  [Base] Failed to set default deny: %v", err)
 	}
 	if err := m.manager.SetAllowReturnTraffic(m.config.AllowReturnTraffic); err != nil {
-		m.logger.Warnf("⚠️  [Base] Failed to set allow return traffic: %v", err)
+		m.logger.Warnf("[WARN]  [Base] Failed to set allow return traffic: %v", err)
 	}
 	if err := m.manager.SetAllowICMP(m.config.AllowICMP); err != nil {
-		m.logger.Warnf("⚠️  [Base] Failed to set allow ICMP: %v", err)
+		m.logger.Warnf("[WARN]  [Base] Failed to set allow ICMP: %v", err)
 	}
 	if err := m.manager.SetEnableAFXDP(m.config.EnableAFXDP); err != nil {
-		m.logger.Warnf("⚠️  [Base] Failed to set enable AF_XDP: %v", err)
+		m.logger.Warnf("[WARN]  [Base] Failed to set enable AF_XDP: %v", err)
 	}
 	if err := m.manager.SetStrictProtocol(m.config.StrictProtocol); err != nil {
-		m.logger.Warnf("⚠️  [Base] Failed to set strict protocol: %v", err)
+		m.logger.Warnf("[WARN]  [Base] Failed to set strict protocol: %v", err)
 	}
 	if err := m.manager.SetDropFragments(m.config.DropFragments); err != nil {
-		m.logger.Warnf("⚠️  [Base] Failed to set drop fragments: %v", err)
+		m.logger.Warnf("[WARN]  [Base] Failed to set drop fragments: %v", err)
 	}
 	if err := m.manager.SetStrictTCP(m.config.StrictTCP); err != nil {
-		m.logger.Warnf("⚠️  [Base] Failed to set strict TCP: %v", err)
+		m.logger.Warnf("[WARN]  [Base] Failed to set strict TCP: %v", err)
 	}
 	if err := m.manager.SetSYNLimit(m.config.SYNLimit); err != nil {
-		m.logger.Warnf("⚠️  [Base] Failed to set SYN limit: %v", err)
+		m.logger.Warnf("[WARN]  [Base] Failed to set SYN limit: %v", err)
 	}
 	if m.config.ICMPRate > 0 && m.config.ICMPBurst > 0 {
 		if err := m.manager.SetICMPRateLimit(m.config.ICMPRate, m.config.ICMPBurst); err != nil {
-			m.logger.Warnf("⚠️  [Base] Failed to set ICMP rate limit: %v", err)
+			m.logger.Warnf("[WARN]  [Base] Failed to set ICMP rate limit: %v", err)
 		}
 	}
 	return nil

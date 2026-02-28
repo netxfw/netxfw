@@ -176,7 +176,7 @@ func (e *Env) Match(pattern string) bool {
 		var err error
 		re, err = regexp.Compile(pattern)
 		if err != nil {
-			logger.Get(nil).Warnf("⚠️  Invalid regex pattern: %s", pattern)
+			logger.Get(nil).Warnf("[WARN]  Invalid regex pattern: %s", pattern)
 			return false
 		}
 		regexCache.Store(pattern, re)
@@ -358,7 +358,7 @@ func (re *RuleEngine) compileRule(cfg types.LogEngineRule) (Rule, error) {
 	ttl := re.parseTTL(cfg)
 	actType := re.parseActionType(cfg)
 
-	re.logger.Infof("✅ Rule '%s' loaded: Action=%d (0=Log,1=Dyn,2=Sta), TTL=%v, Path=%s",
+	re.logger.Infof("[OK] Rule '%s' loaded: Action=%d (0=Log,1=Dyn,2=Sta), TTL=%v, Path=%s",
 		cfg.ID, actType, ttl, cfg.Path)
 
 	return Rule{
@@ -451,7 +451,7 @@ func (re *RuleEngine) parseTTL(cfg types.LogEngineRule) time.Duration {
 
 	d, err := time.ParseDuration(ttlStr)
 	if err != nil {
-		re.logger.Warnf("⚠️  Rule '%s': Invalid TTL '%s', using 0 (no expiry). Error: %v", cfg.ID, ttlStr, err)
+		re.logger.Warnf("[WARN]  Rule '%s': Invalid TTL '%s', using 0 (no expiry). Error: %v", cfg.ID, ttlStr, err)
 		return 0
 	}
 	return d
@@ -481,7 +481,7 @@ func (re *RuleEngine) parseLegacyActionType(cfg types.LogEngineRule, actStr stri
 		return ActionDynamic
 	}
 
-	re.logger.Warnf("⚠️  Rule '%s': Unknown action '%s', defaulting to Log (0).", cfg.ID, cfg.Action)
+	re.logger.Warnf("[WARN]  Rule '%s': Unknown action '%s', defaulting to Log (0).", cfg.ID, cfg.Action)
 	return ActionLog
 }
 

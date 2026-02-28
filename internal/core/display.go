@@ -119,15 +119,15 @@ func displayDetailStats(details []sdk.DropDetailEntry, reasonFunc func(uint32) s
 func showDropStats(xdpMgr XDPManager) {
 	drops, err := xdpMgr.GetDropCount()
 	if err != nil {
-		fmt.Printf("⚠️  Could not retrieve drop statistics: %v\n", err)
+		fmt.Printf("[WARN]  Could not retrieve drop statistics: %v\n", err)
 		return
 	}
 
-	fmt.Printf("📊 Global Drop Count: %d packets\n", drops)
+	fmt.Printf("[STATS] Global Drop Count: %d packets\n", drops)
 
 	details, err := xdpMgr.GetDropDetails()
 	if err == nil && len(details) > 0 {
-		displayDetailStats(details, dropReasonStr, "🚫 Top Drops by Reason & Source")
+		displayDetailStats(details, dropReasonStr, "[BLOCK] Top Drops by Reason & Source")
 	}
 }
 
@@ -136,15 +136,15 @@ func showDropStats(xdpMgr XDPManager) {
 func showPassStats(xdpMgr XDPManager) {
 	passes, err := xdpMgr.GetPassCount()
 	if err != nil {
-		fmt.Printf("⚠️  Could not retrieve pass statistics: %v\n", err)
+		fmt.Printf("[WARN]  Could not retrieve pass statistics: %v\n", err)
 		return
 	}
 
-	fmt.Printf("📊 Global Pass Count: %d packets\n", passes)
+	fmt.Printf("[STATS] Global Pass Count: %d packets\n", passes)
 
 	details, err := xdpMgr.GetPassDetails()
 	if err == nil && len(details) > 0 {
-		displayDetailStats(details, passReasonStr, "✅ Top Allowed by Reason & Source")
+		displayDetailStats(details, passReasonStr, "[OK] Top Allowed by Reason & Source")
 	}
 }
 
@@ -165,7 +165,7 @@ func showGlobalConfig(globalConfig *ebpf.Map) {
 		if val == 1 {
 			status = statusEnabled
 		}
-		fmt.Printf("🛡️  Default Deny Policy: %s\n", status)
+		fmt.Printf("[SHIELD]  Default Deny Policy: %s\n", status)
 	}
 
 	// Allow return traffic
@@ -175,7 +175,7 @@ func showGlobalConfig(globalConfig *ebpf.Map) {
 		if val == 1 {
 			status = statusEnabled
 		}
-		fmt.Printf("🔄 Allow Return Traffic: %s\n", status)
+		fmt.Printf("[RELOAD] Allow Return Traffic: %s\n", status)
 	}
 
 	// Allow ICMP
@@ -185,7 +185,7 @@ func showGlobalConfig(globalConfig *ebpf.Map) {
 		if val == 1 {
 			status = statusEnabled
 		}
-		fmt.Printf("🏓 Allow ICMP (Ping): %s\n", status)
+		fmt.Printf("[PING] Allow ICMP (Ping): %s\n", status)
 
 		if val == 1 {
 			showICMPRateLimit(globalConfig)
@@ -199,7 +199,7 @@ func showGlobalConfig(globalConfig *ebpf.Map) {
 		if val == 1 {
 			status = statusEnabled
 		}
-		fmt.Printf("🕵️  Connection Tracking: %s\n", status)
+		fmt.Printf("[TRACK]  Connection Tracking: %s\n", status)
 
 		if val == 1 {
 			showConntrackTimeout(globalConfig)
@@ -213,7 +213,7 @@ func showGlobalConfig(globalConfig *ebpf.Map) {
 		if val == 1 {
 			status = statusEnabled
 		}
-		fmt.Printf("🚀 Global Rate Limiting: %s\n", status)
+		fmt.Printf("[START] Global Rate Limiting: %s\n", status)
 	}
 }
 
@@ -248,24 +248,24 @@ func showConntrackTimeout(globalConfig *ebpf.Map) {
 func showCounts(xdpMgr XDPManager) {
 	lockedCount, err := xdpMgr.GetLockedIPCount()
 	if err == nil {
-		fmt.Printf("🔒 Locked IP Count: %d addresses\n", lockedCount)
+		fmt.Printf("[LOCK] Locked IP Count: %d addresses\n", lockedCount)
 	}
 
 	whitelistCount, err := xdpMgr.GetWhitelistCount()
 	if err == nil {
-		fmt.Printf("⚪ Whitelist Count: %d addresses\n", whitelistCount)
+		fmt.Printf("[WHITE] Whitelist Count: %d addresses\n", whitelistCount)
 	}
 
 	ctCount, err := xdpMgr.GetConntrackCount()
 	if err == nil {
-		fmt.Printf("🕵️  Active Connections: %d\n", ctCount)
+		fmt.Printf("[TRACK]  Active Connections: %d\n", ctCount)
 	}
 }
 
 // showAttachedInterfaces displays attached interfaces.
 // showAttachedInterfaces 显示已附加的接口。
 func showAttachedInterfaces() {
-	fmt.Println("\n🔗 Attached Interfaces:")
+	fmt.Println("\n[LINK] Attached Interfaces:")
 	files, err := os.ReadDir(config.GetPinPath())
 	if err != nil {
 		fmt.Println(" - Unable to read pin path")
@@ -327,7 +327,7 @@ func ShowWhitelist(ctx context.Context, xdpMgr XDPManager, limit int, search str
 		return nil
 	}
 
-	header := "⚪ Currently whitelisted IPs/ranges"
+	header := "[WHITE] Currently whitelisted IPs/ranges"
 	if search != "" {
 		header += fmt.Sprintf(" (searching for: %s)", search)
 	}
@@ -338,7 +338,7 @@ func ShowWhitelist(ctx context.Context, xdpMgr XDPManager, limit int, search str
 	}
 
 	if limit > 0 && total >= limit {
-		fmt.Printf("\n⚠️  Showing up to %d entries (limit reached).\n", limit)
+		fmt.Printf("\n[WARN]  Showing up to %d entries (limit reached).\n", limit)
 	}
 	return nil
 }
@@ -352,16 +352,16 @@ func ShowTopStats(ctx context.Context, xdpMgr XDPManager, limit int, sortBy stri
 	// 1. Fetch Stats / 获取统计信息
 	dropDetails, err := xdpMgr.GetDropDetails()
 	if err != nil {
-		log.Warnf("⚠️  Could not retrieve drop details: %v", err)
+		log.Warnf("[WARN]  Could not retrieve drop details: %v", err)
 	}
 
 	passDetails, err := xdpMgr.GetPassDetails()
 	if err != nil {
-		log.Warnf("⚠️  Could not retrieve pass details: %v", err)
+		log.Warnf("[WARN]  Could not retrieve pass details: %v", err)
 	}
 
 	if dropDetails == nil && passDetails == nil {
-		fmt.Println("❌ No stats available (maps not loaded?)")
+		fmt.Println("[ERROR] No stats available (maps not loaded?)")
 		return nil
 	}
 
@@ -431,7 +431,7 @@ func ShowConntrack(ctx context.Context, xdpMgr XDPManager) error {
 		return fmt.Errorf("failed to list conntrack entries: %v", err)
 	}
 
-	fmt.Println("🕵️  Active Connections (Conntrack):")
+	fmt.Println("[TRACK]  Active Connections (Conntrack):")
 	if len(entries) == 0 {
 		fmt.Println(" - No active connections.")
 		return nil
@@ -474,7 +474,7 @@ func ShowIPPortRules(ctx context.Context, xdpMgr XDPManager, limit int, search s
 		return fmt.Errorf("failed to list allowed ports: %v", err)
 	}
 
-	fmt.Println("🛡️ Current IP+Port Rules:")
+	fmt.Println("[SHIELD] Current IP+Port Rules:")
 	if len(rules) == 0 {
 		fmt.Println(" - No IP+Port rules.")
 	} else {
@@ -488,10 +488,10 @@ func ShowIPPortRules(ctx context.Context, xdpMgr XDPManager, limit int, search s
 	}
 
 	if limit > 0 && total >= limit {
-		fmt.Printf("\n⚠️  Showing up to %d entries (limit reached).\n", limit)
+		fmt.Printf("\n[WARN]  Showing up to %d entries (limit reached).\n", limit)
 	}
 
-	fmt.Println("\n🔓 Globally Allowed Ports:")
+	fmt.Println("\n[UNLOCK] Globally Allowed Ports:")
 	if len(ports) == 0 {
 		fmt.Println(" - No ports globally allowed.")
 	} else {
@@ -512,7 +512,7 @@ func ShowRateLimitRules(ctx context.Context, xdpMgr XDPManager) error {
 		return fmt.Errorf("failed to list rate limit rules: %v", err)
 	}
 
-	fmt.Println("🚀 Current Rate Limit Rules (Traffic Control):")
+	fmt.Println("[START] Current Rate Limit Rules (Traffic Control):")
 	if len(rules) == 0 {
 		fmt.Println(" - No rate limit rules defined.")
 		return nil
@@ -535,10 +535,10 @@ func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
 	log := logger.Get(ctx)
 	_, loadErr := types.LoadGlobalConfig(config.GetConfigPath())
 	if loadErr != nil {
-		log.Warnf("⚠️  Could not load global config: %v", loadErr)
+		log.Warnf("[WARN]  Could not load global config: %v", loadErr)
 	}
 
-	fmt.Println("✅ XDP Program Status: Loaded and Running")
+	fmt.Println("[OK] XDP Program Status: Loaded and Running")
 
 	showDropStats(xdpMgr)
 	showPassStats(xdpMgr)

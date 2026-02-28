@@ -20,11 +20,46 @@ The following flags are available on most subcommands:
 
 | Command | Arguments | Description |
 |---|---|---|
-| `block <ip>` | IP/CIDR | Quickly block an IP (add to blacklist) |
-| `unlock <ip>` | IP/CIDR | Quickly unblock an IP (remove from blacklist) |
-| `allow <ip> [port]` | IP/CIDR [port] | Quickly whitelist an IP |
-| `unallow <ip>` | IP/CIDR | Quickly remove from whitelist |
+| `enable` | None | Enable and start the firewall |
+| `disable` | None | Disable and stop the firewall |
+| `status` | None | Show system status |
+| `reload` | None | Reload configuration and sync to BPF maps |
+| `reset` | None | Reset firewall (clear all rules, preserve SSH) |
+| `init` | None | Initialize configuration file |
+| `test` | None | Test configuration validity |
+| `version` | None | Show version information |
+| `list` | None | List all blocked IPs |
 | `clear` | None | Clear the entire blacklist |
+| `del <ip>` | IP/CIDR | Delete IP from whitelist or blacklist |
+
+### allow — Whitelist Management
+
+| Command | Arguments | Description |
+|---|---|---|
+| `allow <ip>` | IP/CIDR | Quickly whitelist an IP (backward compatible) |
+| `allow add <ip>` | IP/CIDR | Add IP to whitelist |
+| `allow list` | None | List whitelist IPs |
+| `allow port list` | None | List IP+Port allow rules |
+
+### deny — Blacklist Management
+
+| Command | Arguments | Description |
+|---|---|---|
+| `deny <ip> [--ttl]` | IP/CIDR [--ttl] | Add IP to blacklist (backward compatible) |
+| `deny add <ip> [--ttl]` | IP/CIDR [--ttl] | Add IP to blacklist |
+| `deny list` | None | List blacklist (static + dynamic) |
+| `deny list --static` | None | List static blacklist only |
+| `deny list --dynamic` | None | List dynamic blacklist only |
+| `deny port list` | None | List IP+Port deny rules |
+
+### dynamic — Dynamic Blacklist Management
+
+| Command | Arguments | Description |
+|---|---|---|
+| `dynamic add <ip> --ttl <duration>` | IP, TTL | Add to dynamic blacklist (with expiry) |
+| `dynamic del <ip>` | IP/CIDR | Remove from dynamic blacklist |
+| `dynamic list` | None | List all dynamic blacklist entries |
+| `dyn ...` | - | Alias for `dynamic` |
 
 ### system — System Management
 
@@ -48,7 +83,7 @@ The following flags are available on most subcommands:
 | Command | Arguments | Description |
 |---|---|---|
 | `rule add <ip> [port] <allow\|deny>` | IP, port, action | Add IP or IP+Port rule |
-| `rule remove <ip>` | IP/CIDR | Remove a rule |
+| `rule del <ip>` | IP/CIDR | Remove a rule (`delete`/`remove` alias) |
 | `rule list` | optional filters | List all rules |
 | `rule import <type> <file>` | type, file | Bulk import rules (TXT/JSON/YAML) |
 | `rule export <file> [--format]` | file, format | Export rules (JSON/YAML/CSV) |
@@ -147,7 +182,92 @@ sudo netxfw system status -i eth0
 
 **Output includes**: traffic rates, pass/drop counters, conntrack health, BPF map usage, protocol distribution, policy configuration, attached interfaces.
 
-### 3. Quick Commands (block/unlock/allow/unallow/clear)
+### 3. Whitelist Management (allow)
+
+Manage whitelist IP list with subcommands and backward compatibility.
+
+```bash
+# Backward compatible: quick whitelist
+sudo netxfw allow 1.2.3.4
+
+# Subcommand: add to whitelist
+sudo netxfw allow add 1.2.3.4
+
+# Subcommand: add with port
+sudo netxfw allow add 1.2.3.4:443
+
+# Subcommand: list whitelist
+sudo netxfw allow list
+
+# Subcommand: list IP+Port allow rules
+sudo netxfw allow port list
+
+# Remove from whitelist
+sudo netxfw unallow 1.2.3.4
+```
+
+### 4. Blacklist Management (deny)
+
+Manage blacklist IP list with support for static and dynamic blacklists (with TTL).
+
+```bash
+# Backward compatible: add to static blacklist
+sudo netxfw deny 1.2.3.4
+
+# Backward compatible: add to dynamic blacklist (with TTL)
+sudo netxfw deny 1.2.3.4 --ttl 1h
+
+# Subcommand: add to static blacklist
+sudo netxfw deny add 1.2.3.4
+
+# Subcommand: add to dynamic blacklist (with TTL)
+sudo netxfw deny add 1.2.3.4 --ttl 1h
+
+# Subcommand: list all blacklist (static + dynamic)
+sudo netxfw deny list
+
+# Subcommand: list static blacklist only
+sudo netxfw deny list --static
+
+# Subcommand: list dynamic blacklist only
+sudo netxfw deny list --dynamic
+
+# Subcommand: list IP+Port deny rules
+sudo netxfw deny port list
+```
+
+**TTL Format Support**: `1h` (1 hour), `30m` (30 minutes), `1d` (1 day), `24h` (24 hours)
+
+### 5. Dynamic Blacklist Management (dynamic)
+
+Dedicated management for dynamic blacklist (LRU Hash with auto-expiry).
+
+```bash
+# Add to dynamic blacklist (TTL required)
+sudo netxfw dynamic add 192.168.1.100 --ttl 1h
+
+# Using dyn alias
+sudo netxfw dyn add 10.0.0.1 --ttl 24h
+
+# Remove from dynamic blacklist
+sudo netxfw dynamic del 192.168.1.100
+
+# Using delete alias
+sudo netxfw dynamic delete 192.168.1.100
+
+# List all dynamic blacklist entries
+sudo netxfw dynamic list
+```
+
+**Output Example**:
+```
+📋 Dynamic blacklist entries (2 total):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  🚫 172.16.1.1/32 (expires: 2026-02-28 16:07:51)
+  🚫 10.10.10.10/32 (expires: 2026-02-28 14:56:48)
+```
+
+### 6. Quick Commands (block/unlock/clear)
 
 Fast-path commands for emergency situations — no subcommand required:
 
@@ -161,20 +281,11 @@ sudo netxfw block 192.168.100.0/24
 # Unblock an IP
 sudo netxfw unlock 1.2.3.4
 
-# Whitelist an IP
-sudo netxfw allow 1.2.3.4
-
-# Whitelist an IP on a specific port only
-sudo netxfw allow 1.2.3.4 443
-
-# Remove from whitelist
-sudo netxfw unallow 1.2.3.4
-
 # Clear the entire blacklist
 sudo netxfw clear
 ```
 
-### 4. Rule Management (rule)
+### 7. Rule Management (rule)
 
 Fine-grained access control for IPs, CIDRs, and IP+Port combinations.
 
@@ -191,11 +302,13 @@ sudo netxfw rule add 5.6.7.8 80 deny
 # List all rules
 sudo netxfw rule list
 
-# Remove a rule
+# Remove a rule (supports del/delete/remove aliases)
+sudo netxfw rule del 1.2.3.4
+sudo netxfw rule delete 1.2.3.4
 sudo netxfw rule remove 1.2.3.4
 ```
 
-### 5. Bulk Import (rule import)
+### 8. Bulk Import (rule import)
 
 Import rules from text or structured files.
 
@@ -209,6 +322,9 @@ sudo netxfw rule import allow whitelist.txt
 # Import all rules from JSON/YAML
 sudo netxfw rule import all rules.json
 sudo netxfw rule import all rules.yaml
+
+# Import blacklist from bin.zst file (binary compressed format)
+sudo netxfw rule import binary rules.deny.bin.zst
 ```
 
 **Text format**: one IP or CIDR per line, `#` comments supported.
@@ -222,6 +338,12 @@ sudo netxfw rule import all rules.yaml
 }
 ```
 
+**Binary format (.bin.zst)**:
+- High-performance binary format with zstd compression
+- Supports blacklist rules only
+- Ideal for large-scale rule storage and fast migration
+- File extension must be `.bin.zst`
+
 ### 6. Rule Export (rule export)
 
 ```bash
@@ -233,7 +355,25 @@ sudo netxfw rule export rules.yaml --format yaml
 
 # Export as CSV
 sudo netxfw rule export rules.csv --format csv
+
+# Export as Binary format (blacklist only, zstd compressed)
+sudo netxfw rule export rules.deny.bin.zst --format binary
+
+# Auto-detect format (based on file extension)
+sudo netxfw rule export rules.json
+sudo netxfw rule export rules.yaml
+sudo netxfw rule export rules.csv
+sudo netxfw rule export rules.deny.bin.zst
 ```
+
+**Format Comparison**:
+
+| Format | Pros | Cons | Use Cases |
+|--------|------|------|-----------|
+| **Text** | Simple, human-readable, easy to edit | Limited functionality, single rule type only | Quick addition of few IPs |
+| **JSON/YAML** | Structured, includes all rule types, readable | Larger file size, slower parsing | Config backup, version control |
+| **CSV** | Tabular format, easy to edit in Excel | Large file size, no complex structure support | Data exchange, reporting |
+| **Binary** | High performance, high compression ratio, fast parsing | Not human-readable, blacklist only | Large-scale rule storage, fast migration |
 
 ### 7. Rate Limiting (limit)
 

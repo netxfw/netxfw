@@ -17,7 +17,7 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	configPath := config.GetConfigPath()
 	pidPath := config.DefaultPidPath
 
-	log.Info("🚀 Starting netxfw in Agent (Control Plane) mode")
+	log.Info("[START] Starting netxfw in Agent (Control Plane) mode")
 
 	// Use the interfaces from options if provided
 	// 如果提供了选项中的接口，则使用它们
@@ -27,20 +27,20 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	}
 
 	if err := managePidFileWithInterfaces(pidPath, interfaces); err != nil {
-		log.Fatalf("❌ %v", err)
+		log.Fatalf("[ERROR] %v", err)
 	}
 	defer removePidFileWithInterfaces(pidPath, interfaces)
 
 	// Use the config manager to load the configuration
 	cfgManager := config.GetConfigManager()
 	if err := cfgManager.LoadConfig(); err != nil {
-		log.Errorf("❌ Failed to load global config from %s: %v", configPath, err)
+		log.Errorf("[ERROR] Failed to load global config from %s: %v", configPath, err)
 		return
 	}
 
 	globalCfg := cfgManager.GetConfig()
 	if globalCfg == nil {
-		log.Errorf("❌ Config is nil after loading from %s", configPath)
+		log.Errorf("[ERROR] Config is nil after loading from %s", configPath)
 		return
 	}
 
@@ -62,7 +62,7 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 		pinPath := config.GetPinPath()
 		realMgr, err := xdp.NewManagerFromPins(pinPath, log)
 		if err != nil {
-			log.Errorf("❌ Agent requires netxfw daemon to be running and maps pinned at %s: %v", pinPath, err)
+			log.Errorf("[ERROR] Agent requires netxfw daemon to be running and maps pinned at %s: %v", pinPath, err)
 			return
 		}
 		defer realMgr.Close()
@@ -73,9 +73,9 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	// Consistency Check at startup (Ensure BPF maps match Config)
 	// 启动时的一致性检查（确保 BPF Map 与配置匹配）
 	if err := manager.VerifyAndRepair(globalCfg); err != nil {
-		log.Warnf("⚠️  Startup consistency check failed: %v", err)
+		log.Warnf("[WARN]  Startup consistency check failed: %v", err)
 	} else {
-		log.Info("✅ Startup consistency check passed (Config synced to BPF).")
+		log.Info("[OK] Startup consistency check passed (Config synced to BPF).")
 	}
 
 	// 2. Load ALL Plugins (Agent manages everything) / 加载所有插件（Agent 管理一切）
@@ -98,11 +98,11 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	startedPlugins := make([]sdk.Plugin, 0, len(allPlugins))
 	for _, p := range allPlugins {
 		if err := p.Init(pluginCtx); err != nil {
-			log.Warnf("⚠️  Failed to init plugin %s: %v", p.Name(), err)
+			log.Warnf("[WARN]  Failed to init plugin %s: %v", p.Name(), err)
 			continue
 		}
 		if err := p.Start(pluginCtx); err != nil {
-			log.Warnf("⚠️  Failed to start plugin %s: %v", p.Name(), err)
+			log.Warnf("[WARN]  Failed to start plugin %s: %v", p.Name(), err)
 			continue
 		}
 		startedPlugins = append(startedPlugins, p)
@@ -122,6 +122,6 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	// 5. Start Traffic Stats Loop / 启动流量统计循环
 	go runTrafficStatsLoop(ctxCleanup, s)
 
-	log.Info("🛡️ Agent is running.")
+	log.Info("[SHIELD] Agent is running.")
 	waitForSignal(ctx, configPath, s, nil, nil) // nil means reload all / nil 表示重新加载所有内容
 }

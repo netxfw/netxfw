@@ -3,6 +3,7 @@ package xdp
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -259,6 +260,53 @@ func ListWhitelistIPs(mapPtr *ebpf.Map, limit int, search string) ([]string, int
 	}
 
 	return ips, count, iter.Err()
+}
+
+/**
+ * ListDynamicBlockedIPs iterates over the dynamic blacklist BPF map (LRU Hash with NetXfwIn6Addr key).
+ * ListDynamicBlockedIPs 遍历动态黑名单 BPF Map（LRU Hash，使用 NetXfwIn6Addr 作为 key）。
+ */
+func ListDynamicBlockedIPs(mapPtr *ebpf.Map, limit int, search string) ([]sdk.BlockedIP, int, error) {
+	if mapPtr == nil {
+		return nil, 0, fmt.Errorf("dynamic blacklist map is nil")
+	}
+
+	var ips []sdk.BlockedIP
+	count := 0
+	iter := mapPtr.Iterate()
+
+	var key NetXfwIn6Addr
+	var val NetXfwRuleValue
+	for iter.Next(&key, &val) {
+		ip := formatIn6Addr(&key)
+		if search != "" && !strings.Contains(ip, search) {
+			continue
+		}
+
+		count++
+		ips = append(ips, sdk.BlockedIP{IP: ip, ExpiresAt: val.ExpiresAt, Counter: val.Counter})
+		if limit > 0 && len(ips) >= limit {
+			break
+		}
+	}
+
+	return ips, count, iter.Err()
+}
+
+/**
+ * formatIn6Addr converts NetXfwIn6Addr to IP string.
+ * formatIn6Addr 将 NetXfwIn6Addr 转换为 IP 字符串。
+ */
+func formatIn6Addr(addr *NetXfwIn6Addr) string {
+	var ipBytes [16]byte
+	copy(ipBytes[:], addr.In6U.U6Addr8[:])
+
+	ip := net.IP(ipBytes[:])
+
+	if ip4 := ip.To4(); ip4 != nil {
+		return ip4.String() + "/32"
+	}
+	return ip.String() + "/128"
 }
 
 /**

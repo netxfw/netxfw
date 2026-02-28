@@ -37,13 +37,13 @@ func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 	// Persist to lock list file if configured / 如果配置了，持久化到锁定列表文件
 	if persistFile != "" {
 		if err := fileutil.AppendToFile(persistFile, cidr); err != nil {
-			m.logger.Warnf("⚠️ Failed to write to lock list file: %v", err)
+			m.logger.Warnf("[WARN] Failed to write to lock list file: %v", err)
 		} else {
-			m.logger.Infof("💾 Persisted IP %s to %s", cidr, persistFile)
+			m.logger.Infof("[SAVE] Persisted IP %s to %s", cidr, persistFile)
 		}
 	}
 
-	m.logger.Infof("🚫 Added IP %s to STATIC blacklist (permanent)", cidr)
+	m.logger.Infof("[BLOCK] Added IP %s to STATIC blacklist (permanent)", cidr)
 	return nil
 }
 
@@ -132,7 +132,61 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 		}
 	}
 
-	m.logger.Infof("🚫 Blocked IP %s for %v (expiry: %d)", ip, ttl, expiry)
+	m.logger.Infof("[BLOCK] Blocked IP %s for %v (expiry: %d)", ip, ttl, expiry)
+	return nil
+}
+
+// UnblockDynamic removes an IP from the dynamic blocklist (LRU hash).
+// UnblockDynamic 从动态黑名单（LRU Hash）中移除 IP。
+func (m *Manager) UnblockDynamic(ipStr string) error {
+	ip, err := netip.ParseAddr(ipStr)
+	if err != nil {
+		return fmt.Errorf("invalid IP address %s: %w", ipStr, err)
+	}
+
+	if ip.Is4() {
+		mapObj := m.DynLockList()
+		if mapObj == nil {
+			return fmt.Errorf("dyn_lock_list not available")
+		}
+
+		// Use mapped IPv6 for key / 使用映射的 IPv6 作为键
+		key := NetXfwIn6Addr{}
+		b := ip.As4()
+		// ::ffff:a.b.c.d
+		key.In6U.U6Addr8[10] = 0xff
+		key.In6U.U6Addr8[11] = 0xff
+		copy(key.In6U.U6Addr8[12:], b[:])
+
+		if err := mapObj.Delete(&key); err != nil {
+			// Ignore if not found / 如果未找到则忽略
+			if strings.Contains(err.Error(), "key does not exist") {
+				m.logger.Infof("[INFO] IP %s not found in dynamic blacklist", ip)
+				return nil
+			}
+			return fmt.Errorf("failed to unblock IPv4 %s: %v", ip, err)
+		}
+	} else if ip.Is6() {
+		mapObj := m.DynLockList()
+		if mapObj == nil {
+			return fmt.Errorf("dyn_lock_list not available")
+		}
+
+		key := NetXfwIn6Addr{}
+		b := ip.As16()
+		copy(key.In6U.U6Addr8[:], b[:])
+
+		if err := mapObj.Delete(&key); err != nil {
+			// Ignore if not found / 如果未找到则忽略
+			if strings.Contains(err.Error(), "key does not exist") {
+				m.logger.Infof("[INFO] IP %s not found in dynamic blacklist", ip)
+				return nil
+			}
+			return fmt.Errorf("failed to unblock IPv6 %s: %v", ip, err)
+		}
+	}
+
+	m.logger.Infof("[OK] Unblocked IP %s from dynamic blacklist", ip)
 	return nil
 }
 

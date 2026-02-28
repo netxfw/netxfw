@@ -35,7 +35,7 @@ func (m *RateLimitModule) Init(cfg *types.GlobalConfig, s *sdk.SDK, logger sdk.L
 }
 
 func (m *RateLimitModule) Start() error {
-	m.logger.Infof("🚀 [Core] Starting RateLimit Module...")
+	m.logger.Infof("[START] [Core] Starting RateLimit Module...")
 	if err := m.Sync(); err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (m *RateLimitModule) Start() error {
 }
 
 func (m *RateLimitModule) Reload(cfg *types.GlobalConfig) error {
-	m.logger.Infof("🔄 [Core] Reloading RateLimit Module...")
+	m.logger.Infof("[RELOAD] [Core] Reloading RateLimit Module...")
 	m.config = &cfg.RateLimit
 	return m.Sync()
 }
@@ -76,7 +76,7 @@ func (m *RateLimitModule) monitorBlacklist() {
 				currentIPs[ip.IP] = true
 				if !m.knownIPs[ip.IP] {
 					// New IP blocked!
-					m.logger.Infof("🚫 [RateLimit] Detected new blocked IP: %s", ip.IP)
+					m.logger.Infof("[BLOCK] [RateLimit] Detected new blocked IP: %s", ip.IP)
 					if m.eventBus != nil {
 						m.eventBus.Publish(sdk.NewEvent(sdk.EventTypeRateLimitBlock, "auto_block", ip.IP))
 					}
@@ -93,15 +93,15 @@ func (m *RateLimitModule) Sync() error {
 	}
 
 	if err := m.manager.SetEnableRateLimit(m.config.Enabled); err != nil {
-		m.logger.Warnf("⚠️  [RateLimit] Failed to set enable: %v", err)
+		m.logger.Warnf("[WARN]  [RateLimit] Failed to set enable: %v", err)
 	}
 	if err := m.manager.SetAutoBlock(m.config.AutoBlock); err != nil {
-		m.logger.Warnf("⚠️  [RateLimit] Failed to set auto-block: %v", err)
+		m.logger.Warnf("[WARN]  [RateLimit] Failed to set auto-block: %v", err)
 	}
 	if m.config.AutoBlockExpiry != "" {
 		if d, err := time.ParseDuration(m.config.AutoBlockExpiry); err == nil {
 			if err := m.manager.SetAutoBlockExpiry(d); err != nil {
-				m.logger.Warnf("⚠️  [RateLimit] Failed to set auto-block expiry: %v", err)
+				m.logger.Warnf("[WARN]  [RateLimit] Failed to set auto-block expiry: %v", err)
 			}
 		}
 	}
@@ -109,7 +109,7 @@ func (m *RateLimitModule) Sync() error {
 	// Sync Rate Limit Rules
 	currentRules, _, err := m.manager.ListRateLimitRules(0, "")
 	if err != nil {
-		m.logger.Warnf("⚠️ [RateLimit] Failed to list current rules: %v", err)
+		m.logger.Warnf("[WARN] [RateLimit] Failed to list current rules: %v", err)
 		return fmt.Errorf("failed to list rate limit rules: %w", err)
 	}
 
@@ -154,7 +154,7 @@ func (m *RateLimitModule) Sync() error {
 	for _, rule := range desiredRules {
 		m.logger.Infof("➕ [RateLimit] Syncing rule for %s: %d/%d", rule.IP, rule.Rate, rule.Burst)
 		if err := m.manager.AddRateLimitRule(rule.IP, rule.Rate, rule.Burst); err != nil {
-			m.logger.Warnf("⚠️ [RateLimit] Failed to add rule for %s: %v", rule.IP, err)
+			m.logger.Warnf("[WARN] [RateLimit] Failed to add rule for %s: %v", rule.IP, err)
 		}
 	}
 	return nil

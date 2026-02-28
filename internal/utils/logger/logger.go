@@ -29,7 +29,7 @@ func Init(cfg LoggingConfig) {
 			// Log to stdout if we can't create the directory
 			// 如果无法创建目录，则输出到 stdout
 			globalLogger = zap.NewExample().Sugar()
-			globalLogger.Warnf("⚠️  Failed to create log directory: %v", err)
+			globalLogger.Warnf("[WARN]  Failed to create log directory: %v", err)
 		}
 
 		rotator := &lumberjack.Logger{
@@ -55,7 +55,7 @@ func Init(cfg LoggingConfig) {
 	logger := zap.New(core, zap.AddCaller())
 	globalLogger = logger.Sugar()
 
-	globalLogger.Infof("📝 Logging initialized (Level: %s, Path: %s)", level, cfg.Path)
+	globalLogger.Infof("[LOG] Logging initialized (Level: %s, Path: %s)", level, cfg.Path)
 }
 
 // Sync flushes any buffered log entries.

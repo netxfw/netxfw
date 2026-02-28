@@ -15,7 +15,7 @@ import (
 // 如果配置文件丢失或直接对 Map 进行了更改，此功能非常有用。
 func SyncToConfig(ctx context.Context, mgr XDPManager) error {
 	log := logger.Get(ctx)
-	log.Info("🔄 Syncing BPF Maps to Configuration Files...")
+	log.Info("[RELOAD] Syncing BPF Maps to Configuration Files...")
 
 	types.ConfigMu.Lock()
 	defer types.ConfigMu.Unlock()
@@ -43,7 +43,7 @@ func SyncToConfig(ctx context.Context, mgr XDPManager) error {
 	if err := cfgManager.SaveConfig(); err != nil {
 		return fmt.Errorf("failed to save config: %v", err)
 	}
-	log.Info("✅ Configuration files updated successfully.")
+	log.Info("[OK] Configuration files updated successfully.")
 	return nil
 }
 
@@ -53,7 +53,7 @@ func SyncToConfig(ctx context.Context, mgr XDPManager) error {
 // 这会用文件中的内容覆盖运行时状态。
 func SyncToMap(ctx context.Context, mgr XDPManager) error {
 	log := logger.Get(ctx)
-	log.Info("🔄 Syncing Configuration Files to BPF Maps...")
+	log.Info("[RELOAD] Syncing Configuration Files to BPF Maps...")
 
 	types.ConfigMu.Lock()
 	// Use the config manager to load the configuration
@@ -76,6 +76,6 @@ func SyncToMap(ctx context.Context, mgr XDPManager) error {
 		return fmt.Errorf("failed to sync files to maps: %v", err)
 	}
 
-	log.Info("✅ BPF Maps synced from configuration.")
+	log.Info("[OK] BPF Maps synced from configuration.")
 	return nil
 }

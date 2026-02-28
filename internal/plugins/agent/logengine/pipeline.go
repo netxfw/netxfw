@@ -50,7 +50,7 @@ func New(cfg types.LogEngineConfig, logger sdk.Logger, actionHandler ActionHandl
 
 	// Load initial rules
 	if err := le.ruleEngine.UpdateRules(cfg.Rules); err != nil {
-		le.logger.Warnf("⚠️  Failed to load initial rules: %v", err)
+		le.logger.Warnf("[WARN]  Failed to load initial rules: %v", err)
 	}
 
 	return le
@@ -66,7 +66,7 @@ func (le *LogEngine) Start() {
 	}
 	le.running = true
 
-	le.logger.Infof("🚀 Starting LogEngine with %d workers...", le.config.Workers)
+	le.logger.Infof("[START] Starting LogEngine with %d workers...", le.config.Workers)
 
 	// Start Counter cleanup routine
 	go le.runCleanup()
@@ -93,7 +93,7 @@ func (le *LogEngine) Stop() {
 	}
 	le.running = false
 
-	le.logger.Infof("🛑 Stopping LogEngine...")
+	le.logger.Infof("[STOP] Stopping LogEngine...")
 	close(le.stopChan)
 	le.tailer.Stop()
 	le.checkpoint.Stop()
@@ -267,10 +267,10 @@ func (le *LogEngine) worker(id int) {
 
 func (le *LogEngine) executeAction(ip netip.Addr, actionType ActionType, ttl time.Duration, ruleID string) {
 	if err := le.action.Block(ip, actionType, ttl); err != nil {
-		le.logger.Errorf("❌ Action failed for rule %s (type: %d): %v", ruleID, actionType, err)
+		le.logger.Errorf("[ERROR] Action failed for rule %s (type: %d): %v", ruleID, actionType, err)
 	} else {
 		// Log the hit
-		le.logger.Infof("🛡️  Rule %s triggered action type %d (ttl: %v) for IP %s", ruleID, actionType, ttl, ip)
+		le.logger.Infof("[SHIELD]  Rule %s triggered action type %d (ttl: %v) for IP %s", ruleID, actionType, ttl, ip)
 	}
 }
 

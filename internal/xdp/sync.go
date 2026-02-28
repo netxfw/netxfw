@@ -23,7 +23,7 @@ import (
 // VerifyAndRepair ensures consistency between config and BPF maps by forcing a sync.
 // VerifyAndRepair 通过强制同步来确保配置和 BPF Map 之间的一致性。
 func (m *Manager) VerifyAndRepair(cfg *types.GlobalConfig) error {
-	m.logger.Infof("🔍 Verifying consistency between config and BPF maps (Auto-Repair)...")
+	m.logger.Infof("[SCAN] Verifying consistency between config and BPF maps (Auto-Repair)...")
 	return m.SyncFromFiles(cfg, true)
 }
 
@@ -38,13 +38,13 @@ func (m *Manager) syncWhitelistFromConfig(whitelist []string) {
 			if len(parts) == 2 {
 				cidr = parts[0]
 				if _, err := fmt.Sscanf(parts[1], "%d", &port); err != nil {
-					m.logger.Warnf("⚠️  Failed to parse port from whitelist rule %s: %v", rule, err)
+					m.logger.Warnf("[WARN]  Failed to parse port from whitelist rule %s: %v", rule, err)
 				}
 			}
 		}
 		if m.whitelist != nil {
 			if err := AllowIP(m.whitelist, cidr, port); err != nil {
-				m.logger.Warnf("⚠️  Failed to whitelist %s: %v", rule, err)
+				m.logger.Warnf("[WARN]  Failed to whitelist %s: %v", rule, err)
 			}
 		}
 	}
@@ -84,7 +84,7 @@ func (m *Manager) parseLockListLine(line string) (binary.Record, bool) {
 	if err != nil {
 		ip = net.ParseIP(line)
 		if ip == nil {
-			m.logger.Warnf("⚠️  Skipping invalid IP/CIDR: %s", line)
+			m.logger.Warnf("[WARN]  Skipping invalid IP/CIDR: %s", line)
 			return binary.Record{}, false
 		}
 		if ip.To4() != nil {
@@ -111,7 +111,7 @@ func (m *Manager) syncBlacklistRecords(records []binary.Record) {
 			continue
 		}
 		if err := LockIP(m.staticBlacklist, fmt.Sprintf("%s/%d", r.IP.String(), r.PrefixLen)); err != nil {
-			m.logger.Warnf("⚠️  Failed to lock %s/%d: %v", r.IP.String(), r.PrefixLen, err)
+			m.logger.Warnf("[WARN]  Failed to lock %s/%d: %v", r.IP.String(), r.PrefixLen, err)
 		}
 	}
 }
@@ -140,7 +140,7 @@ func (m *Manager) syncIPPortRules(rules []types.IPPortRule) {
 		ipNet := parseIPToNet(rule.IP)
 		if ipNet != nil {
 			if err := m.AddIPPortRule(ipNet, rule.Port, rule.Action, nil); err != nil {
-				m.logger.Warnf("⚠️  Failed to add IP+Port rule %s:%d (action %d): %v", rule.IP, rule.Port, rule.Action, err)
+				m.logger.Warnf("[WARN]  Failed to add IP+Port rule %s:%d (action %d): %v", rule.IP, rule.Port, rule.Action, err)
 			}
 		}
 	}
@@ -151,7 +151,7 @@ func (m *Manager) syncIPPortRules(rules []types.IPPortRule) {
 func (m *Manager) syncAllowedPorts(ports []uint16) {
 	for _, port := range ports {
 		if err := m.AllowPort(port, nil); err != nil {
-			m.logger.Warnf("⚠️  Failed to allow port %d: %v", port, err)
+			m.logger.Warnf("[WARN]  Failed to allow port %d: %v", port, err)
 		}
 	}
 }
@@ -163,7 +163,7 @@ func (m *Manager) syncRateLimitRules(rules []types.RateLimitRule) {
 		ipNet := parseIPToNet(rule.IP)
 		if ipNet != nil {
 			if err := m.AddRateLimitRule(ipNet, rule.Rate, rule.Burst); err != nil {
-				m.logger.Warnf("⚠️  Failed to add rate limit rule %s: %v", rule.IP, err)
+				m.logger.Warnf("[WARN]  Failed to add rate limit rule %s: %v", rule.IP, err)
 			}
 		}
 	}
@@ -180,7 +180,7 @@ func (m *Manager) syncGlobalConfig(cfg *types.GlobalConfig) {
 	m.setGlobalConfigValue(m.SetConntrack, cfg.Conntrack.Enabled, "conntrack")
 
 	if err := m.SetICMPRateLimit(cfg.Base.ICMPRate, cfg.Base.ICMPBurst); err != nil {
-		m.logger.Warnf("⚠️  Failed to set ICMP rate limit: %v", err)
+		m.logger.Warnf("[WARN]  Failed to set ICMP rate limit: %v", err)
 	}
 
 	if cfg.Conntrack.TCPTimeout != "" {
@@ -201,7 +201,7 @@ func (m *Manager) syncGlobalConfig(cfg *types.GlobalConfig) {
 // setGlobalConfigValue 是设置全局配置值并记录错误的辅助函数。
 func (m *Manager) setGlobalConfigValue(setter func(bool) error, value bool, name string) {
 	if err := setter(value); err != nil {
-		m.logger.Warnf("⚠️  Failed to set %s: %v", name, err)
+		m.logger.Warnf("[WARN]  Failed to set %s: %v", name, err)
 	}
 }
 
@@ -215,16 +215,16 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	}
 
 	if overwrite {
-		m.logger.Infof("🧹 Overwrite mode: Clearing BPF maps before sync...")
+		m.logger.Infof("[CLEAN] Overwrite mode: Clearing BPF maps before sync...")
 		m.ClearMaps()
 	}
 
 	// NEW: Try to load from binary file first for better performance
 	loadedFromBinary := false
 	if err := m.loadFromBinaryFile(cfg); err != nil {
-		m.logger.Warnf("⚠️  Failed to load from binary file: %v, falling back to text file", err)
+		m.logger.Warnf("[WARN]  Failed to load from binary file: %v, falling back to text file", err)
 	} else {
-		m.logger.Infof("✅ Successfully loaded rules from binary file")
+		m.logger.Infof("[OK] Successfully loaded rules from binary file")
 		loadedFromBinary = true
 	}
 
@@ -238,7 +238,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		var err error
 		records, err = m.parseLockListFile(cfg.Base.LockListFile)
 		if err != nil {
-			m.logger.Warnf("⚠️  Could not read text file for cache update: %v", err)
+			m.logger.Warnf("[WARN]  Could not read text file for cache update: %v", err)
 			// We can still continue if we have loaded from binary
 		}
 	} else {
@@ -249,7 +249,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 			return err
 		}
 		// Log that we're syncing from text file
-		m.logger.Infof("🔄 Syncing rules from %s and config to BPF maps...", cfg.Base.LockListFile)
+		m.logger.Infof("[RELOAD] Syncing rules from %s and config to BPF maps...", cfg.Base.LockListFile)
 	}
 
 	// 3. Sync Blacklist / 3. 同步黑名单
@@ -297,7 +297,7 @@ func (m *Manager) loadFromBinaryFile(cfg *types.GlobalConfig) error {
 	// Update BPF maps with the decoded records
 	m.syncBlacklistRecords(records)
 
-	m.logger.Infof("✅ Loaded %d rules from binary file", len(records))
+	m.logger.Infof("[OK] Loaded %d rules from binary file", len(records))
 	return nil
 }
 
@@ -312,7 +312,7 @@ func (m *Manager) UpdateBinaryCache(cfg *types.GlobalConfig, records []binary.Re
 	// 验证并清理路径以防止命令注入
 	lockListBinary := filepath.Clean(cfg.Base.LockListBinary)
 	if strings.ContainsAny(lockListBinary, ";&|`$()") {
-		m.logger.Errorf("❌ Invalid characters in lock_list_binary path")
+		m.logger.Errorf("[ERROR] Invalid characters in lock_list_binary path")
 		return
 	}
 
@@ -320,14 +320,14 @@ func (m *Manager) UpdateBinaryCache(cfg *types.GlobalConfig, records []binary.Re
 	safeTmpBin := filepath.Clean(tmpBin)        // Sanitize path to prevent directory traversal
 	tmpFile, createErr := os.Create(safeTmpBin) // #nosec G304 // path is sanitized with filepath.Clean
 	if createErr != nil {
-		m.logger.Errorf("❌ Failed to create temporary binary file: %v", createErr)
+		m.logger.Errorf("[ERROR] Failed to create temporary binary file: %v", createErr)
 		return
 	}
 
 	if encodeErr := binary.Encode(tmpFile, records); encodeErr != nil {
 		tmpFile.Close()
 		os.Remove(tmpBin)
-		m.logger.Errorf("❌ Failed to encode binary records: %v", encodeErr)
+		m.logger.Errorf("[ERROR] Failed to encode binary records: %v", encodeErr)
 		return
 	}
 	tmpFile.Close()
@@ -337,24 +337,24 @@ func (m *Manager) UpdateBinaryCache(cfg *types.GlobalConfig, records []binary.Re
 	absLockListBinary, err := filepath.Abs(lockListBinary)
 	if err != nil {
 		os.Remove(tmpBin)
-		m.logger.Errorf("❌ Failed to get absolute path: %v", err)
+		m.logger.Errorf("[ERROR] Failed to get absolute path: %v", err)
 		return
 	}
 	absTmpBin, err := filepath.Abs(tmpBin)
 	if err != nil {
 		os.Remove(tmpBin)
-		m.logger.Errorf("❌ Failed to get absolute path: %v", err)
+		m.logger.Errorf("[ERROR] Failed to get absolute path: %v", err)
 		return
 	}
 
 	cmd := exec.Command("zstd", "-f", "-o", absLockListBinary, absTmpBin) // #nosec G204 // absLockListBinary and absTmpBin are validated paths
 	if output, err := cmd.CombinedOutput(); err != nil {
 		os.Remove(tmpBin)
-		m.logger.Errorf("❌ Failed to compress with zstd: %v\nOutput: %s", err, string(output))
+		m.logger.Errorf("[ERROR] Failed to compress with zstd: %v\nOutput: %s", err, string(output))
 		return
 	}
 	os.Remove(tmpBin)
-	m.logger.Infof("✅ Successfully updated binary cache %s", lockListBinary)
+	m.logger.Infof("[OK] Successfully updated binary cache %s", lockListBinary)
 }
 
 // SyncToFiles dumps current BPF map rules back to text files.
@@ -364,7 +364,7 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 		return fmt.Errorf("lock_list_file must be configured")
 	}
 
-	m.logger.Infof("💾 Syncing BPF maps to %s and config object...", cfg.Base.LockListFile)
+	m.logger.Infof("[SAVE] Syncing BPF maps to %s and config object...", cfg.Base.LockListFile)
 
 	m.syncWhitelistToConfig(cfg)
 	ips, err := m.syncBlacklistToConfig(cfg)
@@ -571,7 +571,7 @@ func (m *Manager) ClearMaps() {
 			}
 		}
 	}
-	logger.Get(nil).Infof("✅ All BPF maps cleared.")
+	logger.Get(nil).Infof("[OK] All BPF maps cleared.")
 }
 
 // ClearMap clears all rules from a specific BPF map.

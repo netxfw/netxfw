@@ -19,7 +19,7 @@ const uiHTML = `
 <body>
     <nav class="navbar navbar-dark bg-dark mb-4">
         <div class="container d-flex justify-content-between">
-            <a class="navbar-brand" href="#">🛡️ netxfw <small class="text-muted">Management</small></a>
+            <a class="navbar-brand" href="#">[SHIELD] netxfw <small class="text-muted">Management</small></a>
             <div class="d-flex align-items-center">
                 <input type="password" id="web-token" class="form-control form-control-sm me-2" placeholder="Auth Token" onchange="saveToken(this.value)" style="width: 150px;">
                 <span id="auth-status" class="badge bg-secondary">Unknown Auth</span>
@@ -65,15 +65,15 @@ const uiHTML = `
                                 <option value="incremental">Incremental</option>
                                 <option value="overwrite">Full Overwrite</option>
                             </select>
-                            <button class="btn btn-sm btn-outline-primary me-2" onclick="syncRules('file2map')" title="Load rules from local file to BPF Map">📥 Load from File</button>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="syncRules('map2file')" title="Save current BPF Map rules to local file">💾 Sync to File</button>
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="syncRules('file2map')" title="Load rules from local file to BPF Map">[LOAD] Load from File</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="syncRules('map2file')" title="Save current BPF Map rules to local file">[SAVE] Sync to File</button>
                         </div>
                     </div>
                     <div class="card-body">
                         <div class="row mb-3">
                             <div class="col-md-12">
                                 <div class="input-group">
-                                    <span class="input-group-text">🔍 Search Rules</span>
+                                    <span class="input-group-text">[SCAN] Search Rules</span>
                                     <input type="text" id="rule-search" class="form-control" placeholder="Search IP or CIDR across all tables..." onkeyup="handleSearch(event)">
                                     <button class="btn btn-primary" onclick="refreshRules()">Search</button>
                                 </div>

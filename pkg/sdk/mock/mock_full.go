@@ -34,6 +34,11 @@ func (m *MockBlacklistAPI) Remove(cidr string) error {
 	return args.Error(0)
 }
 
+func (m *MockBlacklistAPI) RemoveDynamic(cidr string) error {
+	args := m.Called(cidr)
+	return args.Error(0)
+}
+
 func (m *MockBlacklistAPI) Clear() error {
 	args := m.Called()
 	return args.Error(0)
@@ -253,7 +258,9 @@ func NewMockSDK() *sdk.SDK {
 func SetupMockBlacklist(m *sdk.SDK) *MockBlacklistAPI {
 	if mb, ok := m.Blacklist.(*MockBlacklistAPI); ok {
 		mb.On("Add", mock.Anything).Return(nil)
+		mb.On("AddWithDuration", mock.Anything, mock.Anything).Return(nil)
 		mb.On("Remove", mock.Anything).Return(nil)
+		mb.On("RemoveDynamic", mock.Anything).Return(nil)
 		mb.On("Clear").Return(nil)
 		mb.On("Contains", mock.Anything).Return(true, nil)
 		mb.On("List", mock.Anything, mock.Anything).Return([]sdk.BlockedIP{}, 0, nil)

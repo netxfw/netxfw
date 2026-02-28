@@ -17,25 +17,25 @@ import (
 func TestConfiguration(ctx context.Context) {
 	log := logger.Get(ctx)
 	configPath := config.GetConfigPath()
-	log.Infof("🔍 Testing global configuration in %s...", configPath)
+	log.Infof("[SCAN] Testing global configuration in %s...", configPath)
 
 	cfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
-		log.Fatalf("❌ Error loading config.yaml: %v", err)
+		log.Fatalf("[ERROR] Error loading config.yaml: %v", err)
 	}
 
 	allValid := true
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Validate(cfg); err != nil {
-			log.Errorf("❌ Validation failed for plugin %s: %v", p.Name(), err)
+			log.Errorf("[ERROR] Validation failed for plugin %s: %v", p.Name(), err)
 			allValid = false
 			continue
 		}
-		log.Infof("✅ Plugin %s configuration is valid", p.Name())
+		log.Infof("[OK] Plugin %s configuration is valid", p.Name())
 	}
 
 	if allValid {
-		log.Infof("🎉 All configurations are valid!")
+		log.Infof("[SUCCESS] All configurations are valid!")
 	} else {
 		os.Exit(1)
 	}

@@ -61,7 +61,7 @@ func (t *Tailer) tailFile(filename string, mode string) {
 
 	tailer, err := tail.TailFile(filename, config)
 	if err != nil {
-		t.logger.Errorf("❌ Failed to tail file %s: %v", filename, err)
+		t.logger.Errorf("[ERROR] Failed to tail file %s: %v", filename, err)
 		return
 	}
 

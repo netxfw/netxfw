@@ -41,13 +41,13 @@ func (cm *CheckpointManager) Load() {
 	data, err := os.ReadFile(cm.file)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			cm.logger.Warnf("⚠️  Failed to load checkpoints: %v", err)
+			cm.logger.Warnf("[WARN]  Failed to load checkpoints: %v", err)
 		}
 		return
 	}
 
 	if err := json.Unmarshal(data, &cm.offsets); err != nil {
-		cm.logger.Warnf("⚠️  Failed to parse checkpoints: %v", err)
+		cm.logger.Warnf("[WARN]  Failed to parse checkpoints: %v", err)
 	}
 }
 
@@ -58,18 +58,18 @@ func (cm *CheckpointManager) Save() {
 
 	data, err := json.MarshalIndent(cm.offsets, "", "  ")
 	if err != nil {
-		cm.logger.Warnf("⚠️  Failed to marshal checkpoints: %v", err)
+		cm.logger.Warnf("[WARN]  Failed to marshal checkpoints: %v", err)
 		return
 	}
 
 	// Ensure directory exists
 	if err := os.MkdirAll("/var/lib/netxfw", 0755); err != nil {
-		cm.logger.Warnf("⚠️  Failed to create checkpoint directory: %v", err)
+		cm.logger.Warnf("[WARN]  Failed to create checkpoint directory: %v", err)
 		return
 	}
 
 	if err := os.WriteFile(cm.file, data, 0600); err != nil {
-		cm.logger.Warnf("⚠️  Failed to save checkpoints: %v", err)
+		cm.logger.Warnf("[WARN]  Failed to save checkpoints: %v", err)
 	}
 }
 
@@ -121,7 +121,7 @@ func (cm *CheckpointManager) GetOffset(file string, mode string) *tail.SeekInfo 
 			info, err := os.Stat(file)
 			if err == nil {
 				if info.Size() < savedOffset {
-					logger.Get(nil).Infof("🔄 Log rotation detected for %s (size %d < offset %d). Resetting to start.", file, info.Size(), savedOffset)
+					logger.Get(nil).Infof("[RELOAD] Log rotation detected for %s (size %d < offset %d). Resetting to start.", file, info.Size(), savedOffset)
 					return &tail.SeekInfo{Offset: 0, Whence: 0}
 				}
 				// Resume

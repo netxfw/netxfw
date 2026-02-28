@@ -20,11 +20,46 @@
 
 | 命令 | 参数 | 说明 |
 |---|---|---|
-| `block <ip>` | IP/CIDR | 快速封禁 IP（加入黑名单） |
-| `unlock <ip>` | IP/CIDR | 快速解封 IP（从黑名单移除） |
-| `allow <ip> [port]` | IP/CIDR [端口] | 快速加入白名单 |
-| `unallow <ip>` | IP/CIDR | 快速从白名单移除 |
+| `enable` | 无 | 启用并启动防火墙 |
+| `disable` | 无 | 禁用并停止防火墙 |
+| `status` | 无 | 查看系统状态 |
+| `reload` | 无 | 重载配置并同步到 BPF Map |
+| `reset` | 无 | 重置防火墙（清空所有规则，保留 SSH） |
+| `init` | 无 | 初始化配置文件 |
+| `test` | 无 | 测试配置文件有效性 |
+| `version` | 无 | 查看版本信息 |
+| `list` | 无 | 列出所有封禁 IP |
 | `clear` | 无 | 清空黑名单 |
+| `del <ip>` | IP/CIDR | 从白名单或黑名单删除 IP |
+
+### allow 白名单管理
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `allow <ip>` | IP/CIDR | 快速添加白名单（向后兼容） |
+| `allow add <ip>` | IP/CIDR | 添加 IP 到白名单 |
+| `allow list` | 无 | 列出白名单 IP |
+| `allow port list` | 无 | 列出 IP+Port 允许规则 |
+
+### deny 黑名单管理
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `deny <ip> [--ttl]` | IP/CIDR [--ttl] | 添加 IP 到黑名单（向后兼容） |
+| `deny add <ip> [--ttl]` | IP/CIDR [--ttl] | 添加 IP 到黑名单 |
+| `deny list` | 无 | 列出黑名单（静态+动态） |
+| `deny list --static` | 无 | 仅列出静态黑名单 |
+| `deny list --dynamic` | 无 | 仅列出动态黑名单 |
+| `deny port list` | 无 | 列出 IP+Port 拒绝规则 |
+
+### dynamic 动态黑名单管理
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `dynamic add <ip> --ttl <duration>` | IP, TTL | 添加动态黑名单（带过期时间） |
+| `dynamic del <ip>` | IP/CIDR | 从动态黑名单移除 |
+| `dynamic list` | 无 | 列出所有动态黑名单条目 |
+| `dyn ...` | - | `dynamic` 的别名 |
 
 ### system 系统管理
 
@@ -48,7 +83,7 @@
 | 命令 | 参数 | 说明 |
 |---|---|---|
 | `rule add <ip> [port] <allow\|deny>` | IP, 端口, 动作 | 添加 IP 或 IP+端口规则 |
-| `rule remove <ip>` | IP/CIDR | 移除规则 |
+| `rule del <ip>` | IP/CIDR | 移除规则（`delete`/`remove` 别名） |
 | `rule list` | 可选过滤参数 | 查看所有规则列表 |
 | `rule import <type> <file>` | 类型, 文件 | 批量导入规则（TXT/JSON/YAML） |
 | `rule export <file> [--format]` | 文件名, 格式 | 导出规则（JSON/YAML/CSV） |
@@ -147,7 +182,92 @@ sudo netxfw system status -i eth0
 
 **输出内容包含**：流量速率、通过/丢弃统计、连接追踪健康度、BPF Map 使用率、协议分布、安全策略概览、接口状态。
 
-### 3. 快捷封禁与解封
+### 3. 白名单管理 (allow)
+
+管理白名单 IP 列表，支持子命令和向后兼容模式。
+
+```bash
+# 向后兼容：快速添加白名单
+sudo netxfw allow 1.2.3.4
+
+# 子命令：添加白名单
+sudo netxfw allow add 1.2.3.4
+
+# 子命令：添加带端口的白名单
+sudo netxfw allow add 1.2.3.4:443
+
+# 子命令：列出白名单
+sudo netxfw allow list
+
+# 子命令：列出 IP+Port 允许规则
+sudo netxfw allow port list
+
+# 从白名单移除
+sudo netxfw unallow 1.2.3.4
+```
+
+### 4. 黑名单管理 (deny)
+
+管理黑名单 IP 列表，支持静态黑名单和动态黑名单（带 TTL）。
+
+```bash
+# 向后兼容：添加到静态黑名单
+sudo netxfw deny 1.2.3.4
+
+# 向后兼容：添加到动态黑名单（带 TTL）
+sudo netxfw deny 1.2.3.4 --ttl 1h
+
+# 子命令：添加到静态黑名单
+sudo netxfw deny add 1.2.3.4
+
+# 子命令：添加到动态黑名单（带 TTL）
+sudo netxfw deny add 1.2.3.4 --ttl 1h
+
+# 子命令：列出所有黑名单（静态+动态）
+sudo netxfw deny list
+
+# 子命令：仅列出静态黑名单
+sudo netxfw deny list --static
+
+# 子命令：仅列出动态黑名单
+sudo netxfw deny list --dynamic
+
+# 子命令：列出 IP+Port 拒绝规则
+sudo netxfw deny port list
+```
+
+**TTL 格式支持**：`1h`（1小时）、`30m`（30分钟）、`1d`（1天）、`24h`（24小时）
+
+### 5. 动态黑名单管理 (dynamic)
+
+专门管理动态黑名单（LRU Hash，自动过期）。
+
+```bash
+# 添加动态黑名单（必须指定 TTL）
+sudo netxfw dynamic add 192.168.1.100 --ttl 1h
+
+# 使用别名 dyn
+sudo netxfw dyn add 10.0.0.1 --ttl 24h
+
+# 删除动态黑名单条目
+sudo netxfw dynamic del 192.168.1.100
+
+# 使用 delete 别名
+sudo netxfw dynamic delete 192.168.1.100
+
+# 列出所有动态黑名单
+sudo netxfw dynamic list
+```
+
+**输出示例**：
+```
+📋 Dynamic blacklist entries (2 total):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  🚫 172.16.1.1/32 (expires: 2026-02-28 16:07:51)
+  🚫 10.10.10.10/32 (expires: 2026-02-28 14:56:48)
+```
+
+### 6. 快捷封禁与解封
 
 针对紧急情况的快捷命令，无需 SDK 子命令：
 
@@ -161,20 +281,11 @@ sudo netxfw block 192.168.100.0/24
 # 立即解封
 sudo netxfw unlock 1.2.3.4
 
-# 加入白名单
-sudo netxfw allow 1.2.3.4
-
-# 指定白名单端口
-sudo netxfw allow 1.2.3.4 443
-
-# 从白名单移除
-sudo netxfw unallow 1.2.3.4
-
 # 清空黑名单
 sudo netxfw clear
 ```
 
-### 4. 规则管理 (rule)
+### 7. 规则管理 (rule)
 
 支持细粒度的访问控制。
 
@@ -191,11 +302,13 @@ sudo netxfw rule add 5.6.7.8 80 deny
 # 查看所有规则
 sudo netxfw rule list
 
-# 移除规则
+# 移除规则（支持 del/delete/remove 别名）
+sudo netxfw rule del 1.2.3.4
+sudo netxfw rule delete 1.2.3.4
 sudo netxfw rule remove 1.2.3.4
 ```
 
-### 5. 批量导入 (rule import)
+### 8. 批量导入 (rule import)
 
 支持从文本或结构化文件批量导入规则。
 
@@ -209,6 +322,9 @@ sudo netxfw rule import allow whitelist.txt
 # 从 JSON/YAML 文件导入所有规则
 sudo netxfw rule import all rules.json
 sudo netxfw rule import all rules.yaml
+
+# 从 bin.zst 文件导入黑名单（二进制压缩格式）
+sudo netxfw rule import binary rules.deny.bin.zst
 ```
 
 **文本格式**：每行一个 IP 或 CIDR，支持 `#` 注释。
@@ -222,6 +338,12 @@ sudo netxfw rule import all rules.yaml
 }
 ```
 
+**Binary 格式（.bin.zst）**：
+- 高性能二进制格式，使用 zstd 压缩
+- 仅支持黑名单规则
+- 适合大规模规则存储和快速迁移
+- 文件扩展名必须为 `.bin.zst`
+
 ### 6. 规则导出 (rule export)
 
 ```bash
@@ -233,7 +355,25 @@ sudo netxfw rule export rules.yaml --format yaml
 
 # 导出为 CSV
 sudo netxfw rule export rules.csv --format csv
+
+# 导出为 Binary 格式（仅黑名单，zstd 压缩）
+sudo netxfw rule export rules.deny.bin.zst --format binary
+
+# 自动检测格式（根据文件扩展名）
+sudo netxfw rule export rules.json
+sudo netxfw rule export rules.yaml
+sudo netxfw rule export rules.csv
+sudo netxfw rule export rules.deny.bin.zst
 ```
+
+**格式对比**：
+
+| 格式 | 优点 | 缺点 | 适用场景 |
+|------|------|------|----------|
+| **文本** | 简单易读，手动编辑方便 | 功能有限，仅支持单一规则类型 | 快速添加少量 IP |
+| **JSON/YAML** | 结构化，包含所有规则类型，易读 | 文件较大，解析较慢 | 配置备份、版本控制 |
+| **CSV** | 表格格式，便于 Excel 编辑 | 文件较大，不支持复杂结构 | 数据交换、报表 |
+| **Binary** | 高性能，压缩率高，解析快 | 不可读，仅支持黑名单 | 大规模规则存储、快速迁移 |
 
 ### 7. 限速管理 (limit)
 

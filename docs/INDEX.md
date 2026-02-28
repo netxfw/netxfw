@@ -22,6 +22,8 @@
 - [动态黑名单机制](./standalone/DYNAMIC_BLACKLIST.md) - 动态黑名单技术细节
 - [热重载机制](./standalone/HOT_RELOAD.md) - 热重载和状态迁移技术细节
 - [流量整形](./standalone/RATE_LIMIT.md) - 限速和流量整形技术细节
+- [规则导入导出](./rule_import_export.md) - 规则导入导出功能详解
+- [规则导入导出（英文）](./rule_import_export_en.md) - Rule import/export feature (English)
 
 ### 🧩 扩展开发
 - [插件开发指南](./plugins/plugins.md) - 插件开发框架和接口说明

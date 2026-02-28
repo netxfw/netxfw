@@ -25,12 +25,12 @@ func (m *ConntrackModule) Init(cfg *types.GlobalConfig, s *sdk.SDK, logger sdk.L
 }
 
 func (m *ConntrackModule) Start() error {
-	m.logger.Infof("🚀 [Core] Starting Conntrack Module...")
+	m.logger.Infof("[START] [Core] Starting Conntrack Module...")
 	return m.Sync()
 }
 
 func (m *ConntrackModule) Reload(cfg *types.GlobalConfig) error {
-	m.logger.Infof("🔄 [Core] Reloading Conntrack Module...")
+	m.logger.Infof("[RELOAD] [Core] Reloading Conntrack Module...")
 	m.config = &cfg.Conntrack
 	return m.Sync()
 }
@@ -44,7 +44,7 @@ func (m *ConntrackModule) Sync() error {
 		return nil
 	}
 	if err := m.manager.SetConntrack(m.config.Enabled); err != nil {
-		m.logger.Warnf("⚠️  [Conntrack] Failed to set conntrack state: %v", err)
+		m.logger.Warnf("[WARN]  [Conntrack] Failed to set conntrack state: %v", err)
 		return err
 	}
 	if !m.config.Enabled {
@@ -63,7 +63,7 @@ func (m *ConntrackModule) Sync() error {
 	}
 
 	if err := m.manager.SetConntrackTimeout(tcpDuration); err != nil {
-		m.logger.Warnf("⚠️  [Conntrack] Failed to set timeout: %v", err)
+		m.logger.Warnf("[WARN]  [Conntrack] Failed to set timeout: %v", err)
 	}
 	return nil
 }

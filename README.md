@@ -63,6 +63,11 @@
 - 🏗️ **模块化设计**：BPF 代码采用模块化结构（Filter, Ratelimit, Conntrack, Protocols），逻辑清晰，易于维护。
 - 🛠️ **命令行控制**：极简的 CLI 操作，支持动态加载规则和插件，无需重启服务。
 - 🔄 **手动更新**：支持通过 `netxfw system update` 一键检测并升级二进制文件。
+- 💾 **规则导入导出**：支持多种格式（JSON、YAML、CSV、Binary）的规则导入导出，便于备份和迁移。
+  - **文本格式**：简单的 IP 列表或 IP:Port:Action 格式
+  - **JSON/YAML**：结构化数据格式，包含黑名单、白名单和 IP+Port 规则
+  - **CSV**：表格格式，便于在 Excel 等工具中编辑
+  - **Binary (.bin.zst)**：高性能二进制格式，使用 zstd 压缩，适合大规模规则存储
 
 ---
 

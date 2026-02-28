@@ -193,7 +193,7 @@ port:
 # Conntrack Configuration / 连接跟踪配置
 conntrack:
   enabled: true
-  max_entries: 100000
+  max_entries: 10000
   tcp_timeout: "1h"
   udp_timeout: "5m"
 
@@ -250,19 +250,19 @@ log_engine:
 capacity:
   # Static blacklist capacity
   # 静态黑名单容量
-  lock_list: 2000000
+  lock_list: 20000
   # Dynamic blacklist capacity
   # 动态黑名单容量
-  dyn_lock_list: 2000000
+  dyn_lock_list: 2000
   # Whitelist capacity
   # 白名单容量
-  whitelist: 65536
+  whitelist: 30
   # IP+Port rules capacity
   # IP+端口规则容量
-  ip_port_rules: 65536
+  ip_port_rules: 30
   # Allowed ports capacity
   # 允许端口容量
-  allowed_ports: 1024
+  allowed_ports: 30
   # Rate limit rules capacity
   # 限速规则容量
   rate_limits: 1000
@@ -712,14 +712,14 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 	// We use DefaultConfigTemplate instead of marshaling cfg to preserve comments.
 	var defaultNode yaml.Node
 	if err := yaml.Unmarshal([]byte(DefaultConfigTemplate), &defaultNode); err != nil {
-		log.Warnf("⚠️  Failed to parse default config template: %v", err)
+		log.Warnf("[WARN]  Failed to parse default config template: %v", err)
 		return
 	}
 
 	// 2. Unmarshal existing file to Node (Target to update)
 	var fileNode yaml.Node
 	if err := yaml.Unmarshal(data, &fileNode); err != nil {
-		log.Warnf("⚠️  Config file seems malformed, skipping auto-update check: %v", err)
+		log.Warnf("[WARN]  Config file seems malformed, skipping auto-update check: %v", err)
 		return
 	}
 
@@ -737,7 +737,7 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
 	if err := enc.Encode(&defaultNode); err != nil {
-		log.Warnf("❌ Failed to encode updated config: %v", err)
+		log.Warnf("[ERROR] Failed to encode updated config: %v", err)
 		return
 	}
 
@@ -746,12 +746,12 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 		return
 	}
 
-	log.Infof("🔄 Refreshing configuration file structure and comments...")
+	log.Infof("[RELOAD] Refreshing configuration file structure and comments...")
 
 	// Backup original
 	backupPath := path + ".bak." + time.Now().Format("20060102-150405")
 	if err := os.WriteFile(backupPath, data, 0600); err != nil {
-		log.Warnf("⚠️  Failed to backup config file, skipping update: %v", err)
+		log.Warnf("[WARN]  Failed to backup config file, skipping update: %v", err)
 		return
 	}
 
@@ -761,9 +761,9 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 	// Write new config (defaultNode now contains merged state)
 	// yaml.v3 Encoder adds a newline
 	if err := fileutil.AtomicWriteFile(path, buf.Bytes(), 0600); err != nil {
-		log.Warnf("❌ Failed to update config file: %v", err)
+		log.Warnf("[ERROR] Failed to update config file: %v", err)
 	} else {
-		log.Infof("✅ Configuration file updated (comments restored/preserved).")
+		log.Infof("[OK] Configuration file updated (comments restored/preserved).")
 	}
 }
 
@@ -1009,7 +1009,7 @@ func cleanupBackups(originalPath string, keep int) {
 	toRemove := matches[:len(matches)-keep]
 	for _, f := range toRemove {
 		if err := os.Remove(f); err == nil {
-			log.Infof("🗑️ Removed old backup: %s", f)
+			log.Infof("[DELETE] Removed old backup: %s", f)
 		}
 	}
 }

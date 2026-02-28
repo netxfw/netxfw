@@ -62,7 +62,7 @@ func manageSinglePidFile(path string) error {
 		}
 		// PID file exists but process is dead or invalid, remove it / PID 文件存在但进程已死或无效，将其删除
 		log := logger.Get(context.Background())
-		log.Warnf("⚠️  Removing stale PID file: %s", path)
+		log.Warnf("[WARN]  Removing stale PID file: %s", path)
 		_ = os.Remove(path)
 	}
 
@@ -104,7 +104,7 @@ func removePidFileWithInterfaces(path string, interfaces []string) {
 func removeSinglePidFile(path string) {
 	log := logger.Get(context.Background())
 	if err := os.Remove(path); err != nil {
-		log.Warnf("⚠️  Failed to remove PID file: %v", err)
+		log.Warnf("[WARN]  Failed to remove PID file: %v", err)
 	}
 }
 
@@ -113,7 +113,7 @@ func removeSinglePidFile(path string) {
 func startPprof(port int) {
 	addr := fmt.Sprintf(":%d", port)
 	log := logger.Get(context.Background())
-	log.Infof("📊 Pprof enabled on %s", addr)
+	log.Infof("[STATS] Pprof enabled on %s", addr)
 	go func() {
 		// Create HTTP server with timeouts for security
 		// 创建带有超时的 HTTP 服务器以提高安全性
@@ -125,7 +125,7 @@ func startPprof(port int) {
 		}
 		err := pprofServer.ListenAndServe()
 		if err != nil {
-			log.Errorf("❌ Pprof server error: %v", err)
+			log.Errorf("[ERROR] Pprof server error: %v", err)
 		}
 	}()
 }
@@ -149,9 +149,9 @@ func cleanupOrphanedInterfaces(manager *xdp.Manager, configuredInterfaces []stri
 		}
 		if len(toDetach) > 0 {
 			log := logger.Get(context.Background())
-			log.Infof("ℹ️  Detaching from removed interfaces: %v", toDetach)
+			log.Infof("[INFO]  Detaching from removed interfaces: %v", toDetach)
 			if err := manager.Detach(toDetach); err != nil {
-				log.Warnf("⚠️  Failed to detach from removed interfaces: %v", err)
+				log.Warnf("[WARN]  Failed to detach from removed interfaces: %v", err)
 			}
 		}
 	}
@@ -168,20 +168,20 @@ func waitForSignal(ctx context.Context, configPath string, s *sdk.SDK, reloadFun
 	for {
 		sigVal := <-sig
 		if sigVal == syscall.SIGHUP {
-			log.Info("🔄 Received SIGHUP, reloading configuration...")
+			log.Info("[RELOAD] Received SIGHUP, reloading configuration...")
 
 			if reloadFunc != nil {
 				if err := reloadFunc(); err != nil {
-					log.Errorf("❌ Failed to reload: %v", err)
+					log.Errorf("[ERROR] Failed to reload: %v", err)
 				} else {
-					log.Info("✅ Configuration reloaded")
+					log.Info("[OK] Configuration reloaded")
 				}
 			} else {
-				log.Warn("⚠️  No reload function provided")
+				log.Warn("[WARN]  No reload function provided")
 			}
 
 		} else {
-			log.Info("👋 Daemon shutting down...")
+			log.Info("[BYE] Daemon shutting down...")
 			if stopFunc != nil {
 				stopFunc()
 			}
@@ -195,24 +195,24 @@ func waitForSignal(ctx context.Context, configPath string, s *sdk.SDK, reloadFun
 func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
 	log := logger.Get(ctx)
 	if !globalCfg.Base.EnableExpiry {
-		log.Info("ℹ️  Rule cleanup is disabled in config")
+		log.Info("[INFO]  Rule cleanup is disabled in config")
 		return
 	}
 
 	interval, err := time.ParseDuration(globalCfg.Base.CleanupInterval)
 	if err != nil {
-		log.Warnf("⚠️  Invalid cleanup_interval '%s', defaulting to 1m: %v", globalCfg.Base.CleanupInterval, err)
+		log.Warnf("[WARN]  Invalid cleanup_interval '%s', defaulting to 1m: %v", globalCfg.Base.CleanupInterval, err)
 		interval = 1 * time.Minute
 	}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	log.Infof("🧹 Rule cleanup enabled (Interval: %v)", interval)
+	log.Infof("[CLEAN] Rule cleanup enabled (Interval: %v)", interval)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("🛑 Stopping cleanup loop")
+			log.Info("[STOP] Stopping cleanup loop")
 			return
 		case <-ticker.C:
 			m, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
@@ -226,7 +226,7 @@ func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
 
 			total := removed + removedW + removedP
 			if total > 0 {
-				log.Infof("🧹 Cleanup: removed %d expired rules from BPF maps", total)
+				log.Infof("[CLEAN] Cleanup: removed %d expired rules from BPF maps", total)
 			}
 			m.Close()
 		}
@@ -259,12 +259,12 @@ func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
 
 	ticker := time.NewTicker(statsInterval)
 	defer ticker.Stop()
-	log.Infof("📊 Traffic stats collection enabled (Interval: %v, AvgPacketSize: %d bytes)", statsInterval, avgPacketSize)
+	log.Infof("[STATS] Traffic stats collection enabled (Interval: %v, AvgPacketSize: %d bytes)", statsInterval, avgPacketSize)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("🛑 Stopping traffic stats loop")
+			log.Info("[STOP] Stopping traffic stats loop")
 			return
 		case <-ticker.C:
 			// Get manager to access performance stats
@@ -311,7 +311,7 @@ func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
 			// Save traffic stats to shared file for system status command
 			// 将流量统计保存到共享文件供 system status 命令使用
 			if err := ps.SaveTrafficStats(); err != nil {
-				log.Warnf("⚠️  Failed to save traffic stats: %v", err)
+				log.Warnf("[WARN]  Failed to save traffic stats: %v", err)
 			}
 		}
 	}

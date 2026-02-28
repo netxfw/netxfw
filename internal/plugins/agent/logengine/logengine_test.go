@@ -176,7 +176,7 @@ func TestLogEngine_RuleMatching(t *testing.T) {
 		t.Errorf("Should be static block")
 	}
 
-	fmt.Println("✅ RuleEngine matching logic passed (including Threshold)")
+	fmt.Println("[OK] RuleEngine matching logic passed (including Threshold)")
 }
 
 // TestXDPActionHandler_Async tests the async action handler
@@ -200,7 +200,7 @@ func TestXDPActionHandler_Async(t *testing.T) {
 	// 等待一会儿以确保后台 worker 不会崩溃
 	time.Sleep(100 * time.Millisecond)
 	handler.Stop()
-	fmt.Println("✅ Async ActionHandler enqueue passed")
+	fmt.Println("[OK] Async ActionHandler enqueue passed")
 }
 
 // TestPersistenceLogic_Mock tests the file writing logic
@@ -246,7 +246,7 @@ func TestPersistenceLogic_Mock(t *testing.T) {
 		t.Errorf("Append failed. Got:\n%s", string(content))
 	}
 
-	fmt.Println("✅ Persistence file logic verification passed")
+	fmt.Println("[OK] Persistence file logic verification passed")
 }
 
 // TestLogEngine_LongWindow tests long window configuration
@@ -297,7 +297,7 @@ func TestLogEngine_LongWindow(t *testing.T) {
 		t.Errorf("Should match on 3rd hit with 3600s window")
 	}
 
-	fmt.Println("✅ 1-Hour Window configuration accepted and working for immediate hits")
+	fmt.Println("[OK] 1-Hour Window configuration accepted and working for immediate hits")
 }
 
 // TestCounter_DynamicConfig tests dynamic counter configuration
@@ -318,7 +318,7 @@ func TestCounter_DynamicConfig(t *testing.T) {
 		t.Errorf("Expected maxWindowSeconds to be 7200, got %d", le.Counter().MaxWindowSeconds())
 	}
 
-	fmt.Println("✅ Dynamic Counter Configuration verified")
+	fmt.Println("[OK] Dynamic Counter Configuration verified")
 }
 
 // TestLogEnginePlugin_Name tests plugin name

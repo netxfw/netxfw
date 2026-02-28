@@ -16,7 +16,7 @@ func TestVersionCmd(t *testing.T) {
 
 	common.MockSDK = m
 
-	_, err := executeCommand(VersionCmd)
+	_, err := executeCommand(SimpleVersionCmd)
 	assert.NoError(t, err)
 }
 
@@ -28,7 +28,7 @@ func TestVersionCmdWithStats(t *testing.T) {
 
 	common.MockSDK = m
 
-	_, err := executeCommand(VersionCmd)
+	_, err := executeCommand(SimpleVersionCmd)
 	assert.NoError(t, err)
 }
 
@@ -40,6 +40,6 @@ func TestVersionCmdHighCounters(t *testing.T) {
 
 	common.MockSDK = m
 
-	_, err := executeCommand(VersionCmd)
+	_, err := executeCommand(SimpleVersionCmd)
 	assert.NoError(t, err)
 }

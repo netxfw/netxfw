@@ -49,7 +49,7 @@ func (m *Manager) LoadPlugin(elfPath string, index int) error {
 		return fmt.Errorf("failed to update jmp_table with plugin: %w", err)
 	}
 
-	m.logger.Infof("✅ Plugin loaded: %s at index %d", elfPath, index)
+	m.logger.Infof("[OK] Plugin loaded: %s at index %d", elfPath, index)
 	return nil
 }
 
@@ -66,6 +66,6 @@ func (m *Manager) RemovePlugin(index int) error {
 		return fmt.Errorf("failed to remove plugin from jmp_table: %w", err)
 	}
 
-	m.logger.Infof("✅ Plugin removed from index %d", index)
+	m.logger.Infof("[OK] Plugin removed from index %d", index)
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 )
 
 // IsIPv6 checks if the given IP string (or CIDR) is IPv6.
@@ -61,31 +62,73 @@ func ParseCIDR(s string) (*net.IPNet, error) {
 // ParseIPPort parses an input string like "1.2.3.4:80" or "[::1]:80" into IP and port.
 // ParseIPPort 将输入字符串（如 "1.2.3.4:80" 或 "[::1]:80"）解析为 IP 和端口。
 func ParseIPPort(input string) (string, uint16, error) {
+	// First check if it's an ip:port format with brackets (e.g., [::1]:80)
+	// 首先检查是否是带方括号的 ip:port 格式（例如 [::1]:80）
+	if strings.HasPrefix(input, "[") {
+		closeBracket := strings.Index(input, "]")
+		if closeBracket > 0 && closeBracket < len(input)-1 && input[closeBracket+1] == ':' {
+			// It's [ipv6]:port format
+			// 是 [ipv6]:port 格式
+			ipPart := input[1:closeBracket]
+			portStr := input[closeBracket+2:]
+
+			port, err := strconv.Atoi(portStr)
+			if err != nil {
+				return "", 0, fmt.Errorf("invalid port: %w", err)
+			}
+
+			if port < 0 || port > 65535 {
+				return "", 0, fmt.Errorf("port out of range: %d", port)
+			}
+
+			if !IsValidCIDR(ipPart) {
+				return "", 0, fmt.Errorf("invalid IP address or CIDR: %s", ipPart)
+			}
+
+			return ipPart, uint16(port), nil // nolint:gosec // G115: port is always 0-65535
+		}
+	}
+
+	// Try to parse as ip:port first (without brackets)
+	// 首先尝试解析为 ip:port 格式（不带方括号）
 	host, portStr, err := net.SplitHostPort(input)
-	if err != nil {
-		// Try to parse as just IP, maybe port is missing or implied elsewhere
-		// 尝试仅解析为 IP，也许端口丢失或在其他地方隐含
-		return "", 0, fmt.Errorf("invalid format, expected ip:port: %w", err)
+	if err == nil {
+		ip := host
+
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return "", 0, fmt.Errorf("invalid port: %w", err)
+		}
+
+		if port < 0 || port > 65535 {
+			return "", 0, fmt.Errorf("port out of range: %d", port)
+		}
+
+		if !IsValidCIDR(host) {
+			return "", 0, fmt.Errorf("invalid IP address or CIDR: %s", host)
+		}
+
+		return ip, uint16(port), nil // nolint:gosec // G115: port is always 0-65535
 	}
 
-	// Normalize IP (strip brackets if any remaining, though SplitHostPort handles most)
-	// 标准化 IP（如果还有剩余的方括号，则将其去掉，尽管 SplitHostPort 处理了大多数情况）
-	ip := host
-
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return "", 0, fmt.Errorf("invalid port: %w", err)
+	// If ip:port parsing fails, try to parse as just IP
+	// 如果 ip:port 解析失败，尝试解析为纯 IP
+	// For pure IP validation, also remove brackets if present
+	// 对于纯 IP 验证，如果有的话也移除方括号
+	validateInput := input
+	if strings.HasPrefix(input, "[") {
+		closeBracket := strings.Index(input, "]")
+		if closeBracket > 0 {
+			validateInput = input[1:closeBracket]
+		}
+	}
+	if IsValidCIDR(validateInput) {
+		return validateInput, 0, nil
 	}
 
-	if port < 0 || port > 65535 {
-		return "", 0, fmt.Errorf("port out of range: %d", port)
-	}
-
-	if !IsValidCIDR(ip) {
-		return "", 0, fmt.Errorf("invalid IP address or CIDR: %s", ip)
-	}
-
-	return ip, uint16(port), nil // nolint:gosec // G115: port is always 0-65535
+	// Return the original error
+	// 返回原始错误
+	return "", 0, fmt.Errorf("invalid format, expected ip:port or ip")
 }
 
 // IsValidIP checks if the string is a valid IP address.

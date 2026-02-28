@@ -72,7 +72,7 @@ func TestRuleAddCommandIntegration(t *testing.T) {
 		},
 		{
 			name:     "AddIPv6Address",
-			args:     []string{"add", "2001:db8::1", "deny"},
+			args:     []string{"add", "[2001:db8::1]", "deny"},
 			wantErr:  false,
 			contains: "Blacklist",
 		},
@@ -137,9 +137,9 @@ func TestRuleListCommandIntegration(t *testing.T) {
 	}
 }
 
-// TestRuleRemoveCommandIntegration tests rule remove command.
-// TestRuleRemoveCommandIntegration 测试规则删除命令。
-func TestRuleRemoveCommandIntegration(t *testing.T) {
+// TestRuleDelCommandIntegration tests rule del command.
+// TestRuleDelCommandIntegration 测试规则删除命令。
+func TestRuleDelCommandIntegration(t *testing.T) {
 	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	tests := []struct {
@@ -149,16 +149,28 @@ func TestRuleRemoveCommandIntegration(t *testing.T) {
 		contains string
 	}{
 		{
-			name:     "RemoveIP",
-			args:     []string{"remove", "192.168.1.1"},
+			name:     "DelIP",
+			args:     []string{"del", "192.168.1.1"},
 			wantErr:  false,
-			contains: "Removed",
+			contains: "Deleted",
 		},
 		{
-			name:     "RemoveIPWithPort",
-			args:     []string{"remove", "192.168.1.1:8080"},
+			name:     "DelIPWithPort",
+			args:     []string{"del", "192.168.1.1:8080"},
 			wantErr:  false,
-			contains: "Removed",
+			contains: "Deleted",
+		},
+		{
+			name:     "DeleteIP_Alias",
+			args:     []string{"delete", "192.168.1.2"},
+			wantErr:  false,
+			contains: "Deleted",
+		},
+		{
+			name:     "RemoveIP_Alias",
+			args:     []string{"remove", "192.168.1.3"},
+			wantErr:  false,
+			contains: "Deleted",
 		},
 	}
 
@@ -212,7 +224,7 @@ func TestQuickBlockCommandIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			common.SetMockSDK(setupMockSDKWithExpectations())
-			output, err := executeCmd(QuickBlockCmd, tt.args...)
+			output, err := executeCmd(SimpleBlockCmd, tt.args...)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -247,7 +259,7 @@ func TestQuickUnlockCommandIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			common.SetMockSDK(setupMockSDKWithExpectations())
-			output, err := executeCmd(QuickUnlockCmd, tt.args...)
+			output, err := executeCmd(SimpleUnblockCmd, tt.args...)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -279,7 +291,7 @@ func TestQuickAllowCommandIntegration(t *testing.T) {
 		},
 		{
 			name:     "AllowIPv4WithPort",
-			args:     []string{"1.2.3.4", "80"},
+			args:     []string{"1.2.3.4:80"},
 			wantErr:  false,
 			contains: "",
 		},
@@ -288,7 +300,7 @@ func TestQuickAllowCommandIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			common.SetMockSDK(setupMockSDKWithExpectations())
-			output, err := executeCmd(QuickAllowCmd, tt.args...)
+			output, err := executeCmd(SimpleAllowCmd, tt.args...)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -447,12 +459,12 @@ func TestCommandHelpOutput(t *testing.T) {
 		{"Limit", LimitCmd},
 		{"Security", SecurityCmd},
 		{"System", SystemCmd},
-		{"Web", WebCmd},
+		{"Web", SimpleWebCmd},
 		{"Perf", PerfCmd},
-		{"Version", VersionCmd},
-		{"Block", QuickBlockCmd},
-		{"Unlock", QuickUnlockCmd},
-		{"Allow", QuickAllowCmd},
+		{"Version", SimpleVersionCmd},
+		{"Block", SimpleBlockCmd},
+		{"Unblock", SimpleUnblockCmd},
+		{"Allow", SimpleAllowCmd},
 	}
 
 	for _, tc := range commands {

@@ -1,9 +1,9 @@
 package agent
 
 import (
-	"fmt"
 	"strconv"
 
+	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -22,25 +22,43 @@ var limitAddCmd = &cobra.Command{
 	Short: "Add rate limit rule",
 	// Short: 添加限速规则
 	Long: `Add IP rate limit rule (packets per second)
-添加 IP 限速规则（每秒包数）`,
+添加 IP 限速规则（每秒包数）
+
+有效范围：
+  rate:  1 - 1,000,000 (每秒包数)
+  burst: 1 - 10,000,000 (突发包数)`,
 	Args: cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		ExecuteWithArgs(cmd, args, func(s *sdk.SDK, args []string) error {
 			ip := args[0]
+
+			// 验证 IP 格式：必须是有效的 IPv4/IPv6 地址或 CIDR
+			// Validate IP format: must be valid IPv4/IPv6 address or CIDR
+			if err := common.ValidateIP(ip); err != nil {
+				return err
+			}
+
 			rate, err := strconv.ParseUint(args[1], 10, 64)
 			if err != nil {
-				return fmt.Errorf("❌ Invalid rate: %v", err)
+				return err
 			}
 			burst, err := strconv.ParseUint(args[2], 10, 64)
 			if err != nil {
-				return fmt.Errorf("❌ Invalid burst: %v", err)
+				return err
 			}
+
+			// 验证 rate 和 burst 范围
+			// Validate rate and burst range
+			if err := common.ValidateRateLimit(rate, burst); err != nil {
+				return err
+			}
+
 			// Add rate limit rule
 			// 添加限速规则
 			if err := s.Rule.AddRateLimitRule(ip, rate, burst); err != nil {
 				return err
 			}
-			logger.Get(cmd.Context()).Infof("✅ Rate limit rule added for %s: %d/s (burst %d)", ip, rate, burst)
+			logger.Get(cmd.Context()).Infof("[OK] Rate limit rule added for %s: %d/s (burst %d)", ip, rate, burst)
 			return nil
 		})
 	},
@@ -56,12 +74,19 @@ var limitRemoveCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ExecuteWithArgs(cmd, args, func(s *sdk.SDK, args []string) error {
 			ip := args[0]
+
+			// 验证 IP 格式：必须是有效的 IPv4/IPv6 地址或 CIDR
+			// Validate IP format: must be valid IPv4/IPv6 address or CIDR
+			if err := common.ValidateIP(ip); err != nil {
+				return err
+			}
+
 			// Remove rate limit rule
 			// 移除限速规则
 			if err := s.Rule.RemoveRateLimitRule(ip); err != nil {
 				return err
 			}
-			logger.Get(cmd.Context()).Infof("✅ Rate limit rule removed for %s", ip)
+			logger.Get(cmd.Context()).Infof("[OK] Rate limit rule removed for %s", ip)
 			return nil
 		})
 	},
@@ -75,18 +100,11 @@ var limitListCmd = &cobra.Command{
 	// Long: 列出所有限速规则
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
-			limit := 100
-			search := ""
-
-			if len(args) > 0 {
-				if l, parseErr := strconv.Atoi(args[0]); parseErr == nil {
-					limit = l
-					if len(args) > 1 {
-						search = args[1]
-					}
-				} else {
-					search = args[0]
-				}
+			// 使用公共函数解析 limit 和 search 参数
+			// Use common function to parse limit and search parameters
+			limit, search, err := common.ParseLimitAndSearch(args, 100)
+			if err != nil {
+				return err
 			}
 
 			rules, _, err := s.Rule.ListRateLimitRules(limit, search)

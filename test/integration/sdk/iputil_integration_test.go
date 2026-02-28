@@ -48,7 +48,7 @@ func TestIPUtil_IPPortParsing(t *testing.T) {
 	}{
 		{"IPv4 with port", "192.168.1.1:8080", "192.168.1.1", 8080, false},
 		{"IPv6 with port", "[2001:db8::1]:443", "2001:db8::1", 443, false},
-		{"IPv4 without port", "192.168.1.1", "", 0, true},
+		{"IPv4 without port", "192.168.1.1", "192.168.1.1", 0, false},
 		{"Invalid format", "invalid:port", "", 0, true},
 	}
 

@@ -182,7 +182,7 @@ func NewManagerFromPins(path string, logger Logger) (*Manager, error) {
 		} else {
 			// It's okay if some maps are missing (e.g. first run), we'll create new ones
 			// 如果缺少某些 Map（例如首次运行），也没关系，我们将创建新的
-			logger.Infof("📌 Could not load pinned map %s (will create new): %v", name, err)
+			logger.Infof("[PIN] Could not load pinned map %s (will create new): %v", name, err)
 		}
 	}
 

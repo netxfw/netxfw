@@ -289,7 +289,7 @@ func (u *IncrementalUpdater) ApplyDiff(diff *ConfigDiff) error {
 	appliedCount, failedCount, errors = u.applyIPPortChanges(diff, appliedCount, failedCount, errors)
 
 	if u.mgr.logger != nil {
-		u.mgr.logger.Infof("📊 Incremental update: %d applied, %d failed", appliedCount, failedCount)
+		u.mgr.logger.Infof("[STATS] Incremental update: %d applied, %d failed", appliedCount, failedCount)
 	}
 
 	if len(errors) > 0 {

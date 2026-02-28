@@ -30,6 +30,7 @@ type Firewall interface {
 	AddBlacklistIPWithFile(cidr string, file string) error
 	AddDynamicBlacklistIP(cidr string, ttl time.Duration) error
 	RemoveBlacklistIP(cidr string) error
+	RemoveDynamicBlacklistIP(cidr string) error
 
 	// BlockIP is a helper that calls AddBlacklistIP or AddDynamicBlacklistIP.
 	// BlockIP 是一个辅助函数，调用 AddBlacklistIP 或 AddDynamicBlacklistIP。
@@ -80,6 +81,7 @@ type ManagerInterface interface {
 	AddBlacklistIPWithFile(cidr string, file string) error
 	AddDynamicBlacklistIP(cidr string, ttl time.Duration) error
 	RemoveBlacklistIP(cidr string) error
+	RemoveDynamicBlacklistIP(cidr string) error
 	ClearBlacklist() error
 	IsIPInBlacklist(cidr string) (bool, error)
 	ListBlacklistIPs(limit int, search string) ([]BlockedIP, int, error)
@@ -154,6 +156,10 @@ type BlacklistAPI interface {
 	// Remove removes an IP or CIDR from the blacklist.
 	// Remove 从黑名单中移除 IP 或 CIDR。
 	Remove(cidr string) error
+
+	// RemoveDynamic removes an IP from the dynamic blacklist.
+	// RemoveDynamic 从动态黑名单中移除 IP。
+	RemoveDynamic(cidr string) error
 
 	// Clear removes all entries from the blacklist.
 	// Clear 移除黑名单中的所有条目。

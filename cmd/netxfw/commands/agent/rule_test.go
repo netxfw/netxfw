@@ -139,7 +139,7 @@ func TestRuleAddIPv6Cmd(t *testing.T) {
 	// Test adding IPv6 to blacklist / 测试添加 IPv6 到黑名单
 	mockBlacklist.On("Add", "2001:db8::1").Return(nil)
 	mockWhitelist.On("Remove", "2001:db8::1").Return(nil)
-	_, err := executeCommand(RuleCmd, "add", "2001:db8::1")
+	_, err := executeCommand(RuleCmd, "add", "2001:db8::1", "deny")
 	assert.NoError(t, err)
 	mockBlacklist.AssertExpectations(t)
 }
@@ -185,7 +185,7 @@ func TestRuleAddCIDRCmd(t *testing.T) {
 	// Test adding CIDR to blacklist / 测试添加 CIDR 到黑名单
 	mockBlacklist.On("Add", "192.168.0.0/16").Return(nil)
 	mockWhitelist.On("Remove", "192.168.0.0/16").Return(nil)
-	_, err := executeCommand(RuleCmd, "add", "192.168.0.0/16")
+	_, err := executeCommand(RuleCmd, "add", "192.168.0.0/16", "deny")
 	assert.NoError(t, err)
 	mockBlacklist.AssertExpectations(t)
 }

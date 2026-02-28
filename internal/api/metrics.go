@@ -53,7 +53,7 @@ func (m *MetricsServer) setRunning(running bool) {
 // Start 启动指标服务器。
 func (m *MetricsServer) Start(ctx context.Context) error {
 	if !m.config.Enabled {
-		logger.Get(ctx).Infof("📊 Metrics server is disabled via config.")
+		logger.Get(ctx).Infof("[STATS] Metrics server is disabled via config.")
 		return nil
 	}
 
@@ -70,9 +70,9 @@ func (m *MetricsServer) Start(ctx context.Context) error {
 
 	// Start HTTP Server
 	go func() {
-		logger.Get(ctx).Infof("📊 Metrics server starting on :%d", m.config.Port)
+		logger.Get(ctx).Infof("[STATS] Metrics server starting on :%d", m.config.Port)
 		if err := m.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Get(ctx).Errorf("❌ Metrics server error: %v", err)
+			logger.Get(ctx).Errorf("[ERROR] Metrics server error: %v", err)
 			m.setRunning(false)
 		}
 	}()

@@ -24,7 +24,7 @@ import (
 const baseURL = "http://localhost:11818/api"
 
 func main() {
-	fmt.Println("🧪 Testing Hybrid Approval (Auto-Active) Workflow...")
+	fmt.Println("[TEST] Testing Hybrid Approval (Auto-Active) Workflow...")
 
 	// 1. Test Manual Add with AutoActive = true
 	// 1. 测试手动添加，且 AutoActive = true

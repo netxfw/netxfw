@@ -23,12 +23,12 @@ func (m *PortModule) Init(cfg *types.GlobalConfig, s *sdk.SDK, logger sdk.Logger
 }
 
 func (m *PortModule) Start() error {
-	m.logger.Infof("🚀 [Core] Starting Port Module...")
+	m.logger.Infof("[START] [Core] Starting Port Module...")
 	return m.Sync()
 }
 
 func (m *PortModule) Reload(cfg *types.GlobalConfig) error {
-	m.logger.Infof("🔄 [Core] Reloading Port Module...")
+	m.logger.Infof("[RELOAD] [Core] Reloading Port Module...")
 	m.config = &cfg.Port
 	return m.Sync()
 }
@@ -45,7 +45,7 @@ func (m *PortModule) Sync() error {
 	// 1. Sync Allowed Ports
 	currentPorts, err := m.manager.ListAllowedPorts()
 	if err != nil {
-		m.logger.Warnf("⚠️ [Port] Failed to list current allowed ports: %v", err)
+		m.logger.Warnf("[WARN] [Port] Failed to list current allowed ports: %v", err)
 	} else {
 		desiredPorts := make(map[uint16]bool)
 		for _, port := range m.config.AllowedPorts {
@@ -59,7 +59,7 @@ func (m *PortModule) Sync() error {
 		for port := range existingPorts {
 			if !desiredPorts[port] {
 				if err := m.manager.RemoveAllowedPort(port); err != nil {
-					m.logger.Warnf("⚠️ [Port] Failed to remove port %d: %v", port, err)
+					m.logger.Warnf("[WARN] [Port] Failed to remove port %d: %v", port, err)
 				}
 			}
 		}
@@ -67,7 +67,7 @@ func (m *PortModule) Sync() error {
 		for port := range desiredPorts {
 			if !existingPorts[port] {
 				if err := m.manager.AllowPort(port); err != nil {
-					m.logger.Warnf("⚠️ [Port] Failed to allow port %d: %v", port, err)
+					m.logger.Warnf("[WARN] [Port] Failed to allow port %d: %v", port, err)
 				}
 			}
 		}
@@ -75,11 +75,11 @@ func (m *PortModule) Sync() error {
 
 	// 2. Sync IP+Port Rules (Simplified logic for migration)
 	if err := m.manager.ClearIPPortRules(); err != nil {
-		m.logger.Warnf("⚠️ [Port] Failed to clear IP+Port rules: %v", err)
+		m.logger.Warnf("[WARN] [Port] Failed to clear IP+Port rules: %v", err)
 	}
 	for _, rule := range m.config.IPPortRules {
 		if err := m.manager.AddIPPortRule(rule.IP, rule.Port, rule.Action); err != nil {
-			m.logger.Warnf("⚠️ [Port] Failed to add rule %s:%d: %v", rule.IP, rule.Port, err)
+			m.logger.Warnf("[WARN] [Port] Failed to add rule %s:%d: %v", rule.IP, rule.Port, err)
 		}
 	}
 

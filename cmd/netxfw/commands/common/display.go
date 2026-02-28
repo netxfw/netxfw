@@ -16,7 +16,7 @@ func ShowConntrack(ctx context.Context, s *sdk.SDK) error {
 		return fmt.Errorf("failed to list conntrack entries: %v", err)
 	}
 
-	fmt.Println("🕵️  Active Connections (Conntrack):")
+	fmt.Println("[TRACK]  Active Connections (Conntrack):")
 	if len(entries) == 0 {
 		fmt.Println(" - No active connections.")
 		return nil

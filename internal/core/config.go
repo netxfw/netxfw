@@ -19,9 +19,9 @@ func InitConfiguration(ctx context.Context) {
 
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(configDir, 0755); err != nil {
-			log.Fatalf("❌ Failed to create config directory %s: %v", configDir, err)
+			log.Fatalf("[ERROR] Failed to create config directory %s: %v", configDir, err)
 		}
-		log.Infof("📂 Created config directory: %s", configDir)
+		log.Infof("[DIR] Created config directory: %s", configDir)
 	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
@@ -30,10 +30,10 @@ func InitConfiguration(ctx context.Context) {
 		defaultConfig := types.DefaultConfigTemplate
 
 		if err := os.WriteFile(configPath, []byte(defaultConfig), 0600); err != nil {
-			log.Fatalf("❌ Failed to create config.yaml: %v", err)
+			log.Fatalf("[ERROR] Failed to create config.yaml: %v", err)
 		}
-		log.Infof("📄 Created default global config with comments: %s", configPath)
+		log.Infof("[FILE] Created default global config with comments: %s", configPath)
 	} else {
-		log.Infof("ℹ️  Config file already exists: %s", configPath)
+		log.Infof("[INFO]  Config file already exists: %s", configPath)
 	}
 }

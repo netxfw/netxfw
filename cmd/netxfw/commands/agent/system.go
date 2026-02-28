@@ -30,6 +30,16 @@ var SystemCmd = &cobra.Command{
 	// Long: netxfw 的系统管理命令
 }
 
+// initCommand 初始化命令的通用设置（设置配置文件路径和确保独立模式）
+// initCommand initializes common settings for commands (sets config path and ensures standalone mode)
+func initCommand(cmd *cobra.Command) {
+	configFile, _ := cmd.Flags().GetString("config")
+	if configFile != "" {
+		config.SetConfigPath(configFile)
+	}
+	common.EnsureStandaloneMode()
+}
+
 var systemInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize configuration file",
@@ -37,17 +47,7 @@ var systemInitCmd = &cobra.Command{
 	Long: `Initialize default configuration file in /root/netxfw/`,
 	// Long: 在 /root/netxfw/ 中初始化默认配置文件
 	Run: func(cmd *cobra.Command, args []string) {
-		// Set config file if provided
-		// 如果提供了配置文件，则设置它
-		configFile, _ := cmd.Flags().GetString("config")
-		if configFile != "" {
-			config.SetConfigPath(configFile)
-		}
-
-		common.EnsureStandaloneMode()
-
-		// Initialize configuration
-		// 初始化配置
+		initCommand(cmd)
 		core.InitConfiguration(cmd.Context())
 	},
 }
@@ -74,17 +74,7 @@ var systemTestCmd = &cobra.Command{
 	Long: `Test configuration validity`,
 	// Long: 测试配置有效性
 	Run: func(cmd *cobra.Command, args []string) {
-		// Set config file if provided
-		// 如果提供了配置文件，则设置它
-		configFile, _ := cmd.Flags().GetString("config")
-		if configFile != "" {
-			config.SetConfigPath(configFile)
-		}
-
-		common.EnsureStandaloneMode()
-
-		// Test configuration
-		// 测试配置
+		initCommand(cmd)
 		daemon.TestConfiguration(cmd.Context())
 	},
 }
@@ -96,17 +86,7 @@ var systemDaemonCmd = &cobra.Command{
 	Long: `Start background process`,
 	// Long: 启动后台进程
 	Run: func(cmd *cobra.Command, args []string) {
-		// Set config file if provided
-		// 如果提供了配置文件，则设置它
-		configFile, _ := cmd.Flags().GetString("config")
-		if configFile != "" {
-			config.SetConfigPath(configFile)
-		}
-
-		common.EnsureStandaloneMode()
-
-		// Run as daemon
-		// 以守护进程方式运行
+		initCommand(cmd)
 		app.RunDaemon(cmd.Context())
 	},
 }
@@ -165,7 +145,7 @@ This is faster than full reload and maintains existing connections.
 
 		globalCfg, err := types.LoadGlobalConfig(configPath)
 		if err != nil {
-			cmd.PrintErrln("❌ Failed to load configuration:", err)
+			cmd.PrintErrln("[ERROR] Failed to load configuration:", err)
 			os.Exit(1)
 		}
 
@@ -174,7 +154,7 @@ This is faster than full reload and maintains existing connections.
 		log := logger.Get(cmd.Context())
 		manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
 		if err != nil {
-			cmd.PrintErrln("❌ Failed to load XDP manager:", err)
+			cmd.PrintErrln("[ERROR] Failed to load XDP manager:", err)
 			os.Exit(1)
 		}
 		defer manager.Close()
@@ -182,11 +162,11 @@ This is faster than full reload and maintains existing connections.
 		// Sync configuration to BPF maps
 		// 同步配置到 BPF Map
 		if err := manager.SyncFromFiles(globalCfg, false); err != nil {
-			cmd.PrintErrln("❌ Failed to sync configuration to BPF maps:", err)
+			cmd.PrintErrln("[ERROR] Failed to sync configuration to BPF maps:", err)
 			os.Exit(1)
 		}
 
-		fmt.Println("✅ Configuration reloaded and synced to BPF maps successfully")
+		fmt.Println("[OK] Configuration reloaded and synced to BPF maps successfully")
 	},
 }
 
@@ -258,12 +238,12 @@ var systemUpdateCmd = &cobra.Command{
 This will restart the netxfw service if an update is performed.`,
 	// Long: 检查 GitHub 上的最新版本并安装。如果执行了更新，将重新启动 netxfw 服务。
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("🚀 Checking for updates...")
+		fmt.Println("[START] Checking for updates...")
 		// Execute the deploy.sh script from GitHub
 		// This is a simple and effective way to update
 		execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
 		if err := fmtutil.RunShellCommand(execCmd); err != nil {
-			fmt.Printf("❌ Update failed: %v\n", err)
+			fmt.Printf("[ERROR] Update failed: %v\n", err)
 			os.Exit(1)
 		}
 	},
@@ -302,7 +282,7 @@ func init() {
 // showStatus displays the system status including statistics and configuration
 // showStatus 显示系统状态，包括统计信息和配置
 func showStatus(ctx context.Context, s *sdk.SDK) error {
-	fmt.Println("✅ XDP Program Status: Loaded and Running")
+	fmt.Println("[OK] XDP Program Status: Loaded and Running")
 
 	mgr := s.GetManager()
 
@@ -310,7 +290,7 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 	// 获取全局统计
 	pass, drops, err := s.Stats.GetCounters()
 	if err != nil {
-		fmt.Printf("⚠️  Could not retrieve statistics: %v\n", err)
+		fmt.Printf("[WARN]  Could not retrieve statistics: %v\n", err)
 		return nil
 	}
 
@@ -385,8 +365,8 @@ func showDropStatistics(s StatsAPI, drops, pass uint64) {
 
 	// Use generic function to display statistics / 使用泛型函数显示统计
 	showDetailStatistics(wrappedDetails, detailStatsConfig{
-		title:      "🚫 Drop Statistics:",
-		subTitle:   "🚫 Top Drops by Reason & Source:",
+		title:      "[BLOCK] Drop Statistics:",
+		subTitle:   "[BLOCK] Top Drops by Reason & Source:",
 		reasonFunc: dropReasonToString,
 		totalCount: drops,
 		currentPPS: currentDropPPS,
@@ -420,8 +400,8 @@ func showPassStatistics(s StatsAPI, pass, drops uint64) {
 
 	// Use generic function to display statistics / 使用泛型函数显示统计
 	showDetailStatistics(wrappedDetails, detailStatsConfig{
-		title:      "✅ Pass Statistics:",
-		subTitle:   "✅ Top Allowed by Reason & Source:",
+		title:      "[OK] Pass Statistics:",
+		subTitle:   "[OK] Top Allowed by Reason & Source:",
 		reasonFunc: passReasonToString,
 		totalCount: pass,
 		currentPPS: currentPassPPS,
@@ -433,7 +413,7 @@ func showPassStatistics(s StatsAPI, pass, drops uint64) {
 // showMapStatistics 显示 BPF Map 统计和使用率
 func showMapStatistics(mgr sdk.ManagerInterface) {
 	fmt.Println()
-	fmt.Println("📦 Map Statistics:")
+	fmt.Println("[DATA] Map Statistics:")
 
 	// Get capacity configuration from config manager / 从配置管理器获取容量配置
 	cfgManager := config.GetConfigManager()
@@ -482,32 +462,190 @@ func showMapStatistics(mgr sdk.ManagerInterface) {
 		}
 	}
 
-	// Show compact table / 显示紧凑表格
-	fmt.Printf("   %-16s %10s / %-10s %-8s %s\n", "Map", "Used", "Max", "Usage", "Status")
-	fmt.Printf("   %s\n", strings.Repeat("-", 55))
-	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
-		"🔒 Blacklist", blacklistCount, maxBlacklist,
-		fmt.Sprintf("%.1f%%", calculatePercentGeneric(blacklistCount, uint64(maxBlacklist))), // #nosec G115 // count is always valid
-		getUsageIndicator(blacklistCount, maxBlacklist, false))
-	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
-		"🔓 Dyn Blacklist", dynBlacklistCount, maxDynBlacklist,
-		fmt.Sprintf("%.1f%%", calculatePercentGeneric(dynBlacklistCount, uint64(maxDynBlacklist))), // #nosec G115 // count is always valid
-		getUsageIndicator(int(dynBlacklistCount), maxDynBlacklist, true))                           // #nosec G115 // count is always within int range
-	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
-		"⚪ Whitelist", whitelistCount, maxWhitelist,
-		fmt.Sprintf("%.1f%%", calculatePercentGeneric(whitelistCount, uint64(maxWhitelist))), // #nosec G115 // count is always valid
-		getUsageIndicator(whitelistCount, maxWhitelist, false))
-	// Conntrack is shown in detail in Conntrack Health section, skip here
-	// Conntrack 在 Conntrack Health 部分详细显示，此处跳过
-	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
-		"📋 IP+Port Rules", len(ipPortRules), maxIPPortRules,
-		fmt.Sprintf("%.1f%%", calculatePercentGeneric(uint64(len(ipPortRules)), uint64(maxIPPortRules))), // #nosec G115 // count is always valid
-		getUsageIndicator(len(ipPortRules), maxIPPortRules, false))
-	fmt.Printf("   %-16s %10d / %-10d %-8s %s\n",
-		"⏱️  Rate Limits", len(rateLimitRules), maxRateLimits,
-		fmt.Sprintf("%.1f%%", calculatePercentGeneric(uint64(len(rateLimitRules)), uint64(maxRateLimits))), // #nosec G115 // count is always valid
-		getUsageIndicator(len(rateLimitRules), maxRateLimits, false))
-	fmt.Printf("   %-16s %10d\n", "🔓 Allowed Ports", len(allowedPorts))
+	// Show compact table with progress bar / 显示带进度条的紧凑表格
+	fmt.Printf("   %-18s %12s / %-12s %s\n", "Map", "Used", "Max", "Usage")
+	fmt.Printf("   %s\n", strings.Repeat("-", 70))
+	fmt.Printf("   %-18s %12d / %-12d %s\n",
+		"[LOCK] Blacklist", blacklistCount, maxBlacklist,
+		renderUsageBar(blacklistCount, maxBlacklist, 20))
+	fmt.Printf("   %-18s %12d / %-12d %s\n",
+		"[UNLOCK] Dyn Blacklist", dynBlacklistCount, maxDynBlacklist,
+		renderUsageBar(int(dynBlacklistCount), maxDynBlacklist, 20))
+	fmt.Printf("   %-18s %12d / %-12d %s\n",
+		"[WHITE] Whitelist", whitelistCount, maxWhitelist,
+		renderUsageBar(whitelistCount, maxWhitelist, 20))
+	fmt.Printf("   %-18s %12d / %-12d %s\n",
+		"[INFO] IP+Port Rules", len(ipPortRules), maxIPPortRules,
+		renderUsageBar(len(ipPortRules), maxIPPortRules, 20))
+	fmt.Printf("   %-18s %12d / %-12d %s\n",
+		"[TIME]  Rate Limits", len(rateLimitRules), maxRateLimits,
+		renderUsageBar(len(rateLimitRules), maxRateLimits, 20))
+	fmt.Printf("   %-18s %12d\n", "[UNLOCK] Allowed Ports", len(allowedPorts))
+}
+
+// renderUsageBar renders a visual progress bar like top command
+// renderUsageBar 渲染类似 top 命令的可视化进度条
+func renderUsageBar(current, maximum int, width int) string {
+	if maximum == 0 {
+		return "[ N/A ]"
+	}
+
+	usage := float64(current) / float64(maximum) * 100
+	filled := int(usage / 100 * float64(width))
+	if filled > width {
+		filled = width
+	}
+
+	// Build progress bar / 构建进度条
+	var bar strings.Builder
+	bar.WriteString("[")
+	for i := 0; i < width; i++ {
+		if i < filled {
+			bar.WriteString("#")
+		} else {
+			bar.WriteString("-")
+		}
+	}
+	bar.WriteString("] ")
+
+	// Add percentage and status indicator / 添加百分比和状态指示器
+	critical, high, medium := getThresholdsFromConfig()
+	var status string
+	if usage >= float64(critical) {
+		status = "[CRITICAL]"
+	} else if usage >= float64(high) {
+		status = "[HIGH]"
+	} else if usage >= float64(medium) {
+		status = "[MEDIUM]"
+	} else {
+		status = "[OK]"
+	}
+
+	return fmt.Sprintf("%s %5.1f%% %s", bar.String(), usage, status)
+}
+
+// showCompactMapStatistics displays compact map statistics in single line format
+// showCompactMapStatistics 以紧凑格式显示 Map 统计
+func showCompactMapStatistics(mgr sdk.ManagerInterface) {
+	// Get capacity configuration from config manager / 从配置管理器获取容量配置
+	cfgManager := config.GetConfigManager()
+	var capacityCfg *types.CapacityConfig
+	if err := cfgManager.LoadConfig(); err == nil {
+		capacityCfg = cfgManager.GetCapacityConfig()
+	}
+
+	// Get map counts / 获取 Map 计数
+	blacklistCount, _ := mgr.GetLockedIPCount()
+	whitelistCount, _ := mgr.GetWhitelistCount()
+	dynBlacklistCount, _ := mgr.GetDynLockListCount()
+	rateLimitRules, _, _ := mgr.ListRateLimitRules(0, "")
+	ipPortRules, _, _ := mgr.ListIPPortRules(false, 0, "")
+
+	// Get max capacities / 获取最大容量
+	maxBlacklist := 2000000
+	maxWhitelist := 65536
+	maxDynBlacklist := 2000000
+	maxIPPortRules := 65536
+	maxRateLimits := 1000
+
+	if capacityCfg != nil {
+		if capacityCfg.LockList > 0 {
+			maxBlacklist = capacityCfg.LockList
+		}
+		if capacityCfg.Whitelist > 0 {
+			maxWhitelist = capacityCfg.Whitelist
+		}
+		if capacityCfg.DynLockList > 0 {
+			maxDynBlacklist = capacityCfg.DynLockList
+		}
+		if capacityCfg.IPPortRules > 0 {
+			maxIPPortRules = capacityCfg.IPPortRules
+		}
+		if capacityCfg.RateLimits > 0 {
+			maxRateLimits = capacityCfg.RateLimits
+		}
+	}
+
+	// Show compact multi-line map stats / 显示紧凑的多行 Map 统计
+	fmt.Println()
+	fmt.Println("[DATA] Map Usage:")
+	fmt.Printf("   %-16s %s\n", "[LOCK] Blacklist:", renderMiniBar(blacklistCount, maxBlacklist))
+	fmt.Printf("   %-16s %s\n", "[UNLOCK] Dyn:", renderMiniBar(int(dynBlacklistCount), maxDynBlacklist))
+	fmt.Printf("   %-16s %s\n", "[WHITE] Whitelist:", renderMiniBar(whitelistCount, maxWhitelist))
+	fmt.Printf("   %-16s %s\n", "[INFO] IP+Port:", renderMiniBar(len(ipPortRules), maxIPPortRules))
+	fmt.Printf("   %-16s %s\n", "[TIME] RateLimit:", renderMiniBar(len(rateLimitRules), maxRateLimits))
+}
+
+// renderMiniBar renders a mini progress bar for compact display
+// renderMiniBar 渲染用于紧凑显示的迷你进度条
+func renderMiniBar(current, maximum int) string {
+	if maximum == 0 {
+		return "N/A"
+	}
+
+	usage := float64(current) / float64(maximum) * 100
+	filled := int(usage / 100 * 10) // 10-char mini bar
+	if filled > 10 {
+		filled = 10
+	}
+
+	var bar strings.Builder
+	for i := 0; i < 10; i++ {
+		if i < filled {
+			bar.WriteString("#")
+		} else {
+			bar.WriteString("-")
+		}
+	}
+
+	return fmt.Sprintf("[%s] %d/%d", bar.String(), current, maximum)
+}
+
+// showTopBlockedIPs displays top blocked attacker IPs
+// showTopBlockedIPs 显示被拦截最多的攻击 IP
+func showTopBlockedIPs(s StatsAPI, drops uint64) {
+	if drops == 0 {
+		return
+	}
+
+	dropDetails, err := s.GetDropDetails()
+	if err != nil || len(dropDetails) == 0 {
+		return
+	}
+
+	// Aggregate by source IP / 按源 IP 聚合
+	ipCounts := make(map[string]uint64)
+	for _, d := range dropDetails {
+		ipCounts[d.SrcIP] += d.Count
+	}
+
+	// Sort by count / 按计数排序
+	type ipCount struct {
+		ip    string
+		count uint64
+	}
+	var sorted []ipCount
+	for ip, count := range ipCounts {
+		sorted = append(sorted, ipCount{ip, count})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].count > sorted[j].count
+	})
+
+	// Show top 3 attackers / 显示前 3 个攻击者
+	if len(sorted) > 0 {
+		fmt.Println()
+		fmt.Println("[ALERT] Top Blocked Attackers:")
+		maxShow := 3
+		if len(sorted) < maxShow {
+			maxShow = len(sorted)
+		}
+		for i := 0; i < maxShow; i++ {
+			percent := float64(sorted[i].count) / float64(drops) * 100
+			fmt.Printf("   %d. %s - %s drops (%.1f%%)\n", i+1, sorted[i].ip,
+				fmtutil.FormatNumberWithComma(sorted[i].count), percent)
+		}
+	}
 }
 
 // showPolicyConfiguration displays policy configuration
@@ -524,60 +662,60 @@ func showPolicyConfiguration() {
 	}
 
 	fmt.Println()
-	fmt.Println("⚙️  Policy Configuration:")
+	fmt.Println("[CONFIG]  Policy Configuration:")
 
 	// Default deny policy
 	// 默认拒绝策略
 	if cfg.Base.DefaultDeny {
-		fmt.Println("   ├─ 🛡️  Default Deny: Enabled (Deny by default)")
+		fmt.Println("   ├─ [SHIELD]  Default Deny: Enabled (Deny by default)")
 	} else {
-		fmt.Println("   ├─ 🛡️  Default Deny: Disabled (Allow by default)")
+		fmt.Println("   ├─ [SHIELD]  Default Deny: Disabled (Allow by default)")
 	}
 
 	// Return traffic
 	// 回程流量
 	if cfg.Base.AllowReturnTraffic {
-		fmt.Println("   ├─ 🔄 Allow Return Traffic: Enabled")
+		fmt.Println("   ├─ [RELOAD] Allow Return Traffic: Enabled")
 	} else {
-		fmt.Println("   ├─ 🔄 Allow Return Traffic: Disabled")
+		fmt.Println("   ├─ [RELOAD] Allow Return Traffic: Disabled")
 	}
 
 	// ICMP
 	// ICMP
 	if cfg.Base.AllowICMP {
-		fmt.Println("   ├─ 🏓 Allow ICMP (Ping): Enabled")
+		fmt.Println("   ├─ [PING] Allow ICMP (Ping): Enabled")
 	} else {
-		fmt.Println("   ├─ 🏓 Allow ICMP (Ping): Disabled")
+		fmt.Println("   ├─ [PING] Allow ICMP (Ping): Disabled")
 	}
 
 	// Strict TCP
 	// 严格 TCP
 	if cfg.Base.StrictTCP {
-		fmt.Println("   ├─ 🔒 Strict TCP: Enabled")
+		fmt.Println("   ├─ [LOCK] Strict TCP: Enabled")
 	} else {
-		fmt.Println("   ├─ 🔒 Strict TCP: Disabled")
+		fmt.Println("   ├─ [LOCK] Strict TCP: Disabled")
 	}
 
 	// SYN Limit
 	// SYN 限制
 	if cfg.Base.SYNLimit {
-		fmt.Println("   ├─ 🚧 SYN Flood Protection: Enabled")
+		fmt.Println("   ├─ [PROTECT] SYN Flood Protection: Enabled")
 	} else {
-		fmt.Println("   ├─ 🚧 SYN Flood Protection: Disabled")
+		fmt.Println("   ├─ [PROTECT] SYN Flood Protection: Disabled")
 	}
 
 	// Bogon Filter
 	// Bogon 过滤
 	if cfg.Base.BogonFilter {
-		fmt.Println("   ├─ 🌐 Bogon Filter: Enabled")
+		fmt.Println("   ├─ [WEB] Bogon Filter: Enabled")
 	} else {
-		fmt.Println("   ├─ 🌐 Bogon Filter: Disabled")
+		fmt.Println("   ├─ [WEB] Bogon Filter: Disabled")
 	}
 
 	// Connection tracking
 	// 连接跟踪
 	if cfg.Conntrack.Enabled {
-		fmt.Println("   ├─ 🕵️  Connection Tracking: Enabled")
+		fmt.Println("   ├─ [TRACK]  Connection Tracking: Enabled")
 		if cfg.Conntrack.TCPTimeout != "" {
 			fmt.Printf("   │     └─ TCP Timeout: %s\n", cfg.Conntrack.TCPTimeout)
 		}
@@ -585,41 +723,41 @@ func showPolicyConfiguration() {
 			fmt.Printf("   │     └─ UDP Timeout: %s\n", cfg.Conntrack.UDPTimeout)
 		}
 	} else {
-		fmt.Println("   ├─ 🕵️  Connection Tracking: Disabled")
+		fmt.Println("   ├─ [TRACK]  Connection Tracking: Disabled")
 	}
 
 	// Rate limiting
 	// 速率限制
 	if cfg.RateLimit.Enabled {
-		fmt.Println("   ├─ 🚀 Rate Limiting: Enabled")
+		fmt.Println("   ├─ [START] Rate Limiting: Enabled")
 		if cfg.RateLimit.AutoBlock {
 			fmt.Printf("   │     └─ Auto Block: Enabled (Expiry: %s)\n", cfg.RateLimit.AutoBlockExpiry)
 		}
 	} else {
-		fmt.Println("   ├─ 🚀 Rate Limiting: Disabled")
+		fmt.Println("   ├─ [START] Rate Limiting: Disabled")
 	}
 
 	// Log Engine
 	// 日志引擎
 	if cfg.LogEngine.Enabled {
-		fmt.Printf("   ├─ 📝 Log Engine: Enabled (%d rules)\n", len(cfg.LogEngine.Rules))
+		fmt.Printf("   ├─ [LOG] Log Engine: Enabled (%d rules)\n", len(cfg.LogEngine.Rules))
 	} else {
-		fmt.Println("   ├─ 📝 Log Engine: Disabled")
+		fmt.Println("   ├─ [LOG] Log Engine: Disabled")
 	}
 
 	// Web Interface
 	// Web 界面
 	if cfg.Web.Enabled {
-		fmt.Printf("   └─ 🌐 Web Interface: Enabled (Port: %d)\n", cfg.Web.Port)
+		fmt.Printf("   └─ [WEB] Web Interface: Enabled (Port: %d)\n", cfg.Web.Port)
 	} else {
-		fmt.Println("   └─ 🌐 Web Interface: Disabled")
+		fmt.Println("   └─ [WEB] Web Interface: Disabled")
 	}
 }
 
 // showAttachedInterfaces displays attached network interfaces
 // showAttachedInterfaces 显示已附加的网络接口
 func showAttachedInterfaces() {
-	fmt.Println("\n🔗 Attached Interfaces:")
+	fmt.Println("\n[LINK] Attached Interfaces:")
 	ifaceInfos, err := xdp.GetAttachedInterfacesWithInfo(config.GetPinPath())
 	if err == nil && len(ifaceInfos) > 0 {
 		for _, info := range ifaceInfos {
@@ -640,7 +778,7 @@ func showAttachedInterfaces() {
 // showTrafficMetrics 显示 PPS/BPS 流量指标
 func showTrafficMetrics(pass, drops uint64) {
 	fmt.Println()
-	fmt.Println("📈 Traffic Rate:")
+	fmt.Println("[RATE] Traffic Rate:")
 
 	totalPackets := pass + drops
 
@@ -687,7 +825,7 @@ func showTrafficMetrics(pass, drops uint64) {
 // showConntrackHealth 显示连接跟踪健康度指标
 func showConntrackHealth(mgr sdk.ManagerInterface) {
 	fmt.Println()
-	fmt.Println("🕵️  Conntrack Health:")
+	fmt.Println("[TRACK]  Conntrack Health:")
 
 	conntrackCount, err := mgr.GetConntrackCount()
 	if err != nil {
@@ -771,24 +909,24 @@ func getConntrackHealthStatus(count uint64, maxVal uint64, hasRate bool, stats x
 
 	// Conntrack is LRU
 	if hasRate && stats.CurrentConntrackEvict > uint64(maxVal/10) {
-		return "⚠️  Status: STRESSED - High eviction rate"
+		return "[WARN]  Status: STRESSED - High eviction rate"
 	} else if usagePercent >= 99.9 {
-		return "✅ Status: Healthy (LRU Full)"
+		return "[OK] Status: Healthy (LRU Full)"
 	} else if usagePercent >= float64(high) {
-		return "✅ Status: Healthy (LRU Warming up)"
+		return "[OK] Status: Healthy (LRU Warming up)"
 	} else if usagePercent >= float64(critical) {
-		return "⚠️  Status: CRITICAL - Near capacity"
+		return "[WARN]  Status: CRITICAL - Near capacity"
 	} else if usagePercent >= float64(high) {
-		return "⚠️  Status: HIGH - Approaching capacity"
+		return "[WARN]  Status: HIGH - Approaching capacity"
 	}
-	return "✅ Status: Healthy"
+	return "[OK] Status: Healthy"
 }
 
 // showProtocolDistribution displays protocol distribution statistics
 // showProtocolDistribution 显示协议分布统计
 func showProtocolDistribution(s StatsAPI, pass, drops uint64) {
 	fmt.Println()
-	fmt.Println("📡 Protocol Distribution:")
+	fmt.Println("[PROTO] Protocol Distribution:")
 
 	totalPackets := pass + drops
 
@@ -874,17 +1012,17 @@ func getUsageIndicator(current, maximum int, isLRU bool) string {
 	critical, high, medium := getThresholdsFromConfig()
 
 	if isLRU && usage >= 99.0 {
-		return "🟢 [OK (LRU Full)]"
+		return "[OK (LRU Full)]"
 	}
 
 	if usage >= float64(critical) {
-		return "🔴 [CRITICAL]"
+		return "[CRITICAL]"
 	} else if usage >= float64(high) {
-		return "🟠 [HIGH]"
+		return "[HIGH] [HIGH]"
 	} else if usage >= float64(medium) {
-		return "🟡 [MEDIUM]"
+		return "[MEDIUM]"
 	}
-	return "🟢 [OK]"
+	return "[OK]"
 }
 
 // Numeric is a type constraint for numeric types that can be converted to float64.
@@ -1026,7 +1164,7 @@ func showReasonSummary[T DetailEntry](details []T, cfg detailStatsConfig) {
 		reasonSummary[reason] += d.GetCount()
 	}
 	if len(reasonSummary) > 0 {
-		fmt.Println("\n   📈 Reason Summary:")
+		fmt.Println("\n   [RATE] Reason Summary:")
 		for reason, count := range reasonSummary {
 			percent := calculatePercentGeneric(count, cfg.totalCount)
 			// Show rate if available / 如果有速率数据则显示
@@ -1088,7 +1226,7 @@ func showConclusionStatistics(mgr sdk.ManagerInterface, s StatsAPI) {
 	dropDetails, err := s.GetDropDetails()
 	if err != nil {
 		fmt.Println()
-		fmt.Println("📋 Summary Security Hits:")
+		fmt.Println("[INFO] Summary Security Hits:")
 		fmt.Println("   └─ Status: Unavailable")
 		return
 	}
@@ -1134,24 +1272,24 @@ func showConclusionStatistics(mgr sdk.ManagerInterface, s StatsAPI) {
 
 	// Display summary / 显示汇总
 	fmt.Println()
-	fmt.Println("📊 Summary Security Hits:")
+	fmt.Println("[STATS] Summary Security Hits:")
 
 	// Static Blacklist hits / 静态黑名单命中
-	fmt.Printf("   ├─ 🔒 Static Blacklist:    %s entries\n", fmtutil.FormatNumberWithComma(uint64(staticBlacklistCount))) // #nosec G115 // count is always valid
+	fmt.Printf("   ├─ [LOCK] Static Blacklist:    %s entries\n", fmtutil.FormatNumberWithComma(uint64(staticBlacklistCount))) // #nosec G115 // count is always valid
 
 	// Dynamic Blacklist hits / 动态黑名单命中
-	fmt.Printf("   ├─ 🔓 Dynamic Blacklist:   %s entries\n", fmtutil.FormatNumberWithComma(dynBlacklistCount))
+	fmt.Printf("   ├─ [UNLOCK] Dynamic Blacklist:   %s entries\n", fmtutil.FormatNumberWithComma(dynBlacklistCount))
 
 	// Critical Lock hits / 危机封锁命中
-	fmt.Printf("   ├─ 🚨 Critical Lock:       %s entries\n", fmtutil.FormatNumberWithComma(criticalBlacklistCount))
+	fmt.Printf("   ├─ [ALERT] Critical Lock:       %s entries\n", fmtutil.FormatNumberWithComma(criticalBlacklistCount))
 
 	// Rate Limit hits / 速率限制命中
-	fmt.Printf("   ├─ ⏱️  Rate Limit Hits:     %s\n", fmtutil.FormatNumberWithComma(rateLimitHits))
+	fmt.Printf("   ├─ [TIME]  Rate Limit Hits:     %s\n", fmtutil.FormatNumberWithComma(rateLimitHits))
 
 	// Auto Blocked / 自动封禁
 	if autoBlockEnabled {
-		fmt.Printf("   └─ 🤖 Auto Blocked:        %s IPs (enabled)\n", fmtutil.FormatNumberWithComma(autoBlockedCount))
+		fmt.Printf("   └─ [AUTO] Auto Blocked:        %s IPs (enabled)\n", fmtutil.FormatNumberWithComma(autoBlockedCount))
 	} else {
-		fmt.Printf("   └─ 🤖 Auto Blocked:        disabled\n")
+		fmt.Printf("   └─ [AUTO] Auto Blocked:        disabled\n")
 	}
 }

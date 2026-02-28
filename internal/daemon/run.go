@@ -20,7 +20,7 @@ func Run(ctx context.Context, mode string, opts *DaemonOptions) {
 	case "agent":
 		runControlPlane(ctx, opts)
 	default:
-		log.Info("ℹ️  No mode specified, running in Unified mode")
+		log.Info("[INFO]  No mode specified, running in Unified mode")
 		runUnified(ctx)
 	}
 }

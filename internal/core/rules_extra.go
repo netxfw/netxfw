@@ -30,12 +30,12 @@ func SyncIPPortRule(ctx context.Context, xdpMgr XDPManager, ipStr string, port u
 		if err := xdpMgr.AddIPPortRule(cidr, port, action); err != nil {
 			return fmt.Errorf("failed to add rule %s:%d: %v", cidr, port, err)
 		}
-		log.Infof("🛡️ Added IP+Port rule: %s:%d -> Action %d", cidr, port, action)
+		log.Infof("[SHIELD] Added IP+Port rule: %s:%d -> Action %d", cidr, port, action)
 	} else {
 		if err := xdpMgr.RemoveIPPortRule(cidr, port); err != nil {
-			log.Warnf("⚠️  Failed to remove rule %s:%d: %v", cidr, port, err)
+			log.Warnf("[WARN]  Failed to remove rule %s:%d: %v", cidr, port, err)
 		} else {
-			log.Infof("🛡️ Removed IP+Port rule: %s:%d", cidr, port)
+			log.Infof("[SHIELD] Removed IP+Port rule: %s:%d", cidr, port)
 		}
 	}
 
@@ -94,7 +94,7 @@ func SyncIPPortRule(ctx context.Context, xdpMgr XDPManager, ipStr string, port u
 			globalCfg.Port.IPPortRules = newRules
 			optimizer.OptimizeIPPortRulesConfig(globalCfg)
 			if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
-				log.Warnf("⚠️  Failed to save config: %v", saveErr)
+				log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 			}
 		}
 	}
@@ -111,12 +111,12 @@ func SyncAllowedPort(ctx context.Context, xdpMgr XDPManager, port uint16, add bo
 		if err := xdpMgr.AllowPort(port); err != nil {
 			return fmt.Errorf("failed to allow port %d: %v", port, err)
 		}
-		log.Infof("🔓 Allowed global port: %d", port)
+		log.Infof("[UNLOCK] Allowed global port: %d", port)
 	} else {
 		if err := xdpMgr.RemoveAllowedPort(port); err != nil {
-			log.Warnf("⚠️  Failed to remove allowed port %d: %v", port, err)
+			log.Warnf("[WARN]  Failed to remove allowed port %d: %v", port, err)
 		} else {
-			log.Infof("🔒 Removed allowed global port: %d", port)
+			log.Infof("[LOCK] Removed allowed global port: %d", port)
 		}
 	}
 
@@ -147,7 +147,7 @@ func SyncAllowedPort(ctx context.Context, xdpMgr XDPManager, port uint16, add bo
 		if modified {
 			globalCfg.Port.AllowedPorts = newPorts
 			if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
-				log.Warnf("⚠️  Failed to save config: %v", saveErr)
+				log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 			}
 		}
 	}
@@ -165,12 +165,12 @@ func SyncRateLimitRule(ctx context.Context, xdpMgr XDPManager, ip string, rate u
 		if err := xdpMgr.AddRateLimitRule(cidr, rate, burst); err != nil {
 			return fmt.Errorf("failed to add rate limit rule %s: %v", cidr, err)
 		}
-		log.Infof("🚀 Added rate limit: %s -> %d pps (burst %d)", cidr, rate, burst)
+		log.Infof("[START] Added rate limit: %s -> %d pps (burst %d)", cidr, rate, burst)
 	} else {
 		if err := xdpMgr.RemoveRateLimitRule(cidr); err != nil {
-			log.Warnf("⚠️  Failed to remove rate limit rule %s: %v", cidr, err)
+			log.Warnf("[WARN]  Failed to remove rate limit rule %s: %v", cidr, err)
 		} else {
-			log.Infof("🚀 Removed rate limit: %s", cidr)
+			log.Infof("[START] Removed rate limit: %s", cidr)
 		}
 	}
 
@@ -222,7 +222,7 @@ func SyncRateLimitRule(ctx context.Context, xdpMgr XDPManager, ip string, rate u
 		if modified {
 			globalCfg.RateLimit.Rules = newRules
 			if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
-				log.Warnf("⚠️  Failed to save config: %v", saveErr)
+				log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 			}
 		}
 	}
@@ -250,9 +250,9 @@ func SyncAutoBlock(ctx context.Context, mgr XDPManager, enable bool) error {
 	}
 	globalCfg.RateLimit.AutoBlock = enable
 	if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
-		log.Warnf("⚠️  Failed to save config: %v", saveErr)
+		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 	}
-	log.Infof("🛡️ Auto Block set to: %v", enable)
+	log.Infof("[SHIELD] Auto Block set to: %v", enable)
 	return nil
 }
 
@@ -275,9 +275,9 @@ func SyncAutoBlockExpiry(ctx context.Context, mgr XDPManager, seconds uint32) er
 	}
 	globalCfg.RateLimit.AutoBlockExpiry = fmt.Sprintf("%ds", seconds)
 	if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
-		log.Warnf("⚠️  Failed to save config: %v", saveErr)
+		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 	}
-	log.Infof("🛡️ Auto Block Expiry set to: %d seconds", seconds)
+	log.Infof("[SHIELD] Auto Block Expiry set to: %d seconds", seconds)
 	types.ConfigMu.Unlock()
 	return nil
 }
@@ -286,14 +286,14 @@ func SyncAutoBlockExpiry(ctx context.Context, mgr XDPManager, seconds uint32) er
 // ClearBlacklist 清除 lock_list 中的所有条目。
 func ClearBlacklist(ctx context.Context, xdpMgr XDPManager) error {
 	log := logger.Get(ctx)
-	log.Info("🧹 Clearing blacklist...")
+	log.Info("[CLEAN] Clearing blacklist...")
 
 	// Clear Unified Map / 清除统一 Map
 	if err := xdpMgr.ClearBlacklist(); err != nil {
-		log.Warnf("⚠️  Failed to clear blacklist: %v", err)
+		log.Warnf("[WARN]  Failed to clear blacklist: %v", err)
 		return err
 	}
-	log.Info("✅ IPv4 Blacklist cleared.")
+	log.Info("[OK] IPv4 Blacklist cleared.")
 
 	// Clear persistence file / 清除持久化文件
 	configPath := config.GetConfigPath()
@@ -301,9 +301,9 @@ func ClearBlacklist(ctx context.Context, xdpMgr XDPManager) error {
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err == nil && globalCfg.Base.LockListFile != "" {
 		if err := fileutil.AtomicWriteFile(globalCfg.Base.LockListFile, []byte(""), 0644); err == nil {
-			log.Infof("📄 Cleared persistence file: %s", globalCfg.Base.LockListFile)
+			log.Infof("[FILE] Cleared persistence file: %s", globalCfg.Base.LockListFile)
 		} else {
-			log.Warnf("⚠️  Failed to clear persistence file: %v", err)
+			log.Warnf("[WARN]  Failed to clear persistence file: %v", err)
 		}
 	}
 	types.ConfigMu.Unlock()
@@ -321,11 +321,11 @@ func ImportLockListFromFile(ctx context.Context, xdpMgr XDPManager, path string)
 	}
 	defer file.Close()
 
-	log.Infof("📦 Importing blacklist from %s...", path)
+	log.Infof("[DATA] Importing blacklist from %s...", path)
 	cidrs := readCIDRsFromFile(file)
 	count := importCIDRsToBlacklist(ctx, xdpMgr, cidrs)
 
-	log.Infof("✅ Imported %d rules.", count)
+	log.Infof("[OK] Imported %d rules.", count)
 	return nil
 }
 
@@ -363,7 +363,7 @@ func importCIDRsToBlacklist(ctx context.Context, xdpMgr XDPManager, cidrs []stri
 		cidr = normalizeCIDR(cidr)
 
 		if err := xdpMgr.AddBlacklistIP(cidr); err != nil {
-			log.Warnf("⚠️  Failed to lock %s: %v", cidr, err)
+			log.Warnf("[WARN]  Failed to lock %s: %v", cidr, err)
 		} else {
 			count++
 		}
@@ -424,9 +424,9 @@ func persistBlacklistRules(log *zap.SugaredLogger, globalCfg *types.GlobalConfig
 	}
 
 	if err := fileutil.AtomicWriteFile(globalCfg.Base.LockListFile, []byte(strings.Join(merged, "\n")+"\n"), 0644); err != nil {
-		log.Warnf("⚠️  Failed to persist rules: %v", err)
+		log.Warnf("[WARN]  Failed to persist rules: %v", err)
 	} else {
-		log.Infof("📄 Persisted %d rules to %s", len(merged), globalCfg.Base.LockListFile)
+		log.Infof("[FILE] Persisted %d rules to %s", len(merged), globalCfg.Base.LockListFile)
 	}
 }
 
@@ -441,7 +441,7 @@ func ImportWhitelistFromFile(ctx context.Context, xdpMgr XDPManager, path string
 	}
 	defer file.Close()
 
-	log.Infof("📦 Importing whitelist from %s...", path)
+	log.Infof("[DATA] Importing whitelist from %s...", path)
 	scanner := bufio.NewScanner(file)
 	count := 0
 
@@ -460,12 +460,12 @@ func ImportWhitelistFromFile(ctx context.Context, xdpMgr XDPManager, path string
 			}
 
 			if err := SyncWhitelistMap(ctx, xdpMgr, ip, port, true, true); err != nil {
-				log.Warnf("⚠️  Failed to sync whitelist rule %s: %v", line, err)
+				log.Warnf("[WARN]  Failed to sync whitelist rule %s: %v", line, err)
 			}
 			count++
 		}
 	}
-	log.Infof("✅ Imported %d whitelist rules.", count)
+	log.Infof("[OK] Imported %d whitelist rules.", count)
 	return scanner.Err()
 }
 
@@ -480,7 +480,7 @@ func ImportIPPortRulesFromFile(ctx context.Context, xdpMgr XDPManager, path stri
 	}
 	defer file.Close()
 
-	log.Infof("📦 Importing IP+Port rules from %s...", path)
+	log.Infof("[DATA] Importing IP+Port rules from %s...", path)
 	scanner := bufio.NewScanner(file)
 	count := 0
 
@@ -493,7 +493,7 @@ func ImportIPPortRulesFromFile(ctx context.Context, xdpMgr XDPManager, path stri
 				ip := parts[0]
 				port, portErr := strconv.Atoi(parts[1])
 				if portErr != nil {
-					log.Warnf("⚠️  Invalid port in line: %s", line)
+					log.Warnf("[WARN]  Invalid port in line: %s", line)
 					continue
 				}
 				actionStr := strings.ToLower(parts[2])
@@ -503,13 +503,13 @@ func ImportIPPortRulesFromFile(ctx context.Context, xdpMgr XDPManager, path stri
 				}
 
 				if syncErr := SyncIPPortRule(ctx, xdpMgr, ip, uint16(port), action, true); syncErr != nil { // #nosec G115 // port is always 0-65535
-					log.Warnf("⚠️  Failed to sync rule %s: %v", line, syncErr)
+					log.Warnf("[WARN]  Failed to sync rule %s: %v", line, syncErr)
 				} else {
 					count++
 				}
 			}
 		}
 	}
-	log.Infof("✅ Imported %d IP+Port rules.", count)
+	log.Infof("[OK] Imported %d IP+Port rules.", count)
 	return nil
 }

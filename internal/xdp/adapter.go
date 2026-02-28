@@ -114,6 +114,9 @@ func (a *Adapter) AddDynamicBlacklistIP(cidr string, ttl time.Duration) error {
 func (a *Adapter) RemoveBlacklistIP(cidr string) error {
 	return UnlockIP(a.manager.LockList(), cidr)
 }
+func (a *Adapter) RemoveDynamicBlacklistIP(cidr string) error {
+	return a.manager.UnblockDynamic(cidr)
+}
 func (a *Adapter) ClearBlacklist() error {
 	return ClearBlacklistMap(a.manager.LockList())
 }
@@ -124,7 +127,7 @@ func (a *Adapter) ListBlacklistIPs(limit int, search string) ([]BlockedIP, int, 
 	return ListBlockedIPs(a.manager.LockList(), false, limit, search)
 }
 func (a *Adapter) ListDynamicBlacklistIPs(limit int, search string) ([]BlockedIP, int, error) {
-	return ListBlockedIPs(a.manager.DynLockList(), false, limit, search)
+	return ListDynamicBlockedIPs(a.manager.DynLockList(), limit, search)
 }
 
 // Whitelist Operations
@@ -268,11 +271,11 @@ func (a *Adapter) PerfStats() any {
 func (a *Adapter) GetStats() (uint64, uint64) {
 	pass, err := a.manager.GetPassCount()
 	if err != nil {
-		a.manager.logger.Warnf("⚠️  Failed to get pass count: %v", err)
+		a.manager.logger.Warnf("[WARN]  Failed to get pass count: %v", err)
 	}
 	drop, err := a.manager.GetDropCount()
 	if err != nil {
-		a.manager.logger.Warnf("⚠️  Failed to get drop count: %v", err)
+		a.manager.logger.Warnf("[WARN]  Failed to get drop count: %v", err)
 	}
 	return pass, drop
 }

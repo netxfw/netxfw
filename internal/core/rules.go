@@ -23,7 +23,7 @@ func handleLockWhitelistConflict(ctx context.Context, xdpMgr XDPManager, cidrStr
 		return false
 	}
 
-	log.Warnf("⚠️  [Conflict] %s (Already in whitelist).", cidrStr)
+	log.Warnf("[WARN]  [Conflict] %s (Already in whitelist).", cidrStr)
 	if !force && !AskConfirmation("Do you want to remove it from whitelist and add to blacklist?") {
 		log.Info("Aborted.")
 		return true
@@ -60,10 +60,10 @@ func removeFromWhitelistConfig(cidrStr string) error {
 func removeWhitelistAndLog(ctx context.Context, xdpMgr XDPManager, cidrStr string) error {
 	log := logger.Get(ctx)
 	if removeErr := xdpMgr.RemoveWhitelistIP(cidrStr); removeErr != nil {
-		log.Warnf("⚠️  Failed to remove from whitelist: %v", removeErr)
+		log.Warnf("[WARN]  Failed to remove from whitelist: %v", removeErr)
 		return removeErr
 	}
-	log.Infof("🔓 Removed %s from whitelist", cidrStr)
+	log.Infof("[UNLOCK] Removed %s from whitelist", cidrStr)
 	return removeFromWhitelistConfig(cidrStr)
 }
 
@@ -95,12 +95,12 @@ func persistLockToFile(ctx context.Context, cidrStr string) error {
 
 	merged, err := ipmerge.MergeCIDRsWithThreshold(lines, globalCfg.Base.LockListMergeThreshold, globalCfg.Base.LockListV4Mask, globalCfg.Base.LockListV6Mask)
 	if err != nil {
-		log.Warnf("⚠️  Failed to merge IPs for persistence: %v", err)
+		log.Warnf("[WARN]  Failed to merge IPs for persistence: %v", err)
 		merged = lines
 	}
 
 	if err := fileutil.AtomicWriteFile(filePath, []byte(strings.Join(merged, "\n")+"\n"), 0644); err == nil {
-		log.Infof("📄 Persisted %s to %s (Optimized to %d rules)", cidrStr, filePath, len(merged))
+		log.Infof("[FILE] Persisted %s to %s (Optimized to %d rules)", cidrStr, filePath, len(merged))
 	}
 	return nil
 }
@@ -142,14 +142,14 @@ func lockIP(ctx context.Context, xdpMgr XDPManager, cidrStr string, force bool) 
 
 	if conflict, _ := xdpMgr.IsIPInWhitelist(cidrStr); conflict {
 		if err := removeWhitelistAndLog(ctx, xdpMgr, cidrStr); err != nil {
-			log.Warnf("⚠️  Failed to remove from whitelist: %v", err)
+			log.Warnf("[WARN]  Failed to remove from whitelist: %v", err)
 		}
 	}
 
 	if addErr := xdpMgr.AddBlacklistIP(cidrStr); addErr != nil {
 		return fmt.Errorf("failed to lock %s: %v", cidrStr, addErr)
 	}
-	log.Infof("🛡️ Locked: %s", cidrStr)
+	log.Infof("[SHIELD] Locked: %s", cidrStr)
 	return persistLockToFile(ctx, cidrStr)
 }
 
@@ -163,7 +163,7 @@ func unlockIP(ctx context.Context, xdpMgr XDPManager, cidrStr string) error {
 	if err := xdpMgr.RemoveBlacklistIP(cidrStr); err != nil {
 		return fmt.Errorf("failed to unlock %s: %v", cidrStr, err)
 	}
-	log.Infof("🔓 Unlocked: %s", cidrStr)
+	log.Infof("[UNLOCK] Unlocked: %s", cidrStr)
 	return removeFromLockFile(cidrStr)
 }
 
@@ -187,7 +187,7 @@ func handleWhitelistBlacklistConflict(ctx context.Context, xdpMgr XDPManager, ci
 		return false
 	}
 
-	log.Warnf("⚠️  [Conflict] %s (Already in blacklist).", cidrStr)
+	log.Warnf("[WARN]  [Conflict] %s (Already in blacklist).", cidrStr)
 	if !force && !AskConfirmation("Do you want to remove it from blacklist and add to whitelist?") {
 		log.Info("Aborted.")
 		return true
@@ -200,9 +200,9 @@ func handleWhitelistBlacklistConflict(ctx context.Context, xdpMgr XDPManager, ci
 func removeBlacklistAndLog(ctx context.Context, xdpMgr XDPManager, cidrStr string) {
 	log := logger.Get(ctx)
 	if removeErr := xdpMgr.RemoveBlacklistIP(cidrStr); removeErr != nil {
-		log.Warnf("⚠️  Failed to remove from blacklist: %v", removeErr)
+		log.Warnf("[WARN]  Failed to remove from blacklist: %v", removeErr)
 	} else {
-		log.Infof("🔓 Removed %s from blacklist", cidrStr)
+		log.Infof("[UNLOCK] Removed %s from blacklist", cidrStr)
 	}
 }
 
@@ -233,7 +233,7 @@ func updateWhitelistInConfig(ctx context.Context, xdpMgr XDPManager, cidrStr str
 	globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
 	optimizer.OptimizeWhitelistConfig(globalCfg)
 	if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
-		log.Warnf("⚠️  Failed to save config: %v", saveErr)
+		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 	}
 
 	cleanupMergedWhitelistRules(ctx, xdpMgr, oldWhitelist, globalCfg.Base.Whitelist)
@@ -257,7 +257,7 @@ func cleanupMergedWhitelistRules(ctx context.Context, xdpMgr XDPManager, oldWhit
 				cidrToRemove = host
 			}
 			_ = xdpMgr.RemoveWhitelistIP(cidrToRemove)
-			log.Infof("🧹 Optimized runtime: Removed subsumed whitelist rule %s", cidrToRemove)
+			log.Infof("[CLEAN] Optimized runtime: Removed subsumed whitelist rule %s", cidrToRemove)
 		}
 	}
 }
@@ -274,7 +274,7 @@ func ensureWhitelistRulesInBPF(ctx context.Context, xdpMgr XDPManager, whitelist
 			portToAdd = p
 		}
 		if addErr := xdpMgr.AddWhitelistIP(cidrToAdd, portToAdd); addErr != nil {
-			log.Warnf("⚠️  Failed to add whitelist IP %s: %v", cidrToAdd, addErr)
+			log.Warnf("[WARN]  Failed to add whitelist IP %s: %v", cidrToAdd, addErr)
 		}
 	}
 }
@@ -299,9 +299,9 @@ func allowIP(ctx context.Context, xdpMgr XDPManager, cidrStr string, port uint16
 	}
 
 	if port > 0 {
-		log.Infof("⚪ Whitelisted: %s (port: %d)", cidrStr, port)
+		log.Infof("[WHITE] Whitelisted: %s (port: %d)", cidrStr, port)
 	} else {
-		log.Infof("⚪ Whitelisted: %s", cidrStr)
+		log.Infof("[WHITE] Whitelisted: %s", cidrStr)
 	}
 
 	return updateWhitelistInConfig(ctx, xdpMgr, cidrStr, port)
@@ -318,7 +318,7 @@ func disallowIP(ctx context.Context, xdpMgr XDPManager, cidrStr string, port uin
 	if err := xdpMgr.RemoveWhitelistIP(cidrStr); err != nil {
 		return fmt.Errorf("failed to remove %s from whitelist: %v", cidrStr, err)
 	}
-	log.Infof("🔓 Removed from whitelist: %s", cidrStr)
+	log.Infof("[UNLOCK] Removed from whitelist: %s", cidrStr)
 
 	globalCfg, err := types.LoadGlobalConfig(configPath)
 	if err != nil {
@@ -346,7 +346,7 @@ func disallowIP(ctx context.Context, xdpMgr XDPManager, cidrStr string, port uin
 	}
 	globalCfg.Base.Whitelist = newWhitelist
 	if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
-		log.Warnf("⚠️  Failed to save config: %v", saveErr)
+		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 	}
 	return nil
 }
@@ -366,7 +366,7 @@ func SyncWhitelistMap(ctx context.Context, xdpMgr XDPManager, cidrStr string, po
 // ShowLockList 列出当前所有被封禁的 IP 范围。
 func ShowLockList(ctx context.Context, xdpMgr XDPManager, limit int, search string) error {
 	log := logger.Get(ctx)
-	log.Info("📋 Blacklist Rules (Lock List):")
+	log.Info("[INFO] Blacklist Rules (Lock List):")
 
 	ips, _, err := xdpMgr.ListBlacklistIPs(limit, search)
 	if err != nil {
@@ -380,9 +380,9 @@ func ShowLockList(ctx context.Context, xdpMgr XDPManager, limit int, search stri
 	// Also check dynamic lock list / 同时检查动态封禁列表
 	dynIps, dynCount, err := xdpMgr.ListDynamicBlacklistIPs(limit, search)
 	if err != nil {
-		log.Warnf("⚠️  Failed to list dynamic blacklist: %v", err)
+		log.Warnf("[WARN]  Failed to list dynamic blacklist: %v", err)
 	} else if dynCount > 0 {
-		fmt.Println("\n📋 Dynamic Blacklist Rules:")
+		fmt.Println("\n[INFO] Dynamic Blacklist Rules:")
 		for _, entry := range dynIps {
 			fmt.Printf(" - %s (ExpiresAt: %d)\n", entry.IP, entry.ExpiresAt)
 		}

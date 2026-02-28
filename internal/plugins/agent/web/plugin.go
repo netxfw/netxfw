@@ -70,7 +70,7 @@ func (p *WebPlugin) Init(ctx *sdk.PluginContext) error {
 
 func (p *WebPlugin) Start(ctx *sdk.PluginContext) error {
 	if !p.config.Enabled {
-		ctx.Logger.Infof("🌐 Web plugin is disabled via config.")
+		ctx.Logger.Infof("[WEB] Web plugin is disabled via config.")
 		return nil
 	}
 
@@ -102,9 +102,9 @@ func (p *WebPlugin) Start(ctx *sdk.PluginContext) error {
 
 	// Start HTTP Server
 	go func() {
-		ctx.Logger.Infof("🌐 Web & Metrics server starting on :%d", p.config.Port)
+		ctx.Logger.Infof("[WEB] Web & Metrics server starting on :%d", p.config.Port)
 		if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			ctx.Logger.Errorf("❌ Web server error: %v", err)
+			ctx.Logger.Errorf("[ERROR] Web server error: %v", err)
 			p.setRunning(false)
 		}
 	}()

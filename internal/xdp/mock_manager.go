@@ -200,6 +200,16 @@ func (m *MockManager) RemoveBlacklistIP(cidr string) error {
 	m.mu.Unlock()
 	return nil
 }
+func (m *MockManager) RemoveDynamicBlacklistIP(cidr string) error {
+	normalized := cidr
+	if !strings.Contains(cidr, "/") {
+		normalized = cidr + "/32"
+	}
+	m.mu.Lock()
+	delete(m.Blacklist, normalized)
+	m.mu.Unlock()
+	return nil
+}
 func (m *MockManager) ClearBlacklist() error {
 	m.mu.Lock()
 	m.Blacklist = make(map[string]bool)

@@ -22,7 +22,7 @@ func NewTinyMLEngine() *TinyMLEngine {
 // LoadModel 用于加载 TFLite 或其他 TinyML 模型的占位符。
 func (e *TinyMLEngine) LoadModel(ctx context.Context, path string) error {
 	log := logger.Get(ctx)
-	log.Infof("🤖 Loading TinyML model from %s...", path)
+	log.Infof("[AUTO] Loading TinyML model from %s...", path)
 	// Integration with TFLite or native Go ML libraries would go here.
 	// 此处将集成 TFLite 或原生 Go ML 库。
 	e.modelLoaded = true

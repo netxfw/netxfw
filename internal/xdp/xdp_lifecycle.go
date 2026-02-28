@@ -78,11 +78,11 @@ func (m *Manager) Attach(interfaces []string) error {
 
 		if l, err := link.LoadPinnedLink(linkPath, nil); err == nil {
 			if err := l.Update(m.objs.XdpFirewall); err == nil {
-				m.logger.Infof("✅ Atomic Reload: Updated XDP program on %s", name)
+				m.logger.Infof("[OK] Atomic Reload: Updated XDP program on %s", name)
 				l.Close()
 				attached = true
 			} else {
-				m.logger.Warnf("⚠️  Atomic Reload failed on %s: %v. Fallback to detach/attach.", name, err)
+				m.logger.Warnf("[WARN]  Atomic Reload failed on %s: %v. Fallback to detach/attach.", name, err)
 				l.Close()
 				_ = os.Remove(linkPath) // Force remove to allow re-attach / 强制删除以允许重新挂载
 			}
@@ -110,15 +110,15 @@ func (m *Manager) Attach(interfaces []string) error {
 					// 将链接固定到文件系统，使其在进程退出后保持持久
 					_ = os.Remove(linkPath) // Remove old link pin if exists / 如果存在旧的链接固定点，则将其删除
 					if pinErr := l.Pin(linkPath); pinErr != nil {
-						m.logger.Warnf("⚠️  Failed to pin link on %s: %v", name, pinErr)
+						m.logger.Warnf("[WARN]  Failed to pin link on %s: %v", name, pinErr)
 						l.Close()
 						continue
 					}
-					m.logger.Infof("✅ Attached XDP on %s (Mode: %s) and pinned link", name, mode.name)
+					m.logger.Infof("[OK] Attached XDP on %s (Mode: %s) and pinned link", name, mode.name)
 					attached = true
 					break
 				}
-				m.logger.Warnf("⚠️  Failed to attach XDP on %s using %s mode: %v", name, mode.name, err)
+				m.logger.Warnf("[WARN]  Failed to attach XDP on %s using %s mode: %v", name, mode.name, err)
 			}
 		}
 
@@ -133,7 +133,7 @@ func (m *Manager) Attach(interfaces []string) error {
 		// Try atomic update for TC / 尝试原子更新 TC
 		if tl, err := link.LoadPinnedLink(tcLinkPath, nil); err == nil {
 			if err := tl.Update(m.objs.TcEgress); err == nil {
-				m.logger.Infof("✅ Atomic Reload: Updated TC Egress on %s", name)
+				m.logger.Infof("[OK] Atomic Reload: Updated TC Egress on %s", name)
 				tl.Close()
 				tcAttached = true
 			} else {
@@ -151,18 +151,18 @@ func (m *Manager) Attach(interfaces []string) error {
 			if attachErr == nil {
 				_ = os.Remove(tcLinkPath)
 				if pinErr := tcLink.Pin(tcLinkPath); pinErr != nil {
-					m.logger.Warnf("⚠️  Failed to pin TC link on %s: %v", name, pinErr)
+					m.logger.Warnf("[WARN]  Failed to pin TC link on %s: %v", name, pinErr)
 					tcLink.Close()
 				} else {
-					m.logger.Infof("✅ Attached TC Egress on %s and pinned link", name)
+					m.logger.Infof("[OK] Attached TC Egress on %s and pinned link", name)
 				}
 			} else {
-				m.logger.Warnf("⚠️  Failed to attach TC Egress on %s: %v (Conntrack will not work for this interface)", name, attachErr)
+				m.logger.Warnf("[WARN]  Failed to attach TC Egress on %s: %v (Conntrack will not work for this interface)", name, attachErr)
 			}
 		}
 
 		if !attached {
-			m.logger.Errorf("❌ Failed to attach XDP on %s with any mode", name)
+			m.logger.Errorf("[ERROR] Failed to attach XDP on %s with any mode", name)
 		}
 	}
 	return nil
@@ -177,24 +177,24 @@ func (m *Manager) Detach(interfaces []string) error {
 		linkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("link_%s", name))
 		l, err := link.LoadPinnedLink(linkPath, nil)
 		if err != nil {
-			m.logger.Warnf("⚠️  No pinned link found for %s, trying manual detach...", name)
+			m.logger.Warnf("[WARN]  No pinned link found for %s, trying manual detach...", name)
 			continue
 		}
 		if err := l.Close(); err != nil {
-			m.logger.Errorf("❌ Failed to close link for %s: %v", name, err)
+			m.logger.Errorf("[ERROR] Failed to close link for %s: %v", name, err)
 		} else {
 			_ = os.Remove(linkPath)
-			m.logger.Infof("✅ Detached XDP from %s", name)
+			m.logger.Infof("[OK] Detached XDP from %s", name)
 		}
 
 		// Detach TC link / 分离 TC 链接
 		tcLinkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("tc_link_%s", name))
 		if tl, err := link.LoadPinnedLink(tcLinkPath, nil); err == nil {
 			if err := tl.Close(); err != nil {
-				m.logger.Errorf("❌ Failed to close TC link for %s: %v", name, err)
+				m.logger.Errorf("[ERROR] Failed to close TC link for %s: %v", name, err)
 			} else {
 				_ = os.Remove(tcLinkPath)
-				m.logger.Infof("✅ Detached TC Egress from %s", name)
+				m.logger.Infof("[OK] Detached TC Egress from %s", name)
 			}
 		}
 	}
@@ -350,7 +350,7 @@ func (m *Manager) Pin(path string) error {
 		p := path + "/" + name
 		_ = os.Remove(p) // Ensure old pin is removed / 确保旧的固定点被移除
 		if err := ebpfMap.Pin(p); err != nil {
-			m.logger.Warnf("⚠️  Failed to pin %s: %v", name, err)
+			m.logger.Warnf("[WARN]  Failed to pin %s: %v", name, err)
 		}
 	}
 

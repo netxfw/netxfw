@@ -20,6 +20,7 @@
 - [XDP 插件开发](./plugins/xdp/development_guide.md) - XDP 层插件开发指南
 - [Go 插件开发](./plugins/golang/development_guide.md) - Go 语言插件开发指南
 - [API 参考](./api/reference.md) - API 接口详细参考
+- [规则导入导出](./rule_import_export.md) - 规则导入导出功能详解
 
 ### 📊 性能与监控
 - [性能基准测试](./performance/benchmarks.md) - 性能测试数据和基准
@@ -65,6 +66,7 @@
 | 架构设计 | [architecture.md](./architecture.md) | [architecture_en.md](./architecture_en.md) |
 | CLI 命令 | [cli/cli.md](./cli/cli.md) | [cli/cli_en.md](./cli/cli_en.md) |
 | 插件开发 | [plugins/plugins.md](./plugins/plugins.md) | [plugins/plugins_en.md](./plugins/plugins_en.md) |
+| 规则导入导出 | [rule_import_export.md](./rule_import_export.md) | [rule_import_export_en.md](./rule_import_export_en.md) |
 | 性能基准 | [performance/benchmarks.md](./performance/benchmarks.md) | [performance/benchmarks_en.md](./performance/benchmarks_en.md) |
 | 云环境支持 | [cloud/realip.md](./cloud/realip.md) | [cloud/realip_en.md](./cloud/realip_en.md) |
 | 项目评估 | [evaluation.md](./evaluation.md) | [evaluation_en.md](./evaluation_en.md) |
@@ -79,6 +81,7 @@
 | 架构设计 | ✅ | ✅ | 完整 |
 | CLI 命令 | ✅ | ✅ | 完整 |
 | 插件开发 | ✅ | ✅ | 完整 |
+| 规则导入导出 | ✅ | ✅ | 完整 |
 | API 参考 | ✅ | - | 仅中文 |
 | 性能基准 | ✅ | ✅ | 完整 |
 | 云环境支持 | ✅ | ✅ | 完整 |

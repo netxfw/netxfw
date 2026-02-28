@@ -1,9 +1,9 @@
 package agent
 
 import (
-	"fmt"
 	"strconv"
 
+	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -24,14 +24,19 @@ var portAddCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
-			port, err := strconv.ParseUint(args[0], 10, 16)
+			port, err := strconv.Atoi(args[0])
 			if err != nil {
-				return fmt.Errorf("❌ Invalid port: %v", err)
+				return err
+			}
+			// 验证端口范围：1-65535（不允许 0）
+			// Validate port range: 1-65535 (0 not allowed)
+			if err := common.ValidatePortNonZero(port); err != nil {
+				return err
 			}
 			if err := s.Rule.AllowPort(uint16(port)); err != nil {
 				return err
 			}
-			logger.Get(cmd.Context()).Infof("✅ Port %d added to allowed list", port)
+			logger.Get(cmd.Context()).Infof("[OK] Port %d added to allowed list", port)
 			return nil
 		})
 	},
@@ -46,12 +51,17 @@ var portRemoveCmd = &cobra.Command{
 		Execute(cmd, args, func(s *sdk.SDK) error {
 			port, err := strconv.Atoi(args[0])
 			if err != nil {
-				return fmt.Errorf("❌ Invalid port: %v", err)
+				return err
+			}
+			// 验证端口范围：1-65535（不允许 0）
+			// Validate port range: 1-65535 (0 not allowed)
+			if err := common.ValidatePortNonZero(port); err != nil {
+				return err
 			}
 			if err := s.Rule.RemoveAllowedPort(uint16(port)); err != nil {
 				return err
 			}
-			logger.Get(cmd.Context()).Infof("✅ Port %d removed from allowed list", port)
+			logger.Get(cmd.Context()).Infof("[OK] Port %d removed from allowed list", port)
 			return nil
 		})
 	},

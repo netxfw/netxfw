@@ -40,7 +40,7 @@ func (p *LogEnginePlugin) Init(ctx *sdk.PluginContext) error {
 // Reload updates the plugin configuration without restarting
 // Reload 在不重启的情况下更新插件配置。
 func (p *LogEnginePlugin) Reload(ctx *sdk.PluginContext) error {
-	ctx.Logger.Infof("🔄 [LogEngine] Reloading configuration...")
+	ctx.Logger.Infof("[RELOAD] [LogEngine] Reloading configuration...")
 	newCfg := ctx.Config.LogEngine
 	p.lockListFile = ctx.Config.Base.LockListFile
 

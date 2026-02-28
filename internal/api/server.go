@@ -80,10 +80,10 @@ func (s *Server) Handler() http.Handler {
 			return nil
 		}
 
-		log.Infof("🔑 No Web Token configured. Automatically generated a new one: %s", token)
-		log.Infof("📝 Token has been saved to %s", s.configPath)
+		log.Infof("[KEY] No Web Token configured. Automatically generated a new one: %s", token)
+		log.Infof("[LOG] Token has been saved to %s", s.configPath)
 	} else {
-		log.Infof("🔑 Using configured Web Token for authentication")
+		log.Infof("[KEY] Using configured Web Token for authentication")
 	}
 
 	types.ConfigMu.Unlock()

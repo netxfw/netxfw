@@ -177,7 +177,7 @@ func (c *ConfigCache) SaveConfigDelayed(ctx context.Context) {
 	c.saveTimer = time.AfterFunc(c.saveDelay, func() {
 		log := logger.Get(ctx)
 		if err := c.SaveConfig(); err != nil {
-			log.Warnf("⚠️  Failed to save config: %v", err)
+			log.Warnf("[WARN]  Failed to save config: %v", err)
 		}
 	})
 }
@@ -279,7 +279,7 @@ func syncBoolSettingWithConfig(ctx context.Context, xdpMgr XDPManager, enable bo
 	types.ConfigMu.Unlock()
 
 	if err != nil {
-		log.Warnf("⚠️  Failed to update config cache: %v", err)
+		log.Warnf("[WARN]  Failed to update config cache: %v", err)
 		return err
 	}
 
@@ -295,7 +295,7 @@ func SyncDefaultDeny(ctx context.Context, xdpMgr XDPManager, enable bool) error 
 	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetDefaultDeny,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.DefaultDeny = v },
-		"default deny", "🛡️ Default deny policy set to: %v")
+		"default deny", "[SHIELD] Default deny policy set to: %v")
 }
 
 // SyncEnableAFXDP enables or disables AF_XDP with optimized config sync.
@@ -304,7 +304,7 @@ func SyncEnableAFXDP(ctx context.Context, xdpMgr XDPManager, enable bool) error 
 	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetEnableAFXDP,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.EnableAFXDP = v },
-		"enable AF_XDP", "🚀 AF_XDP redirection set to: %v")
+		"enable AF_XDP", "[START] AF_XDP redirection set to: %v")
 }
 
 // SyncEnableRateLimit enables or disables rate limiting with optimized config sync.
@@ -313,7 +313,7 @@ func SyncEnableRateLimit(ctx context.Context, xdpMgr XDPManager, enable bool) er
 	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetEnableRateLimit,
 		func(cfg *types.GlobalConfig, v bool) { cfg.RateLimit.Enabled = v },
-		"enable ratelimit", "🚀 Global rate limit set to: %v")
+		"enable ratelimit", "[START] Global rate limit set to: %v")
 }
 
 // SyncDropFragments enables or disables fragment dropping with optimized config sync.
@@ -322,7 +322,7 @@ func SyncDropFragments(ctx context.Context, xdpMgr XDPManager, enable bool) erro
 	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetDropFragments,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.DropFragments = v },
-		"drop fragments", "🛡️ IP Fragment dropping set to: %v")
+		"drop fragments", "[SHIELD] IP Fragment dropping set to: %v")
 }
 
 // SyncStrictTCP enables or disables strict TCP with optimized config sync.
@@ -331,7 +331,7 @@ func SyncStrictTCP(ctx context.Context, xdpMgr XDPManager, enable bool) error {
 	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetStrictTCP,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.StrictTCP = v },
-		"strict tcp", "🛡️ Strict TCP validation set to: %v")
+		"strict tcp", "[SHIELD] Strict TCP validation set to: %v")
 }
 
 // SyncSYNLimit enables or disables SYN limit with optimized config sync.
@@ -340,7 +340,7 @@ func SyncSYNLimit(ctx context.Context, xdpMgr XDPManager, enable bool) error {
 	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetSYNLimit,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.SYNLimit = v },
-		"syn limit", "🛡️ SYN Rate Limit set to: %v")
+		"syn limit", "[SHIELD] SYN Rate Limit set to: %v")
 }
 
 // SyncBogonFilter enables or disables bogon filter with optimized config sync.
@@ -349,5 +349,5 @@ func SyncBogonFilter(ctx context.Context, xdpMgr XDPManager, enable bool) error 
 	return syncBoolSettingWithConfig(ctx, xdpMgr, enable,
 		xdpMgr.SetBogonFilter,
 		func(cfg *types.GlobalConfig, v bool) { cfg.Base.BogonFilter = v },
-		"bogon filter", "🛡️ Bogon Filter set to: %v")
+		"bogon filter", "[SHIELD] Bogon Filter set to: %v")
 }

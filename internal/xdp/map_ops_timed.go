@@ -169,13 +169,13 @@ func (m *Manager) BlockStaticTimed(ipStr string, persistFile string) error {
 
 	if persistFile != "" {
 		if err := writeToFile(persistFile, cidr); err != nil {
-			m.logger.Warnf("⚠️ Failed to write to lock list file: %v", err)
+			m.logger.Warnf("[WARN] Failed to write to lock list file: %v", err)
 		} else {
-			m.logger.Infof("💾 Persisted IP %s to %s", cidr, persistFile)
+			m.logger.Infof("[SAVE] Persisted IP %s to %s", cidr, persistFile)
 		}
 	}
 
-	m.logger.Infof("🚫 Added IP %s to STATIC blacklist (permanent)", cidr)
+	m.logger.Infof("[BLOCK] Added IP %s to STATIC blacklist (permanent)", cidr)
 	return nil
 }
 
@@ -271,7 +271,7 @@ func (m *Manager) BlockDynamicTimed(ipStr string, ttl time.Duration) error {
 		return updateErr
 	}
 
-	m.logger.Infof("🚫 Blocked IP %s for %v (expiry: %d)", ip, ttl, expiry)
+	m.logger.Infof("[BLOCK] Blocked IP %s for %v (expiry: %d)", ip, ttl, expiry)
 	return nil
 }
 

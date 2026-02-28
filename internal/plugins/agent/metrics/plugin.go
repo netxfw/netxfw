@@ -47,7 +47,7 @@ func (p *MetricsPlugin) Init(ctx *sdk.PluginContext) error {
 
 func (p *MetricsPlugin) Start(ctx *sdk.PluginContext) error {
 	if !p.config.Enabled || !p.config.ServerEnabled {
-		ctx.Logger.Infof("📊 Metrics server is disabled via config.")
+		ctx.Logger.Infof("[STATS] Metrics server is disabled via config.")
 		return nil
 	}
 
@@ -56,7 +56,7 @@ func (p *MetricsPlugin) Start(ctx *sdk.PluginContext) error {
 	}
 
 	p.running = true
-	ctx.Logger.Infof("📊 Metrics server started successfully on :%d", p.config.Port)
+	ctx.Logger.Infof("[STATS] Metrics server started successfully on :%d", p.config.Port)
 	return nil
 }
 

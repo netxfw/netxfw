@@ -89,7 +89,7 @@ var perfResetCmd = &cobra.Command{
 			}
 
 			perfStats.Reset()
-			fmt.Println("✅ Performance statistics reset successfully")
+			fmt.Println("[OK] Performance statistics reset successfully")
 			return nil
 		})
 	},
@@ -155,10 +155,10 @@ func showPerformanceStats(s *sdk.SDK) error {
 
 	// Uptime / 运行时间
 	uptime := time.Duration(stats.Traffic.UptimeSeconds) * time.Second // #nosec G115 // uptime is always reasonable value
-	fmt.Printf("\n⏱️  Uptime: %v\n", uptime.Round(time.Second))
+	fmt.Printf("\n[TIME]  Uptime: %v\n", uptime.Round(time.Second))
 
 	// Map Latency Summary / Map 延迟摘要
-	fmt.Println("\n📊 Map Operation Latency:")
+	fmt.Println("\n[STATS] Map Operation Latency:")
 	fmt.Printf("   Total Operations: %d\n", stats.MapLatency.TotalOperations)
 	fmt.Printf("   Total Errors:     %d\n", stats.MapLatency.TotalErrors)
 	if stats.MapLatency.AvgLatencyNs > 0 {
@@ -168,7 +168,7 @@ func showPerformanceStats(s *sdk.SDK) error {
 	}
 
 	// Cache Hit Rate Summary / 缓存命中率摘要
-	fmt.Println("\n💾 Cache Hit Rates:")
+	fmt.Println("\n[SAVE] Cache Hit Rates:")
 	fmt.Printf("   Total Hit Rate:   %.2f%% (%d hits / %d misses)\n",
 		stats.CacheHitRate.TotalHitRate*100,
 		stats.CacheHitRate.TotalHits,
@@ -179,7 +179,7 @@ func showPerformanceStats(s *sdk.SDK) error {
 	fmt.Printf("   Map Counts:       %.2f%%\n", stats.CacheHitRate.MapCountsHitRate*100)
 
 	// Traffic Summary / 流量摘要
-	fmt.Println("\n🚦 Traffic Statistics:")
+	fmt.Println("\n[TRAFFIC] Traffic Statistics:")
 	fmt.Printf("   Current PPS:      %s\n", fmtutil.FormatNumber(stats.Traffic.CurrentPPS))
 	fmt.Printf("   Peak PPS:         %s\n", fmtutil.FormatNumber(stats.Traffic.PeakPPS))
 	fmt.Printf("   Average PPS:      %s\n", fmtutil.FormatNumber(stats.Traffic.AveragePPS))
@@ -206,7 +206,7 @@ func showMapLatency(s *sdk.SDK) error {
 	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
 
 	// Overall statistics / 总体统计
-	fmt.Println("\n📈 Overall Statistics:")
+	fmt.Println("\n[RATE] Overall Statistics:")
 	fmt.Printf("   Total Operations: %d\n", stats.MapLatency.TotalOperations)
 	fmt.Printf("   Total Errors:     %d\n", stats.MapLatency.TotalErrors)
 	if stats.MapLatency.TotalOperations > 0 {
@@ -215,14 +215,14 @@ func showMapLatency(s *sdk.SDK) error {
 	}
 
 	// Per-operation type statistics / 按操作类型统计
-	fmt.Println("\n📋 By Operation Type:")
+	fmt.Println("\n[INFO] By Operation Type:")
 	printOpStats("Read", stats.MapLatency.ReadOps)
 	printOpStats("Write", stats.MapLatency.WriteOps)
 	printOpStats("Delete", stats.MapLatency.DeleteOps)
 	printOpStats("Iterate", stats.MapLatency.IterOps)
 
 	// Per-map statistics / 按 Map 统计
-	fmt.Println("\n🗂️  By Map:")
+	fmt.Println("\n[MAP]  By Map:")
 	printOpStats("Blacklist", stats.MapLatency.BlacklistOps)
 	printOpStats("Whitelist", stats.MapLatency.WhitelistOps)
 	printOpStats("Conntrack", stats.MapLatency.ConntrackOps)
@@ -248,13 +248,13 @@ func showCacheHitRates(s *sdk.SDK) error {
 	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
 
 	// Total statistics / 总计统计
-	fmt.Println("\n📊 Overall Cache Performance:")
+	fmt.Println("\n[STATS] Overall Cache Performance:")
 	fmt.Printf("   Total Hits:    %d\n", stats.CacheHitRate.TotalHits)
 	fmt.Printf("   Total Misses:  %d\n", stats.CacheHitRate.TotalMisses)
 	fmt.Printf("   Hit Rate:      %.2f%%\n", stats.CacheHitRate.TotalHitRate*100)
 
 	// Per-cache statistics / 各缓存统计
-	fmt.Println("\n💾 By Cache Type:")
+	fmt.Println("\n[SAVE] By Cache Type:")
 	printCacheStats("Global Stats", stats.CacheHitRate.GlobalStatsHits, stats.CacheHitRate.GlobalStatsMisses, stats.CacheHitRate.GlobalStatsHitRate)
 	printCacheStats("Drop Details", stats.CacheHitRate.DropDetailsHits, stats.CacheHitRate.DropDetailsMisses, stats.CacheHitRate.DropDetailsHitRate)
 	printCacheStats("Pass Details", stats.CacheHitRate.PassDetailsHits, stats.CacheHitRate.PassDetailsMisses, stats.CacheHitRate.PassDetailsHitRate)
@@ -293,29 +293,29 @@ func showTrafficStats(s *sdk.SDK) error {
 
 	// Uptime / 运行时间
 	uptime := time.Duration(stats.Traffic.UptimeSeconds) * time.Second // #nosec G115 // uptime is always reasonable value
-	fmt.Printf("\n⏱️  Uptime: %v\n", uptime.Round(time.Second))
+	fmt.Printf("\n[TIME]  Uptime: %v\n", uptime.Round(time.Second))
 
 	// Packet rates / 数据包速率
-	fmt.Println("\n📦 Packet Rates:")
+	fmt.Println("\n[DATA] Packet Rates:")
 	fmt.Printf("   Current PPS:      %s pps\n", fmtutil.FormatNumber(stats.Traffic.CurrentPPS))
 	fmt.Printf("   Peak PPS:         %s pps\n", fmtutil.FormatNumber(stats.Traffic.PeakPPS))
 	fmt.Printf("   Average PPS:      %s pps\n", fmtutil.FormatNumber(stats.Traffic.AveragePPS))
 
 	// Byte rates / 字节速率
-	fmt.Println("\n📊 Bandwidth:")
+	fmt.Println("\n[STATS] Bandwidth:")
 	fmt.Printf("   Current BPS:      %s/s\n", fmtutil.FormatBytes(stats.Traffic.CurrentBPS))
 	fmt.Printf("   Peak BPS:         %s/s\n", fmtutil.FormatBytes(stats.Traffic.PeakBPS))
 	fmt.Printf("   Average BPS:      %s/s\n", fmtutil.FormatBytes(stats.Traffic.AverageBPS))
 
 	// Drop/Pass rates / 丢弃/通过速率
-	fmt.Println("\n🚦 Decision Rates:")
+	fmt.Println("\n[TRAFFIC] Decision Rates:")
 	fmt.Printf("   Current Drop PPS: %s pps\n", fmtutil.FormatNumber(stats.Traffic.CurrentDropPPS))
 	fmt.Printf("   Peak Drop PPS:    %s pps\n", fmtutil.FormatNumber(stats.Traffic.PeakDropPPS))
 	fmt.Printf("   Current Pass PPS: %s pps\n", fmtutil.FormatNumber(stats.Traffic.CurrentPassPPS))
 	fmt.Printf("   Peak Pass PPS:    %s pps\n", fmtutil.FormatNumber(stats.Traffic.PeakPassPPS))
 
 	// Totals / 总计
-	fmt.Println("\n📈 Totals:")
+	fmt.Println("\n[RATE] Totals:")
 	fmt.Printf("   Total Packets:    %s\n", fmtutil.FormatNumber(totalPackets))
 	fmt.Printf("   Total Drops:      %s\n", fmtutil.FormatNumber(drops))
 	fmt.Printf("   Total Passes:     %s\n", fmtutil.FormatNumber(pass))

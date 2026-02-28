@@ -11,8 +11,8 @@ import (
 
 func TestFlagRegistrationConsistency(t *testing.T) {
 	commands := []*cobra.Command{
-		ruleAddCmd, ruleRemoveCmd, ruleListCmd, ruleImportCmd, ruleExportCmd,
-		QuickBlockCmd, QuickUnlockCmd, QuickAllowCmd, QuickUnallowCmd, QuickClearCmd,
+		ruleAddCmd, ruleDelCmd, ruleListCmd, ruleImportCmd, ruleExportCmd,
+		SimpleBlockCmd, SimpleUnblockCmd, SimpleAllowCmd, SimpleUnallowCmd, SimpleClearCmd,
 		portAddCmd, portRemoveCmd,
 		limitAddCmd, limitRemoveCmd, limitListCmd,
 		securityFragmentsCmd, securityStrictTCPCmd, securitySYNLimitCmd, securityBogonCmd, securityAutoBlockCmd, securityAutoBlockExpiryCmd,
@@ -41,8 +41,9 @@ func TestCommandExecutorFlagApplying(t *testing.T) {
 	cmd.SetArgs([]string{"-c", "/tmp/test_config.yaml"})
 	_ = cmd.ParseFlags([]string{"-c", "/tmp/test_config.yaml"})
 
-	ce := &CommandExecutor{}
-	ce.applyFlags(cmd)
+	configValue, _ := cmd.Flags().GetString("config")
+	ce := NewCommandExecutor(cmd).WithConfig(configValue)
+	ce.ApplyFlags()
 
 	assert.Equal(t, "/tmp/test_config.yaml", config.GetConfigPath())
 }
