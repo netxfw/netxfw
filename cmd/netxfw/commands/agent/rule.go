@@ -133,6 +133,11 @@ Aliases: delete, remove
 			// 如果未找到端口，检查第二个参数
 			if len(args) > 1 && port == 0 {
 				if p, parseErr := strconv.Atoi(args[1]); parseErr == nil {
+					// 验证端口范围
+					// Validate port range
+					if p < 0 || p > 65535 {
+						return fmt.Errorf("[ERROR] Port must be between 0-65535, got %d", p)
+					}
 					port = p
 				}
 			}
@@ -422,6 +427,13 @@ func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
 		if rule.IP == "" {
 			continue
 		}
+		// 验证 IP 格式
+		// Validate IP format
+		if err := common.ValidateIP(rule.IP); err != nil {
+			fmt.Printf("[WARN]  Invalid IP in blacklist: %s: %v\n", rule.IP, err)
+			failedBlacklist++
+			continue
+		}
 		if err := s.Blacklist.Add(rule.IP); err != nil {
 			fmt.Printf("[WARN]  Failed to add blacklist %s: %v\n", rule.IP, err)
 			failedBlacklist++
@@ -434,6 +446,20 @@ func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
 	// 导入白名单
 	for _, rule := range importData.Whitelist {
 		if rule.IP == "" {
+			continue
+		}
+		// 验证 IP 格式
+		// Validate IP format
+		if err := common.ValidateIP(rule.IP); err != nil {
+			fmt.Printf("[WARN]  Invalid IP in whitelist: %s: %v\n", rule.IP, err)
+			failedWhitelist++
+			continue
+		}
+		// 验证端口范围
+		// Validate port range
+		if rule.Port < 0 || rule.Port > 65535 {
+			fmt.Printf("[WARN]  Invalid port in whitelist: %s:%d (must be 0-65535)\n", rule.IP, rule.Port)
+			failedWhitelist++
 			continue
 		}
 		var port uint16
@@ -452,6 +478,20 @@ func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
 	// 导入 IP+端口规则
 	for _, rule := range importData.IPPort {
 		if rule.IP == "" || rule.Port == 0 {
+			continue
+		}
+		// 验证 IP 格式
+		// Validate IP format
+		if err := common.ValidateIP(rule.IP); err != nil {
+			fmt.Printf("[WARN]  Invalid IP in IP+Port rule: %s: %v\n", rule.IP, err)
+			failedIPPort++
+			continue
+		}
+		// 验证端口范围
+		// Validate port range
+		if rule.Port < 1 || rule.Port > 65535 {
+			fmt.Printf("[WARN]  Invalid port in IP+Port rule: %s:%d (must be 1-65535)\n", rule.IP, rule.Port)
+			failedIPPort++
 			continue
 		}
 		action := uint8(2) // Deny default

@@ -283,6 +283,15 @@ func (m *MockManager) RemoveBlacklistIP(cidr string) error {
 	return nil
 }
 
+func (m *MockManager) RemoveDynamicBlacklistIP(cidr string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if entry, exists := m.blacklist[cidr]; exists && entry.IsDynamic {
+		delete(m.blacklist, cidr)
+	}
+	return nil
+}
+
 func (m *MockManager) ClearBlacklist() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

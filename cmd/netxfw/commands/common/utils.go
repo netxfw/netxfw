@@ -123,6 +123,12 @@ func ImportLockListFromFile(s *sdk.SDK, path string) error {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
+			// 验证 IP 格式
+			// Validate IP format
+			if err := ValidateIP(line); err != nil {
+				fmt.Printf("[WARN] Invalid IP format: %s: %v\n", line, err)
+				continue
+			}
 			if persistFile != "" {
 				if err := s.Blacklist.AddWithFile(line, persistFile); err != nil {
 					fmt.Printf("[WARN] Failed to add %s: %v\n", line, err)
@@ -168,6 +174,12 @@ func ImportWhitelistFromFile(s *sdk.SDK, path string) error {
 			// Format: IP or IP:Port
 			parts := strings.Split(line, ":")
 			ip := parts[0]
+			// 验证 IP 格式
+			// Validate IP format
+			if err := ValidateIP(ip); err != nil {
+				fmt.Printf("[WARN] Invalid IP format: %s: %v\n", line, err)
+				continue
+			}
 			var port uint16
 			if len(parts) > 1 {
 				p, pErr := strconv.Atoi(parts[1])
@@ -220,6 +232,12 @@ func ImportIPPortRulesFromFile(s *sdk.SDK, path string) error {
 				continue
 			}
 			ip := parts[0]
+			// 验证 IP 格式
+			// Validate IP format
+			if err := ValidateIP(ip); err != nil {
+				fmt.Printf("[WARN] Invalid IP format: %s: %v\n", line, err)
+				continue
+			}
 			port, pErr := strconv.Atoi(parts[1])
 			if pErr != nil {
 				fmt.Printf("[WARN] Invalid port in %s: %v\n", line, pErr)

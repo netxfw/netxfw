@@ -337,7 +337,11 @@ func readCIDRsFromFile(file *os.File) []string {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
-			cidrs = append(cidrs, line)
+			// 验证 IP/CIDR 格式
+			// Validate IP/CIDR format
+			if iputil.IsValidCIDR(line) {
+				cidrs = append(cidrs, line)
+			}
 		}
 	}
 	return cidrs
@@ -456,6 +460,11 @@ func ImportWhitelistFromFile(ctx context.Context, xdpMgr XDPManager, path string
 				ip = host
 				port = p
 			} else {
+				// 验证纯 IP 格式
+				// Validate pure IP format
+				if !iputil.IsValidCIDR(line) {
+					continue
+				}
 				ip = line
 			}
 
@@ -491,9 +500,21 @@ func ImportIPPortRulesFromFile(ctx context.Context, xdpMgr XDPManager, path stri
 			parts := strings.Fields(line)
 			if len(parts) >= 3 {
 				ip := parts[0]
+				// 验证 IP 格式
+				// Validate IP format
+				if !iputil.IsValidCIDR(ip) {
+					log.Warnf("[WARN]  Invalid IP format in line: %s", line)
+					continue
+				}
 				port, portErr := strconv.Atoi(parts[1])
 				if portErr != nil {
 					log.Warnf("[WARN]  Invalid port in line: %s", line)
+					continue
+				}
+				// 验证端口范围：1-65535
+				// Validate port range: 1-65535
+				if port < 1 || port > 65535 {
+					log.Warnf("[WARN]  Port out of range in line: %s (must be 1-65535)", line)
 					continue
 				}
 				actionStr := strings.ToLower(parts[2])
