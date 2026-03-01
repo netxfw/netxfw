@@ -98,18 +98,19 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 		}
 
 		// Use mapped IPv6 for key / 使用映射的 IPv6 作为键
-		key := NetXfwIn6Addr{}
+		key := acquireIn6Addr()
+		defer releaseIn6Addr(key)
 		b := ip.As4()
 		// ::ffff:a.b.c.d
 		key.In6U.U6Addr8[10] = 0xff
 		key.In6U.U6Addr8[11] = 0xff
 		copy(key.In6U.U6Addr8[12:], b[:])
 
-		val := NetXfwRuleValue{
-			Counter:   2, // Deny / 拒绝
-			ExpiresAt: expiry,
-		}
-		if err := mapObj.Update(&key, &val, ebpf.UpdateAny); err != nil {
+		val := acquireRuleValue()
+		defer releaseRuleValue(val)
+		val.Counter = 2 // Deny / 拒绝
+		val.ExpiresAt = expiry
+		if err := mapObj.Update(key, val, ebpf.UpdateAny); err != nil {
 			return fmt.Errorf("failed to block IPv4 %s: %v", ip, err)
 		}
 	} else if ip.Is6() {
@@ -118,16 +119,17 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 			return fmt.Errorf("dyn_lock_list not available")
 		}
 
-		key := NetXfwIn6Addr{}
+		key := acquireIn6Addr()
+		defer releaseIn6Addr(key)
 		b := ip.As16()
 		copy(key.In6U.U6Addr8[:], b[:])
 
-		val := NetXfwRuleValue{
-			Counter:   2, // Deny / 拒绝
-			ExpiresAt: expiry,
-		}
+		val := acquireRuleValue()
+		defer releaseRuleValue(val)
+		val.Counter = 2 // Deny / 拒绝
+		val.ExpiresAt = expiry
 
-		if err := mapObj.Update(&key, &val, ebpf.UpdateAny); err != nil {
+		if err := mapObj.Update(key, val, ebpf.UpdateAny); err != nil {
 			return fmt.Errorf("failed to block IPv6 %s: %v", ip, err)
 		}
 	}
@@ -151,14 +153,15 @@ func (m *Manager) UnblockDynamic(ipStr string) error {
 		}
 
 		// Use mapped IPv6 for key / 使用映射的 IPv6 作为键
-		key := NetXfwIn6Addr{}
+		key := acquireIn6Addr()
+		defer releaseIn6Addr(key)
 		b := ip.As4()
 		// ::ffff:a.b.c.d
 		key.In6U.U6Addr8[10] = 0xff
 		key.In6U.U6Addr8[11] = 0xff
 		copy(key.In6U.U6Addr8[12:], b[:])
 
-		if err := mapObj.Delete(&key); err != nil {
+		if err := mapObj.Delete(key); err != nil {
 			// Ignore if not found / 如果未找到则忽略
 			if strings.Contains(err.Error(), "key does not exist") {
 				m.logger.Infof("[INFO] IP %s not found in dynamic blacklist", ip)
@@ -172,11 +175,12 @@ func (m *Manager) UnblockDynamic(ipStr string) error {
 			return fmt.Errorf("dyn_lock_list not available")
 		}
 
-		key := NetXfwIn6Addr{}
+		key := acquireIn6Addr()
+		defer releaseIn6Addr(key)
 		b := ip.As16()
 		copy(key.In6U.U6Addr8[:], b[:])
 
-		if err := mapObj.Delete(&key); err != nil {
+		if err := mapObj.Delete(key); err != nil {
 			// Ignore if not found / 如果未找到则忽略
 			if strings.Contains(err.Error(), "key does not exist") {
 				m.logger.Infof("[INFO] IP %s not found in dynamic blacklist", ip)
@@ -291,23 +295,13 @@ func (m *Manager) RemoveIPPortRule(ipNet *net.IPNet, port uint16) error {
  * AllowPortToMap 向允许端口 Map 中添加一个端口。
  */
 func AllowPortToMap(mapPtr *ebpf.Map, port uint16, expiresAt *time.Time) error {
-	// BPF_MAP_TYPE_PERCPU_HASH requires a slice of values for update if we want to set it for all CPUs
-	// BPF_MAP_TYPE_PERCPU_HASH 如果我们要为所有 CPU 设置更新，则需要一个值切片
-	numCPU, err := ebpf.PossibleCPU()
-	if err != nil {
-		return fmt.Errorf("get possible CPUs: %w", err)
+	vals := acquireRuleValueSlice()
+	defer releaseRuleValueSlice(vals)
+	for i := range *vals {
+		(*vals)[i].Counter = 1
+		(*vals)[i].ExpiresAt = timeToBootNS(expiresAt)
 	}
-	val := NetXfwRuleValue{
-		Counter:   1,
-		ExpiresAt: timeToBootNS(expiresAt),
-	}
-	vals := make([]NetXfwRuleValue, numCPU)
-	for i := 0; i < numCPU; i++ {
-		vals[i] = val
-	}
-	// For PERCPU maps, Update expects the slice itself, not a pointer to it
-	// 对于 PERCPU Map，Update 期望切片本身，而不是指向它的指针
-	return mapPtr.Update(&port, vals, ebpf.UpdateAny)
+	return mapPtr.Update(&port, *vals, ebpf.UpdateAny)
 }
 
 /**
@@ -429,26 +423,15 @@ func (m *Manager) ListIPPortRules(isIPv6 bool, limit int, search string) (map[st
 func ListAllowedPortsFromMap(mapPtr *ebpf.Map) ([]uint16, error) {
 	var ports []uint16
 	var port uint16
-	// Note: BPF_MAP_TYPE_PERCPU_HASH returns a slice of values, one per CPU
-	// 注意：BPF_MAP_TYPE_PERCPU_HASH 返回一个值切片，每个 CPU 一个
-	_, err := ebpf.PossibleCPU()
-	if err != nil {
-		return nil, fmt.Errorf("get possible CPUs: %w", err)
-	}
-	// We don't need val here really but iterating requires it
-	// iterating PERCPU map requires value to be slice.
-	// We can't pre-allocate exact slice size without calling PossibleCPU, but Iterate handles it?
-	// The original code allocated val := make([]NetXfwRuleValue, numCPU)
 
-	numCPU, _ := ebpf.PossibleCPU()
-	val := make([]NetXfwRuleValue, numCPU)
+	vals := acquireRuleValueSlice()
+	defer releaseRuleValueSlice(vals)
 
 	iter := mapPtr.Iterate()
-	for iter.Next(&port, &val) {
+	for iter.Next(&port, vals) {
 		ports = append(ports, port)
 	}
 	if err := iter.Err(); err != nil {
-		// If iteration fails, try to just see if map is empty
 		return ports, nil
 	}
 	return ports, nil
@@ -493,21 +476,16 @@ func (m *Manager) ListAllowedPorts() ([]uint16, error) {
  * 注意：使用统一的 ratelimit_map，键为 NetXfwIn6Addr，值为 NetXfwRatelimitValue。
  */
 func AddRateLimitRuleToMap(ratelimitMap *ebpf.Map, ipNet *net.IPNet, rate, burst uint64) error {
-	// For unified ratelimit_map, we use IP address as key (not LPM)
-	// 对于统一的 ratelimit_map，我们使用 IP 地址作为键（不是 LPM）
 	ip := ipNet.IP
-	var key NetXfwIn6Addr
+	key := acquireIn6Addr()
+	defer releaseIn6Addr(key)
 
 	ip4 := ip.To4()
 	if ip4 != nil {
-		// IPv4-mapped IPv6: ::ffff:a.b.c.d
-		// IPv4 映射的 IPv6：::ffff:a.b.c.d
 		key.In6U.U6Addr8[10] = 0xff
 		key.In6U.U6Addr8[11] = 0xff
 		copy(key.In6U.U6Addr8[12:], ip4)
 	} else {
-		// Native IPv6
-		// 原生 IPv6
 		ip6 := ip.To16()
 		if ip6 == nil {
 			return fmt.Errorf("invalid IP address")
@@ -515,19 +493,17 @@ func AddRateLimitRuleToMap(ratelimitMap *ebpf.Map, ipNet *net.IPNet, rate, burst
 		copy(key.In6U.U6Addr8[:], ip6)
 	}
 
-	// Pre-calculate scaled rate for division-less kernel math:
-	// rate_scaled = (rate * 2^32) / 10^9
 	rateScaled := (rate << 32) / 1000000000
 
-	val := NetXfwRatelimitValue{
-		Rate:          rate,
-		RateScaled:    rateScaled,
-		Burst:         burst,
-		ConfigVersion: 1,
-		LastTime:      0,
-		Tokens:        burst,
-	}
-	return ratelimitMap.Update(&key, &val, ebpf.UpdateAny)
+	val := acquireRatelimitValue()
+	defer releaseRatelimitValue(val)
+	val.Rate = rate
+	val.RateScaled = rateScaled
+	val.Burst = burst
+	val.ConfigVersion = 1
+	val.LastTime = 0
+	val.Tokens = burst
+	return ratelimitMap.Update(key, val, ebpf.UpdateAny)
 }
 
 /**

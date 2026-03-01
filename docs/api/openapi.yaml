@@ -1,0 +1,653 @@
+openapi: 3.0.3
+info:
+  title: NetXfw API
+  description: |
+    NetXfw is a high-performance Linux firewall based on XDP/eBPF technology.
+    
+    This API provides programmatic access to manage firewall rules, monitor traffic,
+    and configure the firewall.
+  version: 1.0.0
+  contact:
+    name: NetXfw Team
+    url: https://github.com/netxfw/netxfw
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: http://localhost:11811
+    description: Local development server
+  - url: http://{host}:{port}
+    description: Custom server
+    variables:
+      host:
+        default: localhost
+        description: Server hostname
+      port:
+        default: "11811"
+        description: Server port
+
+tags:
+  - name: health
+    description: Health check endpoints
+  - name: rules
+    description: Firewall rule management
+  - name: blacklist
+    description: Blacklist management
+  - name: whitelist
+    description: Whitelist management
+  - name: conntrack
+    description: Connection tracking
+  - name: stats
+    description: Statistics and monitoring
+  - name: config
+    description: Configuration management
+
+paths:
+  /healthz:
+    get:
+      tags:
+        - health
+      summary: Health check
+      description: Kubernetes-style health check endpoint
+      operationId: healthz
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      tags:
+        - health
+      summary: Detailed health status
+      description: Returns detailed health status including version and uptime
+      operationId: health
+      responses:
+        '200':
+          description: Detailed health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  version:
+                    type: string
+                    example: 1.0.0
+                  uptime:
+                    type: string
+                    example: 24h
+
+  /version:
+    get:
+      tags:
+        - health
+      summary: Get version information
+      description: Returns version information about the firewall
+      operationId: version
+      responses:
+        '200':
+          description: Version information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    example: 1.0.0
+                  commit:
+                    type: string
+                    example: abc123
+                  build_date:
+                    type: string
+                    example: "2024-01-01"
+
+  /api/stats:
+    get:
+      tags:
+        - stats
+      summary: Get statistics
+      description: Returns traffic statistics including packet counts and drop reasons
+      operationId: getStats
+      responses:
+        '200':
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+
+  /api/rules:
+    get:
+      tags:
+        - rules
+      summary: List all rules
+      description: Returns all firewall rules
+      operationId: listRules
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of rules to return
+          schema:
+            type: integer
+            default: 100
+        - name: search
+          in: query
+          description: Search pattern for IP
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of rules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Rule'
+                  total:
+                    type: integer
+    post:
+      tags:
+        - rules
+      summary: Add a new rule
+      description: Add a new firewall rule
+      operationId: addRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleInput'
+      responses:
+        '201':
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/rules/{ip}:
+    delete:
+      tags:
+        - rules
+      summary: Delete a rule
+      description: Delete a firewall rule by IP
+      operationId: deleteRule
+      parameters:
+        - name: ip
+          in: path
+          required: true
+          description: IP address or CIDR
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule deleted
+        '404':
+          description: Rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/blacklist:
+    get:
+      tags:
+        - blacklist
+      summary: List blacklist entries
+      description: Returns all blacklist entries
+      operationId: listBlacklist
+      parameters:
+        - name: type
+          in: query
+          description: Type of blacklist (static, dynamic, all)
+          schema:
+            type: string
+            enum: [static, dynamic, all]
+            default: all
+      responses:
+        '200':
+          description: List of blacklist entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BlacklistEntry'
+                  total:
+                    type: integer
+
+  /api/blacklist/static:
+    post:
+      tags:
+        - blacklist
+      summary: Add to static blacklist
+      description: Add an IP to the static blacklist
+      operationId: addStaticBlacklist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ip
+              properties:
+                ip:
+                  type: string
+                  description: IP address or CIDR
+                  example: 192.168.1.100
+      responses:
+        '201':
+          description: IP added to blacklist
+        '400':
+          description: Invalid IP address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/blacklist/dynamic:
+    post:
+      tags:
+        - blacklist
+      summary: Add to dynamic blacklist
+      description: Add an IP to the dynamic blacklist with TTL
+      operationId: addDynamicBlacklist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ip
+              properties:
+                ip:
+                  type: string
+                  description: IP address
+                  example: 192.168.1.100
+                ttl:
+                  type: string
+                  description: Time to live (e.g., 1h, 30m)
+                  example: 1h
+      responses:
+        '201':
+          description: IP added to dynamic blacklist
+        '400':
+          description: Invalid IP address or TTL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - blacklist
+      summary: Remove from dynamic blacklist
+      description: Remove an IP from the dynamic blacklist
+      operationId: removeDynamicBlacklist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ip
+              properties:
+                ip:
+                  type: string
+                  description: IP address
+                  example: 192.168.1.100
+      responses:
+        '200':
+          description: IP removed from dynamic blacklist
+        '404':
+          description: IP not found in dynamic blacklist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/whitelist:
+    get:
+      tags:
+        - whitelist
+      summary: List whitelist entries
+      description: Returns all whitelist entries
+      operationId: listWhitelist
+      responses:
+        '200':
+          description: List of whitelist entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WhitelistEntry'
+                  total:
+                    type: integer
+    post:
+      tags:
+        - whitelist
+      summary: Add to whitelist
+      description: Add an IP to the whitelist
+      operationId: addWhitelist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ip
+              properties:
+                ip:
+                  type: string
+                  description: IP address or CIDR
+                  example: 192.168.1.0/24
+      responses:
+        '201':
+          description: IP added to whitelist
+        '400':
+          description: Invalid IP address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/whitelist/{ip}:
+    delete:
+      tags:
+        - whitelist
+      summary: Remove from whitelist
+      description: Remove an IP from the whitelist
+      operationId: removeWhitelist
+      parameters:
+        - name: ip
+          in: path
+          required: true
+          description: IP address or CIDR
+          schema:
+            type: string
+      responses:
+        '200':
+          description: IP removed from whitelist
+        '404':
+          description: IP not found in whitelist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/conntrack:
+    get:
+      tags:
+        - conntrack
+      summary: List connection tracking entries
+      description: Returns all connection tracking entries
+      operationId: listConntrack
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of entries to return
+          schema:
+            type: integer
+            default: 100
+        - name: search
+          in: query
+          description: Search pattern for IP
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of connection tracking entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConntrackEntry'
+                  total:
+                    type: integer
+
+  /api/conntrack/count:
+    get:
+      tags:
+        - conntrack
+      summary: Count connection tracking entries
+      description: Returns the number of connection tracking entries
+      operationId: countConntrack
+      responses:
+        '200':
+          description: Connection count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    example: 1500
+
+  /api/metrics:
+    get:
+      tags:
+        - stats
+      summary: Prometheus metrics
+      description: Returns Prometheus-compatible metrics
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP netxfw_packets_total Total packets processed
+                  # TYPE netxfw_packets_total counter
+                  netxfw_packets_total{action="pass"} 1234000
+                  netxfw_packets_total{action="drop"} 567
+
+components:
+  schemas:
+    Stats:
+      type: object
+      properties:
+        packets:
+          type: object
+          properties:
+            total:
+              type: integer
+              example: 1234567
+            passed:
+              type: integer
+              example: 1234000
+            dropped:
+              type: integer
+              example: 567
+        drop_reasons:
+          type: object
+          properties:
+            blacklist:
+              type: integer
+              example: 300
+            rate_limit:
+              type: integer
+              example: 150
+            port_blocked:
+              type: integer
+              example: 117
+        maps:
+          type: object
+          properties:
+            blacklist_count:
+              type: integer
+              example: 1234
+            whitelist_count:
+              type: integer
+              example: 56
+            conntrack_count:
+              type: integer
+              example: 1500
+
+    Rule:
+      type: object
+      properties:
+        ip:
+          type: string
+          example: 192.168.1.100
+        port:
+          type: integer
+          example: 8080
+        action:
+          type: integer
+          description: 1=allow, 2=deny
+          example: 1
+        counter:
+          type: integer
+          example: 12345
+        expires_at:
+          type: integer
+          description: Expiration timestamp (0=never)
+          example: 0
+
+    RuleInput:
+      type: object
+      required:
+        - ip
+        - action
+      properties:
+        ip:
+          type: string
+          description: IP address or CIDR
+          example: 192.168.1.100
+        port:
+          type: integer
+          description: Port number (0=all ports)
+          example: 8080
+        action:
+          type: integer
+          description: 1=allow, 2=deny
+          enum: [1, 2]
+          example: 1
+        ttl:
+          type: string
+          description: Time to live (e.g., 1h, 30m)
+          example: 1h
+
+    BlacklistEntry:
+      type: object
+      properties:
+        ip:
+          type: string
+          example: 192.168.1.100
+        type:
+          type: string
+          enum: [static, dynamic]
+          example: dynamic
+        counter:
+          type: integer
+          example: 12345
+        expires_at:
+          type: integer
+          description: Expiration timestamp (0=never)
+          example: 1704067200
+
+    WhitelistEntry:
+      type: object
+      properties:
+        ip:
+          type: string
+          example: 192.168.1.0/24
+        counter:
+          type: integer
+          example: 12345
+
+    ConntrackEntry:
+      type: object
+      properties:
+        src_ip:
+          type: string
+          example: 192.168.1.100
+        dst_ip:
+          type: string
+          example: 10.0.0.1
+        src_port:
+          type: integer
+          example: 54321
+        dst_port:
+          type: integer
+          example: 80
+        protocol:
+          type: integer
+          description: Protocol number (6=TCP, 17=UDP)
+          example: 6
+        last_seen:
+          type: integer
+          description: Unix timestamp
+          example: 1704067200
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Invalid IP address
+        code:
+          type: integer
+          example: 400
+
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+    BearerAuth:
+      type: http
+      scheme: bearer
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+security:
+  - BasicAuth: []
+  - BearerAuth: []
+  - ApiKeyAuth: []

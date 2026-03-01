@@ -371,8 +371,8 @@ type LogEngineRule struct {
 
 	// Simplified Configuration (alternative to Expression)
 	// 简化配置（Expression 的替代方案）
-	// Deprecated: Use Contains instead (AND logic)
-	// Keywords: 已弃用：请改用 Contains (AND 逻辑)
+	// Keywords: AND logic alias for Contains (supports * wildcard)
+	// Keywords: Contains 的 AND 逻辑别名（支持 * 通配符）
 	Keywords []string `yaml:"keywords"`
 	// AND logic: Must contain ALL of these (supports * wildcard)
 	// Contains: AND 逻辑：必须包含所有这些（支持 * 通配符）
@@ -810,17 +810,6 @@ func updateYamlNode(fileNode, defaultNode *yaml.Node) bool {
 		}
 	}
 	return modified
-}
-
-// hasMissingKeys checks if file is missing keys from full.
-// Deprecated: logic moved to updateYamlNode
-// hasMissingKeys 检查 file 是否缺少 full 中的键。
-// 已弃用：逻辑已移至 updateYamlNode
-//
-//nolint:unused
-func hasMissingKeys(full, file map[string]any) bool {
-	// Deprecated: logic moved to updateYamlNode
-	return false
 }
 
 func SaveGlobalConfig(path string, cfg *GlobalConfig) error {

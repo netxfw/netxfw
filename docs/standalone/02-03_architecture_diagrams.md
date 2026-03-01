@@ -317,92 +317,126 @@
 │  │                                                                          │
 │  ├── whitelist (LPM Trie)                                                   │
 │  │   ┌────────────────────────────────────────────────────────────────┐    │
-│  │   │ Key: 128-bit IPv6 地址 (IPv4 映射为 ::ffff:x.x.x.x)            │    │
-│  │   │ Value: struct {                                                 │    │
-│  │   │   action: u8,      // 动作类型                                  │    │
-│  │   │   reason: [64]u8  // 原因描述                                   │    │
+│  │   │ Key: struct lpm_key { prefixlen: u32, data: in6_addr }         │    │
+│  │   │ Value: struct rule_value {                                     │    │
+│  │   │   counter: u64,    // 数据包计数                               │    │
+│  │   │   expires_at: u64, // 过期时间 (0=永不过期)                    │    │
+│  │   │   action: u8,      // 动作类型 (1=allow, 2=deny)               │    │
+│  │   │   priority: u8     // 优先级                                   │    │
 │  │   │ }                                                               │    │
-│  │   │ 用途: 白名单 IP/网段，最高优先级放行                            │    │
+│  │   │ 用途: 白名单 IP/网段，最高优先级放行                           │    │
 │  │   └────────────────────────────────────────────────────────────────┘    │
 │  │                                                                          │
-│  ├── lock_list (LPM Trie)                                                   │
+│  ├── static_blacklist / lock_list (LPM Trie)                                │
 │  │   ┌────────────────────────────────────────────────────────────────┐    │
-│  │   │ Key: 128-bit IPv6 地址                                          │    │
-│  │   │ Value: struct {                                                 │    │
+│  │   │ Key: struct lpm_key { prefixlen: u32, data: in6_addr }         │    │
+│  │   │ Value: struct rule_value {                                     │    │
+│  │   │   counter: u64,                                                 │    │
+│  │   │   expires_at: u64,                                              │    │
 │  │   │   action: u8,                                                   │    │
-│  │   │   reason: [64]u8,                                               │    │
-│  │   │   created_at: u64,                                              │    │
-│  │   │   expires_at: u64                                               │    │
+│  │   │   priority: u8                                                  │    │
 │  │   │ }                                                               │    │
-│  │   │ 用途: 静态黑名单，支持 CIDR 网段                                │    │
+│  │   │ 用途: 静态黑名单，支持 CIDR 网段                               │    │
 │  │   └────────────────────────────────────────────────────────────────┘    │
 │  │                                                                          │
-│  ├── dyn_lock_list (LRU Hash)                                               │
+│  ├── dynamic_blacklist / dyn_lock_list (LRU Hash)                           │
 │  │   ┌────────────────────────────────────────────────────────────────┐    │
-│  │   │ Key: 32-bit IPv4 或 128-bit IPv6 地址                          │    │
-│  │   │ Value: struct {                                                 │    │
-│  │   │   blocked_at: u64,                                              │    │
-│  │   │   reason: [32]u8                                                │    │
+│  │   │ Key: in6_addr (IPv6 地址，IPv4 映射为 ::ffff:x.x.x.x)          │    │
+│  │   │ Value: struct rule_value {                                     │    │
+│  │   │   counter: u64,                                                 │    │
+│  │   │   expires_at: u64,  // TTL 过期时间                             │    │
+│  │   │   action: u8,                                                   │    │
+│  │   │   priority: u8                                                  │    │
 │  │   │ }                                                               │    │
-│  │   │ 用途: 动态黑名单，自动过期淘汰                                  │    │
+│  │   │ 用途: 动态黑名单，自动过期淘汰 (LRU + TTL)                     │    │
 │  │   └────────────────────────────────────────────────────────────────┘    │
 │  │                                                                          │
-│  ├── ct_map (LRU Hash)                                                      │
+│  ├── critical_blacklist (Hash)                                              │
 │  │   ┌────────────────────────────────────────────────────────────────┐    │
-│  │   │ Key: struct {                                                   │    │
-│  │   │   src_ip: [16]u8,                                               │    │
-│  │   │   dst_ip: [16]u8,                                               │    │
+│  │   │ Key: in6_addr                                                   │    │
+│  │   │ Value: struct rule_value                                        │    │
+│  │   │ 用途: 危机封锁，最高优先级，永不自动淘汰                       │    │
+│  │   └────────────────────────────────────────────────────────────────┘    │
+│  │                                                                          │
+│  ├── conntrack_map / ct_map (LRU Hash)                                      │
+│  │   ┌────────────────────────────────────────────────────────────────┐    │
+│  │   │ Key: struct ct_key {                                            │    │
+│  │   │   src_ip: in6_addr,                                             │    │
+│  │   │   dst_ip: in6_addr,                                             │    │
 │  │   │   src_port: u16,                                                │    │
 │  │   │   dst_port: u16,                                                │    │
-│  │   │   proto: u8                                                     │    │
+│  │   │   protocol: u8                                                  │    │
 │  │   │ }                                                               │    │
-│  │   │ Value: struct {                                                 │    │
-│  │   │   state: u8,                                                    │    │
+│  │   │ Value: struct ct_value {                                        │    │
 │  │   │   last_seen: u64                                                │    │
 │  │   │ }                                                               │    │
-│  │   │ 用途: 连接追踪，有状态防火墙                                    │    │
+│  │   │ 用途: 连接追踪，有状态防火墙                                   │    │
 │  │   └────────────────────────────────────────────────────────────────┘    │
 │  │                                                                          │
-│  ├── rate_limit (Hash Map)                                                  │
+│  ├── ratelimit_map (LRU Hash)                                               │
 │  │   ┌────────────────────────────────────────────────────────────────┐    │
-│  │   │ Key: 128-bit IPv6 地址                                          │    │
-│  │   │ Value: struct {                                                 │    │
+│  │   │ Key: in6_addr                                                   │    │
+│  │   │ Value: struct ratelimit_value {                                 │    │
 │  │   │   rate: u64,        // 速率限制 (PPS)                           │    │
+│  │   │   rate_scaled: u64, // 预计算的缩放速率                         │    │
 │  │   │   burst: u64,       // 突发容量                                 │    │
-│  │   │   tokens: u64,      // 当前令牌数                               │    │
-│  │   │   last_update: u64  // 上次更新时间                             │    │
+│  │   │   config_version: u64,                                          │    │
+│  │   │   last_time: u64,   // 上次更新时间                             │    │
+│  │   │   tokens: u64       // 当前令牌数                               │    │
 │  │   │ }                                                               │    │
-│  │   │ 用途: IP 级别的 PPS 限速                                        │    │
+│  │   │ 用途: IP 级别的 PPS 限速 (令牌桶算法)                          │    │
 │  │   └────────────────────────────────────────────────────────────────┘    │
 │  │                                                                          │
-│  ├── ip_port_rules (Hash Map)                                               │
+│  ├── rule_map (LPM Trie)                                                    │
 │  │   ┌────────────────────────────────────────────────────────────────┐    │
-│  │   │ Key: struct {                                                   │    │
-│  │   │   ip: [16]u8,                                                   │    │
-│  │   │   port: u16                                                     │    │
+│  │   │ Key: struct lpm_ip_port_key {                                   │    │
+│  │   │   prefixlen: u32,                                               │    │
+│  │   │   port: u16,        // 端口 (0=所有端口)                        │    │
+│  │   │   ip: in6_addr       // IP 地址                                 │    │
 │  │   │ }                                                               │    │
-│  │   │ Value: struct {                                                 │    │
-│  │   │   action: u8,                                                   │    │
-│  │   │   reason: [64]u8                                                │    │
-│  │   │ }                                                               │    │
-│  │   │ 用途: IP+端口 级别的精细控制                                    │    │
+│  │   │ Value: struct rule_value                                        │    │
+│  │   │ 用途: IP+端口 级别的精细控制 (合并 allowed_ports + ip_port)    │    │
 │  │   └────────────────────────────────────────────────────────────────┘    │
 │  │                                                                          │
-│  ├── stats (Per-CPU Array)                                                  │
+│  ├── stats_global_map (Per-CPU Array)                                       │
 │  │   ┌────────────────────────────────────────────────────────────────┐    │
-│  │   │ Index: 0..N (CPU ID)                                            │    │
-│  │   │ Value: struct {                                                 │    │
-│  │   │   packets_passed: u64,                                          │    │
-│  │   │   packets_dropped: u64,                                         │    │
-│  │   │   bytes_passed: u64,                                            │    │
-│  │   │   bytes_dropped: u64                                            │    │
+│  │   │ Index: 0..63 (统计槽位)                                         │    │
+│  │   │ Value: struct stats_global {                                    │    │
+│  │   │   total_packets: u64,                                           │    │
+│  │   │   total_pass: u64,                                              │    │
+│  │   │   total_drop: u64,                                              │    │
+│  │   │   drop_blacklist: u64,                                          │    │
+│  │   │   drop_rate_limit: u64,                                         │    │
+│  │   │   pass_whitelist: u64,                                          │    │
+│  │   │   ... (更多统计字段)                                            │    │
 │  │   │ }                                                               │    │
-│  │   │ 用途: 高性能统计，无锁更新                                      │    │
+│  │   │ 用途: 高性能统计，无锁更新                                     │    │
+│  │   └────────────────────────────────────────────────────────────────┘    │
+│  │                                                                          │
+│  ├── top_drop_map (LRU Hash)                                                │
+│  │   ┌────────────────────────────────────────────────────────────────┐    │
+│  │   │ Key: struct top_stats_key { reason, protocol, src_ip, dst_port}│    │
+│  │   │ Value: u64 (计数)                                              │    │
+│  │   │ 用途: Top N 丢弃统计，用于攻击分析                             │    │
+│  │   └────────────────────────────────────────────────────────────────┘    │
+│  │                                                                          │
+│  ├── top_pass_map (LRU Hash)                                                │
+│  │   ┌────────────────────────────────────────────────────────────────┐    │
+│  │   │ Key: struct top_stats_key                                       │    │
+│  │   │ Value: u64 (计数)                                              │    │
+│  │   │ 用途: Top N 通过统计                                           │    │
+│  │   └────────────────────────────────────────────────────────────────┘    │
+│  │                                                                          │
+│  ├── global_config (Array)                                                  │
+│  │   ┌────────────────────────────────────────────────────────────────┐    │
+│  │   │ Index: 0..31 (配置槽位)                                         │    │
+│  │   │ Value: u64                                                      │    │
+│  │   │ 用途: 全局配置参数 (default_deny, timeouts 等)                 │    │
 │  │   └────────────────────────────────────────────────────────────────┘    │
 │  │                                                                          │
 │  └── jmp_table (Program Array)                                              │
 │      ┌────────────────────────────────────────────────────────────────┐    │
-│      │ Index: 2..15 (插件索引)                                        │    │
+│      │ Index: 0..15 (插件索引)                                        │    │
 │      │ Value: BPF 程序文件描述符                                      │    │
 │      │ 用途: Tail Call 插件扩展                                       │    │
 │      └────────────────────────────────────────────────────────────────┘    │
