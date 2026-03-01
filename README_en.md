@@ -203,6 +203,8 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
 
 ## ⚙️ Configuration
 
+### Auto-Blocking Configuration
+
 Enable Auto-Blocking in your configuration file (default: `/etc/netxfw/config.yaml`):
 
 ```yaml
@@ -214,14 +216,70 @@ rate_limit:
     - ip: "0.0.0.0/0"
       rate: 1000            # Packets per second limit
       burst: 2000           # Maximum burst allowed
+```
 
-# BPF Map Capacity Configuration (adjust based on memory)
+### BPF Map Capacity Configuration
+
+Adjust Map capacity based on your memory environment:
+
+```yaml
 capacity:
   whitelist: 10000          # Whitelist capacity
   blacklist: 50000          # Static blacklist capacity
   dynamic_blacklist: 20000  # Dynamic blacklist capacity
   conntrack: 100000         # Connection tracking table capacity
 ```
+
+### Log Engine Configuration
+
+The Log Engine analyzes log files in real-time and automatically executes defense actions:
+
+```yaml
+log_engine:
+  enabled: true             # Enable log engine
+  workers: 4                # Concurrent processing workers
+  files:                    # Log files to monitor
+    - "/var/log/nginx/access.log"
+    - "/var/log/auth.log"
+    - "/var/log/syslog"
+  rules:
+    # SSH brute-force defense: block after 5 failures in 60s
+    - id: "ssh_bruteforce"
+      path: "/var/log/auth.log"
+      action: "dynblack"    # Dynamic block (default 5 minutes)
+      is: ["Failed password"]
+      threshold: 5
+      interval: 60
+
+    # Block malicious scrapers
+    - id: "block_scrapers"
+      path: "/var/log/nginx/access.log"
+      action: "dynblack:1h" # Block for 1 hour
+      or:
+        - "Go-http-client"
+        - "python-requests"
+        - "curl/"
+
+    # Nginx 404/500 high-frequency scanning
+    - id: "nginx_scan"
+      path: "/var/log/nginx/access.log"
+      action: "dynblack"
+      expression: |
+        (Fields()[8] == "404" || Fields()[8] == "500") &&
+        Contains(Fields()[6], "admin") &&
+        Count(30) > 10
+```
+
+**Log Engine Actions**:
+
+| Action | Description |
+|--------|-------------|
+| `dynblack` | Dynamic block (default expiry) |
+| `dynblack:1h` | Dynamic block with specified duration (e.g., 10m, 1h, 30s) |
+| `lock` / `deny` | Permanent block (requires manual removal) |
+| `log` | Log alert only, no blocking |
+
+For more configuration options, see [Log Engine Documentation](docs/log-engine/07-03_log_engine_en.md).
 
 ---
 

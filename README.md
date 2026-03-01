@@ -203,6 +203,8 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
 
 ## ⚙️ 核心配置
 
+### 自动拦截配置
+
 在配置文件（默认为 `/etc/netxfw/config.yaml`）中启用自动拦截功能：
 
 ```yaml
@@ -214,14 +216,70 @@ rate_limit:
     - ip: "0.0.0.0/0"
       rate: 1000            # 每秒包数限制
       burst: 2000           # 允许的最大突发
+```
 
-# BPF Map 容量配置（根据内存环境调整）
+### BPF Map 容量配置
+
+根据内存环境调整 Map 容量：
+
+```yaml
 capacity:
   whitelist: 10000          # 白名单容量
   blacklist: 50000          # 静态黑名单容量
   dynamic_blacklist: 20000  # 动态黑名单容量
   conntrack: 100000         # 连接跟踪表容量
 ```
+
+### 日志引擎配置
+
+日志引擎用于实时分析日志文件并自动执行防御动作：
+
+```yaml
+log_engine:
+  enabled: true             # 启用日志引擎
+  workers: 4                # 并发处理协程数
+  files:                    # 监控的日志文件列表
+    - "/var/log/nginx/access.log"
+    - "/var/log/auth.log"
+    - "/var/log/syslog"
+  rules:
+    # SSH 爆破防御：60秒内失败5次则封禁
+    - id: "ssh_bruteforce"
+      path: "/var/log/auth.log"
+      action: "dynblack"    # 动态封禁（默认5分钟）
+      is: ["Failed password"]
+      threshold: 5
+      interval: 60
+
+    # 拦截恶意爬虫
+    - id: "block_scrapers"
+      path: "/var/log/nginx/access.log"
+      action: "dynblack:1h" # 封禁1小时
+      or:
+        - "Go-http-client"
+        - "python-requests"
+        - "curl/"
+
+    # Nginx 404/500 高频扫描
+    - id: "nginx_scan"
+      path: "/var/log/nginx/access.log"
+      action: "dynblack"
+      expression: |
+        (Fields()[8] == "404" || Fields()[8] == "500") &&
+        Contains(Fields()[6], "admin") &&
+        Count(30) > 10
+```
+
+**日志引擎动作说明**：
+
+| 动作 | 说明 |
+|------|------|
+| `dynblack` | 动态封禁（默认过期时间） |
+| `dynblack:1h` | 动态封禁指定时长（如 10m, 1h, 30s） |
+| `lock` / `deny` | 永久封禁（需手动解封） |
+| `log` | 仅记录告警，不执行拦截 |
+
+更多配置请参考 [日志引擎文档](docs/log-engine/07-03_log_engine.md)。
 
 ---
 
