@@ -343,6 +343,8 @@ func (m *Manager) Pin(path string) error {
 		return err
 	}
 
+	m.logger.Infof("[PIN] Pinning BPF maps to %s", path)
+
 	pinMap := func(ebpfMap *ebpf.Map, name string) {
 		if ebpfMap == nil {
 			return
@@ -351,6 +353,8 @@ func (m *Manager) Pin(path string) error {
 		_ = os.Remove(p) // Ensure old pin is removed / 确保旧的固定点被移除
 		if err := ebpfMap.Pin(p); err != nil {
 			m.logger.Warnf("[WARN]  Failed to pin %s: %v", name, err)
+		} else {
+			m.logger.Infof("[PIN] Pinned %s -> %s", name, p)
 		}
 	}
 

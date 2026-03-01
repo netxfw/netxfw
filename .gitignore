@@ -22,6 +22,8 @@ internal/xdp/netxfw_bpfel.o
 internal/xdp/netxfw_bpfeb.o
 internal/xdp/netxfw_bpfel.go
 internal/xdp/netxfw_bpfeb.go
+bpf/**/*.o
+bpf/netxfw.bpf.o
 
 # OS metadata
 .DS_Store

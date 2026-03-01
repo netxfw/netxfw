@@ -21,10 +21,12 @@ import (
 )
 
 // VerifyAndRepair ensures consistency between config and BPF maps by forcing a sync.
+// Uses overwrite=false to avoid clearing existing rules (which would cause network outage).
 // VerifyAndRepair 通过强制同步来确保配置和 BPF Map 之间的一致性。
+// 使用 overwrite=false 避免清除现有规则（这会导致网络中断）。
 func (m *Manager) VerifyAndRepair(cfg *types.GlobalConfig) error {
 	m.logger.Infof("[SCAN] Verifying consistency between config and BPF maps (Auto-Repair)...")
-	return m.SyncFromFiles(cfg, true)
+	return m.SyncFromFiles(cfg, false)
 }
 
 // syncWhitelistFromConfig syncs whitelist rules from config to BPF maps.
@@ -210,8 +212,8 @@ func (m *Manager) setGlobalConfigValue(setter func(bool) error, value bool, name
 // SyncFromFiles 从文本或二进制文件读取规则并更新 BPF Map。
 // 如果 overwrite 为 true，则先清除 Map 中的现有规则。
 func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
-	if cfg.Base.LockListFile == "" || cfg.Base.LockListBinary == "" {
-		return fmt.Errorf("lock_list_file and lock_list_binary must be configured for sync")
+	if cfg.Base.LockListFile == "" {
+		return fmt.Errorf("lock_list_file must be configured for sync")
 	}
 
 	if overwrite {
@@ -219,13 +221,16 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 		m.ClearMaps()
 	}
 
-	// NEW: Try to load from binary file first for better performance
+	// Try to load from binary file first if configured (for better performance)
+	// 如果配置了二进制文件，优先尝试加载（以获得更好的性能）
 	loadedFromBinary := false
-	if err := m.loadFromBinaryFile(cfg); err != nil {
-		m.logger.Warnf("[WARN]  Failed to load from binary file: %v, falling back to text file", err)
-	} else {
-		m.logger.Infof("[OK] Successfully loaded rules from binary file")
-		loadedFromBinary = true
+	if cfg.Base.LockListBinary != "" {
+		if err := m.loadFromBinaryFile(cfg); err != nil {
+			m.logger.Warnf("[WARN]  Failed to load from binary file: %v, falling back to text file", err)
+		} else {
+			m.logger.Infof("[OK] Successfully loaded rules from binary file")
+			loadedFromBinary = true
+		}
 	}
 
 	// 1. Sync Whitelist / 1. 同步白名单

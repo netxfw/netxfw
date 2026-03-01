@@ -88,18 +88,21 @@ whitelist:
 ### 端口暴露最小化
 
 ```yaml
-# 只开放必要端口
-allowed_ports:
-  - port: 22      # SSH
-    action: allow
-  - port: 80      # HTTP
-    action: allow
-  - port: 443     # HTTPS
-    action: allow
-  # 管理端口只允许内网访问
-  - port: 11811
-    action: allow
-    source: "10.0.0.0/8"
+# 只开放必要端口 (allowed_ports: 简单端口数组)
+# Only open necessary ports (allowed_ports: simple port array)
+port:
+  allowed_ports:
+    - 22      # SSH
+    - 80      # HTTP
+    - 443     # HTTPS
+
+  # IP+端口组合规则：特定来源访问特定端口
+  # IP+Port rules: specific source access to specific ports
+  ip_port_rules:
+    # 管理端口只允许内网访问
+    - ip: "10.0.0.0/8"
+      port: 11811
+      action: allow
 ```
 
 ---

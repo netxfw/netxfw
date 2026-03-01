@@ -56,7 +56,7 @@ install: build
 	mkdir -p /etc/netxfw
 	mkdir -p /usr/local/bin
 	cp netxfw /usr/local/bin/
-	if [ ! -f /etc/netxfw/config.yaml ]; then cp rules/default.yaml /etc/netxfw/config.yaml; fi
+	if [ ! -f /etc/netxfw/config.yaml ]; then ./netxfw system init --config /etc/netxfw/config.yaml; fi
 	if [ ! -f /etc/netxfw/lock_list.txt ]; then touch /etc/netxfw/lock_list.txt; fi
 
 uninstall:

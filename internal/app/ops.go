@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	// Import pprof for HTTP endpoint profiling / 导入 pprof 用于 HTTP 端点性能分析
@@ -56,11 +57,25 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		return fmt.Errorf("failed to pin maps: %v", err)
 	}
 
+	// Load persisted rules from lock_list.txt before attaching
+	// 在挂载前从 lock_list.txt 加载持久化的规则
+	if globalCfg.Base.LockListFile != "" {
+		log.Infof("[LOAD] Loading persisted rules from %s...", globalCfg.Base.LockListFile)
+		if err := manager.SyncFromFiles(globalCfg, false); err != nil {
+			log.Warnf("[WARN]  Failed to load persisted rules: %v (continuing anyway)", err)
+		}
+	}
+
 	if err := manager.Attach(interfaces); err != nil {
 		return fmt.Errorf("failed to attach XDP: %v", err)
 	}
 
 	detachOrphanedInterfaces(manager, interfaces, log)
+
+	// Load BPF plugins if enabled / 如果启用则加载 BPF 插件
+	if err := loadBPFPlugins(manager, globalCfg, log); err != nil {
+		log.Warnf("[WARN]  Failed to load BPF plugins: %v (continuing anyway)", err)
+	}
 
 	s := sdk.NewSDK(xdp.NewAdapter(manager))
 	pluginCtx := &sdk.PluginContext{
@@ -154,6 +169,64 @@ func detachOrphanedInterfaces(manager *xdp.Manager, interfaces []string, log *za
 			log.Warnf("[WARN]  Failed to detach from removed interfaces: %v", err)
 		}
 	}
+}
+
+// loadBPFPlugins loads BPF plugins configured in the global config.
+// loadBPFPlugins 加载全局配置中配置的 BPF 插件。
+func loadBPFPlugins(manager *xdp.Manager, globalCfg *types.GlobalConfig, log *zap.SugaredLogger) error {
+	// Check if BPF plugin loading is enabled / 检查是否启用 BPF 插件加载
+	if !globalCfg.BPFPlugin.Enabled {
+		log.Infof("[INFO]  BPF plugin auto-loading is disabled")
+		return nil
+	}
+
+	plugins := globalCfg.BPFPlugin.Plugins
+	if len(plugins) == 0 {
+		log.Infof("[INFO]  No BPF plugins configured")
+		return nil
+	}
+
+	log.Infof("[INFO]  Loading %d BPF plugin(s)...", len(plugins))
+
+	var loadErrors []string
+	loadedCount := 0
+
+	for _, plugin := range plugins {
+		// Skip disabled plugins / 跳过已禁用的插件
+		if !plugin.Enabled {
+			log.Infof("[INFO]  Skipping disabled plugin: %s (index %d)", plugin.Path, plugin.Index)
+			continue
+		}
+
+		// Validate plugin index / 验证插件索引
+		if plugin.Index < xdp.ProgIdxPluginStart || plugin.Index > xdp.ProgIdxPluginEnd {
+			log.Warnf("[WARN]  Invalid plugin index %d for %s (must be %d-%d)",
+				plugin.Index, plugin.Path, xdp.ProgIdxPluginStart, xdp.ProgIdxPluginEnd)
+			loadErrors = append(loadErrors, fmt.Sprintf("%s: invalid index %d", plugin.Path, plugin.Index))
+			continue
+		}
+
+		// Load the plugin / 加载插件
+		if err := manager.LoadPlugin(plugin.Path, plugin.Index); err != nil {
+			log.Warnf("[WARN]  Failed to load BPF plugin %s: %v", plugin.Path, err)
+			loadErrors = append(loadErrors, fmt.Sprintf("%s: %v", plugin.Path, err))
+			continue
+		}
+
+		loadedCount++
+		desc := plugin.Description
+		if desc == "" {
+			desc = "no description"
+		}
+		log.Infof("[OK] BPF plugin loaded: %s at index %d (%s)", plugin.Path, plugin.Index, desc)
+	}
+
+	if len(loadErrors) > 0 {
+		return fmt.Errorf("failed to load %d plugin(s): %s", len(loadErrors), strings.Join(loadErrors, "; "))
+	}
+
+	log.Infof("[OK] Successfully loaded %d/%d BPF plugin(s)", loadedCount, len(plugins))
+	return nil
 }
 
 /**

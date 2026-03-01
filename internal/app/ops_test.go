@@ -5,7 +5,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
@@ -180,6 +182,145 @@ func TestReloadXDP_InvalidInterface(t *testing.T) {
 	// This may succeed if XDP is already loaded in the environment
 	// 如果环境中已加载 XDP，这可能会成功
 	_ = ReloadXDP(ctx, []string{"nonexistent123"})
+}
+
+// TestLoadBPFPlugins_Disabled tests loadBPFPlugins with disabled config
+// TestLoadBPFPlugins_Disabled 测试禁用配置的 loadBPFPlugins
+func TestLoadBPFPlugins_Disabled(t *testing.T) {
+	l, _ := zap.NewDevelopment()
+	log := l.Sugar()
+
+	globalCfg := &types.GlobalConfig{
+		BPFPlugin: types.BPFPluginSettings{
+			Enabled: false,
+		},
+	}
+
+	manager := &xdp.Manager{}
+	err := loadBPFPlugins(manager, globalCfg, log)
+	assert.NoError(t, err)
+}
+
+// TestLoadBPFPlugins_NoPlugins tests loadBPFPlugins with no plugins configured
+// TestLoadBPFPlugins_NoPlugins 测试没有配置插件的 loadBPFPlugins
+func TestLoadBPFPlugins_NoPlugins(t *testing.T) {
+	l, _ := zap.NewDevelopment()
+	log := l.Sugar()
+
+	globalCfg := &types.GlobalConfig{
+		BPFPlugin: types.BPFPluginSettings{
+			Enabled: true,
+			Plugins: []types.BPFPluginConfig{},
+		},
+	}
+
+	manager := &xdp.Manager{}
+	err := loadBPFPlugins(manager, globalCfg, log)
+	assert.NoError(t, err)
+}
+
+// TestLoadBPFPlugins_DisabledPlugin tests loadBPFPlugins with disabled plugin
+// TestLoadBPFPlugins_DisabledPlugin 测试禁用插件的 loadBPFPlugins
+func TestLoadBPFPlugins_DisabledPlugin(t *testing.T) {
+	l, _ := zap.NewDevelopment()
+	log := l.Sugar()
+
+	globalCfg := &types.GlobalConfig{
+		BPFPlugin: types.BPFPluginSettings{
+			Enabled: true,
+			Plugins: []types.BPFPluginConfig{
+				{
+					Path:        "/tmp/test.o",
+					Index:       2,
+					Enabled:     false,
+					Description: "Test plugin",
+				},
+			},
+		},
+	}
+
+	manager := &xdp.Manager{}
+	err := loadBPFPlugins(manager, globalCfg, log)
+	assert.NoError(t, err)
+}
+
+// TestLoadBPFPlugins_InvalidIndex tests loadBPFPlugins with invalid plugin index
+// TestLoadBPFPlugins_InvalidIndex 测试无效插件索引的 loadBPFPlugins
+func TestLoadBPFPlugins_InvalidIndex(t *testing.T) {
+	l, _ := zap.NewDevelopment()
+	log := l.Sugar()
+
+	globalCfg := &types.GlobalConfig{
+		BPFPlugin: types.BPFPluginSettings{
+			Enabled: true,
+			Plugins: []types.BPFPluginConfig{
+				{
+					Path:        "/tmp/test.o",
+					Index:       1, // Invalid: must be 2-15
+					Enabled:     true,
+					Description: "Test plugin",
+				},
+			},
+		},
+	}
+
+	manager := &xdp.Manager{}
+	err := loadBPFPlugins(manager, globalCfg, log)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid index")
+}
+
+// TestLoadBPFPlugins_IndexOutOfRange tests loadBPFPlugins with index out of range
+// TestLoadBPFPlugins_IndexOutOfRange 测试索引超出范围的 loadBPFPlugins
+func TestLoadBPFPlugins_IndexOutOfRange(t *testing.T) {
+	l, _ := zap.NewDevelopment()
+	log := l.Sugar()
+
+	globalCfg := &types.GlobalConfig{
+		BPFPlugin: types.BPFPluginSettings{
+			Enabled: true,
+			Plugins: []types.BPFPluginConfig{
+				{
+					Path:        "/tmp/test.o",
+					Index:       16, // Invalid: must be 2-15
+					Enabled:     true,
+					Description: "Test plugin",
+				},
+			},
+		},
+	}
+
+	manager := &xdp.Manager{}
+	err := loadBPFPlugins(manager, globalCfg, log)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid index")
+}
+
+// TestBPFPluginConfig_Defaults tests BPFPluginConfig default values
+// TestBPFPluginConfig_Defaults 测试 BPFPluginConfig 默认值
+func TestBPFPluginConfig_Defaults(t *testing.T) {
+	cfg := types.BPFPluginConfig{
+		Path:    "/tmp/test.o",
+		Index:   2,
+		Enabled: true,
+	}
+
+	assert.Equal(t, "/tmp/test.o", cfg.Path)
+	assert.Equal(t, 2, cfg.Index)
+	assert.True(t, cfg.Enabled)
+	assert.Empty(t, cfg.Description)
+}
+
+// TestBPFPluginSettings_Defaults tests BPFPluginSettings default values
+// TestBPFPluginSettings_Defaults 测试 BPFPluginSettings 默认值
+func TestBPFPluginSettings_Defaults(t *testing.T) {
+	settings := types.BPFPluginSettings{
+		Enabled: false,
+		Plugins: []types.BPFPluginConfig{},
+	}
+
+	assert.False(t, settings.Enabled)
+	assert.Empty(t, settings.Plugins)
 }
 
 // TestRunWebServer_NoXDP tests RunWebServer without XDP loaded

@@ -96,7 +96,8 @@ base:
 
   # Lock List Binary: Binary format for fast loading (optional).
   # 锁定列表二进制文件：用于快速加载的二进制格式（可选）。
-  lock_list_binary: ""
+  lock_list_binary: "lock_list.bin.zst
+  "
 
   # Lock List Merge Threshold: If > 0, merge IPs into subnets if count >= threshold.
   # 锁定列表合并阈值：如果 > 0，当数量 >= 阈值时将 IP 合并为子网。
@@ -321,7 +322,48 @@ cloud:
   # 真实 IP 黑名单通过 API/CLI 管理，不存储在配置文件中。
   # Use: netxfw cloud block <ip> --reason "xxx" --duration "24h"
   # 使用: netxfw cloud block <ip> --reason "xxx" --duration "24h"
+
+# BPF Plugin Configuration / BPF 插件配置
+# Configure custom BPF plugins to extend firewall functionality
+# 配置自定义 BPF 插件以扩展防火墙功能
+bpf_plugin:
+  # Enable BPF plugin auto-loading on startup / 启用启动时自动加载 BPF 插件
+  enabled: false
+  
+  # List of BPF plugins to load / 要加载的 BPF 插件列表
+  plugins: []
+  # Example / 示例:
+  # - path: "/etc/netxfw/plugins/custom_filter.o"  # Plugin ELF file path / 插件 ELF 文件路径
+  #   index: 2                                     # Jump table index (2-15) / 跳转表索引 (2-15)
+  #   enabled: true                                # Load this plugin / 加载此插件
+  #   description: "Custom packet filter"          # Optional description / 可选描述
+  # - path: "/etc/netxfw/plugins/dns_filter.o"
+  #   index: 3
+  #   enabled: true
+  #   description: "DNS query filter"
 `
+
+// BPFPluginConfig defines a single BPF plugin configuration.
+// BPFPluginConfig 定义单个 BPF 插件配置。
+type BPFPluginConfig struct {
+	// Path to the BPF plugin ELF file / BPF 插件 ELF 文件路径
+	Path string `yaml:"path"`
+	// Index in the jump table (2-15) / 跳转表中的索引 (2-15)
+	Index int `yaml:"index"`
+	// Enabled flag to control whether to load this plugin / 启用标志，控制是否加载此插件
+	Enabled bool `yaml:"enabled"`
+	// Description of the plugin (optional) / 插件描述（可选）
+	Description string `yaml:"description"`
+}
+
+// BPFPluginSettings defines global BPF plugin settings.
+// BPFPluginSettings 定义全局 BPF 插件设置。
+type BPFPluginSettings struct {
+	// Enable BPF plugin auto-loading on startup / 启用启动时自动加载 BPF 插件
+	Enabled bool `yaml:"enabled"`
+	// List of BPF plugins to load / 要加载的 BPF 插件列表
+	Plugins []BPFPluginConfig `yaml:"plugins"`
+}
 
 // GlobalConfig represents the top-level configuration structure.
 // GlobalConfig 表示顶级配置结构。
@@ -339,6 +381,7 @@ type GlobalConfig struct {
 	Cloud     CloudConfig          `yaml:"cloud"`
 	AI        AIConfig             `yaml:"ai"`
 	MCP       MCPConfig            `yaml:"mcp"`
+	BPFPlugin BPFPluginSettings    `yaml:"bpf_plugin"`
 }
 
 // LogEngineConfig defines the configuration for the log engine.

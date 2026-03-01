@@ -231,6 +231,155 @@ var SimpleVersionCmd = &cobra.Command{
 	},
 }
 
+// SimplePluginCmd 实现 'plugin' 命令（BPF 插件管理）
+// SimplePluginCmd implements the 'plugin' command (BPF plugin management)
+var SimplePluginCmd = &cobra.Command{
+	Use:   "plugin",
+	Short: "Manage BPF plugins",
+	// Short: 管理 BPF 插件
+	Long: `Manage BPF plugins for extending firewall functionality.
+
+BPF plugins allow you to extend the firewall with custom packet processing logic.
+Plugins are loaded into the jump table at specific indices (2-15).
+
+Subcommands:
+  plugin load <path> <index>   Load a BPF plugin from ELF file
+  plugin remove <index>        Remove a plugin from the jump table
+  plugin list                  List loaded plugins
+
+Examples:
+  netxfw plugin load /etc/netxfw/plugins/custom_filter.o 2
+  netxfw plugin remove 2
+  netxfw plugin list`,
+	// Long: 管理 BPF 插件以扩展防火墙功能。
+	//
+	// BPF 插件允许您使用自定义数据包处理逻辑扩展防火墙。
+	// 插件被加载到跳转表中的特定索引 (2-15)。
+	//
+	// 子命令:
+	//   plugin load <路径> <索引>   从 ELF 文件加载 BPF 插件
+	//   plugin remove <索引>        从跳转表中移除插件
+	//   plugin list                  列出已加载的插件
+	//
+	// 示例:
+	//   netxfw plugin load /etc/netxfw/plugins/custom_filter.o 2
+	//   netxfw plugin remove 2
+	//   netxfw plugin list
+	Args: cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
+}
+
+// pluginLoadCmd plugin load 子命令
+// pluginLoadCmd plugin load subcommand
+var pluginLoadCmd = &cobra.Command{
+	Use:   "load <path> <index>",
+	Short: "Load a BPF plugin",
+	// Short: 加载 BPF 插件
+	Long: `Load a BPF plugin from an ELF file into the jump table.
+
+The index must be between 2 and 15 (inclusive).
+Plugin ELF files must contain a valid XDP program.`,
+	// Long: 从 ELF 文件加载 BPF 插件到跳转表。
+	//
+	// 索引必须在 2 到 15 之间（含）。
+	// 插件 ELF 文件必须包含有效的 XDP 程序。
+	Args: cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		path := args[0]
+		index, err := strconv.Atoi(args[1])
+		if err != nil {
+			cmd.PrintErrln("[ERROR] Invalid index: must be a number")
+			os.Exit(1)
+		}
+
+		configFile, _ := cmd.Flags().GetString("config")
+		executor := NewCommandExecutor(cmd).WithConfig(configFile)
+
+		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
+			defer manager.Close()
+
+			if err := manager.LoadPlugin(path, index); err != nil {
+				return fmt.Errorf("[ERROR] Failed to load plugin: %v", err)
+			}
+			executor.PrintSuccess(fmt.Sprintf("Plugin loaded: %s at index %d", path, index))
+			return nil
+		})
+	},
+}
+
+// pluginRemoveCmd plugin remove 子命令
+// pluginRemoveCmd plugin remove subcommand
+var pluginRemoveCmd = &cobra.Command{
+	Use:   "remove <index>",
+	Short: "Remove a BPF plugin",
+	// Short: 移除 BPF 插件
+	Long: `Remove a BPF plugin from the jump table by index.`,
+	// Long: 通过索引从跳转表中移除 BPF 插件。
+	Args: cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		index, err := strconv.Atoi(args[0])
+		if err != nil {
+			cmd.PrintErrln("[ERROR] Invalid index: must be a number")
+			os.Exit(1)
+		}
+
+		configFile, _ := cmd.Flags().GetString("config")
+		executor := NewCommandExecutor(cmd).WithConfig(configFile)
+
+		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
+			defer manager.Close()
+
+			if err := manager.RemovePlugin(index); err != nil {
+				return fmt.Errorf("[ERROR] Failed to remove plugin: %v", err)
+			}
+			executor.PrintSuccess(fmt.Sprintf("Plugin removed from index %d", index))
+			return nil
+		})
+	},
+}
+
+// pluginListCmd plugin list 子命令
+// pluginListCmd plugin list subcommand
+var pluginListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List loaded BPF plugins",
+	// Short: 列出已加载的 BPF 插件
+	Long: `List all currently loaded BPF plugins and their indices.`,
+	// Long: 列出所有当前已加载的 BPF 插件及其索引。
+	Args: cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		configFile, _ := cmd.Flags().GetString("config")
+		executor := NewCommandExecutor(cmd).WithConfig(configFile)
+
+		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
+			defer manager.Close()
+
+			fmt.Println("=== BPF Plugins ===")
+			fmt.Println("Index Range: 2-15")
+			fmt.Println()
+
+			hasPlugins := false
+			for i := xdp.ProgIdxPluginStart; i <= xdp.ProgIdxPluginEnd; i++ {
+				// Check if the slot is occupied by trying to lookup
+				// 通过尝试查找来检查插槽是否被占用
+				var progID uint32
+				err := manager.JmpTable().Lookup(uint32(i), &progID)
+				if err == nil {
+					hasPlugins = true
+					fmt.Printf("  [%d] Plugin loaded (ID: %d)\n", i, progID)
+				}
+			}
+
+			if !hasPlugins {
+				fmt.Println("  No plugins loaded")
+			}
+			return nil
+		})
+	},
+}
+
 // SimpleWebCmd 实现 'web' 命令
 // SimpleWebCmd implements the 'web' command
 var SimpleWebCmd = &cobra.Command{
@@ -1136,6 +1285,16 @@ func init() {
 	RegisterCommonFlags(UfwDisableCmd)
 	RegisterCommonFlags(UfwResetCmd)
 
+	// Register plugin command and subcommands
+	// 注册 plugin 命令和子命令
+	RegisterCommonFlags(SimplePluginCmd)
+	RegisterCommonFlags(pluginLoadCmd)
+	RegisterCommonFlags(pluginRemoveCmd)
+	RegisterCommonFlags(pluginListCmd)
+	SimplePluginCmd.AddCommand(pluginLoadCmd)
+	SimplePluginCmd.AddCommand(pluginRemoveCmd)
+	SimplePluginCmd.AddCommand(pluginListCmd)
+
 	// Register allow subcommands
 	// 注册 allow 子命令
 	RegisterCommonFlags(allowAddCmd)
@@ -1278,7 +1437,9 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 
 	executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-	executor.ExecuteWithSDK(func(s *sdk.SDK) error {
+	executor.ExecuteWithConfigManager(func(cfg *types.GlobalConfig, manager *xdp.Manager) error {
+		s := sdk.NewSDK(xdp.NewAdapter(manager))
+
 		if port > 0 {
 			if ttlStr != "" {
 				cmd.PrintErrln("[WARN]  WARNING: TTL parameter is ignored for IP+Port rules")
@@ -1301,7 +1462,10 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 			}
 			executor.PrintSuccess(fmt.Sprintf("[BLOCK] IP added to dynamic blacklist: %s (TTL: %s)", ip, ttlStr))
 		} else {
-			if err := s.Blacklist.Add(ip); err != nil {
+			// Use AddWithFile to persist static blacklist to file
+			// 使用 AddWithFile 将静态黑名单持久化到文件
+			lockListFile := cfg.Base.LockListFile
+			if err := s.Blacklist.AddWithFile(ip, lockListFile); err != nil {
 				return fmt.Errorf("[ERROR] Failed to add to static blacklist: %v", err)
 			}
 			executor.PrintSuccess("[BLOCK] IP added to static blacklist: " + ip)

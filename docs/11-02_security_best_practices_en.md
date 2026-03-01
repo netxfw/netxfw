@@ -88,18 +88,19 @@ whitelist:
 ### Minimize Port Exposure
 
 ```yaml
-# Only open necessary ports
-allowed_ports:
-  - port: 22      # SSH
-    action: allow
-  - port: 80      # HTTP
-    action: allow
-  - port: 443     # HTTPS
-    action: allow
-  # Management port only from internal network
-  - port: 11811
-    action: allow
-    source: "10.0.0.0/8"
+# Only open necessary ports (allowed_ports: simple port array)
+port:
+  allowed_ports:
+    - 22      # SSH
+    - 80      # HTTP
+    - 443     # HTTPS
+
+  # IP+Port rules: specific source access to specific ports
+  ip_port_rules:
+    # Management port only from internal network
+    - ip: "10.0.0.0/8"
+      port: 11811
+      action: allow
 ```
 
 ---

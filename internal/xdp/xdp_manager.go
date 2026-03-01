@@ -241,15 +241,22 @@ func NewManagerFromPins(path string, logger Logger) (*Manager, error) {
 
 // Close releases all BPF resources.
 // Note: Persistent links are NOT closed here to allow them to stay in kernel.
+// For InstallXDP (system load), we should NOT call Close() to keep XDP running.
 // Close 释放所有 BPF 资源。
 // 注意：此处不关闭持久链接，以允许它们保留在内核中。
+// 对于 InstallXDP（system load），不应调用 Close() 以保持 XDP 运行。
 func (m *Manager) Close() error {
-	err := m.objs.Close()
-	// We no longer automatically close links here to keep them persistent.
-	// Links are now pinned and should be managed via Detach or manually.
-	// 我们不再在此处自动关闭链接，以保持其持久性。
-	// 链接现在已被固定，应通过 Detach 或手动管理。
-	return err
+	if m.objs.XdpFirewall != nil {
+		// Do NOT close the XDP program - it should stay loaded in kernel
+		// 不要关闭 XDP 程序 - 它应该保持在内核中加载
+		m.objs.XdpFirewall = nil
+	}
+	if m.objs.TcEgress != nil {
+		m.objs.TcEgress = nil
+	}
+	// Maps are pinned, so we don't need to close them either
+	// Map 已经被固定，所以也不需要关闭它们
+	return nil
 }
 
 // GetHealthChecker returns a health checker for this manager.
