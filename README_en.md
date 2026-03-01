@@ -272,12 +272,14 @@ log_engine:
 
 **Log Engine Actions**:
 
-| Action | Description |
-|--------|-------------|
-| `dynblack` | Dynamic block (default expiry) |
-| `dynblack:1h` | Dynamic block with specified duration (e.g., 10m, 1h, 30s) |
-| `lock` / `deny` | Permanent block (requires manual removal) |
-| `log` | Log alert only, no blocking |
+| Action Value | String Form | Description |
+|--------------|-------------|-------------|
+| `0` | `log` | Log alert only, no blocking |
+| `1` | `dynblack` | Dynamic block (default expiry) |
+| `1` | `dynblack:1h` | Dynamic block with specified duration (e.g., 10m, 1h, 30s) |
+| `2` | `lock` / `deny` | Permanent block (requires manual removal) |
+
+> **Note**: Actions support both numeric form (0/1/2) and string form, both are equivalent.
 
 For more configuration options, see [Log Engine Documentation](docs/log-engine/07-03_log_engine_en.md).
 

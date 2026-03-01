@@ -97,11 +97,14 @@ For complex logic, use Expr expression language:
 
 ## 4. Action Types
 
-| Action | Description | Duration |
-| :--- | :--- | :--- |
-| `dynblack` | Add to dynamic blacklist | Auto-expire (configurable) |
-| `blacklist` | Add to static blacklist | Permanent |
-| `alert` | Only log alert | N/A |
+| Action Value | String Form | Description | Duration |
+| :--- | :--- | :--- | :--- |
+| `0` | `log` | Only log alert | N/A |
+| `1` | `dynblack` | Add to dynamic blacklist | Auto-expire (configurable) |
+| `1` | `dynblack:1h` | Add to dynamic blacklist with duration | Specified duration (e.g., 10m, 1h, 30s) |
+| `2` | `blacklist` / `lock` / `deny` | Add to static blacklist | Permanent |
+
+> **Note**: Actions support both numeric form (`0`/`1`/`2`) and string form, both are equivalent.
 
 ## 5. Field Extraction
 
