@@ -7,7 +7,9 @@ Type=simple
 # 启动前先执行 load xdp 确保程序挂载到内核
 ExecStartPre=/usr/local/bin/netxfw system load
 # 常驻进程运行 daemon 模式，负责指标收集和规则同步
-ExecStart=/usr/local/bin/netxfw system daemon 
+# --mode agent: 轻量级控制平面模式，连接已加载的 BPF Maps
+# --mode agent: Lightweight control plane mode, connects to existing BPF Maps
+ExecStart=/usr/local/bin/netxfw system daemon --mode agent 
 # 停止服务时，根据需要决定是否卸载 XDP (此处默认不卸载，保持内核防护)
 # 如果需要停止即卸载，可以取消下面这行的注释
 # ExecStopPost=/usr/local/bin/netxfw system unload
