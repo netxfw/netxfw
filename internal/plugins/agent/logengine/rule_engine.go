@@ -467,7 +467,7 @@ func (re *RuleEngine) parseActionType(cfg types.LogEngineRule) ActionType {
 		return ActionLog
 	case "1", "dynamic", "dynblock", "dynblack", "block", "black":
 		return ActionDynamic
-	case "2", "static", "permanent", "lock", "deny":
+	case "2", "static", "deny", "lock", "permanent", "blacklist":
 		return ActionStatic
 	default:
 		return re.parseLegacyActionType(cfg, actStr)

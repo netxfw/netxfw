@@ -427,3 +427,155 @@ func TestLogEnginePlugin_Start_Disabled(t *testing.T) {
 	err := p.Start(ctx)
 	assert.NoError(t, err)
 }
+
+// TestParseActionType_Numeric tests numeric action values
+// TestParseActionType_Numeric 测试数字动作值
+func TestParseActionType_Numeric(t *testing.T) {
+	mockHandler := &MockActionHandler{}
+	cfg := types.LogEngineConfig{Enabled: true, Workers: 1}
+	le := New(cfg, logger.Get(nil), mockHandler)
+	re := le.RuleEngine()
+
+	tests := []struct {
+		name     string
+		action   string
+		expected ActionType
+	}{
+		// Numeric forms / 数字形式
+		{"numeric_0", "0", ActionLog},
+		{"numeric_1", "1", ActionDynamic},
+		{"numeric_2", "2", ActionStatic},
+
+		// String forms / 字符串形式
+		{"string_log", "log", ActionLog},
+		{"string_LOG", "LOG", ActionLog},
+		{"string_dynamic", "dynamic", ActionDynamic},
+		{"string_dynblock", "dynblock", ActionDynamic},
+
+		// Static forms / 静态形式
+		{"string_static", "static", ActionStatic},
+		{"string_deny", "deny", ActionStatic},
+
+		// Empty defaults to log / 空值默认为 log
+		{"empty", "", ActionLog},
+
+		// Legacy forms (handled by parseLegacyActionType) / 旧版形式
+		{"legacy_dynblack", "dynblack", ActionDynamic},
+		{"legacy_block", "block", ActionDynamic},
+		{"legacy_black", "black", ActionDynamic},
+		{"legacy_block_with_duration", "block:10m", ActionDynamic},
+		{"legacy_black_with_duration", "black:1h", ActionDynamic},
+		{"legacy_lock", "lock", ActionStatic},
+		{"legacy_permanent", "permanent", ActionStatic},
+		{"legacy_blacklist", "blacklist", ActionStatic},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rule := types.LogEngineRule{
+				ID:         "test_" + tt.name,
+				Expression: `log("test")`,
+				Action:     tt.action,
+			}
+			result := re.parseActionType(rule)
+			assert.Equal(t, tt.expected, result, "Action '%s' should resolve to %d", tt.action, tt.expected)
+		})
+	}
+}
+
+// TestParseActionType_Invalid tests invalid action values
+// TestParseActionType_Invalid 测试无效动作值
+func TestParseActionType_Invalid(t *testing.T) {
+	mockHandler := &MockActionHandler{}
+	cfg := types.LogEngineConfig{Enabled: true, Workers: 1}
+	le := New(cfg, logger.Get(nil), mockHandler)
+	re := le.RuleEngine()
+
+	tests := []struct {
+		name   string
+		action string
+	}{
+		{"invalid_3", "3"},
+		{"invalid_negative", "-1"},
+		{"invalid_unknown", "unknown"},
+		{"invalid_random", "foobar"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rule := types.LogEngineRule{
+				ID:         "test_" + tt.name,
+				Expression: `log("test")`,
+				Action:     tt.action,
+			}
+			result := re.parseActionType(rule)
+			assert.Equal(t, ActionLog, result, "Invalid action '%s' should default to ActionLog (0)", tt.action)
+		})
+	}
+}
+
+// TestActionType_Constants tests action type constants
+// TestActionType_Constants 测试动作类型常量
+func TestActionType_Constants(t *testing.T) {
+	assert.Equal(t, ActionType(0), ActionLog)
+	assert.Equal(t, ActionType(1), ActionDynamic)
+	assert.Equal(t, ActionType(2), ActionStatic)
+}
+
+// TestRuleEngine_ActionExecution tests that actions are correctly executed
+// TestRuleEngine_ActionExecution 测试动作是否正确执行
+func TestRuleEngine_ActionExecution(t *testing.T) {
+	mockHandler := &MockActionHandler{}
+
+	cfg := types.LogEngineConfig{
+		Enabled: true,
+		Workers: 1,
+		Rules: []types.LogEngineRule{
+			{
+				ID:         "action_0_log",
+				Expression: `log("ALERT_ONLY")`,
+				Action:     "0", // Log only
+			},
+			{
+				ID:         "action_1_dynamic",
+				Expression: `log("DYNAMIC_BLOCK")`,
+				Action:     "1", // Dynamic block
+				TTL:        "30m",
+			},
+			{
+				ID:         "action_2_static",
+				Expression: `log("STATIC_BLOCK")`,
+				Action:     "2", // Static block
+			},
+		},
+	}
+
+	le := New(cfg, logger.Get(nil), mockHandler)
+
+	// Test ActionLog (0) - should match but not block
+	// 测试 ActionLog (0) - 应该匹配但不阻止
+	ip1 := netip.MustParseAddr("1.1.1.1")
+	event1 := LogEvent{Line: "ALERT_ONLY test", Source: "test.log", Timestamp: time.Now()}
+	action1, _, _, matched1 := le.RuleEngine().Evaluate(ip1, event1)
+	assert.True(t, matched1)
+	assert.Equal(t, ActionLog, action1)
+
+	// Test ActionDynamic (1)
+	// 测试 ActionDynamic (1)
+	ip2 := netip.MustParseAddr("2.2.2.2")
+	event2 := LogEvent{Line: "DYNAMIC_BLOCK test", Source: "test.log", Timestamp: time.Now()}
+	action2, ttl2, _, matched2 := le.RuleEngine().Evaluate(ip2, event2)
+	assert.True(t, matched2)
+	assert.Equal(t, ActionDynamic, action2)
+	assert.Equal(t, 30*time.Minute, ttl2)
+
+	// Test ActionStatic (2)
+	// 测试 ActionStatic (2)
+	ip3 := netip.MustParseAddr("3.3.3.3")
+	event3 := LogEvent{Line: "STATIC_BLOCK test", Source: "test.log", Timestamp: time.Now()}
+	action3, _, _, matched3 := le.RuleEngine().Evaluate(ip3, event3)
+	assert.True(t, matched3)
+	assert.Equal(t, ActionStatic, action3)
+
+	fmt.Println("[OK] Action execution tests passed")
+}
