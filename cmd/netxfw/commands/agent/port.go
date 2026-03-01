@@ -43,10 +43,11 @@ var portAddCmd = &cobra.Command{
 }
 
 var portRemoveCmd = &cobra.Command{
-	Use:   "remove <port>",
-	Short: "Remove allowed port",
-	Long:  `Remove port from global allow list`,
-	Args:  cobra.ExactArgs(1),
+	Use:     "del <port>",
+	Aliases: []string{"delete", "remove"},
+	Short:   "Remove allowed port",
+	Long:    `Remove port from global allow list`,
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
 			port, err := strconv.Atoi(args[0])
