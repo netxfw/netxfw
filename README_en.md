@@ -87,6 +87,17 @@ sudo netxfw system load
 ### Basic Operations
 
 ```bash
+# System Management
+sudo netxfw system load                   # Load XDP program
+sudo netxfw system unload                 # Unload XDP program
+sudo netxfw system status                 # View running status
+sudo netxfw system reload                 # Hot reload configuration
+
+# Monitoring
+sudo netxfw status                        # View firewall status
+sudo netxfw conntrack                     # View connection tracking table
+sudo netxfw perf show                     # View performance statistics
+
 # Whitelist Management
 sudo netxfw allow 192.168.1.100           # Add IP to whitelist
 sudo netxfw allow add 10.0.0.1            # Add IP to whitelist (subcommand form)
@@ -129,16 +140,7 @@ sudo netxfw port del 8080                # Remove port (supports delete/remove a
 sudo netxfw limit add 0.0.0.0/0 --rate 1000 --burst 2000  # Add rate limit rule
 sudo netxfw limit list                                     # List rate limit rules
 
-# System Management
-sudo netxfw system load                   # Load XDP program
-sudo netxfw system unload                 # Unload XDP program
-sudo netxfw system status                 # View running status
-sudo netxfw system reload                 # Hot reload configuration
 
-# Monitoring
-sudo netxfw status                        # View firewall status
-sudo netxfw conntrack                     # View connection tracking table
-sudo netxfw perf show                     # View performance statistics
 ```
 
 ### Shell Auto-Completion

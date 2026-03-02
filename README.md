@@ -87,6 +87,17 @@ sudo netxfw system load
 ### 基础操作
 
 ```bash
+# 系统管理
+sudo netxfw system load                   # 加载 XDP 程序
+sudo netxfw system unload                 # 卸载 XDP 程序
+sudo netxfw system status                 # 查看运行状态
+sudo netxfw system reload                 # 热重载配置
+
+# 监控
+sudo netxfw status                        # 查看防火墙状态
+sudo netxfw conntrack                     # 查看连接跟踪表
+sudo netxfw perf show                     # 查看性能统计
+
 # 白名单管理
 sudo netxfw allow 192.168.1.100           # 添加 IP 到白名单
 sudo netxfw allow add 10.0.0.1            # 添加 IP 到白名单（子命令形式）
@@ -129,16 +140,7 @@ sudo netxfw port del 8080                # 移除端口（支持 delete/remove �
 sudo netxfw limit add 0.0.0.0/0 --rate 1000 --burst 2000  # 添加限速规则
 sudo netxfw limit list                                     # 列出限速规则
 
-# 系统管理
-sudo netxfw system load                   # 加载 XDP 程序
-sudo netxfw system unload                 # 卸载 XDP 程序
-sudo netxfw system status                 # 查看运行状态
-sudo netxfw system reload                 # 热重载配置
 
-# 监控
-sudo netxfw status                        # 查看防火墙状态
-sudo netxfw conntrack                     # 查看连接跟踪表
-sudo netxfw perf show                     # 查看性能统计
 ```
 
 ### Shell 自动补全
