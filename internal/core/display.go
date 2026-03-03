@@ -491,7 +491,7 @@ func ShowIPPortRules(ctx context.Context, xdpMgr XDPManager, limit int, search s
 		fmt.Printf("\n[WARN]  Showing up to %d entries (limit reached).\n", limit)
 	}
 
-	fmt.Println("\n[UNLOCK] Globally Allowed Ports:")
+	fmt.Println("\n[Allow] Globally Allowed Ports:")
 	if len(ports) == 0 {
 		fmt.Println(" - No ports globally allowed.")
 	} else {

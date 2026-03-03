@@ -580,7 +580,7 @@ func showMapStatistics(mgr sdk.ManagerInterface) {
 	fmt.Printf("   %-18s %12d / %-12d %s\n",
 		"[Limit]  Rate Limits", len(rateLimitRules), maxRateLimits,
 		renderUsageBar(len(rateLimitRules), maxRateLimits, 20))
-	fmt.Printf("   %-18s %12d\n", "[UNLOCK] Allowed Ports", len(allowedPorts))
+	fmt.Printf("   %-18s %12d\n", "[Allowport] Allowed Ports", len(allowedPorts))
 }
 
 // renderUsageBar renders a visual progress bar like top command
@@ -670,10 +670,10 @@ func showCompactMapStatistics(mgr sdk.ManagerInterface) {
 	fmt.Println()
 	fmt.Println("[DATA] Map Usage:")
 	fmt.Printf("   %-16s %s\n", "[LOCK] Blacklist:", renderMiniBar(blacklistCount, maxBlacklist))
-	fmt.Printf("   %-16s %s\n", "[UNLOCK] Dyn:", renderMiniBar(int(dynBlacklistCount), maxDynBlacklist))
+	fmt.Printf("   %-16s %s\n", "[DynLOCK] Dyn:", renderMiniBar(int(dynBlacklistCount), maxDynBlacklist))
 	fmt.Printf("   %-16s %s\n", "[WHITE] Whitelist:", renderMiniBar(whitelistCount, maxWhitelist))
-	fmt.Printf("   %-16s %s\n", "[INFO] IP+Port:", renderMiniBar(len(ipPortRules), maxIPPortRules))
-	fmt.Printf("   %-16s %s\n", "[TIME] RateLimit:", renderMiniBar(len(rateLimitRules), maxRateLimits))
+	fmt.Printf("   %-16s %s\n", "[IPPort] IP+Port:", renderMiniBar(len(ipPortRules), maxIPPortRules))
+	fmt.Printf("   %-16s %s\n", "[Limit] RateLimit:", renderMiniBar(len(rateLimitRules), maxRateLimits))
 }
 
 // renderMiniBar renders a mini progress bar for compact display
@@ -1378,13 +1378,13 @@ func showConclusionStatistics(mgr sdk.ManagerInterface, s StatsAPI) {
 	fmt.Printf("   ├─ [LOCK] Static Blacklist:    %s entries\n", fmtutil.FormatNumberWithComma(uint64(staticBlacklistCount))) // #nosec G115 // count is always valid
 
 	// Dynamic Blacklist hits / 动态黑名单命中
-	fmt.Printf("   ├─ [UNLOCK] Dynamic Blacklist:   %s entries\n", fmtutil.FormatNumberWithComma(dynBlacklistCount))
+	fmt.Printf("   ├─ [DYNLOCK] Dynamic Blacklist:   %s entries\n", fmtutil.FormatNumberWithComma(dynBlacklistCount))
 
 	// Critical Lock hits / 危机封锁命中
 	fmt.Printf("   ├─ [ALERT] Critical Lock:       %s entries\n", fmtutil.FormatNumberWithComma(criticalBlacklistCount))
 
 	// Rate Limit hits / 速率限制命中
-	fmt.Printf("   ├─ [TIME]  Rate Limit Hits:     %s\n", fmtutil.FormatNumberWithComma(rateLimitHits))
+	fmt.Printf("   ├─ [LIMIT]  Rate Limit Hits:     %s\n", fmtutil.FormatNumberWithComma(rateLimitHits))
 
 	// Auto Blocked / 自动封禁
 	if autoBlockEnabled {

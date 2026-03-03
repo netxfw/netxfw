@@ -7,6 +7,7 @@ toolchain go1.24.12
 require (
 	github.com/cilium/ebpf v0.20.0
 	github.com/expr-lang/expr v1.17.8
+	github.com/klauspost/compress v1.18.4
 	github.com/nxadm/tail v1.4.11
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cobra v1.10.2
@@ -23,7 +24,6 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jsimonetti/rtnetlink/v2 v2.2.0 // indirect
-	github.com/klauspost/compress v1.18.4 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect

@@ -111,7 +111,7 @@ func SyncAllowedPort(ctx context.Context, xdpMgr XDPManager, port uint16, add bo
 		if err := xdpMgr.AllowPort(port); err != nil {
 			return fmt.Errorf("failed to allow port %d: %v", port, err)
 		}
-		log.Infof("[UNLOCK] Allowed global port: %d", port)
+		log.Infof("[Allow] Allowed global port: %d", port)
 	} else {
 		if err := xdpMgr.RemoveAllowedPort(port); err != nil {
 			log.Warnf("[WARN]  Failed to remove allowed port %d: %v", port, err)
