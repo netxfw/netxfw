@@ -1,6 +1,6 @@
 # Security Best Practices
 
-This document provides security best practices for deploying netxfw in production environments.
+This document provides security best practice guidelines for netxfw production environment deployment.
 
 ## Table of Contents
 
@@ -10,7 +10,7 @@ This document provides security best practices for deploying netxfw in productio
 4. [Logging and Auditing](#logging-and-auditing)
 5. [Rule Management](#rule-management)
 6. [Monitoring and Alerting](#monitoring-and-alerting)
-7. [Incident Response](#incident-response)
+7. [Emergency Response](#emergency-response)
 
 ---
 
@@ -19,7 +19,7 @@ This document provides security best practices for deploying netxfw in productio
 ### Process Privileges
 
 ```bash
-# Run as dedicated user (recommended)
+# Run with dedicated user (recommended)
 sudo useradd -r -s /sbin/nologin netxfw
 sudo chown -R netxfw:netxfw /etc/netxfw
 sudo chown -R netxfw:netxfw /var/log/netxfw
@@ -56,7 +56,7 @@ web:
   auth:
     enabled: true
     type: basic  # basic, token, mTLS
-    # Store passwords using environment variables or secret files
+    # Store password using environment variables or key files
     # htpasswd -n admin
 ```
 
@@ -71,7 +71,7 @@ web:
 base:
   default_deny: true
   allow_return_traffic: true  # Allow return traffic for established connections
-  allow_icmp: false           # Disable ICMP in production
+  allow_icmp: false           # Disable ICMP in production environment
 ```
 
 ### Whitelist Configuration
@@ -85,7 +85,7 @@ whitelist:
   - "YOUR_OFFICE_IP/32" # Office network
 ```
 
-### Minimize Port Exposure
+### Port Exposure Minimization
 
 ```yaml
 # Only open necessary ports (allowed_ports: simple port array)
@@ -97,7 +97,7 @@ port:
 
   # IP+Port rules: specific source access to specific ports
   ip_port_rules:
-    # Management port only from internal network
+    # Management port only allows internal network access
     - ip: "10.0.0.0/8"
       port: 11811
       action: allow
@@ -224,10 +224,10 @@ sudo grep -oP 'action=\w+' /var/log/netxfw/audit.log | sort | uniq -c
 
 1. **Change Request**: Submit rule change request
 2. **Approval**: Security team approval
-3. **Testing**: Validate in test environment
-4. **Implementation**: Implement in production
-5. **Verification**: Verify rule effectiveness
-6. **Documentation**: Record change log
+3. **Testing**: Verify in test environment
+4. **Implementation**: Implement in production environment
+5. **Verification**: Verify rule takes effect
+6. **Recording**: Record change log
 
 ### Rule Backup
 
@@ -253,7 +253,7 @@ sudo chmod +x /etc/cron.daily/netxfw-backup
 # Validate rule syntax
 sudo netxfw rule validate /etc/netxfw/rules.yaml
 
-# Test rules (without affecting existing rules)
+# Test rules (does not affect existing rules)
 sudo netxfw rule test /etc/netxfw/rules.yaml
 
 # Rule comparison
@@ -309,7 +309,7 @@ groups:
 ### Log Alerting
 
 ```bash
-# Use logwatch to monitor logs
+# Use logwatch for log monitoring
 sudo apt install logwatch
 
 # Configure logwatch
@@ -320,25 +320,25 @@ EOF
 
 ---
 
-## Incident Response
+## Emergency Response
 
-### Emergency Procedures
+### Emergency Plan
 
 1. **DDoS Attack**
    ```bash
    # Enable emergency mode
    sudo netxfw emergency enable
 
-   # Add attack sources to blacklist
+   # Add attacker IP to blacklist
    sudo netxfw deny add <attacker_ip> --ttl 1h
 
    # Enable rate limiting
    sudo netxfw limit add 0.0.0.0/0 --rate 1000 --burst 2000
    ```
 
-2. **Accidentally Blocked Legitimate IP**
+2. **False Positive Blocking of Legitimate IP**
    ```bash
-   # Immediately unblock
+   # Unblock immediately
    sudo netxfw deny del <ip>
 
    # Add to whitelist to prevent re-blocking
@@ -360,7 +360,7 @@ EOF
 ### SSH Lockout Recovery
 
 ```bash
-# Method 1: Via console/VNC
+# Method 1: Through console/VNC
 sudo netxfw allow add <your_ip>
 
 # Method 2: Direct BPF Map operation
@@ -378,7 +378,7 @@ sudo ip link set dev eth0 xdp off
 ```
 Security Team: security@example.com
 Operations Team: ops@example.com
-On-call Phone: +1-xxx-xxx-xxxx
+On-call Phone: +86-xxx-xxxx-xxxx
 ```
 
 ---
@@ -392,15 +392,15 @@ On-call Phone: +1-xxx-xxx-xxxx
 - [ ] Management whitelist configured
 - [ ] Audit logging enabled
 - [ ] Default deny policy configured
-- [ ] Minimized open ports
+- [ ] Port exposure minimized
 - [ ] Log rotation configured
 
 ### Regular Checks
 
 - [ ] Review blacklist rules
 - [ ] Audit log analysis
-- [ ] Check for abnormal traffic
-- [ ] Verify backup effectiveness
+- [ ] Check abnormal traffic
+- [ ] Verify backup validity
 - [ ] Update security policies
 - [ ] Check certificate validity
 
@@ -421,13 +421,13 @@ On-call Phone: +1-xxx-xxx-xxxx
 
 | Log Type | Retention Period | Storage Requirements |
 |----------|------------------|---------------------|
-| Audit logs | 1 year | Encrypted storage |
-| Access logs | 90 days | Encrypted storage |
-| Error logs | 30 days | Normal storage |
+| Audit Log | 1 year | Encrypted storage |
+| Access Log | 90 days | Encrypted storage |
+| Error Log | 30 days | Normal storage |
 
 ### Data Protection
 
-- Sensitive data encrypted at rest
+- Sensitive data encrypted storage
 - Regular data cleanup
 - Minimized access permissions
 - Encrypted data transmission

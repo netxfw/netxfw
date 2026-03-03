@@ -204,6 +204,12 @@ func (m *Manager) PerfStats() any {
 	return m.perfStats
 }
 
+// XdpFirewall returns the XDP firewall program.
+// XdpFirewall 返回 XDP 防火墙程序。
+func (m *Manager) XdpFirewall() *ebpf.Program {
+	return m.objs.XdpFirewall
+}
+
 // Backward compatibility getters (deprecated) / 向后兼容获取器（已弃用）
 
 // LockList returns the static blacklist map (deprecated: use StaticBlacklist).

@@ -3,11 +3,14 @@ package agent
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/cilium/ebpf/link"
 	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
 	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/internal/config"
@@ -93,6 +96,10 @@ var systemDaemonCmd = &cobra.Command{
 
 var interfaces []string
 
+// xdpMode specifies the XDP attach mode
+// xdpMode 指定 XDP 挂载模式
+var xdpMode string
+
 var systemLoadCmd = &cobra.Command{
 	Use:   "load",
 	Short: "Load XDP driver",
@@ -106,6 +113,95 @@ var systemLoadCmd = &cobra.Command{
 			cmd.PrintErrln(err)
 			os.Exit(1)
 		}
+	},
+}
+
+// systemAttachCmd manually attaches XDP program with specific mode
+// systemAttachCmd 手动挂载 XDP 程序并指定模式
+var systemAttachCmd = &cobra.Command{
+	Use:   "attach [interface...]",
+	Short: "Manually attach XDP with specific mode",
+	// Short: 手动挂载 XDP 并指定模式
+	Long: `Manually attach XDP program to interfaces with specific mode.
+
+Supported modes:
+  - offload: Hardware offload mode (best performance, requires NIC support)
+  - drv: Native driver mode (good performance, requires driver support)
+  - skb: Generic/SKB mode (software fallback, works on all interfaces)
+
+Examples:
+  netxfw system attach eth0 --mode offload    # Attach with hardware offload
+  netxfw system attach eth0 --mode drv        # Attach with native driver mode
+  netxfw system attach eth0 --mode skb        # Attach with generic mode
+  netxfw system attach eth0 eth1 --mode drv   # Attach multiple interfaces
+
+手动挂载 XDP 程序到指定接口并选择模式。
+
+支持的模式:
+  - offload: 硬件卸载模式 (最佳性能，需要网卡支持)
+  - drv: 原生驱动模式 (良好性能，需要驱动支持)
+  - skb: 通用/SKB 模式 (软件回退，适用于所有接口)
+
+示例:
+  netxfw system attach eth0 --mode offload    # 使用硬件卸载模式挂载
+  netxfw system attach eth0 --mode drv        # 使用原生驱动模式挂载
+  netxfw system attach eth0 --mode skb        # 使用通用模式挂载
+  netxfw system attach eth0 eth1 --mode drv   # 挂载多个接口`,
+	Run: func(cmd *cobra.Command, args []string) {
+		common.EnsureStandaloneMode()
+
+		// Validate mode / 验证模式
+		validModes := map[string]bool{
+			"offload": true,
+			"drv":     true,
+			"skb":     true,
+		}
+		if !validModes[xdpMode] {
+			cmd.PrintErrln("[ERROR] Invalid mode. Must be one of: offload, drv, skb")
+			os.Exit(1)
+		}
+
+		// Determine interfaces to attach / 确定要挂载的接口
+		ifaceList := interfaces
+		if len(args) > 0 {
+			ifaceList = args
+		}
+
+		// Load configuration / 加载配置
+		cfgManager := config.GetConfigManager()
+		if err := cfgManager.LoadConfig(); err != nil {
+			cmd.PrintErrln("[ERROR] Failed to load config:", err)
+			os.Exit(1)
+		}
+		globalCfg := cfgManager.GetConfig()
+
+		// Create XDP manager / 创建 XDP 管理器
+		log := logger.Get(cmd.Context())
+		manager, err := xdp.NewManager(globalCfg.Capacity, log)
+		if err != nil {
+			cmd.PrintErrln("[ERROR] Failed to create XDP manager:", err)
+			os.Exit(1)
+		}
+
+		// Pin maps to filesystem / 将 Map 固定到文件系统
+		if err := manager.Pin(config.GetPinPath()); err != nil {
+			cmd.PrintErrln("[ERROR] Failed to pin maps:", err)
+			os.Exit(1)
+		}
+
+		// Attach XDP program with specified mode / 挂载 XDP 程序并指定模式
+		attached, err := attachXDPWithMode(manager, ifaceList, xdpMode)
+		if err != nil {
+			cmd.PrintErrln("[ERROR] Failed to attach XDP:", err)
+			os.Exit(1)
+		}
+
+		if len(attached) == 0 {
+			cmd.PrintErrln("[ERROR] Failed to attach XDP on any interface")
+			os.Exit(1)
+		}
+
+		fmt.Printf("[OK] XDP attached successfully on %v with mode: %s\n", attached, xdpMode)
 	},
 }
 
@@ -258,6 +354,10 @@ func init() {
 
 	systemLoadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to attach XDP to")
 	SystemCmd.AddCommand(systemLoadCmd)
+
+	systemAttachCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to attach XDP to")
+	systemAttachCmd.Flags().StringVarP(&xdpMode, "mode", "m", "skb", "XDP attach mode: offload, drv, skb")
+	SystemCmd.AddCommand(systemAttachCmd)
 
 	systemUnloadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to detach XDP from")
 	SystemCmd.AddCommand(systemUnloadCmd)
@@ -1292,4 +1392,65 @@ func showConclusionStatistics(mgr sdk.ManagerInterface, s StatsAPI) {
 	} else {
 		fmt.Printf("   └─ [AUTO] Auto Blocked:        disabled\n")
 	}
+}
+
+// attachXDPWithMode attaches XDP program to interfaces with specified mode
+// attachXDPWithMode 将 XDP 程序挂载到指定接口并选择模式
+func attachXDPWithMode(manager *xdp.Manager, interfaces []string, mode string) ([]string, error) {
+	log := logger.Get(nil)
+	var attached []string
+
+	// Map mode string to link.XDPAttachFlags
+	// 将模式字符串映射到 link.XDPAttachFlags
+	var attachMode link.XDPAttachFlags
+	var attachModeName string
+	switch mode {
+	case "offload":
+		attachMode = link.XDPOffloadMode
+		attachModeName = "Offload"
+	case "drv":
+		attachMode = link.XDPDriverMode
+		attachModeName = "Native"
+	case "skb":
+		attachMode = link.XDPGenericMode
+		attachModeName = "Generic"
+	default:
+		return nil, fmt.Errorf("invalid mode: %s", mode)
+	}
+
+	for _, name := range interfaces {
+		iface, err := net.InterfaceByName(name)
+		if err != nil {
+			log.Warnf("[WARN]  Skip interface %s: %v", name, err)
+			continue
+		}
+
+		// Try to attach XDP with specified mode
+		// 尝试用指定的模式挂载 XDP
+		log.Infof("[INFO]  Attempting to attach XDP on %s with mode: %s", name, attachModeName)
+
+		l, err := link.AttachXDP(link.XDPOptions{
+			Program:   manager.XdpFirewall(),
+			Interface: iface.Index,
+			Flags:     attachMode,
+		})
+
+		if err == nil {
+			// Pin the link to filesystem to make it persistent after process exit
+			// 将链接固定到文件系统，使其在进程退出后保持持久
+			linkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("link_%s", name))
+			_ = os.Remove(linkPath) // Remove old link pin if exists / 如果存在旧的链接固定点，则将其删除
+			if pinErr := l.Pin(linkPath); pinErr != nil {
+				log.Warnf("[WARN]  Failed to pin link on %s: %v", name, pinErr)
+				l.Close()
+				continue
+			}
+			log.Infof("[OK] Attached XDP on %s (Mode: %s) and pinned link", name, attachModeName)
+			attached = append(attached, name)
+		} else {
+			log.Warnf("[WARN]  Failed to attach XDP on %s using %s mode: %v", name, attachModeName, err)
+		}
+	}
+
+	return attached, nil
 }
