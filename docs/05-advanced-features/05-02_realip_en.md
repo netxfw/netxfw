@@ -1,84 +1,81 @@
-# 云环境真实 IP 获取
+# Cloud Environment Real IP Acquisition
 
-## 概述
+## Overview
 
-在云服务商负载均衡器 (LB) 环境下，NetXFW 接收到的连接源 IP 是 LB 的 IP，而非真实客户端 IP。为了解决这个问题，NetXFW 提供了 **Proxy Protocol 解析** 功能，能够从云 LB 转发的流量中提取真实客户端 IP。
+In cloud provider load balancer (LB) environments, NetXFW receives connections with the LB's IP as the source IP, not the real client IP. To solve this problem, NetXFW provides **Proxy Protocol parsing** functionality to extract real client IPs from traffic forwarded by cloud LBs.
 
-## 架构
+## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                         云环境真实 IP 获取架构                                │
+│                    Cloud Environment Real IP Acquisition Architecture         │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────┐     ┌─────────────┐     ┌─────────────────────────────┐    │
-│  │   客户端    │     │   云 LB     │     │         NetXFW              │    │
-│  │  真实 IP    │────▶│  Proxy Proto│────▶│  ┌─────────────────────┐   │    │
-│  │             │     │  添加头信息  │     │  │  Proxy Protocol     │   │    │
-│  └─────────────┘     └─────────────┘     │  │  解析器             │   │    │
+│  │   Client    │     │   Cloud LB  │     │         NetXFW              │    │
+│  │  Real IP    │────▶│ Proxy Proto │────▶│  ┌─────────────────────┐   │    │
+│  │             │     │ Add Header  │     │  │  Proxy Protocol     │   │    │
+│  └─────────────┘     └─────────────┘     │  │  Parser             │   │    │
 │                                          │  └──────────┬──────────┘   │    │
 │                                          │             │              │    │
 │                                          │             ▼              │    │
 │                                          │  ┌─────────────────────┐   │    │
-│                                          │  │  真实 IP 管理       │   │    │
-│                                          │  │  - 黑名单检查       │   │    │
-│                                          │  │  - 自动封禁         │   │    │
+│                                          │  │  Real IP Manager    │   │    │
+│                                          │  │  - Blacklist check  │   │    │
+│                                          │  │  - Auto blocking    │   │    │
 │                                          │  └─────────────────────┘   │    │
 │                                          └─────────────────────────────┘    │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 支持的云服务商
+## Supported Cloud Providers
 
-| 云服务商 | 标识符 | Proxy Protocol 支持 |
-|----------|--------|---------------------|
-| 阿里云 | `alibaba` | ✅ 支持 |
-| 腾讯云 | `tencent` | ✅ 支持 |
-| AWS | `aws` | ✅ 支持 |
-| Azure | `azure` | ✅ 支持 |
-| GCP | `gcp` | ✅ 支持 |
-| 其他 | `other` | ✅ 支持 (需自定义 IP 范围) |
+| Cloud Provider | Identifier | Proxy Protocol Support |
+|----------------|------------|------------------------|
+| Alibaba Cloud | `alibaba` | ✅ Supported |
+| Tencent Cloud | `tencent` | ✅ Supported |
+| AWS | `aws` | ✅ Supported |
+| Azure | `azure` | ✅ Supported |
+| GCP | `gcp` | ✅ Supported |
+| Other | `other` | ✅ Supported (custom IP ranges required) |
 
-## 配置
+## Configuration
 
-### 配置文件
+### Configuration File
 
-在 `/etc/netxfw/config.yaml` 中添加云环境配置：
+Add cloud environment configuration to `/etc/netxfw/config.yaml`:
 
 ```yaml
 # ═══════════════════════════════════════════════════════════════
-# Cloud Environment Configuration / 云环境配置
+# Cloud Environment Configuration
 # ═══════════════════════════════════════════════════════════════
 cloud:
-  # Enable cloud environment support / 启用云环境支持
+  # Enable cloud environment support
   enabled: true
   
   # Cloud provider: alibaba, tencent, aws, azure, gcp, other
-  # 云服务商: alibaba, tencent, aws, azure, gcp, other
   provider: "alibaba"
   
-  # Proxy Protocol configuration / Proxy Protocol 配置
+  # Proxy Protocol configuration
   proxy_protocol:
-    # Enable Proxy Protocol parsing / 启用 Proxy Protocol 解析
+    # Enable Proxy Protocol parsing
     enabled: true
     
     # Trusted LB IP ranges (connections from these IPs will be parsed for Proxy Protocol)
-    # 可信 LB IP 范围（来自这些 IP 的连接将解析 Proxy Protocol）
     # Predefined ranges will be added based on provider
-    # 预定义范围将根据服务商自动添加
     trusted_lb_ranges:
-      - "10.0.0.0/8"       # 阿里云/腾讯云内网
-      - "100.64.0.0/10"    # 运营商级 NAT
-      - "192.168.0.0/16"   # 自定义 VPC
+      - "10.0.0.0/8"       # Alibaba/Tencent internal network
+      - "100.64.0.0/10"    # Carrier-grade NAT
+      - "192.168.0.0/16"   # Custom VPC
     
-    # Cache TTL for real IP mappings / 真实 IP 映射缓存 TTL
+    # Cache TTL for real IP mappings
     cache_ttl: "5m"
 ```
 
-### 各云服务商默认配置
+### Default Configuration by Provider
 
-#### 阿里云 (alibaba)
+#### Alibaba Cloud (alibaba)
 
 ```yaml
 cloud:
@@ -86,11 +83,11 @@ cloud:
   proxy_protocol:
     enabled: true
     trusted_lb_ranges:
-      - "10.0.0.0/8"      # 阿里云内网
-      - "100.64.0.0/10"   # SLB 内网
+      - "10.0.0.0/8"      # Alibaba internal network
+      - "100.64.0.0/10"   # SLB internal network
 ```
 
-#### 腾讯云 (tencent)
+#### Tencent Cloud (tencent)
 
 ```yaml
 cloud:
@@ -98,8 +95,8 @@ cloud:
   proxy_protocol:
     enabled: true
     trusted_lb_ranges:
-      - "10.0.0.0/8"      # 腾讯云内网
-      - "100.64.0.0/10"   # CLB 内网
+      - "10.0.0.0/8"      # Tencent internal network
+      - "100.64.0.0/10"   # CLB internal network
 ```
 
 #### AWS (aws)
@@ -110,40 +107,40 @@ cloud:
   proxy_protocol:
     enabled: true
     trusted_lb_ranges:
-      - "10.0.0.0/8"      # VPC 内网
-      - "172.16.0.0/12"   # VPC 内网
+      - "10.0.0.0/8"      # VPC internal network
+      - "172.16.0.0/12"   # VPC internal network
 ```
 
-## 使用方法
+## Usage
 
-### 1. 启用云环境支持
+### 1. Enable Cloud Environment Support
 
 ```bash
-# 编辑配置文件
+# Edit configuration file
 sudo vim /etc/netxfw/config.yaml
 
-# 热重载配置
+# Hot reload configuration
 sudo netxfw system reload
 ```
 
-### 2. 真实 IP 黑名单管理
+### 2. Real IP Blacklist Management
 
-真实 IP 黑名单通过 API/CLI 管理，不存储在配置文件中：
+Real IP blacklist is managed via API/CLI, not stored in configuration file:
 
 ```bash
-# 封禁真实 IP
-sudo netxfw cloud block 192.168.1.100 --reason "恶意攻击" --duration "24h"
+# Block real IP
+sudo netxfw cloud block 192.168.1.100 --reason "Malicious attack" --duration "24h"
 
-# 解封 IP
+# Unblock IP
 sudo netxfw cloud unblock 192.168.1.100
 
-# 查看黑名单
+# View blacklist
 sudo netxfw cloud blacklist list
 ```
 
-### 3. 自动封禁
+### 3. Auto Blocking
 
-当真实 IP 触发限速规则时，可以自动将其加入黑名单：
+When a real IP triggers rate limiting rules, it can be automatically added to the blacklist:
 
 ```yaml
 rate_limit:
@@ -152,61 +149,61 @@ rate_limit:
   auto_block_expiry: "5m"
 ```
 
-## 工作原理
+## How It Works
 
-### Proxy Protocol 解析流程
+### Proxy Protocol Parsing Flow
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                        Proxy Protocol 解析流程                                │
+│                        Proxy Protocol Parsing Flow                            │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  1. 连接到达 NetXFW                                                          │
-│     └─▶ 源 IP: 10.0.1.100 (LB IP)                                           │
+│  1. Connection arrives at NetXFW                                             │
+│     └─▶ Source IP: 10.0.1.100 (LB IP)                                       │
 │                                                                              │
-│  2. 检查是否来自可信 LB                                                       │
-│     └─▶ 10.0.1.100 在 10.0.0.0/8 范围内 → 是可信 LB                          │
+│  2. Check if from trusted LB                                                 │
+│     └─▶ 10.0.1.100 in 10.0.0.0/8 range → Trusted LB                         │
 │                                                                              │
-│  3. 解析 Proxy Protocol 头                                                   │
+│  3. Parse Proxy Protocol header                                              │
 │     └─▶ PROXY TCP4 192.168.1.100 10.0.1.100 54321 80                        │
-│     └─▶ 真实 IP: 192.168.1.100                                              │
+│     └─▶ Real IP: 192.168.1.100                                              │
 │                                                                              │
-│  4. 检查真实 IP 黑名单                                                        │
-│     └─▶ 192.168.1.100 在黑名单中 → DROP                                      │
-│     └─▶ 192.168.1.100 不在黑名单中 → 继续处理                                 │
+│  4. Check real IP blacklist                                                  │
+│     └─▶ 192.168.1.100 in blacklist → DROP                                   │
+│     └─▶ 192.168.1.100 not in blacklist → Continue processing                │
 │                                                                              │
-│  5. 缓存真实 IP 映射                                                          │
-│     └─▶ 连接 ID → 真实 IP (缓存 TTL: 5m)                                     │
+│  5. Cache real IP mapping                                                    │
+│     └─▶ Connection ID → Real IP (Cache TTL: 5m)                             │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Proxy Protocol 版本
+### Proxy Protocol Versions
 
-NetXFW 支持两种 Proxy Protocol 版本：
+NetXFW supports two Proxy Protocol versions:
 
-| 版本 | 格式 | 特点 |
-|------|------|------|
-| V1 | 文本格式 | 可读性好，易于调试 |
-| V2 | 二进制格式 | 性能更高，支持更多协议 |
+| Version | Format | Characteristics |
+|---------|--------|-----------------|
+| V1 | Text format | Good readability, easy debugging |
+| V2 | Binary format | Higher performance, more protocol support |
 
-**V1 示例：**
+**V1 Example:**
 ```
 PROXY TCP4 192.168.1.100 10.0.1.100 54321 80\r\n
 ```
 
-**V2 示例：**
+**V2 Example:**
 ```
 \x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A\x21\x11\x00\x0C\xC0\xA8\x01\x64\x0A\x00\x01\x64\xD4\x31\x00\x50
 ```
 
-## 黑名单存储
+## Blacklist Storage
 
-真实 IP 黑名单存储在 `dynamic_blacklist` Map 中，与动态黑名单共享：
+Real IP blacklist is stored in the `dynamic_blacklist` Map, shared with the dynamic blacklist:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                          黑名单存储架构                                      │
+│                          Blacklist Storage Architecture                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────┐  │
@@ -217,85 +214,85 @@ PROXY TCP4 192.168.1.100 10.0.1.100 54321 80\r\n
 │                                                           │                │
 │                                                           ▼                │
 │                                                  ┌─────────────────────┐  │
-│                                                  │  XDP 程序           │  │
-│                                                  │  检查真实 IP        │  │
-│                                                  │  匹配 → DROP        │  │
+│                                                  │  XDP Program        │  │
+│                                                  │  Check real IP      │  │
+│                                                  │  Match → DROP       │  │
 │                                                  └─────────────────────┘  │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 注意事项
+## Important Notes
 
-### 1. 云 LB 配置
+### 1. Cloud LB Configuration
 
-确保云服务商的负载均衡器已启用 Proxy Protocol：
+Ensure your cloud provider's load balancer has Proxy Protocol enabled:
 
-**阿里云 SLB：**
+**Alibaba Cloud SLB:**
 ```bash
-# 在 SLB 控制台开启 Proxy Protocol
-# 或使用 API 配置
+# Enable Proxy Protocol in SLB console
+# Or configure via API
 ```
 
-**腾讯云 CLB：**
+**Tencent Cloud CLB:**
 ```bash
-# 在 CLB 控制台开启 Proxy Protocol
-# 监听器配置 → 高级配置 → 开启 Proxy Protocol
+# Enable Proxy Protocol in CLB console
+# Listener config → Advanced config → Enable Proxy Protocol
 ```
 
-**AWS ALB/NLB：**
+**AWS ALB/NLB:**
 ```bash
-# ALB 默认支持 Proxy Protocol v2
-# NLB 需要手动开启
+# ALB supports Proxy Protocol v2 by default
+# NLB requires manual enabling
 aws elbv2 modify-load-balancer-attributes \
   --load-balancer-arn <arn> \
   --attributes Key=proxy_protocol_v2.enabled,Value=true
 ```
 
-### 2. 性能影响
+### 2. Performance Impact
 
-- Proxy Protocol 解析在用户态进行，对 XDP 性能影响极小
-- 真实 IP 缓存机制避免重复解析
-- 建议设置合理的缓存 TTL (默认 5 分钟)
+- Proxy Protocol parsing happens in user space, minimal impact on XDP performance
+- Real IP caching mechanism avoids repeated parsing
+- Recommended to set reasonable cache TTL (default 5 minutes)
 
-### 3. 安全考虑
+### 3. Security Considerations
 
-- 只信任来自可信 LB IP 范围的 Proxy Protocol 头
-- 不要将公网 IP 添加到可信范围
-- 定期审查黑名单条目
+- Only trust Proxy Protocol headers from trusted LB IP ranges
+- Do not add public IPs to trusted ranges
+- Regularly review blacklist entries
 
-## 故障排查
+## Troubleshooting
 
-### 检查配置是否生效
+### Check if Configuration is Effective
 
 ```bash
-# 查看系统状态
+# View system status
 sudo netxfw system status
 
-# 检查云配置
+# Check cloud configuration
 sudo netxfw cloud config show
 ```
 
-### 测试 Proxy Protocol 解析
+### Test Proxy Protocol Parsing
 
 ```bash
-# 使用演示程序
+# Use demo program
 go run test/demo/cloud_demo.go
 
-# 查看日志
+# View logs
 sudo journalctl -u netxfw -f
 ```
 
-### 常见问题
+### Common Issues
 
-| 问题 | 原因 | 解决方案 |
-|------|------|----------|
-| 无法获取真实 IP | LB 未启用 Proxy Protocol | 在云控制台开启 |
-| 解析失败 | LB IP 不在可信范围 | 添加到 trusted_lb_ranges |
-| 黑名单不生效 | XDP 程序未加载 | 运行 `netxfw system on` |
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Cannot get real IP | LB doesn't have Proxy Protocol enabled | Enable in cloud console |
+| Parsing failed | LB IP not in trusted range | Add to trusted_lb_ranges |
+| Blacklist not working | XDP program not loaded | Run `netxfw system on` |
 
-## 相关文档
+## Related Documentation
 
-- [架构设计](../architecture.md)
-- [CLI 命令手册](../cli/cli.md)
-- [插件开发指南](../plugins/plugins.md)
+- [Architecture Design](../10-appendix/10-01_architecture.md)
+- [CLI Command Manual](../03-quick-start/03-02_cli_en.md)
+- [Plugin Development Guide](../06-plugin-development/06-02_plugins_en.md)

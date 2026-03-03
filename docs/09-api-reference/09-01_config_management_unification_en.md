@@ -140,6 +140,6 @@ The configuration manager is thread-safe, but avoid frequent configuration updat
 
 ## Related Documentation
 
-- [Web API Metrics Unification](./07-02_unified_web_api_metrics_en.md)
-- [Architecture Overview](./02-02_architecture_en.md)
-- [CLI Reference](./cli/03-02_cli_en.md)
+- [Web API Metrics Unification](./09-02_unified_web_api_metrics_en.md)
+- [Architecture Overview](../10-appendix/10-02_architecture_en.md)
+- [CLI Reference](../03-quick-start/03-02_cli_en.md)

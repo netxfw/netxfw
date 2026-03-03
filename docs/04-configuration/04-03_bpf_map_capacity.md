@@ -206,6 +206,6 @@ sudo netxfw system reload -i eth0
 
 ## 相关文档
 
-- [架构概览](./02-01_architecture.md) - 系统架构
-- [配置管理](./07-01_config_management_unification.md) - 配置说明
-- [性能基准测试](./performance/06-01_benchmarks.md) - 性能测试
+- [架构概览](../10-appendix/10-01_architecture.md) - 系统架构
+- [配置管理](../09-api-reference/09-01_config_management_unification.md) - 配置说明
+- [性能基准测试](../07-performance-tuning/07-01_benchmarks.md) - 性能测试

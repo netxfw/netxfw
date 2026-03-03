@@ -206,6 +206,6 @@ sudo netxfw system reload -i eth0
 
 ## Related Documentation
 
-- [Architecture Overview](./02-02_architecture_en.md) - System architecture
-- [Config Management](./07-01_config_management_unification_en.md) - Configuration reference
-- [Performance Benchmarks](./performance/06-02_benchmarks_en.md) - Performance testing
+- [Architecture Overview](../10-appendix/10-02_architecture_en.md) - System architecture
+- [Config Management](../09-api-reference/09-01_config_management_unification_en.md) - Configuration reference
+- [Performance Benchmarks](../07-performance-tuning/07-02_benchmarks_en.md) - Performance testing

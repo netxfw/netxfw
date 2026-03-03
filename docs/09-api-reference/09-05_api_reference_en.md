@@ -330,6 +330,6 @@ GET /debug/pprof/trace    # Execution trace
 
 ## Related Documentation
 
-- [CLI Manual](./cli/03-02_cli_en.md) - Command line operations
-- [Config Management](./07-01_config_management_unification_en.md) - Configuration reference
-- [Architecture Overview](./02-02_architecture_en.md) - System architecture
+- [CLI Manual](../03-quick-start/03-02_cli_en.md) - Command line operations
+- [Config Management](./09-01_config_management_unification_en.md) - Configuration reference
+- [Architecture Overview](../10-appendix/10-02_architecture_en.md) - System architecture

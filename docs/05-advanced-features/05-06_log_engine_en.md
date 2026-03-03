@@ -186,6 +186,6 @@ curl http://localhost:11811/api/log-engine/health
 
 ## Related Documentation
 
-- [Configuration Management](./07-01_config_management_unification_en.md)
-- [API Reference](./api/04-05_api_reference_en.md)
-- [Performance Benchmarks](./performance/06-02_benchmarks_en.md)
+- [Configuration Management](../09-api-reference/09-01_config_management_unification_en.md)
+- [API Reference](../09-05_api_reference_en.md)
+- [Performance Benchmarks](../07-performance-tuning/07-02_benchmarks_en.md)

@@ -469,16 +469,16 @@ func showMapStatistics(mgr sdk.ManagerInterface) {
 		"[LOCK] Blacklist", blacklistCount, maxBlacklist,
 		renderUsageBar(blacklistCount, maxBlacklist, 20))
 	fmt.Printf("   %-18s %12d / %-12d %s\n",
-		"[UNLOCK] Dyn Blacklist", dynBlacklistCount, maxDynBlacklist,
+		"[DYNDYNLOCK] Dyn Blacklist", dynBlacklistCount, maxDynBlacklist,
 		renderUsageBar(int(dynBlacklistCount), maxDynBlacklist, 20))
 	fmt.Printf("   %-18s %12d / %-12d %s\n",
 		"[WHITE] Whitelist", whitelistCount, maxWhitelist,
 		renderUsageBar(whitelistCount, maxWhitelist, 20))
 	fmt.Printf("   %-18s %12d / %-12d %s\n",
-		"[INFO] IP+Port Rules", len(ipPortRules), maxIPPortRules,
+		"[IPPort] IP+Port Rules", len(ipPortRules), maxIPPortRules,
 		renderUsageBar(len(ipPortRules), maxIPPortRules, 20))
 	fmt.Printf("   %-18s %12d / %-12d %s\n",
-		"[TIME]  Rate Limits", len(rateLimitRules), maxRateLimits,
+		"[Limit]  Rate Limits", len(rateLimitRules), maxRateLimits,
 		renderUsageBar(len(rateLimitRules), maxRateLimits, 20))
 	fmt.Printf("   %-18s %12d\n", "[UNLOCK] Allowed Ports", len(allowedPorts))
 }

@@ -205,6 +205,6 @@ netxfw status
 
 ## 📚 相关文档 (Related Documents)
 
-- [CLI 命令手册](./cli/cli.md)
-- [高级配置指南](./config_management_unification.md)
-- [性能基准测试](./performance/benchmarks.md)
+- [CLI 命令手册](../03-quick-start/03-01_cli.md)
+- [高级配置指南](../04-configuration/04-01_performance_tuning.md)
+- [性能基准测试](../07-performance-tuning/07-01_benchmarks.md)

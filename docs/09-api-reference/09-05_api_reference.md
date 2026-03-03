@@ -330,6 +330,6 @@ GET /debug/pprof/trace    # 执行追踪
 
 ## 相关文档
 
-- [CLI 命令手册](./cli/03-01_cli.md) - 命令行操作
-- [配置管理](./07-01_config_management_unification.md) - 配置说明
-- [架构概览](./02-01_architecture.md) - 系统架构
+- [CLI 命令手册](../03-quick-start/03-01_cli.md) - 命令行操作
+- [配置管理](./09-01_config_management_unification.md) - 配置说明
+- [架构概览](../10-appendix/10-01_architecture.md) - 系统架构
