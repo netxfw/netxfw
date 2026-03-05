@@ -82,6 +82,7 @@ type Manager struct {
 	topPassMap        *ebpf.Map // Top pass statistics / Top 通过统计
 	globalConfig      *ebpf.Map // Global configuration / 全局配置
 	jmpTable          *ebpf.Map // Program jump table / 程序跳转表
+	chainMap          *ebpf.Map // Module chain map / 模块链映射
 	xskMap            *ebpf.Map // AF_XDP socket map / AF_XDP socket 映射
 
 	// Statistics cache / 统计缓存

@@ -89,4 +89,19 @@ struct ipv6_frag_hdr {
 #define PASS_REASON_CONNTRACK   103
 #define PASS_REASON_DEFAULT     104
 
+// Module IDs for dynamic chain execution
+// 动态链执行的模块 ID
+#define MOD_ID_ENTRY          0
+#define MOD_ID_SANITY         1
+#define MOD_ID_CRITICAL       2
+#define MOD_ID_WHITELIST      3
+#define MOD_ID_BLACKLIST      4
+#define MOD_ID_DYNAMIC_BLACKLIST 5
+#define MOD_ID_RATELIMIT      6
+#define MOD_ID_CONNTRACK      7
+#define MOD_ID_RULES          8
+#define MOD_ID_ICMP           9
+#define MOD_ID_RETURN         10
+#define MOD_ID_PLUGINS_START  11
+
 #endif // __NETXFW_PROTOCOL_H

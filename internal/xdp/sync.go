@@ -275,6 +275,12 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	// 8. Update binary cache / 8. 更新二进制缓存
 	go m.UpdateBinaryCache(cfg, records)
 
+	// 9. Sync Modules Chain / 9. 同步模块链
+	if err := m.SyncModules(cfg.Modules); err != nil {
+		m.logger.Warnf("Failed to sync modules chain: %v", err)
+		return err
+	}
+
 	return nil
 }
 

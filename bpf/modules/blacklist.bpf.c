@@ -42,6 +42,24 @@ static __always_inline struct rule_value *get_blacklist_stats(struct in6_addr *i
 }
 
 /**
+ * Check if an IP is in the dynamic blacklist (LRU)
+ * 检查 IP 是否在动态黑名单中 (LRU)
+ */
+static __always_inline struct rule_value *check_dynamic_blacklist(struct in6_addr *ip) {
+    return bpf_map_lookup_elem(&dynamic_blacklist, ip);
+}
+
+/**
+ * Check if an IP is in the static blacklist (LPM)
+ * 检查 IP 是否在静态黑名单中 (LPM)
+ */
+static __always_inline struct rule_value *check_static_blacklist(struct in6_addr *ip) {
+    struct lpm_key key = { .prefixlen = 128 };
+    __builtin_memcpy(&key.data, ip, sizeof(struct in6_addr));
+    return bpf_map_lookup_elem(&static_blacklist, &key);
+}
+
+/**
  * Helper to add an IP to the dynamic blacklist
  * 将 IP 地址加入动态黑名单
  */

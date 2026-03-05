@@ -24,6 +24,61 @@ var ConfigMu sync.RWMutex
 const DefaultConfigTemplate = `# NetXFW Configuration File / NetXFW 配置文件
 #
 
+# Module Configuration / 模块配置
+# Order of execution for XDP modules.
+# XDP 模块的执行顺序。
+modules:
+  # Sanity Check: Validate packet headers, bogon filtering, anti-spoofing.
+  # 合法性检查：验证数据包头，Bogon 过滤，防欺骗。
+  - name: "sanity"
+    enabled: true
+    priority: 0
+  # Critical Blacklist: Highest priority, emergency blocking, no auto-eviction.
+  # 危机黑名单：最高优先级，紧急封锁，永不自动淘汰。
+  - name: "critical_blacklist"
+    enabled: true
+    priority: 10
+  # Whitelist: Global allowed IPs/CIDRs.
+  # 白名单：全局允许的 IP/CIDR。
+  - name: "whitelist"
+    enabled: true
+    priority: 20
+  # Static Blacklist: Manual/CIDR blocks, persistent.
+  # 静态黑名单：手动/CIDR 封锁，持久化。
+  - name: "blacklist"
+    enabled: true
+    priority: 30
+  # Dynamic Blacklist: Auto-blocked IPs (LRU), auto-expiry.
+  # 动态黑名单：自动封锁的 IP (LRU)，自动过期。
+  - name: "dynamic_blacklist"
+    enabled: true
+    priority: 35
+  # Rate Limiting: Prevent DoS/DDoS attacks.
+  # 速率限制：防止 DoS/DDoS 攻击。
+  - name: "ratelimit"
+    enabled: true
+    priority: 40
+  # Connection Tracking: Maintain connection state.
+  # 连接跟踪：维护连接状态。
+  - name: "conntrack"
+    enabled: true
+    priority: 50
+  # IP-Port Rules: Specific IP and port rules.
+  # IP-端口规则：特定的 IP 和端口规则。
+  - name: "ip_port_rules"
+    enabled: true
+    priority: 60
+  # ICMP Rate Limiting.
+  # ICMP 速率限制。
+  - name: "icmp"
+    enabled: true
+    priority: 70
+  # Allow Return Traffic: Stateless return traffic check.
+  # 允许回程流量：无状态回程流量检查。
+  - name: "return_traffic"
+    enabled: true
+    priority: 80
+
 # Cluster Configuration / 集群配置
 # Default cluster config file path / 默认集群配置文件路径
 cluster:
@@ -381,6 +436,15 @@ type GlobalConfig struct {
 	AI        AIConfig             `yaml:"ai"`
 	MCP       MCPConfig            `yaml:"mcp"`
 	BPFPlugin BPFPluginSettings    `yaml:"bpf_plugin"`
+	Modules   []ModuleConfig       `yaml:"modules"`
+}
+
+// ModuleConfig defines the configuration for a BPF module.
+// ModuleConfig 定义 BPF 模块的配置。
+type ModuleConfig struct {
+	Name     string `yaml:"name"`
+	Enabled  bool   `yaml:"enabled"`
+	Priority int    `yaml:"priority"` // Lower number = higher priority (runs earlier)
 }
 
 // LogEngineConfig defines the configuration for the log engine.

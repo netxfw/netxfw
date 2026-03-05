@@ -134,6 +134,7 @@ func (m *Manager) initMapReferences(objs *NetXfwObjects) {
 	m.ratelimitMap = objs.RatelimitMap
 	m.globalConfig = objs.GlobalConfig
 	m.jmpTable = objs.JmpTable
+	m.chainMap = objs.ChainMap
 	m.xskMap = objs.XskMap
 }
 
@@ -170,6 +171,7 @@ func NewManagerFromPins(path string, logger Logger) (*Manager, error) {
 		"top_pass_map",
 		"global_config",
 		"jmp_table",
+		"chain_map",
 		"xsk_map",
 	}
 

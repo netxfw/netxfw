@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: (BSD-2-Clause OR GPL-2.0-only)
 /*
  * NetXfw BPF Program - Kernel Space XDP Firewall
- * 
+ *
  * This BPF program is dual-licensed under BSD-2-Clause OR GPL-2.0-only.
  * The GPL license is required for kernel compatibility with GPL-only helper functions.
  * The BSD license option is available for users who prefer more permissive terms.
- * 
+ *
  * For commercial licensing options, please contact the copyright holder.
  */
 #include <linux/bpf.h>
@@ -102,7 +102,7 @@ int xdp_ipv4(struct xdp_md *ctx) {
 
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
-    
+
     void *network_header;
     __u16 h_proto;
     if (parse_eth_frame(data, data_end, &network_header, &h_proto) < 0) return XDP_PASS;
@@ -120,7 +120,7 @@ int xdp_ipv4(struct xdp_md *ctx) {
         // Stats are already updated in handle_ipv4/6 with specific reasons
         // 统计信息已在 handle_ipv4/6 中更新了具体原因
 
-        // update_drop_stats(); 
+        // update_drop_stats();
         return XDP_DROP;
     }
     return action;
@@ -134,7 +134,7 @@ int xdp_ipv6(struct xdp_md *ctx) {
 
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
-    
+
     void *network_header;
     __u16 h_proto;
     if (parse_eth_frame(data, data_end, &network_header, &h_proto) < 0) return XDP_PASS;
@@ -168,8 +168,16 @@ int xdp_firewall(struct xdp_md *ctx) {
     // 基于采样的配置刷新以减少开销
     check_config_refresh();
 
-    // Try to call the first plugin slot
-    // 尝试调用第一个插件槽位
+    // Try to jump to the configured chain start (Dynamic Modules)
+    // 尝试跳转到配置的链起点（动态模块）
+    __u32 key = MOD_ID_ENTRY;
+    __u32 *start_idx = bpf_map_lookup_elem(&chain_map, &key);
+    if (start_idx) {
+        bpf_tail_call(ctx, &jmp_table, *start_idx);
+    }
+
+    // Try to call the first plugin slot (Legacy)
+    // 尝试调用第一个插件槽位（旧版）
     // If a plugin is loaded, it's responsible for tail-calling the next plugin or the core logic
     // 如果加载了插件，它负责尾调用下一个插件或核心逻辑
     bpf_tail_call(ctx, &jmp_table, PROG_IDX_PLUGIN_START);
@@ -185,11 +193,11 @@ int xdp_firewall(struct xdp_md *ctx) {
 
     if (h_proto == bpf_htons(ETH_P_IP)) {
         action = handle_ipv4(ctx, data_end, network_header);
-    } 
+    }
 #ifdef ENABLE_IPV6
     else if (h_proto == bpf_htons(ETH_P_IPV6)) {
         action = handle_ipv6(ctx, data_end, network_header);
-    } 
+    }
 #endif
     else if (h_proto == bpf_htons(ETH_P_ARP)) {
         return XDP_PASS;
@@ -214,3 +222,7 @@ int xdp_firewall(struct xdp_md *ctx) {
 }
 
 char _license[] SEC("license") = "Dual BSD/GPL";
+
+// Include dynamic module wrappers
+// 包含动态模块封装
+#include "wrappers.bpf.c"

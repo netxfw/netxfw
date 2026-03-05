@@ -77,7 +77,7 @@ struct stats_global {
     __u64 total_packets;    // Total packets processed / 处理的总数据包
     __u64 total_pass;       // Total passed packets / 通过的总数据包
     __u64 total_drop;       // Total dropped packets / 丢弃的总数据包
-    
+
     // Drop reason counters / 丢弃原因计数器
     __u64 drop_blacklist;      // Dropped by blacklist / 被黑名单丢弃
     __u64 drop_no_rule;        // Dropped: no matching rule / 丢弃：无匹配规则
@@ -86,17 +86,17 @@ struct stats_global {
     __u64 drop_syn_flood;      // Dropped: SYN flood / 丢弃：SYN 洪水
     __u64 drop_icmp_limit;     // Dropped: ICMP limit / 丢弃：ICMP 限制
     __u64 drop_port_blocked;   // Dropped: port blocked / 丢弃：端口被阻止
-    
+
     // Pass reason counters / 通过原因计数器
     __u64 pass_whitelist;      // Passed by whitelist / 被白名单通过
     __u64 pass_rule;           // Passed by rule / 被规则通过
     __u64 pass_return;         // Passed: return traffic / 通过：回程流量
     __u64 pass_established;    // Passed: established connection / 通过：已建立连接
-    
+
     // ICMP rate limit state / ICMP 速率限制状态
     __u64 icmp_last_time;      // Last ICMP packet time / 上次 ICMP 数据包时间
     __u64 icmp_tokens;         // ICMP tokens / ICMP 令牌
-    
+
     // Config version / 配置版本
     __u64 config_version;      // Current config version / 当前配置版本
     __u64 _reserved[8];        // Reserved for future use / 保留供将来使用
@@ -265,14 +265,27 @@ struct {
  */
 struct {
     __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-    __uint(max_entries, 16);
+    __uint(max_entries, 64);
     __type(key, __u32);
     __type(value, __u32);
 } jmp_table SEC(".maps");
 
 /**
- * 13. global_config - Global configuration
- * 13. global_config - 全局配置
+ * 13. chain_map - Module chain execution order
+ * 13. chain_map - 模块链执行顺序
+ * Key: Module ID
+ * Value: Next Program Index in jmp_table
+ */
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 32); // Max 32 module types
+    __type(key, __u32);
+    __type(value, __u32);
+} chain_map SEC(".maps");
+
+/**
+ * 14. global_config - Global configuration
+ * 14. global_config - 全局配置
  */
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
