@@ -5,11 +5,16 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
+	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/netxfw/netxfw/pkg/sdk/mock"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	runtime.Mode = "test"
+}
 
 // executeCommand executes a cobra command and returns output.
 // executeCommand 执行 cobra 命令并返回输出。

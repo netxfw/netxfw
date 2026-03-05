@@ -1464,11 +1464,22 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 		} else {
 			// Use AddWithFile to persist static blacklist to file
 			// 使用 AddWithFile 将静态黑名单持久化到文件
-			lockListFile := cfg.Base.LockListFile
-			if err := s.Blacklist.AddWithFile(ip, lockListFile); err != nil {
-				return fmt.Errorf("[ERROR] Failed to add to static blacklist: %v", err)
+			lockListFile := ""
+			if cfg.Base.PersistRules {
+				lockListFile = cfg.Base.LockListFile
 			}
-			executor.PrintSuccess("[BLOCK] IP added to static blacklist: " + ip)
+			
+			if lockListFile != "" {
+				if err := s.Blacklist.AddWithFile(ip, lockListFile); err != nil {
+					return fmt.Errorf("[ERROR] Failed to add to static blacklist: %v", err)
+				}
+				executor.PrintSuccess("[BLOCK] IP added to static blacklist: " + ip)
+			} else {
+				if err := s.Blacklist.Add(ip); err != nil {
+					return fmt.Errorf("[ERROR] Failed to add to static blacklist: %v", err)
+				}
+				executor.PrintSuccess("[BLOCK] IP added to static blacklist (memory only): " + ip)
+			}
 		}
 		return nil
 	})

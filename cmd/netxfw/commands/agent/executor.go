@@ -94,6 +94,18 @@ func (e *CommandExecutor) LoadManagerFromConfig(cfg *types.GlobalConfig) (*xdp.M
 // ExecuteWithSDK executes command with SDK
 func (e *CommandExecutor) ExecuteWithSDK(execFunc func(*sdk.SDK) error) {
 	if err := e.EnsureMode().ApplyFlags().Do(func() error {
+		// Check if XDP is attached to any interface
+		// 检查 XDP 是否挂载到任何接口
+		// Skip check in test mode / 在测试模式下跳过检查
+		if runtime.Mode != "test" {
+			attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
+			if err != nil || len(attachedIfaces) == 0 {
+				e.PrintWarning("XDP is not attached to any interface. Please run 'netxfw system on' or 'netxfw system load' first.")
+				e.PrintWarning("XDP 未挂载到任何接口。请先运行 'netxfw system on' 或 'netxfw system load'。")
+				return nil
+			}
+		}
+
 		s, err := e.GetSDK()
 		if err != nil {
 			return fmt.Errorf("[ERROR] Failed to get SDK: %v", err)
@@ -101,7 +113,9 @@ func (e *CommandExecutor) ExecuteWithSDK(execFunc func(*sdk.SDK) error) {
 		return execFunc(s)
 	}); err != nil {
 		e.cmd.PrintErrln(err)
-		os.Exit(1)
+		if runtime.Mode != "test" {
+			os.Exit(1)
+		}
 	}
 }
 
@@ -109,6 +123,18 @@ func (e *CommandExecutor) ExecuteWithSDK(execFunc func(*sdk.SDK) error) {
 // ExecuteWithManager executes command with XDP manager
 func (e *CommandExecutor) ExecuteWithManager(execFunc func(*xdp.Manager) error) {
 	if err := e.EnsureMode().ApplyFlags().Do(func() error {
+		// Check if XDP is attached to any interface
+		// 检查 XDP 是否挂载到任何接口
+		// Skip check in test mode / 在测试模式下跳过检查
+		if runtime.Mode != "test" {
+			attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
+			if err != nil || len(attachedIfaces) == 0 {
+				e.PrintWarning("XDP is not attached to any interface. Please run 'netxfw system on' or 'netxfw system load' first.")
+				e.PrintWarning("XDP 未挂载到任何接口。请先运行 'netxfw system on' 或 'netxfw system load'。")
+				return nil
+			}
+		}
+
 		manager, err := e.LoadManager()
 		if err != nil {
 			return fmt.Errorf("[ERROR] Failed to load XDP manager: %v", err)
@@ -117,11 +143,12 @@ func (e *CommandExecutor) ExecuteWithManager(execFunc func(*xdp.Manager) error) 
 		return execFunc(manager)
 	}); err != nil {
 		e.cmd.PrintErrln(err)
-		os.Exit(1)
+		if runtime.Mode != "test" {
+			os.Exit(1)
+		}
 	}
 }
 
-// ExecuteWithConfigManager 使用配置和XDP管理器执行命令
 // ExecuteWithConfigManager executes command with config and XDP manager
 func (e *CommandExecutor) ExecuteWithConfigManager(execFunc func(*types.GlobalConfig, *xdp.Manager) error) {
 	if err := e.EnsureMode().ApplyFlags().Do(func() error {
@@ -129,6 +156,19 @@ func (e *CommandExecutor) ExecuteWithConfigManager(execFunc func(*types.GlobalCo
 		if err != nil {
 			return fmt.Errorf("[ERROR] Failed to load configuration: %v", err)
 		}
+
+		// Check if XDP is attached to any interface
+		// 检查 XDP 是否挂载到任何接口
+		// Skip check in test mode / 在测试模式下跳过检查
+		if runtime.Mode != "test" {
+			attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
+			if err != nil || len(attachedIfaces) == 0 {
+				e.PrintWarning("XDP is not attached to any interface. Please run 'netxfw system on' or 'netxfw system load' first.")
+				e.PrintWarning("XDP 未挂载到任何接口。请先运行 'netxfw system on' 或 'netxfw system load'。")
+				return nil
+			}
+		}
+
 		manager, err := e.LoadManager()
 		if err != nil {
 			return fmt.Errorf("[ERROR] Failed to load XDP manager: %v", err)
@@ -137,7 +177,9 @@ func (e *CommandExecutor) ExecuteWithConfigManager(execFunc func(*types.GlobalCo
 		return execFunc(cfg, manager)
 	}); err != nil {
 		e.cmd.PrintErrln(err)
-		os.Exit(1)
+		if runtime.Mode != "test" {
+			os.Exit(1)
+		}
 	}
 }
 

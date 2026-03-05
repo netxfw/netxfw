@@ -36,4 +36,29 @@ func InitConfiguration(ctx context.Context) {
 	} else {
 		log.Infof("[INFO]  Config file already exists: %s", configPath)
 	}
+
+	// Initialize LockListFile if configured in the newly created or existing config
+	// 如果在新建或现有的配置中配置了 LockListFile，则初始化它
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err == nil && globalCfg.Base.LockListFile != "" {
+		lockListFile := globalCfg.Base.LockListFile
+		if _, err := os.Stat(lockListFile); os.IsNotExist(err) {
+			// Create directory for lock list file if needed
+			// 如果需要，为锁定列表文件创建目录
+			lockListDir := filepath.Dir(lockListFile)
+			if _, err := os.Stat(lockListDir); os.IsNotExist(err) {
+				if err := os.MkdirAll(lockListDir, 0755); err != nil {
+					log.Warnf("[WARN]  Failed to create lock list directory %s: %v", lockListDir, err)
+				}
+			}
+			
+			// Create empty lock list file
+			// 创建空的锁定列表文件
+			if err := os.WriteFile(lockListFile, []byte(""), 0644); err != nil {
+				log.Warnf("[WARN]  Failed to create lock list file %s: %v", lockListFile, err)
+			} else {
+				log.Infof("[FILE] Created lock list file: %s", lockListFile)
+			}
+		}
+	}
 }

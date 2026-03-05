@@ -68,7 +68,7 @@ base:
 
   # Strict TCP Validation: Check TCP flags and sequence numbers.
   # 严格 TCP 验证：检查 TCP 标志和序列号。
-  strict_tcp: true
+  strict_tcp: false
 
   # SYN Rate Limit: Limit SYN packets to prevent flood attacks.
   # SYN 速率限制：限制 SYN 数据包以防止泛洪攻击。
@@ -92,12 +92,11 @@ base:
 
   # Lock List File: Persistence file for blocked IPs.
   # 锁定列表文件：被封禁 IP 的持久化文件。
-  lock_list_file: "/etc/netxfw/lock_list.txt"
+  lock_list_file: "/etc/netxfw/deny_list.txt"
 
-  # Lock List Binary: Binary format for fast loading (optional).
-  # 锁定列表二进制文件：用于快速加载的二进制格式（可选）。
-  lock_list_binary: "lock_list.bin.zst
-  "
+  # Lock List Binary: Binary format for fast loading.
+  # 锁定列表二进制文件：用于快速加载的二进制格式。
+  lock_list_binary: "/etc/netxfw/deny_list.bin.zst"
 
   # Lock List Merge Threshold: If > 0, merge IPs into subnets if count >= threshold.
   # 锁定列表合并阈值：如果 > 0，当数量 >= 阈值时将 IP 合并为子网。
@@ -178,7 +177,7 @@ port:
   # Allowed Ports: List of allowed destination ports (TCP/UDP).
   # 允许端口：允许的目标端口列表 (TCP/UDP)。
   allowed_ports: []
-  
+
   # IP-Port Rules: Specific rules for IP+Port combinations.
   # IP-端口规则：针对 IP+端口组合的特定规则。
   ip_port_rules:
@@ -200,7 +199,7 @@ conntrack:
 
 # Rate Limit Configuration / 速率限制配置
 rate_limit:
-  enabled: true
+  enabled: false
   auto_block: true
   # Auto Block Expiry: Duration to block IPs that exceed limits.
   # 自动封禁过期时间：超过限制的 IP 的封禁持续时间。
@@ -215,7 +214,7 @@ rate_limit:
 log_engine:
   enabled: false
   workers: 4
-  
+
   rules: []
   # Example 1: SSH Brute Force Protection
   # 示例 1：SSH 防爆破
@@ -224,15 +223,15 @@ log_engine:
   #   tail_position: "end"
   #   # Expression Syntax
   #   # 表达式语法:
-  #   # log("pattern")  -> Case-insensitive match
   #   # 不区分大小写匹配
-  #   # logE("pattern") -> Case-sensitive match (Exact)
+  #   # log("pattern")  -> Case-insensitive match
   #   # 区分大小写匹配 (精确)
-  #   # time(seconds)   -> Count occurrences in last N seconds
+  #   # logE("pattern") -> Case-sensitive match (Exact)
   #   # 过去 N 秒内的计数
+  #   # time(seconds)   -> Count occurrences in last N seconds
   #   expression: 'log("Failed password") && log("root") && time(60) > 5'
-  #   # Actions: 0="log", 1="block" (dynamic), 2="static" (permanent)
-  #   action: "block"
+  #   # Actions: 0="log", 1="dynblock" (dynamic), 2="static" (permanent)
+  #   action: "dynblock"
   #   # Block duration
   #   # 封禁时长
   #   ttl: "10m"
@@ -295,16 +294,16 @@ logging:
 cloud:
   # Enable cloud environment support / 启用云环境支持
   enabled: false
-  
+
   # Cloud provider: alibaba, tencent, aws, azure, gcp, other
   # 云服务商: alibaba, tencent, aws, azure, gcp, other
   provider: "other"
-  
+
   # Proxy Protocol configuration / Proxy Protocol 配置
   proxy_protocol:
     # Enable Proxy Protocol parsing / 启用 Proxy Protocol 解析
     enabled: false
-    
+
     # Trusted LB IP ranges (connections from these IPs will be parsed for Proxy Protocol)
     # 可信 LB IP 范围（来自这些 IP 的连接将解析 Proxy Protocol）
     # Predefined ranges will be added based on provider, custom ranges can be added here
@@ -314,10 +313,10 @@ cloud:
     # - "10.0.0.0/8"       # Alibaba/Tencent internal network / 阿里云/腾讯云内网
     # - "100.64.0.0/10"    # Carrier-grade NAT / 运营商级 NAT
     # - "172.16.0.0/12"    # AWS VPC
-    
+
     # Cache TTL for real IP mappings / 真实 IP 映射缓存 TTL
     cache_ttl: "5m"
-  
+
   # Real IP blacklist is managed via API/CLI, not in config file.
   # 真实 IP 黑名单通过 API/CLI 管理，不存储在配置文件中。
   # Use: netxfw cloud block <ip> --reason "xxx" --duration "24h"
@@ -329,7 +328,7 @@ cloud:
 bpf_plugin:
   # Enable BPF plugin auto-loading on startup / 启用启动时自动加载 BPF 插件
   enabled: false
-  
+
   # List of BPF plugins to load / 要加载的 BPF 插件列表
   plugins: []
   # Example / 示例:
