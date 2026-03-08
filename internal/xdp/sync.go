@@ -598,10 +598,8 @@ func ClearMap(mapPtr *ebpf.Map) (int, error) {
 	var k []byte
 	var v []byte
 	for iter.Next(&k, &v) {
-		if mapPtr != nil {
-			if err := mapPtr.Delete(k); err == nil {
-				removed++
-			}
+		if err := mapPtr.Delete(k); err == nil {
+			removed++
 		}
 	}
 	return removed, iter.Err()

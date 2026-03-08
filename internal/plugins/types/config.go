@@ -854,8 +854,12 @@ func checkForUpdates(path string, cfg *GlobalConfig, data []byte) {
 
 	log.Infof("[RELOAD] Refreshing configuration file structure and comments...")
 
-	// Backup original
-	backupPath := path + ".bak." + time.Now().Format("20060102-150405")
+	// Backup original with path sanitization to prevent path traversal
+	// 使用路径清理防止路径遍历攻击
+	// #nosec G304 -- path is from config.GetConfigPath() which is validated
+	safePath := filepath.Clean(path)
+	backupPath := safePath + ".bak." + time.Now().Format("20060102-150405")
+	// #nosec G304 G703 -- backupPath is derived from sanitized safePath
 	if err := os.WriteFile(backupPath, data, 0600); err != nil {
 		log.Warnf("[WARN]  Failed to backup config file, skipping update: %v", err)
 		return

@@ -1,0 +1,77 @@
+# NetXFW Documentation - Jekyll Configuration
+# NetXFW 文档 - Jekyll 配置文件
+
+title: NetXFW Documentation
+description: High-performance eBPF/XDP firewall documentation - 高性能 eBPF/XDP 防火墙文档
+baseurl: ""
+url: ""
+
+# Build settings - 构建设置
+source: .
+destination: _site
+markdown: kramdown
+highlighter: rouge
+
+# Kramdown settings - Kramdown 设置
+kramdown:
+  input: GFM
+  hard_wrap: false
+  syntax_highlighter: rouge
+
+# Include/exclude files - 包含/排除文件
+include:
+  - _pages
+  - _posts
+exclude:
+  - document-structure.md
+  - document-structure_en.md
+
+# Defaults - 默认设置
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+  - scope:
+      path: "01-getting-started"
+    values:
+      layout: default
+  - scope:
+      path: "02-installation"
+    values:
+      layout: default
+  - scope:
+      path: "03-quick-start"
+    values:
+      layout: default
+  - scope:
+      path: "04-configuration"
+    values:
+      layout: default
+  - scope:
+      path: "05-advanced-features"
+    values:
+      layout: default
+  - scope:
+      path: "06-plugin-development"
+    values:
+      layout: default
+  - scope:
+      path: "07-performance-tuning"
+    values:
+      layout: default
+  - scope:
+      path: "08-troubleshooting"
+    values:
+      layout: default
+  - scope:
+      path: "09-api-reference"
+    values:
+      layout: default
+  - scope:
+      path: "10-appendix"
+    values:
+      layout: default
+
+# Theme settings (optional) - 主题设置（可选）
+# theme: minima

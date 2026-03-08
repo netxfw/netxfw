@@ -184,8 +184,8 @@ Examples:
 		}
 
 		// Pin maps to filesystem / 将 Map 固定到文件系统
-		if err := manager.Pin(config.GetPinPath()); err != nil {
-			cmd.PrintErrln("[ERROR] Failed to pin maps:", err)
+		if pinErr := manager.Pin(config.GetPinPath()); pinErr != nil {
+			cmd.PrintErrln("[ERROR] Failed to pin maps:", pinErr)
 			os.Exit(1)
 		}
 

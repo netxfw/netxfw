@@ -141,6 +141,6 @@ web:
 
 ## Related Documentation
 
-- [API Reference](../09-05_api_reference_en.md)
+- [API Reference](./09-03_api_reference_en.md)
 - [Configuration Management](./09-01_config_management_unification_en.md)
-- [Performance Benchmarks](../07-performance-tuning/07-02_benchmarks_en.md)
+- [Performance Benchmarks](../07-performance-tuning/07-01_benchmarks_en.md)

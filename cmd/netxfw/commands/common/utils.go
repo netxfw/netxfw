@@ -113,6 +113,7 @@ func ImportLockListFromFile(s *sdk.SDK, path string) error {
 		persistFile = cfg.Base.LockListFile
 	}
 
+	// #nosec G304 -- safePath is validated by ValidateImportFile which sanitizes path and checks file size
 	file, err := os.Open(safePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
@@ -161,6 +162,7 @@ func ImportWhitelistFromFile(s *sdk.SDK, path string) error {
 	// But AddWithFile is not available for WhitelistAPI.
 	// So we just Add(), and user should run 'sync to-config' to persist if needed.
 
+	// #nosec G304 -- safePath is validated by ValidateImportFile which sanitizes path and checks file size
 	file, err := os.Open(safePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
@@ -215,6 +217,7 @@ func ImportIPPortRulesFromFile(s *sdk.SDK, path string) error {
 		return err
 	}
 
+	// #nosec G304 -- safePath is validated by ValidateImportFile which sanitizes path and checks file size
 	file, err := os.Open(safePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)

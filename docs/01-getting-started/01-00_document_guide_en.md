@@ -1,3 +1,8 @@
+---
+layout: default
+title: Documentation Guide - 文档导读
+---
+
 # NetXFW Documentation Guide
 
 Welcome to NetXFW! This documentation will help you quickly understand how to use this firewall system.

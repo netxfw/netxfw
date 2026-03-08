@@ -349,7 +349,8 @@ func TestErrorWrapping(t *testing.T) {
 
 func TestErrorComparison(t *testing.T) {
 	t.Run("same sentinel errors are equal", func(t *testing.T) {
-		if ErrInvalidIP != ErrInvalidIP {
+		err := ErrInvalidIP
+		if err != ErrInvalidIP {
 			t.Error("same sentinel errors should be equal")
 		}
 	})

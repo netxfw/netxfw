@@ -19,8 +19,8 @@
 
 | Number | Document | Description |
 |--------|----------|-------------|
-| 01-01 | [README](../README.md) | Documentation Center Home |
-| 01-02 | [README (EN)](../README_en.md) | Documentation Center (English) |
+| 01-01 | [README](../../README.md) | Documentation Center Home |
+| 01-02 | [README (EN)](../../README_en.md) | Documentation Center (English) |
 
 ---
 
@@ -30,10 +30,10 @@
 |--------|----------|-------------|
 | 02-01 | [Architecture Overview](../10-appendix/10-01_architecture.md) | System architecture design |
 | 02-02 | [Architecture Overview (EN)](../10-appendix/10-01_architecture_en.md) | System architecture (English) |
-| 02-03 | [Architecture Diagrams](../10-appendix/10-03_architecture_diagrams.md) | Standalone architecture details |
-| 02-04 | [Architecture Diagrams (EN)](../10-appendix/10-03_architecture_diagrams_en.md) | Standalone architecture (English) |
-| 02-05 | [Packet Filter Flow](../10-appendix/10-04_packet_filter_flow.md) | Packet filtering processing flow |
-| 02-06 | [Packet Filter Flow Summary](../10-appendix/10-05_summary_packet_filter.md) | Packet filter flow summary |
+| 02-03 | [Architecture Diagrams](../10-appendix/10-02_architecture_diagrams.md) | Standalone architecture details |
+| 02-04 | [Architecture Diagrams (EN)](../10-appendix/10-02_architecture_diagrams_en.md) | Standalone architecture (English) |
+| 02-05 | [Packet Filter Flow](../10-appendix/10-03_packet_filter_flow.md) | Packet filtering processing flow |
+| 02-06 | [Packet Filter Flow Summary](../10-appendix/10-04_summary_packet_filter.md) | Packet filter flow summary |
 
 ---
 
@@ -42,9 +42,9 @@
 | Number | Document | Description |
 |--------|----------|-------------|
 | 03-01 | [CLI Reference](../03-quick-start/03-01_cli.md) | CLI command details and usage examples |
-| 03-02 | [CLI Reference (EN)](../03-quick-start/03-02_cli_en.md) | CLI command reference (English) |
-| 03-03 | [Rule Import/Export](../03-quick-start/03-03_rule_import_export.md) | Rule import/export functionality details |
-| 03-04 | [Rule Import/Export (EN)](../03-quick-start/03-04_rule_import_export_en.md) | Rule import/export (English) |
+| 03-02 | [CLI Reference (EN)](../03-quick-start/03-01_cli_en.md) | CLI command reference (English) |
+| 03-03 | [Rule Import/Export](../03-quick-start/03-02_rule_import_export.md) | Rule import/export functionality details |
+| 03-04 | [Rule Import/Export (EN)](../03-quick-start/03-02_rule_import_export_en.md) | Rule import/export (English) |
 
 ---
 
@@ -54,10 +54,10 @@
 |--------|----------|-------------|
 | 04-01 | [Plugin Development Guide](../06-plugin-development/06-01_plugins.md) | Plugin development framework and interface description |
 | 04-02 | [Plugin Development (EN)](../06-plugin-development/06-01_plugins_en.md) | Plugin development (English) |
-| 04-03 | [XDP Plugin Development](../06-plugin-development/06-03_xdp_development_guide.md) | XDP layer plugin development guide |
-| 04-04 | [Go Plugin Development](../06-plugin-development/06-04_golang_development_guide.md) | Go language plugin development guide |
-| 04-05 | [API Reference](../09-api-reference/09-05_api_reference.md) | API interface detailed reference |
-| 04-06 | [API Reference (EN)](../09-api-reference/09-05_api_reference_en.md) | API interface reference (English) |
+| 04-03 | [XDP Plugin Development](../06-plugin-development/06-02_xdp_development_guide.md) | XDP layer plugin development guide |
+| 04-04 | [Go Plugin Development](../06-plugin-development/06-03_golang_development_guide.md) | Go language plugin development guide |
+| 04-05 | [API Reference](../09-api-reference/09-03_api_reference.md) | API interface detailed reference |
+| 04-06 | [API Reference (EN)](../09-api-reference/09-03_api_reference_en.md) | API interface reference (English) |
 
 ---
 
@@ -67,8 +67,8 @@
 |--------|----------|-------------|
 | 05-01 | [Real IP in Cloud](../05-advanced-features/05-01_realip.md) | Get real client IP in cloud environment |
 | 05-02 | [Real IP in Cloud (EN)](../05-advanced-features/05-01_realip_en.md) | Getting real client IP (English) |
-| 05-03 | [Interface-specific Agent Mode](../05-advanced-features/05-03_interface_specific_agent.md) | Agent mode for specific interfaces |
-| 05-04 | [Interface-specific Agent (EN)](../05-advanced-features/05-03_interface_specific_agent_en.md) | Interface-specific agent (English) |
+| 05-03 | [Interface-specific Agent Mode](../05-advanced-features/05-02_interface_specific_agent.md) | Agent mode for specific interfaces |
+| 05-04 | [Interface-specific Agent (EN)](../05-advanced-features/05-02_interface_specific_agent_en.md) | Interface-specific agent (English) |
 
 ---
 
@@ -77,9 +77,9 @@
 | Number | Document | Description |
 |--------|----------|-------------|
 | 06-01 | [Performance Benchmarks](../07-performance-tuning/07-01_benchmarks.md) | Performance test data and benchmarks |
-| 06-02 | [Performance Benchmarks (EN)](../07-performance-tuning/07-02_benchmarks_en.md) | Performance benchmarks (English) |
-| 06-03 | [BPF Map Capacity Configuration](../04-configuration/04-03_bpf_map_capacity.md) | BPF Map capacity configuration guide |
-| 06-04 | [BPF Map Capacity (EN)](../04-configuration/04-04_bpf_map_capacity_en.md) | BPF Map capacity (English) |
+| 06-02 | [Performance Benchmarks (EN)](../07-performance-tuning/07-01_benchmarks_en.md) | Performance benchmarks (English) |
+| 06-03 | [BPF Map Capacity Configuration](../04-configuration/04-02_bpf_map_capacity.md) | BPF Map capacity configuration guide |
+| 06-04 | [BPF Map Capacity (EN)](../04-configuration/04-02_bpf_map_capacity_en.md) | BPF Map capacity (English) |
 
 ---
 
@@ -91,10 +91,10 @@
 | 07-02 | [Config Management (EN)](../09-api-reference/09-01_config_management_unification_en.md) | Config management (English) |
 | 07-03 | [Web API Metrics Unification](../09-api-reference/09-02_unified_web_api_metrics.md) | Unified Web API metrics design |
 | 07-04 | [Web API Metrics (EN)](../09-api-reference/09-02_unified_web_api_metrics_en.md) | Web API metrics (English) |
-| 07-05 | [Log Engine](../05-advanced-features/05-05_log_engine.md) | Log processing engine description |
-| 07-06 | [Log Engine (EN)](../05-advanced-features/05-05_log_engine_en.md) | Log engine (English) |
-| 07-07 | [Testing Guide](../10-appendix/10-06_testing.md) | Testing methods and procedures |
-| 07-08 | [Testing Guide (EN)](../10-appendix/10-06_testing_en.md) | Testing guide (English) |
+| 07-05 | [Log Engine](../05-advanced-features/05-03_log_engine.md) | Log processing engine description |
+| 07-06 | [Log Engine (EN)](../05-advanced-features/05-03_log_engine_en.md) | Log engine (English) |
+| 07-07 | [Testing Guide](../10-appendix/10-05_testing.md) | Testing methods and procedures |
+| 07-08 | [Testing Guide (EN)](../10-appendix/10-05_testing_en.md) | Testing guide (English) |
 
 ---
 
@@ -102,8 +102,8 @@
 
 | Number | Document | Description |
 |--------|----------|-------------|
-| 08-01 | [Project Evaluation Report](../10-appendix/10-08_evaluation.md) | Detailed project evaluation report |
-| 08-02 | [Project Evaluation (EN)](../10-appendix/10-08_evaluation_en.md) | Project evaluation (English) |
+| 08-01 | [Project Evaluation Report](../10-appendix/10-06_evaluation.md) | Detailed project evaluation report |
+| 08-02 | [Project Evaluation (EN)](../10-appendix/10-06_evaluation_en.md) | Project evaluation (English) |
 
 ---
 
@@ -112,7 +112,7 @@
 | Number | Document | Description |
 |--------|----------|-------------|
 | 09-01 | [Troubleshooting Guide](../08-troubleshooting/08-01_troubleshooting.md) | Common problem diagnosis and solutions |
-| 09-02 | [Troubleshooting Guide (EN)](../08-troubleshooting/08-02_troubleshooting_en.md) | Troubleshooting guide (English) |
+| 09-02 | [Troubleshooting Guide (EN)](../08-troubleshooting/08-01_troubleshooting_en.md) | Troubleshooting guide (English) |
 
 ---
 
@@ -121,7 +121,7 @@
 | Number | Document | Description |
 |--------|----------|-------------|
 | 10-01 | [Performance Tuning Guide](../04-configuration/04-01_performance_tuning.md) | Performance optimization detailed guide |
-| 10-02 | [Performance Tuning (EN)](../04-configuration/04-02_performance_tuning_en.md) | Performance tuning (English) |
+| 10-02 | [Performance Tuning (EN)](../04-configuration/04-01_performance_tuning_en.md) | Performance tuning (English) |
 
 ---
 
@@ -166,8 +166,8 @@
 
 If you are new to NetXFW, it is recommended to read the documents in the following order:
 
-1. **01-01 [README](../README.md)** - Understand project overview
+1. **01-01 [README](../../README.md)** - Understand project overview
 2. **02-01 [Architecture Overview](../10-appendix/10-01_architecture.md)** - Understand system architecture
 3. **03-01 [CLI Reference](../03-quick-start/03-01_cli.md)** - Learn basic operations
 4. **06-01 [Performance Benchmarks](../07-performance-tuning/07-01_benchmarks.md)** - Understand performance characteristics
-5. **06-03 [BPF Map Capacity Configuration](../04-configuration/04-03_bpf_map_capacity.md)** - Configure memory parameters
+5. **06-03 [BPF Map Capacity Configuration](../04-configuration/04-02_bpf_map_capacity.md)** - Configure memory parameters

@@ -27,6 +27,14 @@ const (
 	actionBlock = "block"
 	actionLock  = "lock"
 	actionWhite = "white"
+
+	// Rule type constants / 规则类型常量
+	ruleTypePort   = "port"
+	ruleTypeBinary = "binary"
+	ruleTypeYAML   = "yaml"
+	ruleTypeJSON   = "json"
+	ruleTypeCSV    = "csv"
+	ruleTypeRules  = "rules"
 )
 
 var RuleCmd = &cobra.Command{
@@ -231,7 +239,7 @@ var ruleListCmd = &cobra.Command{
 					}
 					return nil
 
-				case "port":
+				case ruleTypePort:
 					limit, search, err := common.ParseLimitAndSearch(restArgs, 100)
 					if err != nil {
 						return err
@@ -278,7 +286,7 @@ var ruleListCmd = &cobra.Command{
 					}
 					return nil
 
-				case "rules":
+				case ruleTypeRules:
 					limit, search, err := common.ParseLimitAndSearch(restArgs, 100)
 					if err != nil {
 						return err
@@ -371,7 +379,7 @@ Examples:
 			}
 
 			if isBinary {
-				if ruleType != "binary" {
+				if ruleType != ruleTypeBinary {
 					return fmt.Errorf("[ERROR] For binary imports, use: netxfw rule import binary <file>")
 				}
 				return importFromBinaryFile(s, filePath)
@@ -383,7 +391,7 @@ Examples:
 				return common.ImportLockListFromFile(s, filePath)
 			case actionAllow:
 				return common.ImportWhitelistFromFile(s, filePath)
-			case "rules":
+			case ruleTypeRules:
 				return common.ImportIPPortRulesFromFile(s, filePath)
 			default:
 				return fmt.Errorf("[ERROR] Unknown rule type. Use: lock (or deny), allow, rules, binary, or all (for JSON/YAML)")
@@ -392,74 +400,79 @@ Examples:
 	},
 }
 
-// importFromStructuredFile imports rules from JSON or YAML file.
-// importFromStructuredFile 从 JSON 或 YAML 文件导入规则。
-func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
-	// 验证文件路径和大小
-	// Validate file path and size
+// importResult tracks import statistics for a single category.
+// importResult 跟踪单个类别的导入统计。
+type importResult struct {
+	added  int
+	failed int
+}
+
+// parseImportFile parses JSON or YAML file into ExportData.
+// parseImportFile 将 JSON 或 YAML 文件解析为 ExportData。
+func parseImportFile(filePath string, isJSON bool) (*ExportData, error) {
 	safePath, err := common.ValidateImportFile(filePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	data, err := os.ReadFile(safePath)
 	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
+		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
 	var importData ExportData
 	if isJSON {
 		if err := json.Unmarshal(data, &importData); err != nil {
-			return fmt.Errorf("failed to parse JSON: %w", err)
+			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
 	} else {
 		if err := yaml.Unmarshal(data, &importData); err != nil {
-			return fmt.Errorf("failed to parse YAML: %w", err)
+			return nil, fmt.Errorf("failed to parse YAML: %w", err)
 		}
 	}
 
-	var addedBlacklist, addedWhitelist, addedIPPort int
-	var failedBlacklist, failedWhitelist, failedIPPort int
+	return &importData, nil
+}
 
-	// Import blacklist
-	// 导入黑名单
-	for _, rule := range importData.Blacklist {
+// importBlacklistRules imports blacklist rules from import data.
+// importBlacklistRules 从导入数据导入黑名单规则。
+func importBlacklistRules(s *sdk.SDK, rules []ExportRule) importResult {
+	var result importResult
+	for _, rule := range rules {
 		if rule.IP == "" {
 			continue
 		}
-		// 验证 IP 格式
-		// Validate IP format
 		if err := common.ValidateIP(rule.IP); err != nil {
 			fmt.Printf("[WARN]  Invalid IP in blacklist: %s: %v\n", rule.IP, err)
-			failedBlacklist++
+			result.failed++
 			continue
 		}
 		if err := s.Blacklist.Add(rule.IP); err != nil {
 			fmt.Printf("[WARN]  Failed to add blacklist %s: %v\n", rule.IP, err)
-			failedBlacklist++
+			result.failed++
 		} else {
-			addedBlacklist++
+			result.added++
 		}
 	}
+	return result
+}
 
-	// Import whitelist
-	// 导入白名单
-	for _, rule := range importData.Whitelist {
+// importWhitelistRules imports whitelist rules from import data.
+// importWhitelistRules 从导入数据导入白名单规则。
+func importWhitelistRules(s *sdk.SDK, rules []ExportRule) importResult {
+	var result importResult
+	for _, rule := range rules {
 		if rule.IP == "" {
 			continue
 		}
-		// 验证 IP 格式
-		// Validate IP format
 		if err := common.ValidateIP(rule.IP); err != nil {
 			fmt.Printf("[WARN]  Invalid IP in whitelist: %s: %v\n", rule.IP, err)
-			failedWhitelist++
+			result.failed++
 			continue
 		}
-		// 验证端口范围
-		// Validate port range
 		if rule.Port < 0 || rule.Port > 65535 {
 			fmt.Printf("[WARN]  Invalid port in whitelist: %s:%d (must be 0-65535)\n", rule.IP, rule.Port)
-			failedWhitelist++
+			result.failed++
 			continue
 		}
 		var port uint16
@@ -468,30 +481,30 @@ func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
 		}
 		if err := s.Whitelist.Add(rule.IP, port); err != nil {
 			fmt.Printf("[WARN]  Failed to add whitelist %s: %v\n", rule.IP, err)
-			failedWhitelist++
+			result.failed++
 		} else {
-			addedWhitelist++
+			result.added++
 		}
 	}
+	return result
+}
 
-	// Import IP+Port rules
-	// 导入 IP+端口规则
-	for _, rule := range importData.IPPort {
+// importIPPortRules imports IP+Port rules from import data.
+// importIPPortRules 从导入数据导入 IP+端口规则。
+func importIPPortRules(s *sdk.SDK, rules []ExportRule) importResult {
+	var result importResult
+	for _, rule := range rules {
 		if rule.IP == "" || rule.Port == 0 {
 			continue
 		}
-		// 验证 IP 格式
-		// Validate IP format
 		if err := common.ValidateIP(rule.IP); err != nil {
 			fmt.Printf("[WARN]  Invalid IP in IP+Port rule: %s: %v\n", rule.IP, err)
-			failedIPPort++
+			result.failed++
 			continue
 		}
-		// 验证端口范围
-		// Validate port range
 		if rule.Port < 1 || rule.Port > 65535 {
 			fmt.Printf("[WARN]  Invalid port in IP+Port rule: %s:%d (must be 1-65535)\n", rule.IP, rule.Port)
-			failedIPPort++
+			result.failed++
 			continue
 		}
 		action := uint8(2) // Deny default
@@ -500,18 +513,36 @@ func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
 		}
 		if err := s.Rule.AddIPPortRule(rule.IP, uint16(rule.Port), action); err != nil { // #nosec G115 // port is always 0-65535
 			fmt.Printf("[WARN]  Failed to add IP+Port rule %s:%d: %v\n", rule.IP, rule.Port, err)
-			failedIPPort++
+			result.failed++
 		} else {
-			addedIPPort++
+			result.added++
 		}
 	}
+	return result
+}
 
-	// Print summary
-	// 打印摘要
+// printImportSummary prints the import summary.
+// printImportSummary 打印导入摘要。
+func printImportSummary(blResult, wlResult, ippResult importResult) {
 	fmt.Println("[OK] Import completed:")
-	fmt.Printf("   Blacklist: %d added, %d failed\n", addedBlacklist, failedBlacklist)
-	fmt.Printf("   Whitelist: %d added, %d failed\n", addedWhitelist, failedWhitelist)
-	fmt.Printf("   IP+Port:   %d added, %d failed\n", addedIPPort, failedIPPort)
+	fmt.Printf("   Blacklist: %d added, %d failed\n", blResult.added, blResult.failed)
+	fmt.Printf("   Whitelist: %d added, %d failed\n", wlResult.added, wlResult.failed)
+	fmt.Printf("   IP+Port:   %d added, %d failed\n", ippResult.added, ippResult.failed)
+}
+
+// importFromStructuredFile imports rules from JSON or YAML file.
+// importFromStructuredFile 从 JSON 或 YAML 文件导入规则。
+func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
+	importData, err := parseImportFile(filePath, isJSON)
+	if err != nil {
+		return err
+	}
+
+	blResult := importBlacklistRules(s, importData.Blacklist)
+	wlResult := importWhitelistRules(s, importData.Whitelist)
+	ippResult := importIPPortRules(s, importData.IPPort)
+
+	printImportSummary(blResult, wlResult, ippResult)
 
 	return nil
 }
@@ -554,16 +585,7 @@ func importFromBinaryFile(s *sdk.SDK, filePath string) error {
 	for _, record := range records {
 		// Construct CIDR notation using IP and PrefixLen
 		// 使用 IP 和 PrefixLen 构建 CIDR 表示法
-		var ipStr string
-		if record.IsIPv6 {
-			// For IPv6, construct /128 CIDR for single IP or specific prefix
-			// 对于 IPv6，为单个 IP 构建 /128 CIDR 或特定前缀
-			ipStr = fmt.Sprintf("%s/%d", record.IP.String(), record.PrefixLen)
-		} else {
-			// For IPv4, construct /32 CIDR for single IP or specific prefix
-			// 对于 IPv4，为单个 IP 构建 /32 CIDR 或特定前缀
-			ipStr = fmt.Sprintf("%s/%d", record.IP.String(), record.PrefixLen)
-		}
+		ipStr := fmt.Sprintf("%s/%d", record.IP.String(), record.PrefixLen)
 
 		if err := s.Blacklist.Add(ipStr); err != nil {
 			fmt.Printf("[WARN]  Failed to add %s: %v\n", ipStr, err)
@@ -686,25 +708,25 @@ Examples:
 			// Auto-detect format from file extension if not specified
 			if format == "" {
 				if strings.HasSuffix(strings.ToLower(filePath), ".json") {
-					format = "json"
+					format = ruleTypeJSON
 				} else if strings.HasSuffix(strings.ToLower(filePath), ".yaml") || strings.HasSuffix(strings.ToLower(filePath), ".yml") {
-					format = "yaml"
+					format = ruleTypeYAML
 				} else if strings.HasSuffix(strings.ToLower(filePath), ".csv") {
-					format = "csv"
+					format = ruleTypeCSV
 				} else if strings.HasSuffix(strings.ToLower(filePath), ".bin.zst") {
-					format = "binary"
+					format = ruleTypeBinary
 				} else {
-					format = "json" // default
+					format = ruleTypeJSON // default
 				}
 			}
 
 			// Export based on format
 			switch format {
-			case "binary":
+			case ruleTypeBinary:
 				return exportToBinaryFile(s, filePath)
-			case "yaml":
+			case ruleTypeYAML:
 				return exportToStructuredFile(s, filePath, "yaml")
-			case "csv":
+			case ruleTypeCSV:
 				return exportToCSVFile(s, filePath)
 			default: // json
 				return exportToStructuredFile(s, filePath, "json")
@@ -767,7 +789,7 @@ func exportToStructuredFile(s *sdk.SDK, filePath, format string) error {
 	var data []byte
 	var errMarshal error
 	switch format {
-	case "yaml":
+	case ruleTypeYAML:
 		data, errMarshal = yaml.Marshal(exportData)
 	default: // json
 		data, errMarshal = json.MarshalIndent(exportData, "", "  ")
@@ -841,8 +863,8 @@ func exportToBinaryFile(s *sdk.SDK, filePath string) error {
 		if strings.Contains(entry.IP, "/") {
 			// Parse IP and CIDR separately
 			// 分别解析 IP 和 CIDR
-			ipStr, cidrNet, err := net.ParseCIDR(entry.IP)
-			if err != nil {
+			ipStr, cidrNet, parseErr := net.ParseCIDR(entry.IP)
+			if parseErr != nil {
 				fmt.Printf("[WARN]  Invalid CIDR: %s\n", entry.IP)
 				continue
 			}
@@ -903,9 +925,9 @@ func exportToBinaryFile(s *sdk.SDK, filePath string) error {
 
 	// Encode to binary format
 	// 编码为二进制格式
-	if err := binary.Encode(tmpFile, records); err != nil {
+	if encodeErr := binary.Encode(tmpFile, records); encodeErr != nil {
 		tmpFile.Close()
-		return fmt.Errorf("failed to encode binary data: %v", err)
+		return fmt.Errorf("failed to encode binary data: %v", encodeErr)
 	}
 	tmpFile.Close()
 

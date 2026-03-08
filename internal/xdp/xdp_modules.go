@@ -13,18 +13,18 @@ import (
 
 // Module IDs (must match BPF)
 const (
-	ModIDEntry     = 0
-	ModIDSanity    = 1
-	ModIDCritical  = 2
-	ModIDWhitelist = 3
-	ModIDBlacklist = 4
+	ModIDEntry            = 0
+	ModIDSanity           = 1
+	ModIDCritical         = 2
+	ModIDWhitelist        = 3
+	ModIDBlacklist        = 4
 	ModIDDynamicBlacklist = 5
-	ModIDRateLimit = 6
-	ModIDConntrack = 7
-	ModIDRules     = 8
-	ModIDICMP      = 9
-	ModIDReturn    = 10
-	ModIDPlugins   = 11
+	ModIDRateLimit        = 6
+	ModIDConntrack        = 7
+	ModIDRules            = 8
+	ModIDICMP             = 9
+	ModIDReturn           = 10
+	ModIDPlugins          = 11
 )
 
 // Module definition
@@ -94,9 +94,9 @@ func (m *Manager) SyncModules(configs []types.ModuleConfig) error {
 		}
 
 		if def.Program == nil {
-			 // Might be nil if not loaded/found in BPF object
-			 m.logger.Warnf("Module program not loaded: %s", cfg.Name)
-			 continue
+			// Might be nil if not loaded/found in BPF object
+			m.logger.Warnf("Module program not loaded: %s", cfg.Name)
+			continue
 		}
 
 		// Assign an index in jmp_table
@@ -133,6 +133,6 @@ func (m *Manager) SyncModules(configs []types.ModuleConfig) error {
 }
 
 func isKeyNotExist(err error) bool {
-    // Check if error is KeyNotExist
+	// Check if error is KeyNotExist
 	return err != nil && err.Error() == "key does not exist"
 }

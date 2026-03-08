@@ -104,5 +104,5 @@ func RemoveFromFile(filePath, line string) error {
 		}
 	}
 
-	return os.WriteFile(safePath, []byte(strings.Join(newLines, "\n")+"\n"), 0600) // #nosec G304 // filePath is sanitized with filepath.Clean
+	return os.WriteFile(safePath, []byte(strings.Join(newLines, "\n")+"\n"), 0600) // #nosec G304 G703 // filePath is sanitized with filepath.Clean
 }

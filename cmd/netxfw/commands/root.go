@@ -169,21 +169,15 @@ Examples:
 func Execute() {
 	// Replace default completion command with custom one (no powershell)
 	// 用自定义补全命令替换默认命令（不含 powershell）
-	var found bool
 	for _, cmd := range RootCmd.Commands() {
 		if cmd.Use == "completion" {
 			RootCmd.RemoveCommand(cmd)
-			found = true
 			break
 		}
 	}
-	if found {
-		RootCmd.AddCommand(createCustomCompletionCmd())
-	} else {
-		// Cobra adds completion lazily, so we need to add it ourselves
-		// Cobra 延迟添加 completion，所以我们需要自己添加
-		RootCmd.AddCommand(createCustomCompletionCmd())
-	}
+	// Always add custom completion command (replaces or adds)
+	// 始终添加自定义补全命令（替换或添加）
+	RootCmd.AddCommand(createCustomCompletionCmd())
 
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

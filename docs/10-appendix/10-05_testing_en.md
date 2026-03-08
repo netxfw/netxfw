@@ -202,6 +202,6 @@ func TestXDPManager(t *testing.T) {
 
 ## Related Documentation
 
-- [Architecture Overview](./10-02_architecture_en.md)
-- [API Reference](../09-05_api_reference_en.md)
-- [Performance Benchmarks](../07-performance-tuning/07-02_benchmarks_en.md)
+- [Architecture Overview](./10-01_architecture_en.md)
+- [API Reference](../09-api-reference/09-03_api_reference_en.md)
+- [Performance Benchmarks](../07-performance-tuning/07-01_benchmarks_en.md)

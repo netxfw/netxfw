@@ -356,4 +356,4 @@ NetXFW 支持在云服务商负载均衡器环境下获取真实客户端 IP：
 - GCP (gcp)
 - 其他
 
-详见 [云环境真实 IP 获取文档](cloud/realip.md)。
+详见 [云环境真实 IP 获取文档](../05-advanced-features/05-01_realip.md)。

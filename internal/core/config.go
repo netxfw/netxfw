@@ -51,7 +51,7 @@ func InitConfiguration(ctx context.Context) {
 					log.Warnf("[WARN]  Failed to create lock list directory %s: %v", lockListDir, err)
 				}
 			}
-			
+
 			// Create empty lock list file
 			// 创建空的锁定列表文件
 			if err := os.WriteFile(lockListFile, []byte(""), 0644); err != nil {

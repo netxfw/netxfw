@@ -14,6 +14,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Runtime mode constants / 运行时模式常量
+const (
+	modeTest = "test"
+)
+
 // CommandExecutor 统一的命令执行器，处理所有命令的通用逻辑
 // CommandExecutor统一的命令执行器，处理所有命令的通用逻辑
 type CommandExecutor struct {
@@ -97,9 +102,9 @@ func (e *CommandExecutor) ExecuteWithSDK(execFunc func(*sdk.SDK) error) {
 		// Check if XDP is attached to any interface
 		// 检查 XDP 是否挂载到任何接口
 		// Skip check in test mode / 在测试模式下跳过检查
-		if runtime.Mode != "test" {
-			attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
-			if err != nil || len(attachedIfaces) == 0 {
+		if runtime.Mode != modeTest {
+			attachedIfaces, attachErr := xdp.GetAttachedInterfaces(config.GetPinPath())
+			if attachErr != nil || len(attachedIfaces) == 0 {
 				e.PrintWarning("XDP is not attached to any interface. Please run 'netxfw system on' or 'netxfw system load' first.")
 				e.PrintWarning("XDP 未挂载到任何接口。请先运行 'netxfw system on' 或 'netxfw system load'。")
 				return nil
@@ -113,7 +118,7 @@ func (e *CommandExecutor) ExecuteWithSDK(execFunc func(*sdk.SDK) error) {
 		return execFunc(s)
 	}); err != nil {
 		e.cmd.PrintErrln(err)
-		if runtime.Mode != "test" {
+		if runtime.Mode != modeTest {
 			os.Exit(1)
 		}
 	}
@@ -126,9 +131,9 @@ func (e *CommandExecutor) ExecuteWithManager(execFunc func(*xdp.Manager) error) 
 		// Check if XDP is attached to any interface
 		// 检查 XDP 是否挂载到任何接口
 		// Skip check in test mode / 在测试模式下跳过检查
-		if runtime.Mode != "test" {
-			attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
-			if err != nil || len(attachedIfaces) == 0 {
+		if runtime.Mode != modeTest {
+			attachedIfaces, attachErr := xdp.GetAttachedInterfaces(config.GetPinPath())
+			if attachErr != nil || len(attachedIfaces) == 0 {
 				e.PrintWarning("XDP is not attached to any interface. Please run 'netxfw system on' or 'netxfw system load' first.")
 				e.PrintWarning("XDP 未挂载到任何接口。请先运行 'netxfw system on' 或 'netxfw system load'。")
 				return nil
@@ -143,7 +148,7 @@ func (e *CommandExecutor) ExecuteWithManager(execFunc func(*xdp.Manager) error) 
 		return execFunc(manager)
 	}); err != nil {
 		e.cmd.PrintErrln(err)
-		if runtime.Mode != "test" {
+		if runtime.Mode != modeTest {
 			os.Exit(1)
 		}
 	}
@@ -160,7 +165,7 @@ func (e *CommandExecutor) ExecuteWithConfigManager(execFunc func(*types.GlobalCo
 		// Check if XDP is attached to any interface
 		// 检查 XDP 是否挂载到任何接口
 		// Skip check in test mode / 在测试模式下跳过检查
-		if runtime.Mode != "test" {
+		if runtime.Mode != modeTest {
 			attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
 			if err != nil || len(attachedIfaces) == 0 {
 				e.PrintWarning("XDP is not attached to any interface. Please run 'netxfw system on' or 'netxfw system load' first.")
@@ -177,7 +182,7 @@ func (e *CommandExecutor) ExecuteWithConfigManager(execFunc func(*types.GlobalCo
 		return execFunc(cfg, manager)
 	}); err != nil {
 		e.cmd.PrintErrln(err)
-		if runtime.Mode != "test" {
+		if runtime.Mode != modeTest {
 			os.Exit(1)
 		}
 	}

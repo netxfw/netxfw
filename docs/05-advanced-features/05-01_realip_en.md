@@ -294,5 +294,5 @@ sudo journalctl -u netxfw -f
 ## Related Documentation
 
 - [Architecture Design](../10-appendix/10-01_architecture.md)
-- [CLI Command Manual](../03-quick-start/03-02_cli_en.md)
-- [Plugin Development Guide](../06-plugin-development/06-02_plugins_en.md)
+- [CLI Command Manual](../03-quick-start/03-01_cli_en.md)
+- [Plugin Development Guide](../06-plugin-development/06-01_plugins_en.md)

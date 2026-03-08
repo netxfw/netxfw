@@ -1468,7 +1468,7 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 			if cfg.Base.PersistRules {
 				lockListFile = cfg.Base.LockListFile
 			}
-			
+
 			if lockListFile != "" {
 				if err := s.Blacklist.AddWithFile(ip, lockListFile); err != nil {
 					return fmt.Errorf("[ERROR] Failed to add to static blacklist: %v", err)

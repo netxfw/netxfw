@@ -1,3 +1,8 @@
+---
+layout: default
+title: 文档导读 - Documentation Guide
+---
+
 # NetXFW 文档导读
 
 欢迎使用 NetXFW！本文档将帮助您快速了解如何使用本防火墙系统。

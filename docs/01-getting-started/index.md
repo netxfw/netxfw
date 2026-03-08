@@ -20,23 +20,23 @@ title: NetXFW - eBPF Firewall
 ## 📋 文档导航
 
 ### 🚀 快速入门
-- [README (中文)](../README.md) - 项目概述和快速开始
-- [README (English)](../README_en.md) - Project overview and quick start
+- [README (中文)](../../README.md) - 项目概述和快速开始
+- [README (English)](../../README_en.md) - Project overview and quick start
 
 ### 📚 核心文档
 
 | 文档 | 中文 | English |
 |------|------|---------|
-| 架构设计 | [架构概览](../10-appendix/10-01_architecture.md) | [Architecture](../10-appendix/10-02_architecture_en.md) |
-| 命令行手册 | [CLI 命令](../03-quick-start/03-01_cli.md) | [CLI Commands](../03-quick-start/03-02_cli_en.md) |
-| 插件开发 | [插件开发指南](../06-plugin-development/06-01_plugins.md) | [Plugin Guide](../06-plugin-development/06-02_plugins_en.md) |
-| 规则导入导出 | [规则导入导出](../03-quick-start/03-03_rule_import_export.md) | [Rule Import/Export](../03-quick-start/03-04_rule_import_export_en.md) |
-| 性能基准 | [性能基准测试](../07-performance-tuning/07-01_benchmarks.md) | [Benchmarks](../07-performance-tuning/07-02_benchmarks_en.md) |
-| BPF Map 容量 | [容量配置](../04-configuration/04-03_bpf_map_capacity.md) | [Capacity Config](../04-configuration/04-04_bpf_map_capacity_en.md) |
-| 日志引擎 | [日志引擎](../05-advanced-features/05-05_log_engine.md) | [Log Engine](../05-advanced-features/05-06_log_engine_en.md) |
-| 故障排查 | [故障排查指南](../08-troubleshooting/08-01_troubleshooting.md) | [Troubleshooting](../08-troubleshooting/08-02_troubleshooting_en.md) |
-| 性能调优 | [性能调优指南](../04-configuration/04-01_performance_tuning.md) | [Performance Tuning](../04-configuration/04-02_performance_tuning_en.md) |
-| 安全最佳实践 | [安全最佳实践](../02-installation/02-01_security_best_practices.md) | [Security Best Practices](../02-installation/02-02_security_best_practices_en.md) |
+| 架构设计 | [架构概览](../10-appendix/10-01_architecture.md) | [Architecture](../10-appendix/10-01_architecture_en.md) |
+| 命令行手册 | [CLI 命令](../03-quick-start/03-01_cli.md) | [CLI Commands](../03-quick-start/03-01_cli_en.md) |
+| 插件开发 | [插件开发指南](../06-plugin-development/06-01_plugins.md) | [Plugin Guide](../06-plugin-development/06-01_plugins_en.md) |
+| 规则导入导出 | [规则导入导出](../03-quick-start/03-02_rule_import_export.md) | [Rule Import/Export](../03-quick-start/03-02_rule_import_export_en.md) |
+| 性能基准 | [性能基准测试](../07-performance-tuning/07-01_benchmarks.md) | [Benchmarks](../07-performance-tuning/07-01_benchmarks_en.md) |
+| BPF Map 容量 | [容量配置](../04-configuration/04-02_bpf_map_capacity.md) | [Capacity Config](../04-configuration/04-02_bpf_map_capacity_en.md) |
+| 日志引擎 | [日志引擎](../05-advanced-features/05-03_log_engine.md) | [Log Engine](../05-advanced-features/05-03_log_engine_en.md) |
+| 故障排查 | [故障排查指南](../08-troubleshooting/08-01_troubleshooting.md) | [Troubleshooting](../08-troubleshooting/08-01_troubleshooting_en.md) |
+| 性能调优 | [性能调优指南](../04-configuration/04-01_performance_tuning.md) | [Performance Tuning](../04-configuration/04-01_performance_tuning_en.md) |
+| 安全最佳实践 | [安全最佳实践](../02-installation/02-01_security_best_practices.md) | [Security Best Practices](../02-installation/02-01_security_best_practices_en.md) |
 
 ---
 

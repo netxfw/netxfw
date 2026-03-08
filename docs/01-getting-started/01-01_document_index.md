@@ -19,8 +19,8 @@
 
 | 编号 | 文档 | 说明 |
 |------|------|------|
-| 01-01 | [README](../README.md) | 文档中心主页 |
-| 01-02 | [README (EN)](../README_en.md) | Documentation Center (English) |
+| 01-01 | [README](../../README.md) | 文档中心主页 |
+| 01-02 | [README (EN)](../../README_en.md) | Documentation Center (English) |
 
 ---
 
@@ -29,11 +29,11 @@
 | 编号 | 文档 | 说明 |
 |------|------|------|
 | 02-01 | [架构概览](../10-appendix/10-01_architecture.md) | 系统整体架构设计 |
-| 02-02 | [Architecture Overview](../10-appendix/10-02_architecture_en.md) | System architecture (English) |
-| 02-03 | [单机版架构](../10-appendix/10-03_architecture_diagrams.md) | 单机版详细架构说明 |
-| 02-04 | [Architecture Diagrams (EN)](../10-appendix/10-03_architecture_diagrams_en.md) | Standalone architecture (English) |
-| 02-05 | [包过滤流程](../10-appendix/10-04_packet_filter_flow.md) | 数据包过滤处理流程 |
-| 02-06 | [包过滤流程摘要](../10-appendix/10-05_summary_packet_filter.md) | 数据包过滤流程摘要 |
+| 02-02 | [Architecture Overview](../10-appendix/10-01_architecture_en.md) | System architecture (English) |
+| 02-03 | [单机版架构](../10-appendix/10-02_architecture_diagrams.md) | 单机版详细架构说明 |
+| 02-04 | [Architecture Diagrams (EN)](../10-appendix/10-02_architecture_diagrams_en.md) | Standalone architecture (English) |
+| 02-05 | [包过滤流程](../10-appendix/10-03_packet_filter_flow.md) | 数据包过滤处理流程 |
+| 02-06 | [包过滤流程摘要](../10-appendix/10-04_summary_packet_filter.md) | 数据包过滤流程摘要 |
 
 ---
 
@@ -42,9 +42,9 @@
 | 编号 | 文档 | 说明 |
 |------|------|------|
 | 03-01 | [命令行手册](../03-quick-start/03-01_cli.md) | CLI 命令详解与使用示例 |
-| 03-02 | [CLI Reference](../03-quick-start/03-02_cli_en.md) | CLI command reference (English) |
-| 03-03 | [规则导入导出](../03-quick-start/03-03_rule_import_export.md) | 规则导入导出功能详解 |
-| 03-04 | [Rule Import/Export (EN)](../03-quick-start/03-04_rule_import_export_en.md) | Rule import/export (English) |
+| 03-02 | [CLI Reference](../03-quick-start/03-01_cli_en.md) | CLI command reference (English) |
+| 03-03 | [规则导入导出](../03-quick-start/03-02_rule_import_export.md) | 规则导入导出功能详解 |
+| 03-04 | [Rule Import/Export (EN)](../03-quick-start/03-02_rule_import_export_en.md) | Rule import/export (English) |
 
 ---
 
@@ -53,11 +53,11 @@
 | 编号 | 文档 | 说明 |
 |------|------|------|
 | 04-01 | [插件开发指南](../06-plugin-development/06-01_plugins.md) | 插件开发框架和接口说明 |
-| 04-02 | [Plugin Development (EN)](../06-plugin-development/06-02_plugins_en.md) | Plugin development (English) |
-| 04-03 | [XDP 插件开发](../06-plugin-development/06-03_xdp_development_guide.md) | XDP 层插件开发指南 |
-| 04-04 | [Go 插件开发](../06-plugin-development/06-04_golang_development_guide.md) | Go 语言插件开发指南 |
-| 04-05 | [API 参考](../09-api-reference/09-05_api_reference.md) | API 接口详细参考 |
-| 04-06 | [API Reference (EN)](../09-api-reference/09-05_api_reference_en.md) | API interface reference (English) |
+| 04-02 | [Plugin Development (EN)](../06-plugin-development/06-01_plugins_en.md) | Plugin development (English) |
+| 04-03 | [XDP 插件开发](../06-plugin-development/06-02_xdp_development_guide.md) | XDP 层插件开发指南 |
+| 04-04 | [Go 插件开发](../06-plugin-development/06-03_golang_development_guide.md) | Go 语言插件开发指南 |
+| 04-05 | [API 参考](../09-api-reference/09-03_api_reference.md) | API 接口详细参考 |
+| 04-06 | [API Reference (EN)](../09-api-reference/09-03_api_reference_en.md) | API interface reference (English) |
 
 ---
 
@@ -66,9 +66,9 @@
 | 编号 | 文档 | 说明 |
 |------|------|------|
 | 05-01 | [云环境真实 IP](../05-advanced-features/05-01_realip.md) | 云环境中获取真实客户端 IP |
-| 05-02 | [Real IP in Cloud (EN)](../05-advanced-features/05-02_realip_en.md) | Getting real client IP (English) |
-| 05-03 | [接口特定 Agent 模式](../05-advanced-features/05-03_interface_specific_agent.md) | 针对特定接口的 Agent 模式 |
-| 05-04 | [Interface-specific Agent (EN)](../05-advanced-features/05-04_interface_specific_agent_en.md) | Interface-specific agent (English) |
+| 05-02 | [Real IP in Cloud (EN)](../05-advanced-features/05-01_realip_en.md) | Getting real client IP (English) |
+| 05-03 | [接口特定 Agent 模式](../05-advanced-features/05-02_interface_specific_agent.md) | 针对特定接口的 Agent 模式 |
+| 05-04 | [Interface-specific Agent (EN)](../05-advanced-features/05-02_interface_specific_agent_en.md) | Interface-specific agent (English) |
 
 ---
 
@@ -77,9 +77,9 @@
 | 编号 | 文档 | 说明 |
 |------|------|------|
 | 06-01 | [性能基准测试](../07-performance-tuning/07-01_benchmarks.md) | 性能测试数据和基准 |
-| 06-02 | [Performance Benchmarks (EN)](../07-performance-tuning/07-02_benchmarks_en.md) | Performance benchmarks (English) |
-| 06-03 | [BPF Map 容量配置](../04-configuration/04-03_bpf_map_capacity.md) | BPF Map 容量配置指南 |
-| 06-04 | [BPF Map Capacity (EN)](../04-configuration/04-04_bpf_map_capacity_en.md) | BPF Map capacity (English) |
+| 06-02 | [Performance Benchmarks (EN)](../07-performance-tuning/07-01_benchmarks_en.md) | Performance benchmarks (English) |
+| 06-03 | [BPF Map 容量配置](../04-configuration/04-02_bpf_map_capacity.md) | BPF Map 容量配置指南 |
+| 06-04 | [BPF Map Capacity (EN)](../04-configuration/04-02_bpf_map_capacity_en.md) | BPF Map capacity (English) |
 
 ---
 
@@ -91,10 +91,10 @@
 | 07-02 | [Config Management (EN)](../09-api-reference/09-01_config_management_unification_en.md) | Config management (English) |
 | 07-03 | [Web API 指标统一](../09-api-reference/09-02_unified_web_api_metrics.md) | 统一的 Web API 指标设计 |
 | 07-04 | [Web API Metrics (EN)](../09-api-reference/09-02_unified_web_api_metrics_en.md) | Web API metrics (English) |
-| 07-05 | [日志引擎](../05-advanced-features/05-05_log_engine.md) | 日志处理引擎说明 |
-| 07-06 | [Log Engine (EN)](../05-advanced-features/05-06_log_engine_en.md) | Log engine (English) |
-| 07-07 | [测试指南](../10-appendix/10-06_testing.md) | 测试方法和流程 |
-| 07-08 | [Testing Guide (EN)](../10-appendix/10-07_testing_en.md) | Testing guide (English) |
+| 07-05 | [日志引擎](../05-advanced-features/05-03_log_engine.md) | 日志处理引擎说明 |
+| 07-06 | [Log Engine (EN)](../05-advanced-features/05-03_log_engine_en.md) | Log engine (English) |
+| 07-07 | [测试指南](../10-appendix/10-05_testing.md) | 测试方法和流程 |
+| 07-08 | [Testing Guide (EN)](../10-appendix/10-05_testing_en.md) | Testing guide (English) |
 
 ---
 
@@ -102,8 +102,8 @@
 
 | 编号 | 文档 | 说明 |
 |------|------|------|
-| 08-01 | [项目评估报告](../10-appendix/10-08_evaluation.md) | 项目的详细评估报告 |
-| 08-02 | [Project Evaluation (EN)](../10-appendix/10-09_evaluation_en.md) | Project evaluation (English) |
+| 08-01 | [项目评估报告](../10-appendix/10-06_evaluation.md) | 项目的详细评估报告 |
+| 08-02 | [Project Evaluation (EN)](../10-appendix/10-06_evaluation_en.md) | Project evaluation (English) |
 
 ---
 
@@ -112,7 +112,7 @@
 | 编号 | 文档 | 说明 |
 |------|------|------|
 | 09-01 | [故障排查指南](../08-troubleshooting/08-01_troubleshooting.md) | 常见问题诊断和解决方案 |
-| 09-02 | [Troubleshooting Guide (EN)](../08-troubleshooting/08-02_troubleshooting_en.md) | Troubleshooting guide (English) |
+| 09-02 | [Troubleshooting Guide (EN)](../08-troubleshooting/08-01_troubleshooting_en.md) | Troubleshooting guide (English) |
 
 ---
 
@@ -121,7 +121,7 @@
 | 编号 | 文档 | 说明 |
 |------|------|------|
 | 10-01 | [性能调优指南](../04-configuration/04-01_performance_tuning.md) | 性能优化详细指南 |
-| 10-02 | [Performance Tuning (EN)](../04-configuration/04-02_performance_tuning_en.md) | Performance tuning (English) |
+| 10-02 | [Performance Tuning (EN)](../04-configuration/04-01_performance_tuning_en.md) | Performance tuning (English) |
 
 ---
 
@@ -130,7 +130,7 @@
 | 编号 | 文档 | 说明 |
 |------|------|------|
 | 11-01 | [安全最佳实践](../02-installation/02-01_security_best_practices.md) | 生产环境安全配置指南 |
-| 11-02 | [Security Best Practices (EN)](../02-installation/02-02_security_best_practices_en.md) | Security best practices (English) |
+| 11-02 | [Security Best Practices (EN)](../02-installation/02-01_security_best_practices_en.md) | Security best practices (English) |
 
 ---
 
@@ -166,8 +166,8 @@
 
 如果您是初次接触 NetXFW，建议按以下顺序阅读文档：
 
-1. **01-01 [README](../README.md)** - 了解项目概述
+1. **01-01 [README](../../README.md)** - 了解项目概述
 2. **02-01 [架构概览](../10-appendix/10-01_architecture.md)** - 理解系统架构
 3. **03-01 [命令行手册](../03-quick-start/03-01_cli.md)** - 学习基本操作
 4. **06-01 [性能基准测试](../07-performance-tuning/07-01_benchmarks.md)** - 了解性能特点
-5. **06-03 [BPF Map 容量配置](../04-configuration/04-03_bpf_map_capacity.md)** - 配置内存参数
+5. **06-03 [BPF Map 容量配置](../04-configuration/04-02_bpf_map_capacity.md)** - 配置内存参数

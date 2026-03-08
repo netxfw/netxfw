@@ -78,6 +78,11 @@ jobs:
       - name: Build test
         run: go build ./...
 
+      - name: Run acceptance checklist
+        run: |
+          go build -o netxfw ./cmd/netxfw
+          ./scripts/release-checklist.sh ./netxfw
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
