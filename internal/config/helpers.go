@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -36,6 +37,34 @@ func LoadMap(mapName string) (*ebpf.Map, error) {
 var ConfigManagerInstance *ConfigManager
 var once sync.Once
 
+// GetDefaultConfigPath returns the default config path, preferring TOML over YAML.
+// GetDefaultConfigPath 返回默认配置路径，优先使用 TOML 格式。
+// Priority: TOML > YAML (for backward compatibility)
+// 优先级：TOML > YAML（向后兼容）
+func GetDefaultConfigPath() string {
+	// Check if TOML config exists / 检查 TOML 配置是否存在
+	if _, err := os.Stat(DefaultConfigPath); err == nil {
+		return DefaultConfigPath
+	}
+	// Fall back to YAML for backward compatibility / 回退到 YAML 以向后兼容
+	if _, err := os.Stat(LegacyConfigPath); err == nil {
+		return LegacyConfigPath
+	}
+	// Return TOML as default for new installations / 新安装默认返回 TOML
+	return DefaultConfigPath
+}
+
+// GetConfigPath returns the current config path from the manager or default.
+// GetConfigPath 返回管理器中的当前配置路径或默认路径。
+// If runtime.ConfigPath is set (e.g., via CLI flag or test), it takes precedence.
+// 如果 runtime.ConfigPath 已设置（例如通过 CLI 标志或测试），则优先使用它。
+func GetConfigPath() string {
+	if ConfigManagerInstance != nil {
+		return ConfigManagerInstance.GetConfigPath()
+	}
+	return resolveConfigPath()
+}
+
 // GetConfigManager returns the singleton instance of the config manager
 // GetConfigManager 返回配置管理器的单例实例
 func GetConfigManager() *ConfigManager {
@@ -61,4 +90,14 @@ func SaveGlobalConfig() error {
 // GetCurrentConfig 返回当前配置
 func GetCurrentConfig() *types.GlobalConfig {
 	return GetConfigManager().GetConfig()
+}
+
+// GetBackupKeep returns the number of backups to keep from config.
+// GetBackupKeep 从配置中获取保留的备份数量。
+func GetBackupKeep() int {
+	cfg := GetCurrentConfig()
+	if cfg != nil && cfg.Base.BackupKeep > 0 {
+		return cfg.Base.BackupKeep
+	}
+	return DefaultBackupKeep
 }

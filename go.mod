@@ -5,6 +5,7 @@ go 1.24.0
 toolchain go1.24.12
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/cilium/ebpf v0.20.0
 	github.com/expr-lang/expr v1.17.8
 	github.com/klauspost/compress v1.18.4

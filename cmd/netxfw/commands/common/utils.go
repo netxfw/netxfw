@@ -253,7 +253,7 @@ func ImportIPPortRulesFromFile(s *sdk.SDK, path string) error {
 				continue
 			}
 			actionStr := strings.ToLower(parts[2])
-			action := uint8(2) // Deny default
+			action := uint8(0) // Deny default
 			if actionStr == "allow" {
 				action = 1
 			}

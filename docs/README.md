@@ -50,7 +50,7 @@ title: Documentation Index - 文档索引
 - [05-05_health_check_en](05-advanced-features/05-05_health_check_en.md) - Health Check (English)
 - [05-06_performance_monitoring](05-advanced-features/05-06_performance_monitoring.md) - Performance monitoring
 - [05-06_performance_monitoring_en](05-advanced-features/05-06_performance_monitoring_en.md) - Performance Monitoring (English)
-- [config_example](05-advanced-features/config_example.yaml) - Configuration Example
+- [config_example](05-advanced-features/config_example.toml) - Configuration Example
 
 ### [06-plugin-development](06-plugin-development/)
 - [06-01_plugins](06-plugin-development/06-01_plugins.md) - Plugin system overview

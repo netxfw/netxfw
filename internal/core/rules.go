@@ -52,7 +52,7 @@ func removeFromWhitelistConfig(cidrStr string) error {
 		}
 	}
 	globalCfg.Base.Whitelist = newWhitelist
-	return types.SaveGlobalConfig(config.GetConfigPath(), globalCfg)
+	return types.SaveGlobalConfigWithBackup(config.GetConfigPath(), globalCfg, config.GetBackupKeep())
 }
 
 // removeWhitelistAndLog removes IP from whitelist and logs the action.
@@ -232,7 +232,7 @@ func updateWhitelistInConfig(ctx context.Context, xdpMgr XDPManager, cidrStr str
 
 	globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
 	optimizer.OptimizeWhitelistConfig(globalCfg)
-	if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+	if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
 		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 	}
 
@@ -345,7 +345,7 @@ func disallowIP(ctx context.Context, xdpMgr XDPManager, cidrStr string, port uin
 		newWhitelist = append(newWhitelist, ip)
 	}
 	globalCfg.Base.Whitelist = newWhitelist
-	if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+	if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
 		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 	}
 	return nil

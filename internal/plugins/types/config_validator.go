@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"gopkg.in/yaml.v3"
 )
 
 // ValidationError represents a single validation error.
@@ -87,8 +87,8 @@ func (v *ConfigValidator) ValidateSyntax(configData []byte) *ValidationResult {
 	result := &ValidationResult{Valid: true, Errors: []ValidationError{}, Warnings: []ValidationWarning{}}
 
 	var rawConfig map[string]any
-	if err := yaml.Unmarshal(configData, &rawConfig); err != nil {
-		result.AddError("config", fmt.Sprintf("YAML syntax error: %v", err), nil)
+	if _, err := toml.Decode(string(configData), &rawConfig); err != nil {
+		result.AddError("config", fmt.Sprintf("TOML syntax error: %v", err), nil)
 		return result
 	}
 
@@ -732,7 +732,7 @@ func ValidateConfig(configData []byte) (*ValidationResult, error) {
 
 	// Parse configuration / 解析配置
 	var cfg GlobalConfig
-	if err := yaml.Unmarshal(configData, &cfg); err != nil {
+	if _, err := toml.Decode(string(configData), &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 

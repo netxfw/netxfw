@@ -1,0 +1,155 @@
+# NetXFW Configuration File / NetXFW 配置文件
+# TOML format - Better cross-language support / TOML 格式 - 更好的跨语言支持
+#
+
+# Module Configuration / 模块配置
+# Order of execution for XDP modules / XDP 模块的执行顺序
+modules = [
+    { name = "sanity", enabled = true, priority = 1 },
+    { name = "critical_blacklist", enabled = true, priority = 2 },
+    { name = "whitelist", enabled = true, priority = 3 },
+    { name = "blacklist", enabled = true, priority = 4 },
+    { name = "dynamic_blacklist", enabled = true, priority = 5 },
+    { name = "ratelimit", enabled = true, priority = 6 },
+    { name = "conntrack", enabled = true, priority = 7 },
+    { name = "ip_port_rules", enabled = true, priority = 8 },
+    { name = "icmp", enabled = true, priority = 9 },
+    { name = "return_traffic", enabled = true, priority = 10 },
+]
+
+# Cluster Configuration / 集群配置
+[cluster]
+enabled = false
+configpath = "cluster.toml"
+
+# Base Configuration / 基础配置
+[base]
+default_deny = true
+allow_return_traffic = true
+allow_icmp = true
+enable_af_xdp = false
+strict_protocol = true
+drop_fragments = true
+strict_tcp = true
+syn_limit = true
+bogon_filter = false
+icmp_rate = 10
+icmp_burst = 50
+
+# Whitelist Configuration / 白名单配置
+# Allowed IP addresses or networks / 允许的 IP 地址或网络
+whitelist = []
+lock_list_file = "/etc/netxfw/rules.deny.txt"
+lock_list_binary = "/etc/netxfw/rules.deny.bin.zst"
+lock_list_merge_threshold = 0
+lock_list_v4_mask = 24
+lock_list_v6_mask = 64
+enable_expiry = false
+cleanup_interval = "1m"
+persist_rules = true
+enable_pprof = false
+pprof_port = 6060
+
+# Web Server Configuration / Web 服务器配置
+[web]
+enabled = false
+port = 11811
+token = ""
+
+# Metrics Configuration / 监控指标配置
+[metrics]
+enabled = false
+server_enabled = false
+port = 11812
+push_enabled = false
+push_gateway_addr = ""
+push_interval = "1m"
+textfile_enabled = false
+textfile_path = ""
+top_n = 10
+threshold_critical = 90
+threshold_high = 75
+threshold_medium = 50
+stats_interval = "1s"
+avg_packet_size = 500
+
+# Port Configuration / 端口配置
+[port]
+allowed_ports = [22, 80, 443, 8080]
+
+# IP-Port Rules / IP-端口规则
+# action: 0 = Deny / 拒绝, 1 = Allow / 允许
+ip_port_rules = [
+    { ip = "0.0.0.0/0", port = 22, action = 1 },
+    { ip = "0.0.0.0/0", port = 80, action = 1 },
+    { ip = "0.0.0.0/0", port = 443, action = 1 },
+]
+
+# Conntrack Configuration / 连接跟踪配置
+[conntrack]
+enabled = true
+max_entries = 100000
+tcp_timeout = "1h"
+udp_timeout = "5m"
+
+# Rate Limit Configuration / 速率限制配置
+[rate_limit]
+enabled = false
+auto_block = false
+auto_block_expiry = ""
+rules = []
+
+# Log Engine Configuration / 日志引擎配置
+[log_engine]
+enabled = false
+workers = 4
+rules = []
+
+# Capacity Configuration / 容量配置
+[capacity]
+lock_list = 2000000
+dyn_lock_list = 0
+whitelist = 65536
+ip_port_rules = 65536
+allowed_ports = 1024
+rate_limits = 1000
+drop_reason_stats = 1000000
+pass_reason_stats = 1000000
+
+# MCP Configuration / MCP 配置
+[mcp]
+enabled = false
+port = 11814
+mode = "sse"
+
+# AI Configuration / AI 配置
+[ai]
+enabled = false
+port = 11813
+model = ""
+api_key = ""
+base_url = ""
+
+# Logging Configuration / 日志配置
+[logging]
+enabled = false
+path = "/var/log/netxfw/agent.log"
+max_size = 10
+max_backups = 3
+max_age = 30
+compress = true
+
+# Cloud Environment Configuration / 云环境配置
+[cloud]
+enabled = false
+provider = "other"
+
+[cloud.proxy_protocol]
+enabled = false
+trusted_lb_ranges = []
+cache_ttl = "5m"
+
+# BPF Plugin Configuration / BPF 插件配置
+[bpf_plugin]
+enabled = false
+plugins = []

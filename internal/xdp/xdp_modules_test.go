@@ -42,13 +42,13 @@ func TestModuleDef(t *testing.T) {
 
 func TestModuleConfigSorting(t *testing.T) {
 	configs := []types.ModuleConfig{
-		{Name: "whitelist", Priority: 30, Enabled: true},
-		{Name: "blacklist", Priority: 20, Enabled: true},
-		{Name: "sanity", Priority: 10, Enabled: true},
-		{Name: "ratelimit", Priority: 40, Enabled: true},
+		{Name: "whitelist", Priority: 3, Enabled: true},
+		{Name: "blacklist", Priority: 4, Enabled: true},
+		{Name: "sanity", Priority: 1, Enabled: true},
+		{Name: "ratelimit", Priority: 6, Enabled: true},
 	}
 
-	expected := []string{"sanity", "blacklist", "whitelist", "ratelimit"}
+	expected := []string{"sanity", "whitelist", "blacklist", "ratelimit"}
 
 	sorted := make([]types.ModuleConfig, len(configs))
 	copy(sorted, configs)
@@ -68,9 +68,9 @@ func TestModuleConfigSorting(t *testing.T) {
 
 func TestModuleConfigEnabled(t *testing.T) {
 	configs := []types.ModuleConfig{
-		{Name: "enabled1", Priority: 10, Enabled: true},
-		{Name: "disabled", Priority: 20, Enabled: false},
-		{Name: "enabled2", Priority: 30, Enabled: true},
+		{Name: "enabled1", Priority: 1, Enabled: true},
+		{Name: "disabled", Priority: 2, Enabled: false},
+		{Name: "enabled2", Priority: 3, Enabled: true},
 	}
 
 	enabledCount := 0
@@ -156,9 +156,9 @@ func TestStartIdx(t *testing.T) {
 
 func TestModuleConfigValidation(t *testing.T) {
 	validConfigs := []types.ModuleConfig{
-		{Name: "sanity", Priority: 10, Enabled: true},
-		{Name: "blacklist", Priority: 20, Enabled: true},
-		{Name: "whitelist", Priority: 30, Enabled: true},
+		{Name: "sanity", Priority: 1, Enabled: true},
+		{Name: "blacklist", Priority: 4, Enabled: true},
+		{Name: "whitelist", Priority: 3, Enabled: true},
 	}
 
 	for _, cfg := range validConfigs {

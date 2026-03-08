@@ -230,7 +230,7 @@ func TestMockManager_WhitelistOperations_Comprehensive(t *testing.T) {
 func TestMockManager_IPPortRuleOperations_Comprehensive(t *testing.T) {
 	mockMgr := NewMockManager()
 
-	// AddIPPortRule - action: 1 = allow, 2 = deny
+	// AddIPPortRule - action: 0 = deny, 1 = allow
 	err := mockMgr.AddIPPortRule("192.168.1.1", 80, 1)
 	assert.NoError(t, err)
 

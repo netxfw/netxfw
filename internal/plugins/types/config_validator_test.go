@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/BurntSushi/toml"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 )
 
 // containsStr checks if a string contains a substring.
@@ -17,29 +17,29 @@ func containsStr(s, substr string) bool {
 }
 
 // TestConfigValidator_ValidateSyntax tests YAML syntax validation.
-// TestConfigValidator_ValidateSyntax 测试 YAML 语法验证。
+// TestConfigValidator_ValidateSyntax 测试 TOML 语法验证。
 func TestConfigValidator_ValidateSyntax(t *testing.T) {
 	validator := NewConfigValidator()
 
-	// Valid YAML / 有效的 YAML
-	validYAML := `
-base:
-  default_deny: true
-web:
-  enabled: true
-  port: 8080
+	// Valid TOML / 有效的 TOML
+	validTOML := `
+[base]
+default_deny = true
+
+[web]
+enabled = true
+port = 8080
 `
-	result := validator.ValidateSyntax([]byte(validYAML))
+	result := validator.ValidateSyntax([]byte(validTOML))
 	assert.True(t, result.Valid)
 	assert.Empty(t, result.Errors)
 
-	// Invalid YAML / 无效的 YAML
-	invalidYAML := `
-base:
-  default_deny: true
-  invalid: [unclosed
+	// Invalid TOML / 无效的 TOML
+	invalidTOML := `
+[base
+default_deny = true
 `
-	result = validator.ValidateSyntax([]byte(invalidYAML))
+	result = validator.ValidateSyntax([]byte(invalidTOML))
 	assert.False(t, result.Valid)
 	assert.NotEmpty(t, result.Errors)
 }
@@ -609,26 +609,36 @@ func TestConfigValidator_DetectConflicts(t *testing.T) {
 // TestValidateConfig tests the convenience function.
 // TestValidateConfig 测试便捷函数。
 func TestValidateConfig(t *testing.T) {
-	validYAML := `
-base:
-  default_deny: true
-  icmp_rate: 100
-  icmp_burst: 200
-web:
-  enabled: true
-  port: 8080
-  token: "secret"
-rate_limit:
-  enabled: true
-  rules:
-    - ip: "10.0.0.0/24"
-      rate: 1000
-      burst: 2000
+	validTOML := `
+[base]
+default_deny = true
+icmp_rate = 100
+icmp_burst = 200
+
+[web]
+enabled = true
+port = 8080
+token = "secret"
+
+[rate_limit]
+enabled = true
+[[rate_limit.rules]]
+ip = "10.0.0.0/24"
+rate = 1000
+burst = 2000
 `
 
-	result, err := ValidateConfig([]byte(validYAML))
+	result, err := ValidateConfig([]byte(validTOML))
 	assert.NoError(t, err)
 	assert.True(t, result.Valid)
+
+	invalidTOML := `
+[base]
+default_deny = "not_a_boolean"
+`
+
+	result, err = ValidateConfig([]byte(invalidTOML))
+	assert.Error(t, err)
 }
 
 // TestValidationResult_Methods tests ValidationResult methods.
@@ -782,68 +792,63 @@ func TestConfigValidator_ComplexScenarios(t *testing.T) {
 	validator := NewConfigValidator()
 
 	t.Run("FullConfigValidation", func(t *testing.T) {
-		yamlConfig := `
-base:
-  default_deny: true
-  allow_return_traffic: true
-  allow_icmp: true
-  icmp_rate: 10
-  icmp_burst: 50
-  cleanup_interval: "1m"
-  whitelist:
-    - "192.168.0.0/16"
-    - "10.0.0.0/8"
+		tomlConfig := `
+[base]
+default_deny = true
+allow_return_traffic = true
+allow_icmp = true
+icmp_rate = 10
+icmp_burst = 50
+cleanup_interval = "1m"
+whitelist = ["192.168.0.0/16", "10.0.0.0/8"]
 
-web:
-  enabled: true
-  port: 11811
-  token: "my-secret-token"
+[web]
+enabled = true
+port = 11811
+token = "my-secret-token"
 
-metrics:
-  enabled: true
-  server_enabled: true
-  port: 11812
+[metrics]
+enabled = true
+server_enabled = true
+port = 11812
 
-port:
-  allowed_ports:
-    - 22
-    - 80
-    - 443
-  ip_port_rules:
-    - ip: "192.168.1.100"
-      port: 8080
-      action: 1
+[port]
+allowed_ports = [22, 80, 443]
+[[port.ip_port_rules]]
+ip = "192.168.1.100"
+port = 8080
+action = 1
 
-conntrack:
-  enabled: true
-  max_entries: 100000
-  tcp_timeout: "1h"
-  udp_timeout: "5m"
+[conntrack]
+enabled = true
+max_entries = 100000
+tcp_timeout = "1h"
+udp_timeout = "5m"
 
-rate_limit:
-  enabled: true
-  auto_block: true
-  auto_block_expiry: "10m"
-  rules:
-    - ip: "0.0.0.0/0"
-      rate: 1000
-      burst: 2000
+[rate_limit]
+enabled = true
+auto_block = true
+auto_block_expiry = "10m"
+[[rate_limit.rules]]
+ip = "0.0.0.0/0"
+rate = 1000
+burst = 2000
 
-capacity:
-  lock_list: 2000000
-  dyn_lock_list: 2000000
-  whitelist: 65536
+[capacity]
+lock_list = 2000000
+dyn_lock_list = 2000000
+whitelist = 65536
 
-logging:
-  enabled: true
-  level: "info"
-  path: "/var/log/netxfw/agent.log"
-  max_size: 10
-  max_backups: 3
-  max_age: 30
+[logging]
+enabled = true
+level = "info"
+path = "/var/log/netxfw/agent.log"
+max_size = 10
+max_backups = 3
+max_age = 30
 `
 		var cfg GlobalConfig
-		err := yaml.Unmarshal([]byte(yamlConfig), &cfg)
+		_, err := toml.Decode(tomlConfig, &cfg)
 		assert.NoError(t, err)
 
 		result := validator.Validate(&cfg)

@@ -24,6 +24,7 @@ internal/xdp/netxfw_bpfel.go
 internal/xdp/netxfw_bpfeb.go
 bpf/**/*.o
 bpf/netxfw.bpf.o
+config/*.yaml
 
 # OS metadata
 .DS_Store

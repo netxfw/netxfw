@@ -153,7 +153,7 @@ func (c *ConfigCache) SaveConfig() error {
 		return nil
 	}
 
-	err := types.SaveGlobalConfig(c.configPath, c.cachedConfig)
+	err := types.SaveGlobalConfigWithBackup(c.configPath, c.cachedConfig, config.GetBackupKeep())
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func (c *ConfigCache) SaveConfigImmediate() error {
 		return nil
 	}
 
-	err := types.SaveGlobalConfig(c.configPath, c.cachedConfig)
+	err := types.SaveGlobalConfigWithBackup(c.configPath, c.cachedConfig, config.GetBackupKeep())
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,7 @@ func (c *ConfigCache) Stop() error {
 	close(c.stopCh)
 
 	if c.cachedConfig != nil && c.dirty {
-		return types.SaveGlobalConfig(c.configPath, c.cachedConfig)
+		return types.SaveGlobalConfigWithBackup(c.configPath, c.cachedConfig, config.GetBackupKeep())
 	}
 
 	return nil

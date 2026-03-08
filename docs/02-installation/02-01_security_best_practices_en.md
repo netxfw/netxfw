@@ -32,7 +32,7 @@ sudo setcap cap_bpf,cap_net_admin,cap_sys_admin,cap_ipc_lock+ep /usr/bin/netxfw
 
 ```bash
 # Configuration file permissions
-sudo chmod 600 /etc/netxfw/config.yaml
+sudo chmod 600 /etc/netxfw/config.toml
 sudo chmod 600 /etc/netxfw/lock_list.txt
 sudo chmod 600 /etc/netxfw/whitelist.txt
 
@@ -45,19 +45,19 @@ sudo chmod 644 /var/run/netxfw.pid
 
 ### API Access Control
 
-```yaml
-# config.yaml
-web:
-  enabled: true
-  port: 11811
-  # Bind to localhost (recommended)
-  bind: "127.0.0.1"
-  # Enable authentication
-  auth:
-    enabled: true
-    type: basic  # basic, token, mTLS
-    # Store password using environment variables or key files
-    # htpasswd -n admin
+```toml
+# config.toml
+[web]
+enabled = true
+port = 11811
+# Bind to localhost (recommended)
+bind = "127.0.0.1"
+# Enable authentication
+[web.auth]
+enabled = true
+type = "basic"  # basic, token, mTLS
+# Store password using environment variables or key files
+# htpasswd -n admin
 ```
 
 ---
@@ -66,41 +66,38 @@ web:
 
 ### Default Policy
 
-```yaml
+```toml
 # Recommended default deny policy
-base:
-  default_deny: true
-  allow_return_traffic: true  # Allow return traffic for established connections
-  allow_icmp: false           # Disable ICMP in production environment
+[base]
+default_deny = true
+allow_return_traffic = true  # Allow return traffic for established connections
+allow_icmp = false           # Disable ICMP in production environment
 ```
 
 ### Whitelist Configuration
 
-```yaml
+```toml
 # Always configure management whitelist
-whitelist:
-  - "10.0.0.0/8"        # Internal network
-  - "192.168.0.0/16"    # Internal network
-  - "172.16.0.0/12"     # Internal network
-  - "YOUR_OFFICE_IP/32" # Office network
+whitelist = [
+    "10.0.0.0/8",        # Internal network
+    "192.168.0.0/16",    # Internal network
+    "172.16.0.0/12",     # Internal network
+    "YOUR_OFFICE_IP/32", # Office network
+]
 ```
 
 ### Port Exposure Minimization
 
-```yaml
+```toml
 # Only open necessary ports (allowed_ports: simple port array)
-port:
-  allowed_ports:
-    - 22      # SSH
-    - 80      # HTTP
-    - 443     # HTTPS
+[port]
+allowed_ports = [22, 80, 443]  # SSH, HTTP, HTTPS
 
   # IP+Port rules: specific source access to specific ports
-  ip_port_rules:
+  ip_port_rules = [
     # Management port only allows internal network access
-    - ip: "10.0.0.0/8"
-      port: 11811
-      action: allow
+    { ip = "10.0.0.0/8", port = 11811, action = 1 },
+]
 ```
 
 ---
@@ -109,20 +106,21 @@ port:
 
 ### API Authentication
 
-```yaml
+```toml
 # Basic authentication
-web:
-  auth:
-    enabled: true
-    type: basic
-    htpasswd_file: /etc/netxfw/htpasswd
+[web]
+enabled = true
+
+[web.auth]
+enabled = true
+type = "basic"
+htpasswd_file = "/etc/netxfw/htpasswd"
 
 # Token authentication
-web:
-  auth:
-    enabled: true
-    type: token
-    token_file: /etc/netxfw/api_tokens
+[web.auth]
+enabled = true
+type = "token"
+token_file = "/etc/netxfw/api_tokens"
 ```
 
 ```bash
@@ -136,37 +134,31 @@ sudo chmod 600 /etc/netxfw/api_tokens
 
 ### mTLS Configuration
 
-```yaml
-web:
-  auth:
-    enabled: true
-    type: mtls
-    ca_cert: /etc/netxfw/certs/ca.crt
-    server_cert: /etc/netxfw/certs/server.crt
-    server_key: /etc/netxfw/certs/server.key
-    client_cn: "netxfw-client"  # Verify client CN
+```toml
+[web]
+enabled = true
+
+[web.auth]
+enabled = true
+type = "mtls"
+ca_cert = "/etc/netxfw/certs/ca.crt"
+server_cert = "/etc/netxfw/certs/server.crt"
+server_key = "/etc/netxfw/certs/server.key"
+client_cn = "netxfw-client"  # Verify client CN
 ```
 
 ### RBAC Configuration
 
-```yaml
+```toml
 # Role definitions
-roles:
-  admin:
-    permissions:
-      - "rule:*"      # All rule operations
-      - "config:*"    # All configuration operations
-      - "status:read" # Status read
-  operator:
-    permissions:
-      - "rule:read"
-      - "rule:add"
-      - "rule:delete"
-      - "status:read"
-  viewer:
-    permissions:
-      - "status:read"
-      - "rule:read"
+[[roles.admin.permissions]]
+permissions = ["rule:*", "config:*", "status:read"]
+
+[[roles.operator.permissions]]
+permissions = ["rule:read", "rule:add", "rule:delete", "status:read"]
+
+[[roles.viewer.permissions]]
+permissions = ["status:read", "rule:read"]
 ```
 
 ---
@@ -175,24 +167,24 @@ roles:
 
 ### Log Configuration
 
-```yaml
-log:
-  level: info
-  output: /var/log/netxfw/daemon.log
-  # Log rotation
-  max_size: 100    # MB
-  max_backups: 10
-  max_age: 30      # days
-  compress: true
+```toml
+[log]
+level = "info"
+output = "/var/log/netxfw/daemon.log"
+# Log rotation
+max_size = 100    # MB
+max_backups = 10
+max_age = 30      # days
+compress = true
 
 # Audit log
-audit:
-  enabled: true
-  output: /var/log/netxfw/audit.log
-  # Log all rule changes
-  log_rule_changes: true
-  # Log all API access
-  log_api_access: true
+[audit]
+enabled = true
+output = "/var/log/netxfw/audit.log"
+# Log all rule changes
+log_rule_changes = true
+# Log all API access
+log_api_access = true
 ```
 
 ### Audit Log Format
@@ -233,16 +225,16 @@ sudo grep -oP 'action=\w+' /var/log/netxfw/audit.log | sort | uniq -c
 
 ```bash
 # Regular rule backup
-sudo netxfw rule export /backup/netxfw/rules_$(date +%Y%m%d).yaml
+sudo netxfw rule export /backup/netxfw/rules_$(date +%Y%m%d).json
 
 # Automatic backup script
 cat << 'EOF' | sudo tee /etc/cron.daily/netxfw-backup
 #!/bin/bash
 BACKUP_DIR=/backup/netxfw
 mkdir -p $BACKUP_DIR
-/usr/bin/netxfw rule export $BACKUP_DIR/rules_$(date +%Y%m%d).yaml
+/usr/bin/netxfw rule export $BACKUP_DIR/rules_$(date +%Y%m%d).json
 # Keep last 30 days
-find $BACKUP_DIR -name "rules_*.yaml" -mtime +30 -delete
+find $BACKUP_DIR -name "rules_*.json" -mtime +30 -delete
 EOF
 sudo chmod +x /etc/cron.daily/netxfw-backup
 ```
@@ -251,13 +243,13 @@ sudo chmod +x /etc/cron.daily/netxfw-backup
 
 ```bash
 # Validate rule syntax
-sudo netxfw rule validate /etc/netxfw/rules.yaml
+sudo netxfw rule validate /etc/netxfw/rules.json
 
 # Test rules (does not affect existing rules)
-sudo netxfw rule test /etc/netxfw/rules.yaml
+sudo netxfw rule test /etc/netxfw/rules.json
 
 # Rule comparison
-sudo netxfw rule diff /etc/netxfw/rules.yaml /backup/netxfw/rules.yaml
+sudo netxfw rule diff /etc/netxfw/rules.json /backup/netxfw/rules.json
 ```
 
 ---
@@ -266,18 +258,18 @@ sudo netxfw rule diff /etc/netxfw/rules.yaml /backup/netxfw/rules.yaml
 
 ### Key Metrics Monitoring
 
-```yaml
+```toml
 # Prometheus metrics exposure
-metrics:
-  enabled: true
-  port: 9090
-  path: /metrics
+[metrics]
+enabled = true
+port = 9090
+path = "/metrics"
 ```
 
 ### Alert Rules
 
 ```yaml
-# alertmanager/rules.yml
+# alertmanager/rules.yml (Alertmanager natively uses YAML format)
 groups:
   - name: netxfw
     rules:
@@ -354,7 +346,7 @@ EOF
    sudo tail -100 /var/log/netxfw/error.log
 
    # Restore default configuration
-   sudo netxfw start --config /etc/netxfw/config.yaml.default
+   sudo netxfw start --config /etc/netxfw/config.toml.default
    ```
 
 ### SSH Lockout Recovery

@@ -7,12 +7,17 @@ import (
 	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
+// DefaultBackupKeep is the default number of backups to keep.
+// DefaultBackupKeep 默认保留的备份数量。
+const DefaultBackupKeep = 3
+
 // ConfigManager handles all configuration-related operations in a centralized manner
 // ConfigManager 以集中方式处理所有配置相关操作
 type ConfigManager struct {
 	configPath string
 	mutex      sync.RWMutex
 	config     *types.GlobalConfig
+	backupKeep int // Number of backups to keep / 保留的备份数量
 }
 
 // NewConfigManager creates a new configuration manager instance
@@ -20,7 +25,16 @@ type ConfigManager struct {
 func NewConfigManager(configPath string) *ConfigManager {
 	return &ConfigManager{
 		configPath: configPath,
+		backupKeep: DefaultBackupKeep,
 	}
+}
+
+// SetBackupKeep sets the number of backups to keep.
+// SetBackupKeep 设置保留的备份数量。
+func (cm *ConfigManager) SetBackupKeep(keep int) {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+	cm.backupKeep = keep
 }
 
 // LoadConfig loads the configuration from the specified path
@@ -35,11 +49,17 @@ func (cm *ConfigManager) LoadConfig() error {
 	}
 
 	cm.config = config
+
+	// Update backupKeep from config if set / 如果配置中设置了则更新 backupKeep
+	if config.Base.BackupKeep > 0 {
+		cm.backupKeep = config.Base.BackupKeep
+	}
+
 	return nil
 }
 
-// SaveConfig saves the current configuration to the specified path
-// SaveConfig 将当前配置保存到指定路径
+// SaveConfig saves the current configuration to the specified path with backup.
+// SaveConfig 将当前配置保存到指定路径（带备份）。
 func (cm *ConfigManager) SaveConfig() error {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
@@ -48,7 +68,13 @@ func (cm *ConfigManager) SaveConfig() error {
 		return nil
 	}
 
-	return types.SaveGlobalConfig(cm.configPath, cm.config)
+	// Use config's BackupKeep if set, otherwise use manager's default / 如果配置中设置了则使用，否则使用管理器默认值
+	backupKeep := cm.backupKeep
+	if cm.config.Base.BackupKeep > 0 {
+		backupKeep = cm.config.Base.BackupKeep
+	}
+
+	return types.SaveGlobalConfigWithBackup(cm.configPath, cm.config, backupKeep)
 }
 
 // GetConfig returns a copy of the current configuration

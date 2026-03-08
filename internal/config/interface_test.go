@@ -15,7 +15,7 @@ import (
 func TestGetDefaultConfigPath(t *testing.T) {
 	path := GetDefaultConfigPath()
 	assert.NotEmpty(t, path)
-	assert.Contains(t, path, "config.yaml")
+	assert.Contains(t, path, "config.toml")
 }
 
 // TestGetConfigPath tests GetConfigPath function
@@ -49,14 +49,14 @@ func TestGetConfigManager(t *testing.T) {
 // TestConfigManager_GetConfigPath tests ConfigManager GetConfigPath
 // TestConfigManager_GetConfigPath 测试 ConfigManager GetConfigPath
 func TestConfigManager_GetConfigPath(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
-	assert.Equal(t, "/test/path/config.yaml", manager.GetConfigPath())
+	manager := NewConfigManager("/test/path/config.toml")
+	assert.Equal(t, "/test/path/config.toml", manager.GetConfigPath())
 }
 
 // TestConfigManager_GetConfig tests ConfigManager GetConfig
 // TestConfigManager_GetConfig 测试 ConfigManager GetConfig
 func TestConfigManager_GetConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetConfig()
 
 	// Should return nil initially
@@ -67,7 +67,7 @@ func TestConfigManager_GetConfig(t *testing.T) {
 // TestConfigManager_UpdateConfig tests ConfigManager UpdateConfig
 // TestConfigManager_UpdateConfig 测试 ConfigManager UpdateConfig
 func TestConfigManager_UpdateConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 
 	// Update config with nil
 	// 用 nil 更新配置
@@ -92,7 +92,7 @@ func TestConstants(t *testing.T) {
 // TestConfigManager_GetBaseConfig tests ConfigManager GetBaseConfig
 // TestConfigManager_GetBaseConfig 测试 ConfigManager GetBaseConfig
 func TestConfigManager_GetBaseConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetBaseConfig()
 	assert.Nil(t, cfg)
 }
@@ -100,7 +100,7 @@ func TestConfigManager_GetBaseConfig(t *testing.T) {
 // TestConfigManager_GetWebConfig tests ConfigManager GetWebConfig
 // TestConfigManager_GetWebConfig 测试 ConfigManager GetWebConfig
 func TestConfigManager_GetWebConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetWebConfig()
 	assert.Nil(t, cfg)
 }
@@ -108,7 +108,7 @@ func TestConfigManager_GetWebConfig(t *testing.T) {
 // TestConfigManager_GetMetricsConfig tests ConfigManager GetMetricsConfig
 // TestConfigManager_GetMetricsConfig 测试 ConfigManager GetMetricsConfig
 func TestConfigManager_GetMetricsConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetMetricsConfig()
 	assert.Nil(t, cfg)
 }
@@ -116,7 +116,7 @@ func TestConfigManager_GetMetricsConfig(t *testing.T) {
 // TestConfigManager_GetLoggingConfig tests ConfigManager GetLoggingConfig
 // TestConfigManager_GetLoggingConfig 测试 ConfigManager GetLoggingConfig
 func TestConfigManager_GetLoggingConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetLoggingConfig()
 	assert.Nil(t, cfg)
 }
@@ -124,7 +124,7 @@ func TestConfigManager_GetLoggingConfig(t *testing.T) {
 // TestConfigManager_GetConntrackConfig tests ConfigManager GetConntrackConfig
 // TestConfigManager_GetConntrackConfig 测试 ConfigManager GetConntrackConfig
 func TestConfigManager_GetConntrackConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetConntrackConfig()
 	assert.Nil(t, cfg)
 }
@@ -132,7 +132,7 @@ func TestConfigManager_GetConntrackConfig(t *testing.T) {
 // TestConfigManager_GetRateLimitConfig tests ConfigManager GetRateLimitConfig
 // TestConfigManager_GetRateLimitConfig 测试 ConfigManager GetRateLimitConfig
 func TestConfigManager_GetRateLimitConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetRateLimitConfig()
 	assert.Nil(t, cfg)
 }
@@ -140,7 +140,7 @@ func TestConfigManager_GetRateLimitConfig(t *testing.T) {
 // TestConfigManager_GetPortConfig tests ConfigManager GetPortConfig
 // TestConfigManager_GetPortConfig 测试 ConfigManager GetPortConfig
 func TestConfigManager_GetPortConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetPortConfig()
 	assert.Nil(t, cfg)
 }
@@ -148,7 +148,7 @@ func TestConfigManager_GetPortConfig(t *testing.T) {
 // TestConfigManager_GetCapacityConfig tests ConfigManager GetCapacityConfig
 // TestConfigManager_GetCapacityConfig 测试 ConfigManager GetCapacityConfig
 func TestConfigManager_GetCapacityConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetCapacityConfig()
 	assert.Nil(t, cfg)
 }
@@ -156,7 +156,7 @@ func TestConfigManager_GetCapacityConfig(t *testing.T) {
 // TestConfigManager_GetLogEngineConfig tests ConfigManager GetLogEngineConfig
 // TestConfigManager_GetLogEngineConfig 测试 ConfigManager GetLogEngineConfig
 func TestConfigManager_GetLogEngineConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetLogEngineConfig()
 	assert.Nil(t, cfg)
 }
@@ -164,7 +164,7 @@ func TestConfigManager_GetLogEngineConfig(t *testing.T) {
 // TestConfigManager_GetAIConfig tests ConfigManager GetAIConfig
 // TestConfigManager_GetAIConfig 测试 ConfigManager GetAIConfig
 func TestConfigManager_GetAIConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetAIConfig()
 	assert.Nil(t, cfg)
 }
@@ -172,7 +172,7 @@ func TestConfigManager_GetAIConfig(t *testing.T) {
 // TestConfigManager_GetMCPConfig tests ConfigManager GetMCPConfig
 // TestConfigManager_GetMCPConfig 测试 ConfigManager GetMCPConfig
 func TestConfigManager_GetMCPConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetMCPConfig()
 	assert.Nil(t, cfg)
 }
@@ -180,7 +180,7 @@ func TestConfigManager_GetMCPConfig(t *testing.T) {
 // TestConfigManager_GetClusterConfig tests ConfigManager GetClusterConfig
 // TestConfigManager_GetClusterConfig 测试 ConfigManager GetClusterConfig
 func TestConfigManager_GetClusterConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	cfg := manager.GetClusterConfig()
 	assert.Nil(t, cfg)
 }
@@ -188,84 +188,84 @@ func TestConfigManager_GetClusterConfig(t *testing.T) {
 // TestConfigManager_SetBaseConfig tests ConfigManager SetBaseConfig
 // TestConfigManager_SetBaseConfig 测试 ConfigManager SetBaseConfig
 func TestConfigManager_SetBaseConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetBaseConfig(types.BaseConfig{})
 }
 
 // TestConfigManager_SetWebConfig tests ConfigManager SetWebConfig
 // TestConfigManager_SetWebConfig 测试 ConfigManager SetWebConfig
 func TestConfigManager_SetWebConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetWebConfig(types.WebConfig{})
 }
 
 // TestConfigManager_SetMetricsConfig tests ConfigManager SetMetricsConfig
 // TestConfigManager_SetMetricsConfig 测试 ConfigManager SetMetricsConfig
 func TestConfigManager_SetMetricsConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetMetricsConfig(types.MetricsConfig{})
 }
 
 // TestConfigManager_SetLoggingConfig tests ConfigManager SetLoggingConfig
 // TestConfigManager_SetLoggingConfig 测试 ConfigManager SetLoggingConfig
 func TestConfigManager_SetLoggingConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetLoggingConfig(logger.LoggingConfig{})
 }
 
 // TestConfigManager_SetConntrackConfig tests ConfigManager SetConntrackConfig
 // TestConfigManager_SetConntrackConfig 测试 ConfigManager SetConntrackConfig
 func TestConfigManager_SetConntrackConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetConntrackConfig(types.ConntrackConfig{})
 }
 
 // TestConfigManager_SetRateLimitConfig tests ConfigManager SetRateLimitConfig
 // TestConfigManager_SetRateLimitConfig 测试 ConfigManager SetRateLimitConfig
 func TestConfigManager_SetRateLimitConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetRateLimitConfig(types.RateLimitConfig{})
 }
 
 // TestConfigManager_SetPortConfig tests ConfigManager SetPortConfig
 // TestConfigManager_SetPortConfig 测试 ConfigManager SetPortConfig
 func TestConfigManager_SetPortConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetPortConfig(types.PortConfig{})
 }
 
 // TestConfigManager_SetCapacityConfig tests ConfigManager SetCapacityConfig
 // TestConfigManager_SetCapacityConfig 测试 ConfigManager SetCapacityConfig
 func TestConfigManager_SetCapacityConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetCapacityConfig(types.CapacityConfig{})
 }
 
 // TestConfigManager_SetLogEngineConfig tests ConfigManager SetLogEngineConfig
 // TestConfigManager_SetLogEngineConfig 测试 ConfigManager SetLogEngineConfig
 func TestConfigManager_SetLogEngineConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetLogEngineConfig(types.LogEngineConfig{})
 }
 
 // TestConfigManager_SetAIConfig tests ConfigManager SetAIConfig
 // TestConfigManager_SetAIConfig 测试 ConfigManager SetAIConfig
 func TestConfigManager_SetAIConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetAIConfig(types.AIConfig{})
 }
 
 // TestConfigManager_SetMCPConfig tests ConfigManager SetMCPConfig
 // TestConfigManager_SetMCPConfig 测试 ConfigManager SetMCPConfig
 func TestConfigManager_SetMCPConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetMCPConfig(types.MCPConfig{})
 }
 
 // TestConfigManager_SetClusterConfig tests ConfigManager SetClusterConfig
 // TestConfigManager_SetClusterConfig 测试 ConfigManager SetClusterConfig
 func TestConfigManager_SetClusterConfig(t *testing.T) {
-	manager := NewConfigManager("/test/path/config.yaml")
+	manager := NewConfigManager("/test/path/config.toml")
 	manager.SetClusterConfig(types.ClusterConfig{})
 }
 
@@ -282,13 +282,14 @@ func TestLoadGlobalConfig(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	configContent := `
-base:
-  default_deny: true
-web:
-  enabled: true
-  port: 8080
+[base]
+default_deny = true
+
+[web]
+enabled = true
+port = 8080
 `
 	err = os.WriteFile(configPath, []byte(configContent), 0644)
 	assert.NoError(t, err)
@@ -312,7 +313,7 @@ func TestSaveGlobalConfig(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 
 	// Create manager with test config
 	// 使用测试配置创建管理器
@@ -351,7 +352,7 @@ func TestGetCurrentConfig(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	ConfigManagerInstance = NewConfigManager(configPath)
 
 	// Load config first
@@ -371,15 +372,15 @@ func TestConfigManager_LoadConfig(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	configContent := `
-base:
-  default_deny: false
-  whitelist:
-    - 192.168.1.0/24
-web:
-  enabled: true
-  port: 11811
+[base]
+default_deny = false
+whitelist = ["192.168.1.0/24"]
+
+[web]
+enabled = true
+port = 11811
 `
 	err = os.WriteFile(configPath, []byte(configContent), 0644)
 	assert.NoError(t, err)
@@ -400,7 +401,7 @@ func TestConfigManager_SaveConfig(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	manager := NewConfigManager(configPath)
 
 	cfg := &types.GlobalConfig{
@@ -430,13 +431,13 @@ func TestLoadMap_NonExistent(t *testing.T) {
 // TestConfigManager_Validate 测试 ConfigManager Validate 方法
 func TestConfigManager_Validate(t *testing.T) {
 	t.Run("Nil config", func(t *testing.T) {
-		manager := NewConfigManager("/test/path/config.yaml")
+		manager := NewConfigManager("/test/path/config.toml")
 		err := manager.Validate()
 		assert.NoError(t, err)
 	})
 
 	t.Run("Valid config", func(t *testing.T) {
-		manager := NewConfigManager("/test/path/config.yaml")
+		manager := NewConfigManager("/test/path/config.toml")
 		cfg := &types.GlobalConfig{
 			Base: types.BaseConfig{
 				DefaultDeny: true,
@@ -453,7 +454,7 @@ func TestConfigManager_Validate(t *testing.T) {
 	})
 
 	t.Run("Invalid config", func(t *testing.T) {
-		manager := NewConfigManager("/test/path/config.yaml")
+		manager := NewConfigManager("/test/path/config.toml")
 		cfg := &types.GlobalConfig{
 			Base: types.BaseConfig{
 				LockListV4Mask: -1, // Invalid mask

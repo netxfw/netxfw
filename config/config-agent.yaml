@@ -5,7 +5,7 @@
 # Default cluster config file path / 默认集群配置文件路径
 cluster:
   enabled: false
-  configpath: "cluster.yaml"
+  configpath: "cluster.toml"
 
 # Base Configuration / 基础配置
 base:

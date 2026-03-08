@@ -82,7 +82,7 @@ func TestYAMLStore_Creation(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
 	store := NewYAMLStore(configPath, lockPath)
@@ -96,7 +96,7 @@ func TestYAMLStore_AddIP(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
 	// Create initial files
@@ -130,7 +130,7 @@ func TestYAMLStore_RemoveIP(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
 	// Create initial files with some rules
@@ -158,7 +158,7 @@ func TestYAMLStore_AddIPPortRule(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
 	// Create initial files
@@ -186,7 +186,7 @@ func TestYAMLStore_RemoveIPPortRule(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
 	// Create initial files with IP port rules
@@ -214,22 +214,22 @@ func TestYAMLStore_LoadAll(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
 	// Create initial files with rules
 	// 创建带有规则的初始文件
-	os.WriteFile(configPath, []byte(`whitelist:
-  - cidr: 192.168.1.1/32
-lock_list: []
-ip_port_rules:
-  - cidr: 10.0.0.1/32
-    port: 443
-    protocol: tcp
-    action: deny
+	os.WriteFile(configPath, []byte(`
+whitelist = [{cidr = "192.168.1.1/32"}]
+lock_list = []
+[[ip_port_rules]]
+cidr = "10.0.0.1/32"
+port = 443
+protocol = "tcp"
+action = "deny"
 `), 0644)
-	os.WriteFile(lockPath, []byte(`lock_list:
-  - cidr: 172.16.0.1/32
+	os.WriteFile(lockPath, []byte(`
+lock_list = [{cidr = "172.16.0.1/32"}]
 `), 0644)
 
 	store := NewYAMLStore(configPath, lockPath)
@@ -253,13 +253,13 @@ func TestYAMLStore_LoadAll_Empty(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
 	// Create empty files
 	// 创建空文件
-	os.WriteFile(configPath, []byte("whitelist: []\nlock_list: []\nip_port_rules: []\n"), 0644)
-	os.WriteFile(lockPath, []byte("lock_list: []\n"), 0644)
+	os.WriteFile(configPath, []byte("whitelist = []\nlock_list = []\nip_port_rules = []\n"), 0644)
+	os.WriteFile(lockPath, []byte("lock_list = []\n"), 0644)
 
 	store := NewYAMLStore(configPath, lockPath)
 
@@ -277,7 +277,7 @@ func TestYAMLStore_LoadAll_NonExistent(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "nonexistent_config.yaml")
+	configPath := filepath.Join(tmpDir, "nonexistent_config.toml")
 	lockPath := filepath.Join(tmpDir, "nonexistent_locklist.txt")
 
 	store := NewYAMLStore(configPath, lockPath)
@@ -298,7 +298,7 @@ func TestYAMLStore_AddIP_InvalidType(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
 	store := NewYAMLStore(configPath, lockPath)
@@ -314,7 +314,7 @@ func TestYAMLStore_RemoveIP_InvalidType(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
 	store := NewYAMLStore(configPath, lockPath)
@@ -330,7 +330,7 @@ func TestYAMLStore_UpdateExistingRule(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
 	os.WriteFile(configPath, []byte("whitelist:\n  - cidr: 192.168.1.1/32\nlock_list: []\nip_port_rules: []\n"), 0644)
@@ -359,7 +359,7 @@ func TestYAMLStore_UpdateExistingIPPortRule(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
 	os.WriteFile(configPath, []byte(`whitelist: []

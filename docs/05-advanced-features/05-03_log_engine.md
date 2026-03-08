@@ -5,24 +5,25 @@ Log Engine 是 netxfw 内置的高性能日志分析与防御子系统。它采�
 ## 1. 核心特性
 
 *   **高性能**: 默认采用 `Byte Mode`，直接操作内存字节，无需字符串转换开销。
-*   **双重语法**: 支持简单的 YAML 语义化配置（Cloudflare 风格）和高级表达式（Expr 语言）。
+*   **双重语法**: 支持简单的 TOML 语义化配置（Cloudflare 风格）和高级表达式（Expr 语言）。
 *   **频率控制**: 内置滑动窗口计数器，支持基于时间窗口的频率限制（如 60秒内错误 5 次）。
 *   **上下文感知**: 支持根据日志文件路径 (`path`) 隔离规则。
 *   **字段提取**: 支持 KV 提取 (`key=value`)、JSON 字段提取、分隔符提取。
 
 ## 2. 启用配置
 
-在 `config.yaml` 中配置 `log_engine` 部分：
+在 `config.toml` 中配置 `log_engine` 部分：
 
-```yaml
-log_engine:
-  enabled: true       # 启用引擎
-  workers: 4          # 并发处理协程数
-  files:              # 监控的日志文件列表
-    - "/var/log/nginx/access.log"
-    - "/var/log/auth.log"
-    - "/var/log/syslog"
-  rules: []           # 规则列表（见下文）
+```toml
+[log_engine]
+enabled = true       # 启用引擎
+workers = 4          # 并发处理协程数
+files = [            # 监控的日志文件列表
+    "/var/log/nginx/access.log",
+    "/var/log/auth.log",
+    "/var/log/syslog",
+]
+rules = []           # 规则列表（见下文）
 ```
 
 ## 3. 规则编写指南
@@ -53,29 +54,26 @@ Log Engine 支持两种规则编写方式，可以根据复杂度混合使用。
 **示例 1：SSH 爆破防御**
 *规则：在 `auth.log` 中，如果包含 "Failed password" 且不包含 "invalid user"，在 60秒内出现 5 次，则封禁。*
 
-```yaml
-- id: "ssh_bruteforce"
-  path: "/var/log/auth.log"
-  action: "dynblack"
-  is: 
-    - "Failed password"
-  not:
-    - "invalid user"  # 排除特定误报
-  threshold: 5
-  interval: 60
+```toml
+[[log_engine.rules]]
+id = "ssh_bruteforce"
+path = "/var/log/auth.log"
+action = "dynblack"
+is = ["Failed password"]
+not = ["invalid user"]  # 排除特定误报
+threshold = 5
+interval = 60
 ```
 
 **示例 2：拦截特定 User-Agent**
 *规则：拦截包含 "Go-http-client" 或 "python-requests" 的请求。*
 
-```yaml
-- id: "block_scrapers"
-  path: "*.log"
-  action: "dynblack"
-  or:
-    - "Go-http-client"
-    - "python-requests"
-    - "curl/"
+```toml
+[[log_engine.rules]]
+id = "block_scrapers"
+path = "*.log"
+action = "dynblack"
+or = ["Go-http-client", "python-requests", "curl/"]
 ```
 
 ### 3.2 方式二：高级表达式 (Expression)
@@ -109,26 +107,30 @@ Log Engine 支持两种规则编写方式，可以根据复杂度混合使用。
 **示例 3：复杂的 Nginx 状态码封禁**
 *规则：针对 Nginx 日志，如果状态码是 404 或 500，且 URL (第7列) 包含 "admin"，且 30秒内超过 10 次。*
 
-```yaml
-- id: "nginx_admin_scan"
-  path: "/var/log/nginx/access.log"
-  action: "dynblack"
-  expression: |
-    (Fields()[8] == "404" || Fields()[8] == "500") &&
-    Contains(Fields()[6], "admin") &&
-    Count(30) > 10
+```toml
+[[log_engine.rules]]
+id = "nginx_admin_scan"
+path = "/var/log/nginx/access.log"
+action = "dynblack"
+expression = '''
+(Fields()[8] == "404" || Fields()[8] == "500") &&
+Contains(Fields()[6], "admin") &&
+Count(30) > 10
+'''
 ```
 
 **示例 4：KV 格式日志提取**
 *假设日志格式：`level=error msg="login failed" user=admin ip=1.2.3.4`*
 
-```yaml
-- id: "kv_auth_fail"
-  action: "dynblack"
-  expression: |
-    Get("level") == "error" &&
-    Get("msg") == "login failed" &&
-    Get("user") != "whitelist_user"
+```toml
+[[log_engine.rules]]
+id = "kv_auth_fail"
+action = "dynblack"
+expression = '''
+Get("level") == "error" &&
+Get("msg") == "login failed" &&
+Get("user") != "whitelist_user"
+'''
 ```
 
 ## 4. Action 动作说明
@@ -151,56 +153,95 @@ Log Engine 支持两种规则编写方式，可以根据复杂度混合使用。
 
 ## 5. 完整配置示例
 
-```yaml
-log_engine:
-  enabled: true
-  workers: 8
-  files:
-    - "/var/log/auth.log"
-    - "/var/log/nginx/access.log"
-    - "/var/log/app.log"
-  
-  rules:
-    # 1. SSH 防爆破 (语义化写法)
-    - id: "ssh_fail"
-      path: "/var/log/auth.log"
-      action: "dynblack"  # 动态封禁 (默认5分钟)
-      is: ["Failed password"]
-      threshold: 5
-      interval: 60
+```toml
+[log_engine]
+enabled = true
+workers = 8
+files = [
+    "/var/log/auth.log",
+    "/var/log/nginx/access.log",
+    "/var/log/app.log",
+]
 
-    # 2. 限制特定用户的错误 (语义化 + 逻辑组合)
-    - id: "admin_protect"
-      path: "/var/log/app.log"
-      action: "dynblack:1h" # 封禁 1 小时
-      is: ["login_error"]
-      and: ["user=admin"]
-      threshold: 3
-      interval: 300
+# 1. SSH 防爆破 (语义化写法)
+[[log_engine.rules]]
+id = "ssh_fail"
+path = "/var/log/auth.log"
+action = "dynblack"  # 动态封禁 (默认5分钟)
+is = ["Failed password"]
+threshold = 5
+interval = 60
 
-    # 3. 拦截恶意爬虫 (正则支持)
-    - id: "bad_bot"
-      path: "/var/log/nginx/access.log"
-      action: "dynblack"
-      regex: "(?i)(curl|wget|python|java)/[0-9.]+"
+# 2. 限制特定用户的错误 (语义化 + 逻辑组合)
+[[log_engine.rules]]
+id = "admin_protect"
+path = "/var/log/app.log"
+action = "dynblack:1h"  # 封禁 1 小时
+is = ["login_error"]
+and = ["user=admin"]
+threshold = 3
+interval = 300
 
-    # 4. 高级逻辑：排除内网 IP 的高频请求
-    - id: "rate_limit_external"
-      action: "dynblack"
-      expression: |
-        !InCIDR("10.0.0.0/8") && 
-        !InCIDR("192.168.0.0/16") &&
-        Count(10) > 50
-    
-    # 5. 永久黑名单示例
-    - id: "known_attacker"
-      action: "blacklist"   # 永久封禁
-      is: ["malicious_signature"]
+# 3. 拦截恶意爬虫 (正则支持)
+[[log_engine.rules]]
+id = "bad_bot"
+path = "/var/log/nginx/access.log"
+action = "dynblack"
+regex = "(?i)(curl|wget|python|java)/[0-9.]+"
+
+# 4. 高级逻辑：排除内网 IP 的高频请求
+[[log_engine.rules]]
+id = "rate_limit_external"
+action = "dynblack"
+expression = '''
+!InCIDR("10.0.0.0/8") && 
+!InCIDR("192.168.0.0/16") &&
+Count(10) > 50
+'''
+
+# 5. 永久黑名单示例
+[[log_engine.rules]]
+id = "known_attacker"
+action = "blacklist"   # 永久封禁
+is = ["malicious_signature"]
 ```
 
-## 6. 性能优化建议
+## 6. 性能调优
 
-1.  **优先使用 `path`**: 明确指定规则适用的日志文件，避免对所有日志运行无关规则。
-2.  **优先使用语义化字段**: `is`, `contains` 等字段会被自动优化为高效的字节匹配指令。
-3.  **正则慎用**: `regex` 比简单的字符串匹配消耗更多 CPU，尽量用 `contains` 代替。
-4.  **避免过多的 `Lower()`**: 大小写转换涉及内存分配，尽量在规则中直接写明目标大小写，或使用 `IContains` (已优化)。
+### 6.1 Worker 数量
+根据日志量调整 Worker 数量：
+- 低流量 (< 1000 行/秒): 2 workers
+- 中流量 (1000-10000 行/秒): 4 workers
+- 高流量 (> 10000 行/秒): 8 workers
+
+### 6.2 缓冲区大小
+```toml
+[log_engine]
+buffer_size = 4096  # 读取缓冲区大小 (字节)
+```
+
+### 6.3 批量处理
+```toml
+[log_engine]
+batch_size = 100    # 批量处理数量
+batch_timeout = "1s" # 批量超时时间
+```
+
+## 7. 监控
+
+### 7.1 指标
+Log Engine 暴露 Prometheus 指标：
+- `netxfw_log_lines_processed_total`
+- `netxfw_log_rules_triggered_total`
+- `netxfw_log_blocks_total`
+
+### 7.2 健康检查
+```bash
+curl http://localhost:11811/api/log-engine/health
+```
+
+## 相关文档
+
+- [配置管理](../09-api-reference/09-01_config_management_unification.md)
+- [API 参考](../09-api-reference/09-03_api_reference.md)
+- [性能测试](../07-performance-tuning/07-01_benchmarks.md)

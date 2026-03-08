@@ -56,8 +56,8 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		locked, totalLocked, _ := s.sdk.Blacklist.List(limit, search)
 		whitelist, totalWhitelist, _ := s.sdk.Whitelist.List(limit, search)
 
-		// Get IP+Port rules (action 1=allow, 2=deny)
-		// 获取 IP+端口规则（action 1=允许, 2=拒绝）
+		// Get IP+Port rules (action 0=deny, 1=allow)
+		// 获取 IP+端口规则（action 0=拒绝, 1=允许）
 		ipPortRules, totalIPPort, _ := s.sdk.Rule.List(true, limit, search)
 
 		res := map[string]any{

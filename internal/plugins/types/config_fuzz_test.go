@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"gopkg.in/yaml.v3"
+	"github.com/BurntSushi/toml"
 )
 
 // FuzzLoadGlobalConfig tests LoadGlobalConfig with random file content
@@ -149,7 +149,7 @@ func FuzzParseBaseConfig(f *testing.F) {
 		// Parse as BaseConfig
 		// 解析为 BaseConfig
 		var cfg BaseConfig
-		err := yaml.Unmarshal([]byte(content), &cfg)
+		_, err := toml.Decode(content, &cfg)
 
 		if err != nil {
 			// Parse error is acceptable
@@ -250,7 +250,7 @@ func FuzzWhitelistParsing(f *testing.F) {
 			Whitelist []string `yaml:"whitelist"`
 		}
 
-		err := yaml.Unmarshal([]byte(content), &cfg)
+		_, err := toml.Decode(content, &cfg)
 		if err != nil {
 			return
 		}
@@ -287,7 +287,7 @@ func FuzzInterfacesParsing(f *testing.F) {
 			Interfaces []string `yaml:"interfaces"`
 		}
 
-		err := yaml.Unmarshal([]byte(content), &cfg)
+		_, err := toml.Decode(content, &cfg)
 		if err != nil {
 			return
 		}
@@ -324,7 +324,7 @@ func FuzzCleanupIntervalParsing(f *testing.F) {
 			CleanupInterval string `yaml:"cleanup_interval"`
 		}
 
-		err := yaml.Unmarshal([]byte(content), &cfg)
+		_, err := toml.Decode(content, &cfg)
 		if err != nil {
 			return
 		}

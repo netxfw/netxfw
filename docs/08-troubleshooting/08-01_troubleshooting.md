@@ -109,16 +109,16 @@ sudo bpftool map dump name whitelist
 **错误信息**:
 ```
 Error: invalid configuration
-Error: yaml: unmarshal errors
+Error: toml: unmarshal errors
 ```
 
 **解决方案**:
 ```bash
 # 验证配置文件语法
-python3 -c "import yaml; yaml.safe_load(open('/etc/netxfw/config.yaml'))"
+python3 -c "import tomllib; tomllib.load(open('/etc/netxfw/config.toml', 'rb'))"
 
 # 或使用 netxfw 验证
-sudo netxfw validate --config /etc/netxfw/config.yaml
+sudo netxfw validate --config /etc/netxfw/config.toml
 ```
 
 ---
@@ -135,11 +135,11 @@ sudo netxfw validate --config /etc/netxfw/config.yaml
 
 ### 日志级别
 
-```yaml
+```toml
 # 配置文件中设置日志级别
-log:
-  level: info  # debug, info, warn, error
-  output: /var/log/netxfw/daemon.log
+[log]
+level = "info"  # debug, info, warn, error
+output = "/var/log/netxfw/daemon.log"
 ```
 
 ### 常用日志分析命令
@@ -210,16 +210,16 @@ pmap -x $(pgrep netxfw)
 ```
 
 **内存优化建议**:
-```yaml
+```toml
 # 调整 Map 大小
-capacity:
-  lock_list: 100000      # 静态黑名单
-  dyn_lock_list: 50000   # 动态黑名单
-  conntrack: 50000       # 连接跟踪
+[capacity]
+lock_list = 100000      # 静态黑名单
+dyn_lock_list = 50000   # 动态黑名单
+conntrack = 50000       # 连接跟踪
 
 # 缩短超时时间
-conntrack:
-  timeout: 300           # 连接超时（秒）
+[conntrack]
+timeout = "5m"          # 连接超时
 ```
 
 ### 包处理延迟高
@@ -257,9 +257,9 @@ sudo netxfw status -v
 sudo netxfw dynamic clear
 
 # 调整 Map 大小
-# 编辑 /etc/netxfw/config.yaml
-capacity:
-  dyn_lock_list: 200000
+# 编辑 /etc/netxfw/config.toml
+[capacity]
+dyn_lock_list = 200000
 ```
 
 ### Map 数据不一致
@@ -283,20 +283,20 @@ sudo netxfw start
 **问题**: 重启后规则丢失
 
 **解决方案**:
-```yaml
+```toml
 # 确保配置了持久化文件
-persistence:
-  enabled: true
-  lock_list_file: /etc/netxfw/lock_list.txt
-  whitelist_file: /etc/netxfw/whitelist.txt
+[persistence]
+enabled = true
+lock_list_file = "/etc/netxfw/lock_list.txt"
+whitelist_file = "/etc/netxfw/whitelist.txt"
 ```
 
 ```bash
 # 手动保存规则
-sudo netxfw rule export /etc/netxfw/rules.yaml
+sudo netxfw rule export /etc/netxfw/rules.json
 
 # 启动时自动加载
-sudo netxfw start --load-rules /etc/netxfw/rules.yaml
+sudo netxfw start --load-rules /etc/netxfw/rules.json
 ```
 
 ---
@@ -481,5 +481,5 @@ sudo netxfw debug --collect-info > debug_info.tar.gz
    - 系统版本 (`uname -a`)
    - netxfw 版本 (`netxfw version`)
    - 错误日志 (`/var/log/netxfw/error.log`)
-   - 配置文件 (`/etc/netxfw/config.yaml`)
+   - 配置文件 (`/etc/netxfw/config.toml`)
    - 复现步骤

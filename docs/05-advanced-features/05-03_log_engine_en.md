@@ -5,24 +5,25 @@ The Log Engine is a high-performance log analysis and defense subsystem built in
 ## 1. Core Features
 
 *   **High Performance**: Uses `Byte Mode` by default, directly operates on memory bytes, no string conversion overhead.
-*   **Dual Syntax**: Supports simple YAML semantic configuration (Cloudflare style) and advanced expressions (Expr language).
+*   **Dual Syntax**: Supports simple TOML semantic configuration (Cloudflare style) and advanced expressions (Expr language).
 *   **Frequency Control**: Built-in sliding window counter, supports time-window-based rate limiting (e.g., 5 errors in 60 seconds).
 *   **Context Awareness**: Supports rule isolation based on log file path (`path`).
 *   **Field Extraction**: Supports KV extraction (`key=value`), JSON field extraction, delimiter extraction.
 
 ## 2. Enable Configuration
 
-Configure the `log_engine` section in `config.yaml`:
+Configure the `log_engine` section in `config.toml`:
 
-```yaml
-log_engine:
-  enabled: true       # Enable engine
-  workers: 4          # Concurrent processing goroutines
-  files:              # Log files to monitor
-    - "/var/log/nginx/access.log"
-    - "/var/log/auth.log"
-    - "/var/log/syslog"
-  rules: []           # Rule list (see below)
+```toml
+[log_engine]
+enabled = true       # Enable engine
+workers = 4          # Concurrent processing goroutines
+files = [            # Log files to monitor
+    "/var/log/nginx/access.log",
+    "/var/log/auth.log",
+    "/var/log/syslog",
+]
+rules = []           # Rule list (see below)
 ```
 
 ## 3. Rule Writing Guide
@@ -53,29 +54,26 @@ Suitable for quickly configuring common matching logic. Uses intuitive fields si
 **Example 1: SSH Brute Force Defense**
 *Rule: In `auth.log`, if contains "Failed password" and doesn't contain "invalid user", appears 5 times within 60 seconds, then block.*
 
-```yaml
-- id: "ssh_bruteforce"
-  path: "/var/log/auth.log"
-  action: "dynblack"
-  is: 
-    - "Failed password"
-  not:
-    - "invalid user"  # Exclude specific false positives
-  threshold: 5
-  interval: 60
+```toml
+[[log_engine.rules]]
+id = "ssh_bruteforce"
+path = "/var/log/auth.log"
+action = "dynblack"
+is = ["Failed password"]
+not = ["invalid user"]  # Exclude specific false positives
+threshold = 5
+interval = 60
 ```
 
 **Example 2: Block Specific User-Agent**
 *Rule: Block requests containing "Go-http-client" or "python-requests".*
 
-```yaml
-- id: "block_scrapers"
-  path: "*.log"
-  action: "dynblack"
-  or:
-    - "Go-http-client"
-    - "python-requests"
-    - "curl/"
+```toml
+[[log_engine.rules]]
+id = "block_scrapers"
+path = "*.log"
+action = "dynblack"
+or = ["Go-http-client", "python-requests", "curl/"]
 ```
 
 ### 3.2 Method 2: Advanced Expressions
@@ -83,16 +81,18 @@ Suitable for quickly configuring common matching logic. Uses intuitive fields si
 For complex logic, use Expr expression language:
 
 **Example: Complex SQL Injection Detection**
-```yaml
-- id: "sqli_advanced"
-  path: "/var/log/nginx/access.log"
-  action: "dynblack"
-  expr: |
-    contains(line, "SELECT") && 
-    (contains(line, "UNION") || contains(line, "DROP")) &&
-    !contains(line, "internal-monitor")
-  threshold: 3
-  interval: 60
+```toml
+[[log_engine.rules]]
+id = "sqli_advanced"
+path = "/var/log/nginx/access.log"
+action = "dynblack"
+expr = '''
+contains(line, "SELECT") && 
+(contains(line, "UNION") || contains(line, "DROP")) &&
+!contains(line, "internal-monitor")
+'''
+threshold = 3
+interval = 60
 ```
 
 ## 4. Action Types
@@ -111,43 +111,44 @@ For complex logic, use Expr expression language:
 ### 5.1 KV Extraction
 Extract `key=value` pairs from logs:
 
-```yaml
-- id: "extract_kv"
-  path: "/var/log/app.log"
-  extract:
-    type: "kv"
-    fields:
-      - "ip"
-      - "status"
-      - "user"
+```toml
+[[log_engine.rules]]
+id = "extract_kv"
+path = "/var/log/app.log"
+
+[log_engine.rules.extract]
+type = "kv"
+fields = ["ip", "status", "user"]
 ```
 
 ### 5.2 JSON Extraction
 Extract fields from JSON logs:
 
-```yaml
-- id: "extract_json"
-  path: "/var/log/json.log"
-  extract:
-    type: "json"
-    fields:
-      - "remote_addr"
-      - "request.method"
-      - "response.status"
+```toml
+[[log_engine.rules]]
+id = "extract_json"
+path = "/var/log/json.log"
+
+[log_engine.rules.extract]
+type = "json"
+fields = ["remote_addr", "request.method", "response.status"]
 ```
 
 ### 5.3 Delimiter Extraction
 Extract fields by delimiter:
 
-```yaml
-- id: "extract_csv"
-  path: "/var/log/csv.log"
-  extract:
-    type: "delimiter"
-    delimiter: ","
-    fields:
-      - { name: "ip", index: 0 }
-      - { name: "status", index: 2 }
+```toml
+[[log_engine.rules]]
+id = "extract_csv"
+path = "/var/log/csv.log"
+
+[log_engine.rules.extract]
+type = "delimiter"
+delimiter = ","
+fields = [
+    { name = "ip", index = 0 },
+    { name = "status", index = 2 },
+]
 ```
 
 ## 6. Performance Tuning
@@ -159,16 +160,16 @@ Adjust worker count based on log volume:
 - High volume (> 10000 lines/sec): 8 workers
 
 ### 6.2 Buffer Size
-```yaml
-log_engine:
-  buffer_size: 4096  # Read buffer size (bytes)
+```toml
+[log_engine]
+buffer_size = 4096  # Read buffer size (bytes)
 ```
 
 ### 6.3 Batch Processing
-```yaml
-log_engine:
-  batch_size: 100    # Process in batches
-  batch_timeout: "1s" # Batch timeout
+```toml
+[log_engine]
+batch_size = 100    # Process in batches
+batch_timeout = "1s" # Batch timeout
 ```
 
 ## 7. Monitoring

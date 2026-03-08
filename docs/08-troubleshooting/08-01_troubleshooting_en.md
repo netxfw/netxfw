@@ -109,16 +109,16 @@ sudo bpftool map dump name whitelist
 **Error Message**:
 ```
 Error: invalid configuration
-Error: yaml: unmarshal errors
+Error: toml: unmarshal errors
 ```
 
 **Solutions**:
 ```bash
 # Validate configuration file syntax
-python3 -c "import yaml; yaml.safe_load(open('/etc/netxfw/config.yaml'))"
+python3 -c "import tomllib; tomllib.load(open('/etc/netxfw/config.toml', 'rb'))"
 
 # Or use netxfw validation
-sudo netxfw validate --config /etc/netxfw/config.yaml
+sudo netxfw validate --config /etc/netxfw/config.toml
 ```
 
 ---
@@ -135,11 +135,11 @@ sudo netxfw validate --config /etc/netxfw/config.yaml
 
 ### Log Levels
 
-```yaml
+```toml
 # Set log level in configuration
-log:
-  level: info  # debug, info, warn, error
-  output: /var/log/netxfw/daemon.log
+[log]
+level = "info"  # debug, info, warn, error
+output = "/var/log/netxfw/daemon.log"
 ```
 
 ### Common Log Analysis Commands
@@ -210,16 +210,16 @@ pmap -x $(pgrep netxfw)
 ```
 
 **Memory Optimization Suggestions**:
-```yaml
+```toml
 # Adjust Map sizes
-capacity:
-  lock_list: 100000      # Static blacklist
-  dyn_lock_list: 50000   # Dynamic blacklist
-  conntrack: 50000       # Connection tracking
+[capacity]
+lock_list = 100000      # Static blacklist
+dyn_lock_list = 50000   # Dynamic blacklist
+conntrack = 50000       # Connection tracking
 
 # Reduce timeout
-conntrack:
-  timeout: 300           # Connection timeout (seconds)
+[conntrack]
+timeout = "5m"          # Connection timeout
 ```
 
 ### High Packet Processing Latency
@@ -257,9 +257,9 @@ sudo netxfw status -v
 sudo netxfw dynamic clear
 
 # Adjust Map size
-# Edit /etc/netxfw/config.yaml
-capacity:
-  dyn_lock_list: 200000
+# Edit /etc/netxfw/config.toml
+[capacity]
+dyn_lock_list = 200000
 ```
 
 ### Map Data Inconsistency
@@ -283,20 +283,20 @@ sudo netxfw start
 **Problem**: Rules lost after restart
 
 **Solutions**:
-```yaml
+```toml
 # Ensure persistence files are configured
-persistence:
-  enabled: true
-  lock_list_file: /etc/netxfw/lock_list.txt
-  whitelist_file: /etc/netxfw/whitelist.txt
+[persistence]
+enabled = true
+lock_list_file = "/etc/netxfw/lock_list.txt"
+whitelist_file = "/etc/netxfw/whitelist.txt"
 ```
 
 ```bash
 # Manually save rules
-sudo netxfw rule export /etc/netxfw/rules.yaml
+sudo netxfw rule export /etc/netxfw/rules.json
 
 # Auto-load on startup
-sudo netxfw start --load-rules /etc/netxfw/rules.yaml
+sudo netxfw start --load-rules /etc/netxfw/rules.json
 ```
 
 ---
@@ -481,5 +481,5 @@ sudo netxfw debug --collect-info > debug_info.tar.gz
    - System version (`uname -a`)
    - netxfw version (`netxfw version`)
    - Error logs (`/var/log/netxfw/error.log`)
-   - Configuration file (`/etc/netxfw/config.yaml`)
+   - Configuration file (`/etc/netxfw/config.toml`)
    - Steps to reproduce

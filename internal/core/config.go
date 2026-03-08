@@ -27,10 +27,12 @@ func InitConfiguration(ctx context.Context) {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		// Define default config with bilingual comments
 		// 定义带有双语注释的默认配置
-		defaultConfig := types.DefaultConfigTemplate
+		// Use TOML format for new installations
+		// 新安装使用 TOML 格式
+		defaultConfig := types.DefaultConfigTOMLTemplate
 
 		if err := os.WriteFile(configPath, []byte(defaultConfig), 0600); err != nil {
-			log.Fatalf("[ERROR] Failed to create config.yaml: %v", err)
+			log.Fatalf("[ERROR] Failed to create config file: %v", err)
 		}
 		log.Infof("[FILE] Created default global config with comments: %s", configPath)
 	} else {

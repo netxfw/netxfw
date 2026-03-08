@@ -28,7 +28,9 @@ docs/
 │   ├── 04-01_performance_tuning.md     # 性能调优
 │   ├── 04-01_performance_tuning_en.md
 │   ├── 04-02_bpf_map_capacity.md       # 容量配置
-│   └── 04-02_bpf_map_capacity_en.md
+│   ├── 04-02_bpf_map_capacity_en.md
+│   ├── 04-03_configuration_reference.md # 配置文件参考
+│   └── 04-03_configuration_reference_en.md
 │
 ├── 05-advanced-features/               # 高级功能
 │   ├── 05-01_realip.md                 # 云环境真实 IP
@@ -43,7 +45,7 @@ docs/
 │   ├── 05-05_health_check_en.md
 │   ├── 05-06_performance_monitoring.md # 性能监控
 │   ├── 05-06_performance_monitoring_en.md
-│   └── config_example.yaml             # 配置示例
+│   └── config_example.toml            # 配置示例
 │
 ├── 06-plugin-development/              # 插件开发
 │   ├── 06-01_plugins.md                # 插件系统介绍

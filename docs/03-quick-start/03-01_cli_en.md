@@ -8,7 +8,7 @@ The following flags are available on most subcommands:
 
 | Flag | Short | Description |
 |---|---|---|
-| `--config <path>` | `-c` | Path to config file (default: `/etc/netxfw/config.yaml`) |
+| `--config <path>` | `-c` | Path to config file (default: `/etc/netxfw/config.toml`) |
 | `--interface <name>` | `-i` | Network interface to target |
 | `--mode <dp\|agent>` | - | Operation mode: `dp` (Data Plane) / `agent` (Control Plane) |
 

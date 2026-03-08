@@ -24,7 +24,7 @@ docs/
 │   ├── 05-05_health_check_en.md
 │   ├── 05-06_performance_monitoring.md # Performance Monitoring
 │   ├── 05-06_performance_monitoring_en.md
-│   └── config_example.yaml
+│   └── config_example.toml
 ├── 06-plugin-development/              # Plugin Development
 ├── 07-performance-tuning/              # Performance Tuning
 ├── 08-troubleshooting/                 # Troubleshooting

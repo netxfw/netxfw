@@ -47,21 +47,13 @@ type Configurable interface {
 	Validate() error
 }
 
-// GetDefaultConfigPath returns the default configuration file path
-// GetDefaultConfigPath 返回默认配置文件路径
-func GetDefaultConfigPath() string {
-	return DefaultConfigPath
-}
-
-// GetConfigPath returns the configuration file path
-// If runtime.ConfigPath is set (e.g., via CLI flag or test), it takes precedence.
-// GetConfigPath 返回配置文件路径
-// 如果 runtime.ConfigPath 已设置（例如通过 CLI 标志或测试），则优先使用它。
-func GetConfigPath() string {
+// resolveConfigPath returns the effective config path considering CLI flags and defaults.
+// resolveConfigPath 返回考虑 CLI 标志和默认值的有效配置路径。
+func resolveConfigPath() string {
 	if runtime.ConfigPath != "" {
 		return runtime.ConfigPath
 	}
-	return DefaultConfigPath
+	return GetDefaultConfigPath()
 }
 
 // SetConfigPath sets the configuration file path

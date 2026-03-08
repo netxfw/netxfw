@@ -10,13 +10,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/BurntSushi/toml"
 	"github.com/klauspost/compress/zstd"
 	"github.com/netxfw/netxfw/cmd/netxfw/commands/common"
 	"github.com/netxfw/netxfw/internal/binary"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // Rule action string constants.
@@ -31,7 +31,7 @@ const (
 	// Rule type constants / 规则类型常量
 	ruleTypePort   = "port"
 	ruleTypeBinary = "binary"
-	ruleTypeYAML   = "yaml"
+	ruleTypeTOML   = "toml"
 	ruleTypeJSON   = "json"
 	ruleTypeCSV    = "csv"
 	ruleTypeRules  = "rules"
@@ -344,7 +344,7 @@ var ruleImportCmd = &cobra.Command{
 	Long: `Import rules from a file. Supports multiple formats:
   - Text format (default): One IP per line for lock/allow, IP:Port:Action for rules
   - JSON format: Auto-detected from .json extension, compatible with 'rule export' output
-  - YAML format: Auto-detected from .yaml/.yml extension, compatible with 'rule export' output
+  - TOML format: Auto-detected from .toml extension, compatible with 'rule export' output
   - Binary format (.bin.zst): Compressed binary format for blacklist entries
 
 Examples:
@@ -352,12 +352,12 @@ Examples:
   netxfw rule import allow whitelist.txt       # Text format: one IP per line
   netxfw rule import rules ipport.txt          # Text format: IP:Port:Action per line
   netxfw rule import all rules.json            # JSON format: import all rule types
-  netxfw rule import all rules.yaml            # YAML format: import all rule types
+  netxfw rule import all rules.toml            # TOML format: import all rule types
   netxfw rule import binary rules.deny.bin.zst # Binary format: compressed blacklist`,
 	// Long: 从文件导入规则。支持多种格式：
 	//   - 文本格式（默认）：lock/allow 每行一个 IP，rules 每行 IP:Port:Action
 	//   - JSON 格式：从 .json 扩展名自动检测，与 'rule export' 输出兼容
-	//   - YAML 格式：从 .yaml/.yml 扩展名自动检测，与 'rule export' 输出兼容
+	//   - TOML 格式：从 .toml 扩展名自动检测，与 'rule export' 输出兼容
 	//   - 二进制格式 (.bin.zst)：黑名单条目的压缩二进制格式
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -368,12 +368,12 @@ Examples:
 			// Auto-detect format from file extension
 			lowerPath := strings.ToLower(filePath)
 			isJSON := strings.HasSuffix(lowerPath, ".json")
-			isYAML := strings.HasSuffix(lowerPath, ".yaml") || strings.HasSuffix(lowerPath, ".yml")
+			isTOML := strings.HasSuffix(lowerPath, ".toml")
 			isBinary := strings.HasSuffix(lowerPath, ".bin.zst")
 
-			if isJSON || isYAML {
+			if isJSON || isTOML {
 				if ruleType != "all" {
-					return fmt.Errorf("[ERROR] For JSON/YAML imports, use: netxfw rule import all <file>")
+					return fmt.Errorf("[ERROR] For JSON/TOML imports, use: netxfw rule import all <file>")
 				}
 				return importFromStructuredFile(s, filePath, isJSON)
 			}
@@ -394,7 +394,7 @@ Examples:
 			case ruleTypeRules:
 				return common.ImportIPPortRulesFromFile(s, filePath)
 			default:
-				return fmt.Errorf("[ERROR] Unknown rule type. Use: lock (or deny), allow, rules, binary, or all (for JSON/YAML)")
+				return fmt.Errorf("[ERROR] Unknown rule type. Use: lock (or deny), allow, rules, binary, or all (for JSON/TOML)")
 			}
 		})
 	},
@@ -407,8 +407,8 @@ type importResult struct {
 	failed int
 }
 
-// parseImportFile parses JSON or YAML file into ExportData.
-// parseImportFile 将 JSON 或 YAML 文件解析为 ExportData。
+// parseImportFile parses JSON or TOML file into ExportData.
+// parseImportFile 将 JSON 或 TOML 文件解析为 ExportData。
 func parseImportFile(filePath string, isJSON bool) (*ExportData, error) {
 	safePath, err := common.ValidateImportFile(filePath)
 	if err != nil {
@@ -426,8 +426,8 @@ func parseImportFile(filePath string, isJSON bool) (*ExportData, error) {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
 	} else {
-		if err := yaml.Unmarshal(data, &importData); err != nil {
-			return nil, fmt.Errorf("failed to parse YAML: %w", err)
+		if err := toml.Unmarshal(data, &importData); err != nil {
+			return nil, fmt.Errorf("failed to parse TOML: %w", err)
 		}
 	}
 
@@ -507,7 +507,7 @@ func importIPPortRules(s *sdk.SDK, rules []ExportRule) importResult {
 			result.failed++
 			continue
 		}
-		action := uint8(2) // Deny default
+		action := uint8(0) // Deny default
 		if rule.Action == actionAllow {
 			action = 1
 		}
@@ -530,8 +530,8 @@ func printImportSummary(blResult, wlResult, ippResult importResult) {
 	fmt.Printf("   IP+Port:   %d added, %d failed\n", ippResult.added, ippResult.failed)
 }
 
-// importFromStructuredFile imports rules from JSON or YAML file.
-// importFromStructuredFile 从 JSON 或 YAML 文件导入规则。
+// importFromStructuredFile imports rules from JSON or TOML file.
+// importFromStructuredFile 从 JSON 或 TOML 文件导入规则。
 func importFromStructuredFile(s *sdk.SDK, filePath string, isJSON bool) error {
 	importData, err := parseImportFile(filePath, isJSON)
 	if err != nil {
@@ -624,18 +624,18 @@ var ruleClearCmd = &cobra.Command{
 // ExportRule represents a single rule for export
 // ExportRule 表示导出的单条规则
 type ExportRule struct {
-	Type   string `json:"type" yaml:"type"`                         // "blacklist", "whitelist", "ipport"
-	IP     string `json:"ip" yaml:"ip"`                             // IP address or CIDR
-	Port   int    `json:"port,omitempty" yaml:"port,omitempty"`     // Port number (for ipport rules)
-	Action string `json:"action,omitempty" yaml:"action,omitempty"` // "allow" or "deny" (for ipport rules)
+	Type   string `json:"type" toml:"type"`                         // "blacklist", "whitelist", "ipport"
+	IP     string `json:"ip" toml:"ip"`                             // IP address or CIDR
+	Port   int    `json:"port,omitempty" toml:"port,omitempty"`     // Port number (for ipport rules)
+	Action string `json:"action,omitempty" toml:"action,omitempty"` // "allow" or "deny" (for ipport rules)
 }
 
 // ExportData represents the complete export structure
 // ExportData 表示完整的导出结构
 type ExportData struct {
-	Blacklist []ExportRule `json:"blacklist" yaml:"blacklist"`
-	Whitelist []ExportRule `json:"whitelist" yaml:"whitelist"`
-	IPPort    []ExportRule `json:"ipport_rules" yaml:"ipport_rules"`
+	Blacklist []ExportRule `json:"blacklist" toml:"blacklist"`
+	Whitelist []ExportRule `json:"whitelist" toml:"whitelist"`
+	IPPort    []ExportRule `json:"ipport_rules" toml:"ipport_rules"`
 }
 
 // collectExportData 收集所有规则用于导出
@@ -689,16 +689,16 @@ func collectExportData(s *sdk.SDK) (ExportData, error) {
 }
 
 var ruleExportCmd = &cobra.Command{
-	Use:   "export <file> [--format json|yaml|csv|binary]",
+	Use:   "export <file> [--format json|toml|csv|binary]",
 	Short: "Export rules to file",
 	// Short: 导出规则到文件
-	Long: `Export all firewall rules to a file in JSON, YAML, CSV, or binary format.
+	Long: `Export all firewall rules to a file in JSON, TOML, CSV, or binary format.
 Examples:
   netxfw rule export rules.json
-  netxfw rule export rules.yaml --format yaml
+  netxfw rule export rules.toml --format toml
   netxfw rule export rules.csv --format csv
   netxfw rule export rules.deny.bin.zst --format binary`,
-	// Long: 将所有防火墙规则导出为 JSON、YAML、CSV 或二进制格式的文件。
+	// Long: 将所有防火墙规则导出为 JSON、TOML、CSV 或二进制格式的文件。
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
@@ -709,8 +709,8 @@ Examples:
 			if format == "" {
 				if strings.HasSuffix(strings.ToLower(filePath), ".json") {
 					format = ruleTypeJSON
-				} else if strings.HasSuffix(strings.ToLower(filePath), ".yaml") || strings.HasSuffix(strings.ToLower(filePath), ".yml") {
-					format = ruleTypeYAML
+				} else if strings.HasSuffix(strings.ToLower(filePath), ".toml") {
+					format = ruleTypeTOML
 				} else if strings.HasSuffix(strings.ToLower(filePath), ".csv") {
 					format = ruleTypeCSV
 				} else if strings.HasSuffix(strings.ToLower(filePath), ".bin.zst") {
@@ -724,8 +724,8 @@ Examples:
 			switch format {
 			case ruleTypeBinary:
 				return exportToBinaryFile(s, filePath)
-			case ruleTypeYAML:
-				return exportToStructuredFile(s, filePath, "yaml")
+			case ruleTypeTOML:
+				return exportToStructuredFile(s, filePath, "toml")
 			case ruleTypeCSV:
 				return exportToCSVFile(s, filePath)
 			default: // json
@@ -775,8 +775,8 @@ func exportToCSV(data ExportData) ([]byte, error) {
 	return []byte(buf.String()), writer.Error()
 }
 
-// exportToStructuredFile exports rules to structured format (JSON or YAML).
-// exportToStructuredFile 将规则导出为结构化格式（JSON 或 YAML）。
+// exportToStructuredFile exports rules to structured format (JSON or TOML).
+// exportToStructuredFile 将规则导出为结构化格式（JSON 或 TOML）。
 func exportToStructuredFile(s *sdk.SDK, filePath, format string) error {
 	// Collect all rules using common function
 	// 使用公共函数收集所有规则
@@ -789,8 +789,8 @@ func exportToStructuredFile(s *sdk.SDK, filePath, format string) error {
 	var data []byte
 	var errMarshal error
 	switch format {
-	case ruleTypeYAML:
-		data, errMarshal = yaml.Marshal(exportData)
+	case ruleTypeTOML:
+		data, errMarshal = toml.Marshal(exportData)
 	default: // json
 		data, errMarshal = json.MarshalIndent(exportData, "", "  ")
 	}
@@ -965,5 +965,5 @@ func init() {
 	RegisterCommonFlags(ruleClearCmd)
 
 	// Add specific flags
-	ruleExportCmd.Flags().StringP("format", "f", "", "Export format: json, yaml, csv (default: auto-detect from file extension)")
+	ruleExportCmd.Flags().StringP("format", "f", "", "Export format: json, toml, csv (default: auto-detect from file extension)")
 }

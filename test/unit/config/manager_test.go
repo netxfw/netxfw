@@ -14,7 +14,7 @@ import (
 func TestConfigManager(t *testing.T) {
 	// Create a temporary config file for testing
 	// 为测试创建临时配置文件
-	tempConfigFile := "/tmp/test_config.yaml"
+	tempConfigFile := "/tmp/test_config.toml"
 
 	// Create default config
 	// 创建默认配置

@@ -22,18 +22,18 @@ GET    /metrics            -> Prometheus Metrics
 
 ### Configuration Options
 
-In `config.yaml`, you can control service behavior with the following configuration:
+In `config.toml`, you can control service behavior with the following configuration:
 
-```yaml
-web:
-  enabled: true
-  port: 11811
-  token: "auto-generated"  # Auto-generated or manually specified
+```toml
+[web]
+enabled = true
+port = 11811
+token = "auto-generated"  # Auto-generated or manually specified
 
-metrics:
-  enabled: true           # Enable metrics collection
-  server_enabled: false   # If false, provide metrics on web server
-  port: 11812             # Independent metrics server port
+[metrics]
+enabled = true           # Enable metrics collection
+server_enabled = false   # If false, provide metrics on web server
+port = 11812             # Independent metrics server port
 ```
 
 When `metrics.server_enabled` is `false`, metrics are provided on the web server's `/metrics` path.
@@ -129,14 +129,15 @@ NetXFW provides a pre-built Grafana dashboard for visualizing metrics:
 ### TLS Support
 For production deployment, enable TLS:
 
-```yaml
-web:
-  enabled: true
-  port: 11811
-  tls:
-    enabled: true
-    cert_file: /path/to/cert.pem
-    key_file: /path/to/key.pem
+```toml
+[web]
+enabled = true
+port = 11811
+
+[web.tls]
+enabled = true
+cert_file = "/path/to/cert.pem"
+key_file = "/path/to/key.pem"
 ```
 
 ## Related Documentation

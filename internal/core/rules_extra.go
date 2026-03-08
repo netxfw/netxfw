@@ -93,7 +93,7 @@ func SyncIPPortRule(ctx context.Context, xdpMgr XDPManager, ipStr string, port u
 		if modified {
 			globalCfg.Port.IPPortRules = newRules
 			optimizer.OptimizeIPPortRulesConfig(globalCfg)
-			if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+			if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
 				log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 			}
 		}
@@ -146,7 +146,7 @@ func SyncAllowedPort(ctx context.Context, xdpMgr XDPManager, port uint16, add bo
 
 		if modified {
 			globalCfg.Port.AllowedPorts = newPorts
-			if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+			if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
 				log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 			}
 		}
@@ -221,7 +221,7 @@ func SyncRateLimitRule(ctx context.Context, xdpMgr XDPManager, ip string, rate u
 
 		if modified {
 			globalCfg.RateLimit.Rules = newRules
-			if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+			if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
 				log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 			}
 		}
@@ -249,7 +249,7 @@ func SyncAutoBlock(ctx context.Context, mgr XDPManager, enable bool) error {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 	globalCfg.RateLimit.AutoBlock = enable
-	if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+	if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
 		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 	}
 	log.Infof("[SHIELD] Auto Block set to: %v", enable)
@@ -274,7 +274,7 @@ func SyncAutoBlockExpiry(ctx context.Context, mgr XDPManager, seconds uint32) er
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 	globalCfg.RateLimit.AutoBlockExpiry = fmt.Sprintf("%ds", seconds)
-	if saveErr := types.SaveGlobalConfig(configPath, globalCfg); saveErr != nil {
+	if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
 		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 	}
 	log.Infof("[SHIELD] Auto Block Expiry set to: %d seconds", seconds)
@@ -518,7 +518,7 @@ func ImportIPPortRulesFromFile(ctx context.Context, xdpMgr XDPManager, path stri
 					continue
 				}
 				actionStr := strings.ToLower(parts[2])
-				action := uint8(2) // Deny
+				action := uint8(0) // Deny
 				if actionStr == "allow" {
 					action = 1
 				}

@@ -436,7 +436,7 @@ func (m *Manager) syncIPPortRulesToConfig(cfg *types.GlobalConfig) {
 		port := uint16(0)
 		fmt.Sscanf(portStr, "%d", &port)
 
-		action := uint8(2)
+		action := uint8(0)
 		if actionStr == "allow" {
 			action = 1
 		}

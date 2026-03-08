@@ -3,7 +3,13 @@ package config
 const (
 	// DefaultConfigPath is the standard location for the netxfw configuration file.
 	// DefaultConfigPath 是 netxfw 配置文件的标准位置。
-	DefaultConfigPath = "/etc/netxfw/config.yaml"
+	// TOML format is preferred for better cross-language support.
+	// TOML 格式优先，以获得更好的跨语言支持。
+	DefaultConfigPath = "/etc/netxfw/config.toml"
+
+	// LegacyConfigPath is the old YAML config path for backward compatibility.
+	// LegacyConfigPath 是旧的 YAML 配置路径，用于向后兼容。
+	LegacyConfigPath = "/etc/netxfw/config.yaml"
 
 	// DefaultPidPath is the location of the daemon PID file.
 	// DefaultPidPath 是守护进程 PID 文件的位置。

@@ -19,18 +19,18 @@ const (
 // IPRule represents a simple IP/CIDR rule with optional expiration
 // IPRule 表示一个简单的 IP/CIDR 规则，带有可选的过期时间。
 type IPRule struct {
-	CIDR      string     `yaml:"cidr" json:"cidr"`
-	ExpiresAt *time.Time `yaml:"expires_at,omitempty" json:"expires_at,omitempty"`
+	CIDR      string     `toml:"cidr" json:"cidr"`
+	ExpiresAt *time.Time `toml:"expires_at,omitempty" json:"expires_at,omitempty"`
 }
 
 // IPPortRule represents a rule for a specific IP and port
 // IPPortRule 表示特定 IP 和端口的规则。
 type IPPortRule struct {
-	CIDR      string     `yaml:"cidr" json:"cidr" mapstructure:"cidr"`
-	Port      uint16     `yaml:"port" json:"port" mapstructure:"port"`
-	Protocol  string     `yaml:"protocol" json:"protocol" mapstructure:"protocol"`
-	Action    string     `yaml:"action" json:"action" mapstructure:"action"` // "allow" or "deny" / "允许" 或 "拒绝"
-	ExpiresAt *time.Time `yaml:"expires_at,omitempty" json:"expires_at,omitempty" mapstructure:"expires_at"`
+	CIDR      string     `toml:"cidr" json:"cidr" mapstructure:"cidr"`
+	Port      uint16     `toml:"port" json:"port" mapstructure:"port"`
+	Protocol  string     `toml:"protocol" json:"protocol" mapstructure:"protocol"`
+	Action    string     `toml:"action" json:"action" mapstructure:"action"` // "allow" or "deny" / "允许" 或 "拒绝"
+	ExpiresAt *time.Time `toml:"expires_at,omitempty" json:"expires_at,omitempty" mapstructure:"expires_at"`
 }
 
 // Store is the interface for persisting rules

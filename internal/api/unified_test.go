@@ -623,7 +623,7 @@ func TestParseIPPortAction_IPv6Deny(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "::1", host)
 	assert.Equal(t, uint16(443), port)
-	assert.Equal(t, uint8(2), action) // deny = 2
+	assert.Equal(t, uint8(0), action) // deny = 0
 }
 
 // TestParseIPPortAction_NoAction tests parseIPPortAction without explicit action
@@ -633,7 +633,7 @@ func TestParseIPPortAction_NoAction(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "192.168.1.1", host)
 	assert.Equal(t, uint16(8080), port)
-	assert.Equal(t, uint8(2), action) // default deny = 2
+	assert.Equal(t, uint8(0), action) // default deny = 0
 }
 
 // TestParseIPPortAction_EmptyInput tests parseIPPortAction with empty input

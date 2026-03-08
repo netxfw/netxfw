@@ -1,20 +1,19 @@
 package types
 
 import (
-	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 )
 
 // TestLoadGlobalConfig_NonExistent tests loading from non-existent file
 // TestLoadGlobalConfig_NonExistent 测试从不存在的文件加载
 func TestLoadGlobalConfig_NonExistent(t *testing.T) {
-	_, err := LoadGlobalConfig("/non/existent/path/config.yaml")
+	_, err := LoadGlobalConfig("/non/existent/path/config.toml")
 	assert.Error(t, err)
 }
 
@@ -25,15 +24,15 @@ func TestLoadGlobalConfig_Valid(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	configContent := `
-base:
-  default_deny: true
-  whitelist:
-    - 192.168.1.0/24
-web:
-  enabled: true
-  port: 8080
+[base]
+default_deny = true
+whitelist = ["192.168.1.0/24"]
+
+[web]
+enabled = true
+port = 8080
 `
 	err = os.WriteFile(configPath, []byte(configContent), 0644)
 	assert.NoError(t, err)
@@ -53,7 +52,7 @@ func TestLoadGlobalConfig_Empty(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	err = os.WriteFile(configPath, []byte(""), 0644)
 	assert.NoError(t, err)
 
@@ -72,7 +71,7 @@ func TestSaveGlobalConfig(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 
 	cfg := &GlobalConfig{
 		Base: BaseConfig{
@@ -108,18 +107,18 @@ func TestSaveGlobalConfig_UpdateExisting(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 
 	// Create initial config
 	// 创建初始配置
 	initialContent := `
-base:
-  default_deny: false
-  whitelist:
-    - 10.0.0.0/8
-web:
-  enabled: false
-  port: 9090
+[base]
+default_deny = false
+whitelist = ["10.0.0.0/8"]
+
+[web]
+enabled = false
+port = 9090
 `
 	err = os.WriteFile(configPath, []byte(initialContent), 0644)
 	assert.NoError(t, err)
@@ -148,40 +147,6 @@ web:
 	assert.Equal(t, 8080, loadedCfg.Web.Port)
 }
 
-// TestMergeYamlNodes tests the MergeYamlNodes function
-// TestMergeYamlNodes 测试 MergeYamlNodes 函数
-func TestMergeYamlNodes(t *testing.T) {
-	targetYaml := `
-base:
-  default_deny: false
-  whitelist:
-    - 10.0.0.0/8
-web:
-  enabled: false
-`
-	sourceYaml := `
-base:
-  default_deny: true
-web:
-  enabled: true
-  port: 8080
-`
-
-	var targetNode, sourceNode yaml.Node
-	err := yaml.Unmarshal([]byte(targetYaml), &targetNode)
-	assert.NoError(t, err)
-	err = yaml.Unmarshal([]byte(sourceYaml), &sourceNode)
-	assert.NoError(t, err)
-
-	MergeYamlNodes(&targetNode, &sourceNode)
-
-	// Verify merge happened
-	// 验证合并已发生
-	var result map[string]any
-	err = yaml.Unmarshal([]byte(targetYaml), &result)
-	assert.NoError(t, err)
-}
-
 // TestGlobalConfig_Defaults tests default values
 // TestGlobalConfig_Defaults 测试默认值
 func TestGlobalConfig_Defaults(t *testing.T) {
@@ -191,8 +156,9 @@ func TestGlobalConfig_Defaults(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
-	err = os.WriteFile(configPath, []byte("{}"), 0644)
+	configPath := filepath.Join(tmpDir, "config.toml")
+	// Write empty TOML (valid but minimal)
+	err = os.WriteFile(configPath, []byte("# Empty config - use defaults\n"), 0644)
 	assert.NoError(t, err)
 
 	loadedCfg, err := LoadGlobalConfig(configPath)
@@ -392,61 +358,11 @@ func TestMCPConfig_Fields(t *testing.T) {
 func TestClusterConfig_Fields(t *testing.T) {
 	cfg := ClusterConfig{
 		Enabled:    true,
-		ConfigPath: "cluster.yaml",
+		ConfigPath: "cluster.toml",
 	}
 
 	assert.True(t, cfg.Enabled)
-	assert.Equal(t, "cluster.yaml", cfg.ConfigPath)
-}
-
-// TestCleanDeprecatedClusterFields tests removing deprecated cluster fields
-// TestCleanDeprecatedClusterFields 测试移除已弃用的集群字段
-func TestCleanDeprecatedClusterFields(t *testing.T) {
-	// Config with deprecated fields
-	// 包含已弃用字段的配置
-	configWithDeprecated := `
-cluster:
-  enabled: false
-  configpath: cluster.yaml
-  port: 11815
-  nodes:
-    - "node1:11815"
-    - "node2:11815"
-  secret: "my-secret"
-base:
-  default_deny: true
-`
-
-	var node yaml.Node
-	err := yaml.Unmarshal([]byte(configWithDeprecated), &node)
-	assert.NoError(t, err)
-
-	// Clean deprecated fields
-	// 清理已弃用字段
-	CleanDeprecatedClusterFields(&node)
-
-	// Marshal back to string
-	// 序列化回字符串
-	var buf bytes.Buffer
-	enc := yaml.NewEncoder(&buf)
-	enc.SetIndent(2)
-	err = enc.Encode(&node)
-	assert.NoError(t, err)
-
-	result := buf.String()
-
-	// Verify deprecated fields are removed
-	// 验证已弃用字段已移除
-	assert.Contains(t, result, "enabled: false")
-	assert.Contains(t, result, "configpath: cluster.yaml")
-	assert.NotContains(t, result, "port: 11815")
-	assert.NotContains(t, result, "nodes:")
-	assert.NotContains(t, result, "secret:")
-
-	// Verify other fields are preserved
-	// 验证其他字段保留
-	assert.Contains(t, result, "base:")
-	assert.Contains(t, result, "default_deny: true")
+	assert.Equal(t, "cluster.toml", cfg.ConfigPath)
 }
 
 // TestSaveGlobalConfig_CleansDeprecatedFields tests that SaveGlobalConfig cleans deprecated fields
@@ -456,20 +372,20 @@ func TestSaveGlobalConfig_CleansDeprecatedFields(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 
-	// Create config with deprecated cluster fields
-	// 创建包含已弃用集群字段的配置
+	// Create config with deprecated cluster fields in TOML format
+	// 创建包含已弃用集群字段的配置（TOML 格式）
 	initialContent := `
-cluster:
-  enabled: false
-  configpath: cluster.yaml
-  port: 11815
-  nodes:
-    - "node1:11815"
-  secret: "old-secret"
-base:
-  default_deny: false
+[cluster]
+enabled = false
+configpath = "cluster.toml"
+port = 11815
+nodes = ["node1:11815"]
+secret = "old-secret"
+
+[base]
+default_deny = false
 `
 	err = os.WriteFile(configPath, []byte(initialContent), 0644)
 	assert.NoError(t, err)
@@ -479,7 +395,7 @@ base:
 	cfg := &GlobalConfig{
 		Cluster: ClusterConfig{
 			Enabled:    false,
-			ConfigPath: "cluster.yaml",
+			ConfigPath: "cluster.toml",
 		},
 		Base: BaseConfig{
 			DefaultDeny: true,
@@ -495,9 +411,173 @@ base:
 	assert.NoError(t, err)
 	contentStr := string(content)
 
-	assert.Contains(t, contentStr, "enabled: false")
-	assert.Contains(t, contentStr, "configpath: cluster.yaml")
-	assert.NotContains(t, contentStr, "port: 11815")
-	assert.NotContains(t, contentStr, "nodes:")
-	assert.NotContains(t, contentStr, "secret:")
+	// TOML format checks / TOML 格式检查
+	assert.Contains(t, contentStr, `enabled = false`)
+	assert.Contains(t, contentStr, `configpath = "cluster.toml"`)
+	assert.NotContains(t, contentStr, "port = 11815")
+	assert.NotContains(t, contentStr, "nodes =")
+	assert.NotContains(t, contentStr, "secret =")
+}
+
+// TestSaveGlobalConfigWithBackup tests saving config with backup.
+// TestSaveGlobalConfigWithBackup 测试带备份保存配置。
+func TestSaveGlobalConfigWithBackup(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "config_test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	// Create initial config / 创建初始配置
+	cfg := &GlobalConfig{
+		Base: BaseConfig{
+			DefaultDeny: true,
+		},
+		Web: WebConfig{
+			Port: 8080,
+		},
+	}
+
+	// First save (no backup since file doesn't exist) / 第一次保存（文件不存在，无备份）
+	err = SaveGlobalConfigWithBackup(configPath, cfg, 3)
+	assert.NoError(t, err)
+
+	// Modify and save again (should create backup) / 修改并再次保存（应创建备份）
+	cfg.Web.Port = 9090
+	err = SaveGlobalConfigWithBackup(configPath, cfg, 3)
+	assert.NoError(t, err)
+
+	// Check backup exists / 检查备份是否存在
+	backups, err := ListBackups(configPath)
+	assert.NoError(t, err)
+	assert.Len(t, backups, 1)
+
+	// Verify new config / 验证新配置
+	loadedCfg, err := LoadGlobalConfig(configPath)
+	assert.NoError(t, err)
+	assert.Equal(t, 9090, loadedCfg.Web.Port)
+}
+
+// TestBackupConfig tests creating a backup.
+// TestBackupConfig 测试创建备份。
+func TestBackupConfig(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "config_test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	// Create config file / 创建配置文件
+	content := `
+[base]
+default_deny = true
+`
+	err = os.WriteFile(configPath, []byte(content), 0644)
+	assert.NoError(t, err)
+
+	// Create backup / 创建备份
+	backupPath, err := BackupConfig(configPath)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, backupPath)
+
+	// Verify backup exists / 验证备份存在
+	_, err = os.Stat(backupPath)
+	assert.NoError(t, err)
+}
+
+// TestRestoreConfigFromBackup tests restoring from backup.
+// TestRestoreConfigFromBackup 测试从备份恢复。
+func TestRestoreConfigFromBackup(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "config_test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.toml")
+	backupPath := filepath.Join(tmpDir, "config.toml.bak.20240101-120000")
+
+	// Create backup file / 创建备份文件
+	backupContent := `
+[base]
+default_deny = false
+
+[web]
+port = 9090
+`
+	err = os.WriteFile(backupPath, []byte(backupContent), 0644)
+	assert.NoError(t, err)
+
+	// Create current config (different) / 创建当前配置（不同）
+	currentContent := `
+[base]
+default_deny = true
+
+[web]
+port = 8080
+`
+	err = os.WriteFile(configPath, []byte(currentContent), 0644)
+	assert.NoError(t, err)
+
+	// Restore from backup / 从备份恢复
+	err = RestoreConfigFromBackup(backupPath, configPath)
+	assert.NoError(t, err)
+
+	// Verify restored / 验证已恢复
+	cfg, err := LoadGlobalConfig(configPath)
+	assert.NoError(t, err)
+	assert.False(t, cfg.Base.DefaultDeny)
+	assert.Equal(t, 9090, cfg.Web.Port)
+}
+
+// TestCleanupOldBackups tests cleaning up old backups.
+// TestCleanupOldBackups 测试清理旧备份。
+func TestCleanupOldBackups(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "config_test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	// Create multiple backup files / 创建多个备份文件
+	for i := 0; i < 5; i++ {
+		backupPath := filepath.Join(tmpDir, fmt.Sprintf("config.toml.bak.2024010%d-120000", i))
+		err := os.WriteFile(backupPath, []byte("test"), 0644)
+		assert.NoError(t, err)
+	}
+
+	// Cleanup, keep only 2 / 清理，只保留 2 个
+	err = CleanupOldBackups(configPath, 2)
+	assert.NoError(t, err)
+
+	// Verify only 2 remain / 验证只剩 2 个
+	backups, err := ListBackups(configPath)
+	assert.NoError(t, err)
+	assert.Len(t, backups, 2)
+}
+
+// TestListBackups tests listing backup files.
+// TestListBackups 测试列出备份文件。
+func TestListBackups(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "config_test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	// Create backup files / 创建备份文件
+	backup1 := filepath.Join(tmpDir, "config.toml.bak.20240101-120000")
+	backup2 := filepath.Join(tmpDir, "config.toml.bak.20240102-120000")
+	backup3 := filepath.Join(tmpDir, "config.toml.bak.20240103-120000")
+
+	os.WriteFile(backup1, []byte("test1"), 0644)
+	os.WriteFile(backup2, []byte("test2"), 0644)
+	os.WriteFile(backup3, []byte("test3"), 0644)
+
+	// List backups / 列出备份
+	backups, err := ListBackups(configPath)
+	assert.NoError(t, err)
+	assert.Len(t, backups, 3)
+
+	// Verify sorted by newest first / 验证按最新优先排序
+	assert.Contains(t, backups[0], "20240103")
+	assert.Contains(t, backups[2], "20240101")
 }

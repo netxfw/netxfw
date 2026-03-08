@@ -1,0 +1,111 @@
+# NetXFW Log Engine Configuration Example
+# NetXFW 日志引擎配置示例
+#
+# This file serves as a reference for configuring the Log Engine.
+# 此文件作为配置日志引擎的参考。
+
+[log_engine]
+enabled = true       # Enable the log engine / 启用日志引擎
+workers = 4          # Number of concurrent workers / 并发工作线程数
+files = [            # Log files to monitor / 监控的日志文件
+    "/var/log/auth.log",
+    "/var/log/nginx/access.log",
+]
+
+# -----------------------------------------------------------------------------
+# Rule 1: SSH Brute Force Protection (Case-insensitive)
+# 规则 1：SSH 防爆破 (不区分大小写)
+# -----------------------------------------------------------------------------
+# expression: log("pattern") -> Case-insensitive match / 不区分大小写匹配
+#             time(seconds)  -> Count occurrences in last N seconds / 过去 N 秒内的计数
+
+[[log_engine.rules]]
+id = "ssh_brute_force"
+path = "/var/log/auth.log"
+action = "block"   # Actions: "log", "block" (dynamic), "static" (permanent)
+ttl = "10m"        # Block duration / 封禁时长
+expression = 'log("Failed password") && log("root") && time(60) > 5'
+
+# -----------------------------------------------------------------------------
+# Rule 2: Strict Security Check (Case-sensitive)
+# 规则 2：严格安全检查 (区分大小写)
+# -----------------------------------------------------------------------------
+# logE("pattern") -> Case-sensitive match (Exact) / 区分大小写匹配 (精确)
+
+[[log_engine.rules]]
+id = "strict_check"
+path = "/var/log/app.log"
+action = "log"
+expression = 'logE("CRITICAL") && !logE("DEBUG")'
+
+# -----------------------------------------------------------------------------
+# Rule 3: Nginx 404 Flood (Rate Limiting)
+# 规则 3：Nginx 404 洪水攻击 (速率限制)
+# -----------------------------------------------------------------------------
+
+[[log_engine.rules]]
+id = "nginx_404_flood"
+path = "/var/log/nginx/access.log"
+action = "block"
+ttl = "1h"
+expression = 'log(" 404 ") && time(10) > 20'
+
+# -----------------------------------------------------------------------------
+# Rule 4: Complex Logic with Message Content
+# 规则 4：带消息内容的复杂逻辑
+# -----------------------------------------------------------------------------
+# msg() is an alias for log() / msg() 是 log() 的别名
+
+[[log_engine.rules]]
+id = "sql_injection_attempt"
+path = "/var/log/nginx/error.log"
+action = "static"  # Permanent block / 永久封禁
+expression = '(msg("UNION SELECT") || msg("OR 1=1")) && time(60) > 0'
+
+# -----------------------------------------------------------------------------
+# Rule 5: API Rate Limiting
+# 规则 5：API 速率限制
+# -----------------------------------------------------------------------------
+
+[[log_engine.rules]]
+id = "api_rate_limit"
+path = "/var/log/nginx/access.log"
+action = "block"
+ttl = "5m"
+expression = 'log("/api/") && time(1) > 100'
+
+# -----------------------------------------------------------------------------
+# Rule 6: WordPress Attack Detection
+# 规则 6：WordPress 攻击检测
+# -----------------------------------------------------------------------------
+
+[[log_engine.rules]]
+id = "wordpress_attack"
+path = "/var/log/nginx/access.log"
+action = "block"
+ttl = "30m"
+expression = 'log("wp-login.php") || log("xmlrpc.php") && time(60) > 10'
+
+# -----------------------------------------------------------------------------
+# Expression Syntax Reference / 表达式语法参考
+# -----------------------------------------------------------------------------
+#
+# Functions / 函数:
+#   log("pattern")   - Case-insensitive match / 不区分大小写匹配
+#   logE("pattern")  - Case-sensitive match / 区分大小写匹配
+#   msg("pattern")   - Alias for log() / log() 的别名
+#   time(seconds)    - Count in last N seconds / 过去 N 秒内的计数
+#
+# Operators / 运算符:
+#   &&   - AND / 与
+#   ||   - OR / 或
+#   !    - NOT / 非
+#   >    - Greater than / 大于
+#   <    - Less than / 小于
+#   >=   - Greater than or equal / 大于等于
+#   <=   - Less than or equal / 小于等于
+#
+# Actions / 动作:
+#   "log"    - Log only / 仅记录日志
+#   "block"  - Dynamic block (temporary) / 动态封禁 (临时)
+#   "static" - Permanent block / 永久封禁
