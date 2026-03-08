@@ -7,8 +7,8 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 0
-    reviewers:
-      - "netxfw"
+# reviewers 属性不被允许，已移除
+#      - "netxfw"
     labels:
       - "dependencies"
       - "go"
@@ -30,8 +30,8 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 0
-    reviewers:
-      - "netxfw"
+# reviewers 属性不被允许，已移除
+#      - "netxfw"
     labels:
       - "dependencies"
       - "github-actions"
