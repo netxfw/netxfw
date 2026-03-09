@@ -2,14 +2,14 @@ package sdk
 
 import "time"
 
-// blacklistImpl implements BlacklistAPI interface.
-// blacklistImpl 实现 BlacklistAPI 接口。
-type blacklistImpl struct {
+// BlacklistImpl implements BlacklistAPI interface.
+// BlacklistImpl 实现 BlacklistAPI 接口。
+type BlacklistImpl struct {
 	mgr      ManagerInterface
 	eventBus EventBus
 }
 
-func (b *blacklistImpl) Add(cidr string) error {
+func (b *BlacklistImpl) Add(cidr string) error {
 	if err := b.mgr.AddBlacklistIP(cidr); err != nil {
 		return err
 	}
@@ -19,7 +19,7 @@ func (b *blacklistImpl) Add(cidr string) error {
 	return nil
 }
 
-func (b *blacklistImpl) AddWithDuration(cidr string, duration time.Duration) error {
+func (b *BlacklistImpl) AddWithDuration(cidr string, duration time.Duration) error {
 	if err := b.mgr.AddDynamicBlacklistIP(cidr, duration); err != nil {
 		return err
 	}
@@ -29,7 +29,7 @@ func (b *blacklistImpl) AddWithDuration(cidr string, duration time.Duration) err
 	return nil
 }
 
-func (b *blacklistImpl) AddWithFile(cidr string, file string) error {
+func (b *BlacklistImpl) AddWithFile(cidr string, file string) error {
 	if err := b.mgr.AddBlacklistIPWithFile(cidr, file); err != nil {
 		return err
 	}
@@ -39,22 +39,22 @@ func (b *blacklistImpl) AddWithFile(cidr string, file string) error {
 	return nil
 }
 
-func (b *blacklistImpl) Remove(cidr string) error {
+func (b *BlacklistImpl) Remove(cidr string) error {
 	return b.mgr.RemoveBlacklistIP(cidr)
 }
 
-func (b *blacklistImpl) RemoveDynamic(cidr string) error {
+func (b *BlacklistImpl) RemoveDynamic(cidr string) error {
 	return b.mgr.RemoveDynamicBlacklistIP(cidr)
 }
 
-func (b *blacklistImpl) Clear() error {
+func (b *BlacklistImpl) Clear() error {
 	return b.mgr.ClearBlacklist()
 }
 
-func (b *blacklistImpl) Contains(ip string) (bool, error) {
+func (b *BlacklistImpl) Contains(ip string) (bool, error) {
 	return b.mgr.IsIPInBlacklist(ip)
 }
 
-func (b *blacklistImpl) List(limit int, search string) ([]BlockedIP, int, error) {
+func (b *BlacklistImpl) List(limit int, search string) ([]BlockedIP, int, error) {
 	return b.mgr.ListBlacklistIPs(limit, search)
 }

@@ -33,21 +33,21 @@ type KVStore interface {
 	Delete(key string)
 }
 
-// kvStoreImpl implements KVStore interface.
-// kvStoreImpl 实现 KVStore 接口。
-type kvStoreImpl struct {
+// KVStoreImpl implements KVStore interface.
+// KVStoreImpl 实现 KVStore 接口。
+type KVStoreImpl struct {
 	data sync.Map
 }
 
-func (s *kvStoreImpl) Set(key string, value any) {
+func (s *KVStoreImpl) Set(key string, value any) {
 	s.data.Store(key, value)
 }
 
-func (s *kvStoreImpl) Get(key string) (any, bool) {
+func (s *KVStoreImpl) Get(key string) (any, bool) {
 	return s.data.Load(key)
 }
 
-func (s *kvStoreImpl) Delete(key string) {
+func (s *KVStoreImpl) Delete(key string) {
 	s.data.Delete(key)
 }
 
@@ -56,15 +56,15 @@ func (s *kvStoreImpl) Delete(key string) {
 func NewSDK(mgr ManagerInterface) *SDK {
 	eb := NewEventBus()
 	return &SDK{
-		Blacklist: &blacklistImpl{mgr: mgr, eventBus: eb},
-		Whitelist: &whitelistImpl{mgr: mgr},
-		Rule:      &ruleImpl{mgr: mgr},
-		Stats:     &statsImpl{mgr: mgr},
-		Security:  &securityImpl{mgr: mgr},
-		Sync:      &syncImpl{mgr: mgr},
-		Conntrack: &conntrackImpl{mgr: mgr},
+		Blacklist: &BlacklistImpl{mgr: mgr, eventBus: eb},
+		Whitelist: &WhitelistImpl{mgr: mgr},
+		Rule:      &RuleImpl{mgr: mgr},
+		Stats:     &StatsImpl{mgr: mgr},
+		Security:  &SecurityImpl{mgr: mgr},
+		Sync:      &SyncImpl{mgr: mgr},
+		Conntrack: &ConntrackImpl{mgr: mgr},
 		EventBus:  eb,
-		Store:     &kvStoreImpl{},
+		Store:     &KVStoreImpl{},
 		mgr:       mgr,
 	}
 }

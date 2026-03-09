@@ -40,7 +40,7 @@ func TestSDK_GetManager(t *testing.T) {
 // TestKVStore tests KVStore operations
 // TestKVStore 测试 KVStore 操作
 func TestKVStore(t *testing.T) {
-	store := &kvStoreImpl{}
+	store := &KVStoreImpl{}
 
 	// Test Set and Get
 	// 测试 Set 和 Get
@@ -65,7 +65,7 @@ func TestKVStore(t *testing.T) {
 // TestKVStore_Concurrent tests concurrent KVStore operations
 // TestKVStore_Concurrent 测试并发 KVStore 操作
 func TestKVStore_Concurrent(t *testing.T) {
-	store := &kvStoreImpl{}
+	store := &KVStoreImpl{}
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {

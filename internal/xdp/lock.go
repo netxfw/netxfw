@@ -376,8 +376,8 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) ([]
 
 				if found {
 					fullStr := fmt.Sprintf("%s/%d", ip.String(), ones)
-					if val.Counter > 1 {
-						fullStr = fmt.Sprintf("%s (port: %d)", fullStr, val.Counter)
+					if val.Counter > 0 {
+						fullStr = fmt.Sprintf("%s (hits: %d)", fullStr, val.Counter)
 					}
 					return []sdk.BlockedIP{{IP: fullStr, ExpiresAt: val.ExpiresAt, Counter: val.Counter}}, 1, nil
 				}
@@ -405,8 +405,8 @@ func ListBlockedIPs(mapPtr *ebpf.Map, isIPv6 bool, limit int, search string) ([]
 		}
 
 		count++
-		if val.Counter > 1 {
-			fullStr = fmt.Sprintf("%s (port: %d)", fullStr, val.Counter)
+		if val.Counter > 0 {
+			fullStr = fmt.Sprintf("%s (hits: %d)", fullStr, val.Counter)
 		}
 		ips = append(ips, sdk.BlockedIP{IP: fullStr, ExpiresAt: val.ExpiresAt, Counter: val.Counter})
 		if limit > 0 && len(ips) >= limit {

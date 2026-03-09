@@ -26,6 +26,7 @@ bpf/**/*.o
 bpf/netxfw.bpf.o
 config/*.yaml
 
+.vscode/
 # OS metadata
 .DS_Store
 Thumbs.db

@@ -100,8 +100,8 @@ func MergeCIDRsWithThreshold(cidrs []string, threshold int, v4Mask int, v6Mask i
 // MergeCIDRs 接收 CIDR 字符串列表（IPv4 和 IPv6）并返回最小化的 CIDR 列表。
 // 它会自动过滤无效的 CIDR/IP。
 func MergeCIDRs(cidrs []string) ([]string, error) {
-	var v4Ranges []ipRange
-	var v6Ranges []ipRange
+	var v4Ranges []IPRange
+	var v6Ranges []IPRange
 
 	for _, c := range cidrs {
 		if c == "" {
@@ -125,9 +125,9 @@ func MergeCIDRs(cidrs []string) ([]string, error) {
 		end := prefixLastIP(prefix)
 
 		if start.Is4() {
-			v4Ranges = append(v4Ranges, ipRange{start: start, end: end})
+			v4Ranges = append(v4Ranges, IPRange{start: start, end: end})
 		} else {
-			v6Ranges = append(v6Ranges, ipRange{start: start, end: end})
+			v6Ranges = append(v6Ranges, IPRange{start: start, end: end})
 		}
 	}
 
@@ -144,7 +144,7 @@ func MergeCIDRs(cidrs []string) ([]string, error) {
 	return result, nil
 }
 
-type ipRange struct {
+type IPRange struct {
 	start netip.Addr
 	end   netip.Addr
 }
@@ -221,7 +221,7 @@ func prefixLastIP(p netip.Prefix) netip.Addr {
 	return netip.AddrFrom16(ip6)
 }
 
-func mergeRanges(ranges []ipRange) []ipRange {
+func mergeRanges(ranges []IPRange) []IPRange {
 	if len(ranges) == 0 {
 		return nil
 	}
@@ -231,7 +231,7 @@ func mergeRanges(ranges []ipRange) []ipRange {
 		return ranges[i].start.Less(ranges[j].start)
 	})
 
-	var merged []ipRange
+	var merged []IPRange
 	current := ranges[0]
 
 	for i := 1; i < len(ranges); i++ {

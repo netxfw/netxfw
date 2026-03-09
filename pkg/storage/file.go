@@ -29,9 +29,9 @@ func NewTOMLStore(configPath, lockFilePath string) *TOMLStore {
 	}
 }
 
-// fileData internal structure for TOML serialization.
-// fileData 用于 TOML 序列化的内部结构。
-type fileData struct {
+// FileData internal structure for TOML serialization.
+// FileData 用于 TOML 序列化的内部结构。
+type FileData struct {
 	Whitelist   []IPRule     `toml:"whitelist"`
 	LockList    []IPRule     `toml:"lock_list"`
 	IPPortRules []IPPortRule `toml:"ip_port_rules"`
@@ -47,7 +47,7 @@ func (s *TOMLStore) AddIP(ruleType RuleType, cidr string, expiresAt *time.Time) 
 	rule := IPRule{CIDR: cidr, ExpiresAt: expiresAt}
 
 	if ruleType == RuleTypeLockList {
-		return s.updateFile(s.lockFilePath, func(data *fileData) {
+		return s.updateFile(s.lockFilePath, func(data *FileData) {
 			for i, existing := range data.LockList {
 				if existing.CIDR == cidr {
 					data.LockList[i] = rule
@@ -57,7 +57,7 @@ func (s *TOMLStore) AddIP(ruleType RuleType, cidr string, expiresAt *time.Time) 
 			data.LockList = append(data.LockList, rule)
 		})
 	} else if ruleType == RuleTypeWhitelist {
-		return s.updateFile(s.configPath, func(data *fileData) {
+		return s.updateFile(s.configPath, func(data *FileData) {
 			for i, existing := range data.Whitelist {
 				if existing.CIDR == cidr {
 					data.Whitelist[i] = rule
@@ -79,7 +79,7 @@ func (s *TOMLStore) RemoveIP(ruleType RuleType, cidr string) error {
 	cidr = NormalizeCIDR(cidr)
 
 	if ruleType == RuleTypeLockList {
-		return s.updateFile(s.lockFilePath, func(data *fileData) {
+		return s.updateFile(s.lockFilePath, func(data *FileData) {
 			newList := []IPRule{}
 			for _, existing := range data.LockList {
 				if existing.CIDR != cidr {
@@ -89,7 +89,7 @@ func (s *TOMLStore) RemoveIP(ruleType RuleType, cidr string) error {
 			data.LockList = newList
 		})
 	} else if ruleType == RuleTypeWhitelist {
-		return s.updateFile(s.configPath, func(data *fileData) {
+		return s.updateFile(s.configPath, func(data *FileData) {
 			newList := []IPRule{}
 			for _, existing := range data.Whitelist {
 				if existing.CIDR != cidr {
@@ -110,7 +110,7 @@ func (s *TOMLStore) AddIPPortRule(rule IPPortRule) error {
 
 	rule.CIDR = NormalizeCIDR(rule.CIDR)
 
-	return s.updateFile(s.portRulesPath, func(data *fileData) {
+	return s.updateFile(s.portRulesPath, func(data *FileData) {
 		for i, existing := range data.IPPortRules {
 			if existing.CIDR == rule.CIDR && existing.Port == rule.Port && existing.Protocol == rule.Protocol {
 				data.IPPortRules[i] = rule
@@ -129,7 +129,7 @@ func (s *TOMLStore) RemoveIPPortRule(cidr string, port uint16, protocol string) 
 
 	cidr = NormalizeCIDR(cidr)
 
-	return s.updateFile(s.portRulesPath, func(data *fileData) {
+	return s.updateFile(s.portRulesPath, func(data *FileData) {
 		newList := []IPPortRule{}
 		for _, existing := range data.IPPortRules {
 			if !(existing.CIDR == cidr && existing.Port == port && existing.Protocol == protocol) {
@@ -173,8 +173,8 @@ func (s *TOMLStore) readRawFile(path string) (map[string]any, error) {
 	return data, err
 }
 
-func (s *TOMLStore) readFile(path string) (fileData, error) {
-	var data fileData
+func (s *TOMLStore) readFile(path string) (FileData, error) {
+	var data FileData
 	safePath := filepath.Clean(path)      // Sanitize path to prevent directory traversal
 	content, err := os.ReadFile(safePath) // #nosec G304 // path is sanitized with filepath.Clean
 	if err != nil {
@@ -184,7 +184,7 @@ func (s *TOMLStore) readFile(path string) (fileData, error) {
 	return data, err
 }
 
-func (s *TOMLStore) updateFile(path string, updater func(*fileData)) error {
+func (s *TOMLStore) updateFile(path string, updater func(*FileData)) error {
 	// Read raw to preserve other fields / 读取原始数据以保留其他字段
 	raw, rawErr := s.readRawFile(path)
 	if rawErr != nil {
@@ -194,9 +194,9 @@ func (s *TOMLStore) updateFile(path string, updater func(*fileData)) error {
 	// Read typed to easily modify / 读取类型化数据以便于修改
 	typed, typedErr := s.readFile(path)
 	if typedErr != nil {
-		// Initialize empty fileData if file doesn't exist
-		// 如果文件不存在，初始化空的 fileData
-		typed = fileData{}
+		// Initialize empty FileData if file doesn't exist
+		// 如果文件不存在，初始化空的 FileData
+		typed = FileData{}
 	}
 	updater(&typed)
 
