@@ -313,6 +313,7 @@ func SetupMockStats(m *sdk.SDK) *MockStatsAPI {
 		ms.On("GetLockedIPCount").Return(0, nil)
 		ms.On("GetDropDetails").Return([]sdk.DropDetailEntry{}, nil)
 		ms.On("GetPassDetails").Return([]sdk.DropDetailEntry{}, nil)
+		ms.On("GetGlobalStats").Return(&sdk.GlobalStats{}, nil)
 		return ms
 	}
 	return nil

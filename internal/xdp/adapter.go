@@ -254,6 +254,12 @@ func (a *Adapter) GetCriticalBlacklistCount() (uint64, error) {
 	return a.manager.GetCriticalBlacklistCount()
 }
 
+// GetGlobalStats returns global statistics.
+// GetGlobalStats 返回全局统计信息。
+func (a *Adapter) GetGlobalStats() (*sdk.GlobalStats, error) {
+	return a.manager.GetGlobalStats()
+}
+
 // InvalidateStatsCache clears the statistics cache.
 // InvalidateStatsCache 清除统计缓存。
 func (a *Adapter) InvalidateStatsCache() {

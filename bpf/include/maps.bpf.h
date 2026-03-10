@@ -86,6 +86,7 @@ struct stats_global {
     __u64 drop_syn_flood;      // Dropped: SYN flood / 丢弃：SYN 洪水
     __u64 drop_icmp_limit;     // Dropped: ICMP limit / 丢弃：ICMP 限制
     __u64 drop_port_blocked;   // Dropped: port blocked / 丢弃：端口被阻止
+    __u64 drop_default_deny;   // Dropped: default deny (safety net) / 丢弃：默认拒绝（安全网）
 
     // Pass reason counters / 通过原因计数器
     __u64 pass_whitelist;      // Passed by whitelist / 被白名单通过

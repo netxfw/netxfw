@@ -307,8 +307,8 @@ func (m *Manager) ListConntrackEntries() ([]ConntrackEntry, error) {
  * Note: stats_global_map is PERCPU_ARRAY, requires slice for lookup.
  * 注意：stats_global_map 是 PERCPU_ARRAY，需要使用切片进行查找。
  */
-func (m *Manager) GetGlobalStats() (*GlobalStats, error) {
-	result := &GlobalStats{}
+func (m *Manager) GetGlobalStats() (*sdk.GlobalStats, error) {
+	result := &sdk.GlobalStats{}
 
 	if m.statsGlobalMap == nil {
 		return result, nil
@@ -339,6 +339,7 @@ func (m *Manager) GetGlobalStats() (*GlobalStats, error) {
 		result.DropSynFlood += statsSlice[i].DropSynFlood
 		result.DropIcmpLimit += statsSlice[i].DropIcmpLimit
 		result.DropPortBlocked += statsSlice[i].DropPortBlocked
+		result.DropDefaultDeny += statsSlice[i].DropDefaultDeny
 		result.PassWhitelist += statsSlice[i].PassWhitelist
 		result.PassRule += statsSlice[i].PassRule
 		result.PassReturn += statsSlice[i].PassReturn
@@ -348,28 +349,9 @@ func (m *Manager) GetGlobalStats() (*GlobalStats, error) {
 	return result, nil
 }
 
-// GlobalStats represents aggregated global statistics.
-// GlobalStats 表示聚合的全局统计信息。
-type GlobalStats struct {
-	TotalPackets    uint64 // Total packets processed / 处理的总数据包
-	TotalPass       uint64 // Total passed packets / 通过的总数据包
-	TotalDrop       uint64 // Total dropped packets / 丢弃的总数据包
-	DropBlacklist   uint64 // Dropped by blacklist / 被黑名单丢弃
-	DropNoRule      uint64 // Dropped: no matching rule / 丢弃：无匹配规则
-	DropInvalid     uint64 // Dropped: invalid packet / 丢弃：无效数据包
-	DropRateLimit   uint64 // Dropped: rate limit / 丢弃：速率限制
-	DropSynFlood    uint64 // Dropped: SYN flood / 丢弃：SYN 洪水
-	DropIcmpLimit   uint64 // Dropped: ICMP limit / 丢弃：ICMP 限制
-	DropPortBlocked uint64 // Dropped: port blocked / 丢弃：端口被阻止
-	PassWhitelist   uint64 // Passed by whitelist / 被白名单通过
-	PassRule        uint64 // Passed by rule / 被规则通过
-	PassReturn      uint64 // Passed: return traffic / 通过：回程流量
-	PassEstablished uint64 // Passed: established connection / 通过：已建立连接
-}
-
 // GetCachedGlobalStats returns cached global statistics.
 // GetCachedGlobalStats 返回缓存的全局统计信息。
-func (m *Manager) GetCachedGlobalStats() (*GlobalStats, error) {
+func (m *Manager) GetCachedGlobalStats() (*sdk.GlobalStats, error) {
 	if m.statsCache == nil {
 		return m.GetGlobalStats()
 	}

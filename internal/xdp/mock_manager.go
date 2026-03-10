@@ -403,6 +403,9 @@ func (m *MockManager) GetWhitelistCount() (int, error) {
 }
 func (m *MockManager) GetConntrackCount() (int, error)      { return 0, nil }
 func (m *MockManager) GetDynLockListCount() (uint64, error) { return 0, nil }
+func (m *MockManager) GetGlobalStats() (*sdk.GlobalStats, error) {
+	return &sdk.GlobalStats{}, nil
+}
 func (m *MockManager) InvalidateStatsCache()                {}
 
 // PerfStats returns a mock performance stats tracker.

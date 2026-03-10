@@ -30,3 +30,7 @@ func (s *StatsImpl) GetLockedIPCount() (int, error) {
 	count, err := s.mgr.GetLockedIPCount()
 	return int(count), err
 }
+
+func (s *StatsImpl) GetGlobalStats() (*GlobalStats, error) {
+	return s.mgr.GetGlobalStats()
+}

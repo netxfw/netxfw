@@ -167,6 +167,14 @@ func (p *WebPlugin) collectStats(ctx *sdk.PluginContext) {
 						metrics.XdpPassTotal.WithLabelValues(reasonStr).Set(float64(d.Count))
 					}
 				}
+
+				// Update global stats
+				globalStats, err := stats.GetGlobalStats()
+				if err == nil {
+					// Use specific label for default deny drop
+					// 使用特定标签记录默认拒绝丢弃
+					metrics.XdpDropTotal.WithLabelValues("default_deny").Set(float64(globalStats.DropDefaultDeny))
+				}
 			}
 		}
 	}

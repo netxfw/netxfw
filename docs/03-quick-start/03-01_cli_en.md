@@ -28,7 +28,7 @@ The following flags are available on most subcommands:
 | `init` | None | Initialize configuration file |
 | `test` | None | Test configuration validity |
 | `version` | None | Show version information |
-| `list` | None | List all blocked IPs |
+| `list` | [--limit N] | List all blocked IPs (default: 100) |
 | `clear` | None | Clear the entire blacklist |
 | `del <ip>` | IP/CIDR | Delete IP from whitelist or blacklist |
 
@@ -38,7 +38,7 @@ The following flags are available on most subcommands:
 |---|---|---|
 | `allow <ip>` | IP/CIDR | Quickly whitelist an IP (backward compatible) |
 | `allow add <ip>` | IP/CIDR | Add IP to whitelist |
-| `allow list` | None | List whitelist IPs |
+| `allow list` | [--limit N] | List whitelist IPs (default: 100) |
 | `allow port list` | None | List IP+Port allow rules |
 
 ### deny — Blacklist Management
@@ -47,9 +47,9 @@ The following flags are available on most subcommands:
 |---|---|---|
 | `deny <ip> [--ttl]` | IP/CIDR [--ttl] | Add IP to blacklist (backward compatible) |
 | `deny add <ip> [--ttl]` | IP/CIDR [--ttl] | Add IP to blacklist |
-| `deny list` | None | List blacklist (static + dynamic) |
-| `deny list --static` | None | List static blacklist only |
-| `deny list --dynamic` | None | List dynamic blacklist only |
+| `deny list` | [--limit N] | List blacklist (static + dynamic, default: 100) |
+| `deny list --static` | [--limit N] | List static blacklist only |
+| `deny list --dynamic` | [--limit N] | List dynamic blacklist only |
 | `deny port list` | None | List IP+Port deny rules |
 
 ### dynamic — Dynamic Blacklist Management
@@ -199,6 +199,9 @@ sudo netxfw allow add 1.2.3.4:443
 # Subcommand: list whitelist
 sudo netxfw allow list
 
+# Subcommand: limit display count
+sudo netxfw allow list --limit 50
+
 # Subcommand: list IP+Port allow rules
 sudo netxfw allow port list
 
@@ -226,6 +229,9 @@ sudo netxfw deny add 1.2.3.4 --ttl 1h
 # Subcommand: list all blacklist (static + dynamic)
 sudo netxfw deny list
 
+# Subcommand: limit display count
+sudo netxfw deny list --limit 50
+
 # Subcommand: list static blacklist only
 sudo netxfw deny list --static
 
@@ -237,6 +243,8 @@ sudo netxfw deny port list
 ```
 
 **TTL Format Support**: `1h` (1 hour), `30m` (30 minutes), `1d` (1 day), `24h` (24 hours)
+
+**--limit Parameter**: Limits the number of results displayed, defaults to 100 to prevent system crash with large datasets.
 
 ### 5. Dynamic Blacklist Management (dynamic)
 

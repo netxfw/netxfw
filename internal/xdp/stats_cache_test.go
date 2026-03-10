@@ -23,7 +23,7 @@ func TestStatsCache_GetGlobalStats_Cached(t *testing.T) {
 	// Manually set up cache to use mock data
 	// 手动设置缓存以使用模拟数据
 	cache := mgr.statsCache
-	cache.globalStats = &GlobalStats{
+	cache.globalStats = &sdk.GlobalStats{
 		TotalPackets: 1000,
 		TotalPass:    800,
 		TotalDrop:    200,
@@ -47,7 +47,7 @@ func TestStatsCache_GetGlobalStats_Expired(t *testing.T) {
 
 	// Set expired cached data
 	// 设置过期的缓存数据
-	cache.globalStats = &GlobalStats{
+	cache.globalStats = &sdk.GlobalStats{
 		TotalPackets: 100,
 		TotalPass:    80,
 		TotalDrop:    20,
@@ -147,7 +147,7 @@ func TestStatsCache_InvalidateAll(t *testing.T) {
 
 	// Set some cached data
 	// 设置一些缓存数据
-	cache.globalStats = &GlobalStats{TotalPackets: 100}
+	cache.globalStats = &sdk.GlobalStats{TotalPackets: 100}
 	cache.dropDetails = []sdk.DropDetailEntry{{SrcIP: "10.0.0.1"}}
 	cache.passDetails = []sdk.DropDetailEntry{{SrcIP: "192.168.1.1"}}
 	cache.mapCounts = MapCounts{Blacklist: 50, UpdatedAt: time.Now()}
@@ -182,7 +182,7 @@ func TestStatsCache_InvalidateGlobal(t *testing.T) {
 
 	// Set some cached data
 	// 设置一些缓存数据
-	cache.globalStats = &GlobalStats{TotalPackets: 100}
+	cache.globalStats = &sdk.GlobalStats{TotalPackets: 100}
 	cache.lastGlobalUpdate = time.Now()
 	cache.dropDetails = []sdk.DropDetailEntry{{SrcIP: "10.0.0.1"}}
 	cache.lastDropUpdate = time.Now()
@@ -215,7 +215,7 @@ func TestStatsCache_InvalidateDetails(t *testing.T) {
 	cache.passDetails = []sdk.DropDetailEntry{{SrcIP: "192.168.1.1"}}
 	cache.lastDropUpdate = time.Now()
 	cache.lastPassUpdate = time.Now()
-	cache.globalStats = &GlobalStats{TotalPackets: 100}
+	cache.globalStats = &sdk.GlobalStats{TotalPackets: 100}
 	cache.lastGlobalUpdate = time.Now()
 
 	// Invalidate details only
@@ -269,7 +269,7 @@ func TestStatsCache_GetCacheInfo(t *testing.T) {
 
 	// Set some cached data
 	// 设置一些缓存数据
-	cache.globalStats = &GlobalStats{TotalPackets: 100}
+	cache.globalStats = &sdk.GlobalStats{TotalPackets: 100}
 	cache.lastGlobalUpdate = time.Now()
 	cache.dropDetails = []sdk.DropDetailEntry{{SrcIP: "10.0.0.1"}}
 	cache.lastDropUpdate = time.Now()

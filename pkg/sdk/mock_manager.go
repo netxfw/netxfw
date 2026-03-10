@@ -548,6 +548,17 @@ func (m *MockManager) GetDynLockListCount() (uint64, error) {
 	return count, nil
 }
 
+// GetGlobalStats returns global statistics.
+// GetGlobalStats 返回全局统计信息。
+func (m *MockManager) GetGlobalStats() (*GlobalStats, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return &GlobalStats{
+		TotalDrop: m.dropCount,
+		TotalPass: m.passCount,
+	}, nil
+}
+
 // InvalidateStatsCache invalidates the stats cache.
 // InvalidateStatsCache 使统计缓存失效。
 func (m *MockManager) InvalidateStatsCache() {

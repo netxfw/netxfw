@@ -402,7 +402,7 @@ func BenchmarkMapHealthStatusCreation(b *testing.B) {
 // BenchmarkGlobalStatsUpdate benchmarks global stats update.
 // BenchmarkGlobalStatsUpdate 基准测试全局统计更新。
 func BenchmarkGlobalStatsUpdate(b *testing.B) {
-	stats := &GlobalStats{}
+	stats := &sdk.GlobalStats{}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

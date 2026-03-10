@@ -45,10 +45,12 @@ const (
 
 // Program indices for jmp_table / jmp_table 的程序索引
 const (
-	ProgIdxIPv4        = 0
-	ProgIdxIPv6        = 1
+	ProgIdxIPv4        = 0 // Deprecated: used as placeholder for Main logic in objs
+	ProgIdxIPv6        = 1 // Deprecated: used as placeholder for Deny logic in objs
+	ProgIdxMain        = 1
 	ProgIdxPluginStart = 2
-	ProgIdxPluginEnd   = 15
+	ProgIdxPluginEnd   = 14
+	ProgIdxDefaultDeny = 15
 )
 
 // Re-export SDK types for internal use if needed, or just use sdk.X

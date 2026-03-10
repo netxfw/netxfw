@@ -60,10 +60,15 @@ struct ipv6_frag_hdr {
 #define PROG_IDX_IPV4 0
 #define PROG_IDX_IPV6 1
 
-// Plugin indices (2-15)
-// 插件索引 (2-15)
+// New Slot Allocation
+// 新的插槽分配
+#define PROG_IDX_MAIN 1
+#define PROG_IDX_DEFAULT_DENY 15
+
+// Plugin indices (2-14)
+// 插件索引 (2-14)
 #define PROG_IDX_PLUGIN_START 2
-#define PROG_IDX_PLUGIN_END   15
+#define PROG_IDX_PLUGIN_END   14
 
 // Drop Reasons
 // 丢弃原因

@@ -43,6 +43,59 @@ var RuleCmd = &cobra.Command{
 	Long:  `Manage firewall rules (add/remove/list/import/clear)`,
 }
 
+var PortCmd = &cobra.Command{
+	Use:   "port",
+	Short: "Allowed ports management",
+	Long:  `Allowed ports management commands`,
+}
+
+var portAddCmd = &cobra.Command{
+	Use:   "add <port>",
+	Short: "Add allowed port",
+	Long:  `Add port to global allow list`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		Execute(cmd, args, func(s *sdk.SDK) error {
+			port, err := strconv.Atoi(args[0])
+			if err != nil {
+				return err
+			}
+			if err := common.ValidatePortNonZero(port); err != nil {
+				return err
+			}
+			if err := s.Rule.AllowPort(uint16(port)); err != nil {
+				return err
+			}
+			logger.Get(cmd.Context()).Infof("[OK] Port %d added to allowed list", port)
+			return nil
+		})
+	},
+}
+
+var portRemoveCmd = &cobra.Command{
+	Use:     "del <port>",
+	Aliases: []string{"delete", "remove"},
+	Short:   "Remove allowed port",
+	Long:    `Remove port from global allow list`,
+	Args:    cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		Execute(cmd, args, func(s *sdk.SDK) error {
+			port, err := strconv.Atoi(args[0])
+			if err != nil {
+				return err
+			}
+			if err := common.ValidatePortNonZero(port); err != nil {
+				return err
+			}
+			if err := s.Rule.RemoveAllowedPort(uint16(port)); err != nil {
+				return err
+			}
+			logger.Get(cmd.Context()).Infof("[OK] Port %d removed from allowed list", port)
+			return nil
+		})
+	},
+}
+
 var ruleAddCmd = &cobra.Command{
 	Use:   "add <ip>[:port] <allow|deny>",
 	Short: "Add a rule",
@@ -964,6 +1017,10 @@ func init() {
 	RegisterCommonFlags(ruleExportCmd)
 	RegisterCommonFlags(ruleClearCmd)
 
-	// Add specific flags
 	ruleExportCmd.Flags().StringP("format", "f", "", "Export format: json, toml, csv (default: auto-detect from file extension)")
+
+	PortCmd.AddCommand(portAddCmd)
+	PortCmd.AddCommand(portRemoveCmd)
+	RegisterCommonFlags(portAddCmd)
+	RegisterCommonFlags(portRemoveCmd)
 }

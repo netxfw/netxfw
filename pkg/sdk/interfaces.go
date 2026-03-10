@@ -124,6 +124,7 @@ type ManagerInterface interface {
 	GetWhitelistCount() (int, error)
 	GetConntrackCount() (int, error)
 	GetDynLockListCount() (uint64, error)
+	GetGlobalStats() (*GlobalStats, error)
 
 	// Cached Stats - 缓存统计（用于性能优化）
 	InvalidateStatsCache()
@@ -288,6 +289,10 @@ type StatsAPI interface {
 	// GetLockedIPCount returns the number of currently locked IPs.
 	// GetLockedIPCount 返回当前被锁定的 IP 数量。
 	GetLockedIPCount() (int, error)
+
+	// GetGlobalStats returns all global statistics.
+	// GetGlobalStats 返回所有全局统计信息。
+	GetGlobalStats() (*GlobalStats, error)
 }
 
 // ConntrackAPI defines methods for connection tracking operations.

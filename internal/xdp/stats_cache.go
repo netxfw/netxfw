@@ -13,7 +13,7 @@ type StatsCache struct {
 	mu sync.RWMutex
 
 	// Cached statistics / 缓存的统计信息
-	globalStats *GlobalStats
+	globalStats *sdk.GlobalStats
 	dropDetails []sdk.DropDetailEntry
 	passDetails []sdk.DropDetailEntry
 	mapCounts   MapCounts
@@ -105,8 +105,8 @@ func (c *StatsCache) cacheHelper(
 
 // GetGlobalStats returns cached global statistics, refreshing if expired.
 // GetGlobalStats 返回缓存的全局统计，如果过期则刷新。
-func (c *StatsCache) GetGlobalStats() (*GlobalStats, error) {
-	var result *GlobalStats
+func (c *StatsCache) GetGlobalStats() (*sdk.GlobalStats, error) {
+	var result *sdk.GlobalStats
 	var fetchErr error
 
 	c.cacheHelper(

@@ -96,91 +96,12 @@ static __always_inline int parse_eth_frame(void *data, void *data_end, void **ne
 
 SEC("xdp/ipv4")
 int xdp_ipv4(struct xdp_md *ctx) {
+    // This section is now the MAIN program (Slot 1)
+    // 此部分现在是主程序（插槽 1）
+
     // Check and refresh config
     // 检查并刷新配置
     check_config_refresh();
-
-    void *data = (void *)(long)ctx->data;
-    void *data_end = (void *)(long)ctx->data_end;
-
-    void *network_header;
-    __u16 h_proto;
-    if (parse_eth_frame(data, data_end, &network_header, &h_proto) < 0) return XDP_PASS;
-
-    // Ensure it is IPv4
-    // 确保是 IPv4
-    if (h_proto != bpf_htons(ETH_P_IP)) return XDP_PASS;
-
-    int action = handle_ipv4(ctx, data_end, network_header);
-    if (action == XDP_PASS) {
-        if (cached_af_xdp_enabled == 1) return bpf_redirect_map(&xsk_map, ctx->rx_queue_index, 0);
-        update_pass_stats();
-        return XDP_PASS;
-    } else if (action == XDP_DROP) {
-        // Stats are already updated in handle_ipv4/6 with specific reasons
-        // 统计信息已在 handle_ipv4/6 中更新了具体原因
-
-        // update_drop_stats();
-        return XDP_DROP;
-    }
-    return action;
-}
-
-SEC("xdp/ipv6")
-int xdp_ipv6(struct xdp_md *ctx) {
-#ifdef ENABLE_IPV6
-    // Check and refresh config
-    check_config_refresh();
-
-    void *data = (void *)(long)ctx->data;
-    void *data_end = (void *)(long)ctx->data_end;
-
-    void *network_header;
-    __u16 h_proto;
-    if (parse_eth_frame(data, data_end, &network_header, &h_proto) < 0) return XDP_PASS;
-
-    // Ensure it is IPv6
-    if (h_proto != bpf_htons(ETH_P_IPV6)) return XDP_PASS;
-
-    int action = handle_ipv6(ctx, data_end, network_header);
-    if (action == XDP_PASS) {
-        if (cached_af_xdp_enabled == 1) return bpf_redirect_map(&xsk_map, ctx->rx_queue_index, 0);
-        update_pass_stats();
-        return XDP_PASS;
-    } else if (action == XDP_DROP) {
-        // Stats are already updated in handle_ipv4/6 with specific reasons
-        // update_drop_stats();
-        return XDP_DROP;
-    }
-    return action;
-#else
-    return XDP_PASS;
-#endif
-}
-
-/**
- * Main XDP firewall program
- * XDP 防火墙主程序
- */
-SEC("xdp")
-int xdp_firewall(struct xdp_md *ctx) {
-    // Sample-based configuration refresh to reduce overhead
-    // 基于采样的配置刷新以减少开销
-    check_config_refresh();
-
-    // Try to jump to the configured chain start (Dynamic Modules)
-    // 尝试跳转到配置的链起点（动态模块）
-    __u32 key = MOD_ID_ENTRY;
-    __u32 *start_idx = bpf_map_lookup_elem(&chain_map, &key);
-    if (start_idx) {
-        bpf_tail_call(ctx, &jmp_table, *start_idx);
-    }
-
-    // Try to call the first plugin slot (Legacy)
-    // 尝试调用第一个插件槽位（旧版）
-    // If a plugin is loaded, it's responsible for tail-calling the next plugin or the core logic
-    // 如果加载了插件，它负责尾调用下一个插件或核心逻辑
-    bpf_tail_call(ctx, &jmp_table, PROG_IDX_PLUGIN_START);
 
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
@@ -199,26 +120,74 @@ int xdp_firewall(struct xdp_md *ctx) {
         action = handle_ipv6(ctx, data_end, network_header);
     }
 #endif
-    else if (h_proto == bpf_htons(ETH_P_ARP)) {
-        return XDP_PASS;
-    } else {
-        if (cached_strict_proto == 1) {
-            update_drop_stats_with_reason(DROP_REASON_PROTOCOL, h_proto, 0, 0);
-            return XDP_DROP;
-        }
-        return XDP_PASS;
-    }
 
-    // Only update stats if action is PASS or DROP
-    // 仅当动作为 PASS 或 DROP 时更新统计信息
     if (action == XDP_PASS) {
         if (cached_af_xdp_enabled == 1) return bpf_redirect_map(&xsk_map, ctx->rx_queue_index, 0);
         update_pass_stats();
+        return XDP_PASS;
     } else if (action == XDP_DROP) {
-        // update_drop_stats();
+        // Stats are already updated in handle_ipv4/6 with specific reasons
+        // 统计信息已在 handle_ipv4/6 中更新了具体原因
+        return XDP_DROP;
+    }
+    return action;
+}
+
+SEC("xdp/ipv6")
+int xdp_ipv6(struct xdp_md *ctx) {
+    // This section is now the DEFAULT DENY program (Slot 15)
+    // 此部分现在是默认拒绝程序（插槽 15）
+
+    // Update stats for default deny
+    // 更新默认拒绝统计信息
+    __u32 key = 0;
+    struct stats_global *stats = bpf_map_lookup_elem(&stats_global_map, &key);
+    if (stats) {
+        stats->total_drop += 1;
+        stats->drop_default_deny += 1;
     }
 
-    return action;
+    // Simple drop logic as a safety net
+    // 简单的丢弃逻辑作为安全网
+    return XDP_DROP;
+}
+
+/**
+ * Main XDP firewall program
+ * XDP 防火墙主程序
+ */
+SEC("xdp")
+int xdp_firewall(struct xdp_md *ctx) {
+    // Sample-based configuration refresh to reduce overhead
+    // 基于采样的配置刷新以减少开销
+    check_config_refresh();
+
+    // 1. Try to jump to the configured chain start (Dynamic Modules)
+    // 1. 尝试跳转到配置的链起点（动态模块）
+    // Usually chain starts at index 20+
+    __u32 key = MOD_ID_ENTRY;
+    __u32 *start_idx = bpf_map_lookup_elem(&chain_map, &key);
+    if (start_idx) {
+        bpf_tail_call(ctx, &jmp_table, *start_idx);
+    }
+
+    // 2. Try to call the first plugin slot (Slot 2)
+    // 2. 尝试调用第一个插件槽位（插槽 2）
+    // If a plugin exists, it executes. If it fails (empty slot), we fall through.
+    bpf_tail_call(ctx, &jmp_table, PROG_IDX_PLUGIN_START);
+
+    // 3. Fallback to Main Program (Slot 1) if plugins didn't handle it
+    // 3. 如果插件未处理，则回退到主程序（插槽 1）
+    // Note: If plugins want to continue to Main, they must explicitly tail_call(1) or return XDP_PASS (but tail_call doesn't return)
+    // 注意：如果插件想要继续执行主程序，它们必须显式调用 tail_call(1)
+    bpf_tail_call(ctx, &jmp_table, PROG_IDX_MAIN);
+
+    // 4. Ultimate Safety Net: Default Deny (Slot 15)
+    // 4. 终极安全网：默认拒绝（插槽 15）
+    bpf_tail_call(ctx, &jmp_table, PROG_IDX_DEFAULT_DENY);
+
+    // 5. Hard Drop if everything fails
+    return XDP_DROP;
 }
 
 char _license[] SEC("license") = "Dual BSD/GPL";

@@ -159,3 +159,23 @@ type DropLogEntry struct {
 	// Payload 是数据包负载（如果已捕获）。
 	Payload []byte
 }
+
+// GlobalStats represents aggregated global statistics.
+// GlobalStats 表示聚合的全局统计信息。
+type GlobalStats struct {
+	TotalPackets    uint64 // Total packets processed / 处理的总数据包
+	TotalPass       uint64 // Total passed packets / 通过的总数据包
+	TotalDrop       uint64 // Total dropped packets / 丢弃的总数据包
+	DropBlacklist   uint64 // Dropped by blacklist / 被黑名单丢弃
+	DropNoRule      uint64 // Dropped: no matching rule / 丢弃：无匹配规则
+	DropInvalid     uint64 // Dropped: invalid packet / 丢弃：无效数据包
+	DropRateLimit   uint64 // Dropped: rate limit / 丢弃：速率限制
+	DropSynFlood    uint64 // Dropped: SYN flood / 丢弃：SYN 洪水
+	DropIcmpLimit   uint64 // Dropped: ICMP limit / 丢弃：ICMP 限制
+	DropPortBlocked uint64 // Dropped: port blocked / 丢弃：端口被阻止
+	DropDefaultDeny uint64 // Dropped: default deny / 丢弃：默认拒绝
+	PassWhitelist   uint64 // Passed by whitelist / 被白名单通过
+	PassRule        uint64 // Passed by rule / 被规则通过
+	PassReturn      uint64 // Passed: return traffic / 通过：回程流量
+	PassEstablished uint64 // Passed: established connection / 通过：已建立连接
+}

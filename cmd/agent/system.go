@@ -410,6 +410,45 @@ This will restart the netxfw service if an update is performed.`,
 	},
 }
 
+var syncCmd = &cobra.Command{
+	Use:   "sync",
+	Short: "Sync configuration between files and runtime BPF maps",
+	Long:  `Sync configuration between files and runtime BPF maps.`,
+}
+
+var syncToConfigCmd = &cobra.Command{
+	Use:   "to-config",
+	Short: "Dump runtime BPF maps to configuration files",
+	Long:  `Dump runtime BPF maps to configuration files (config.yaml and rules.deny.txt).`,
+	Run: func(cmd *cobra.Command, args []string) {
+		Execute(cmd, args, func(s *sdk.SDK) error {
+			cfgPath := config.GetConfigPath()
+			cfg, err := types.LoadGlobalConfig(cfgPath)
+			if err != nil {
+				return fmt.Errorf("failed to load configuration: %w", err)
+			}
+			return s.Sync.ToConfig(cfg)
+		})
+	},
+}
+
+var syncToMapCmd = &cobra.Command{
+	Use:   "to-map",
+	Short: "Apply configuration files to runtime BPF maps",
+	Long: `Apply configuration files (config.yaml and rules.deny.txt) to runtime BPF maps.
+This will overwrite the runtime state with what is defined in the configuration files.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		Execute(cmd, args, func(s *sdk.SDK) error {
+			cfgPath := config.GetConfigPath()
+			cfg, err := types.LoadGlobalConfig(cfgPath)
+			if err != nil {
+				return fmt.Errorf("failed to load configuration: %w", err)
+			}
+			return s.Sync.ToMap(cfg, true)
+		})
+	},
+}
+
 func init() {
 	SystemCmd.AddCommand(systemInitCmd)
 	SystemCmd.AddCommand(systemStatusCmd)
@@ -440,6 +479,12 @@ func init() {
 	RegisterCommonFlags(systemUpdateCmd)
 	RegisterCommonFlags(systemOnCmd)
 	RegisterCommonFlags(systemOffCmd)
+
+	SystemCmd.AddCommand(syncCmd)
+	syncCmd.AddCommand(syncToConfigCmd)
+	syncCmd.AddCommand(syncToMapCmd)
+	RegisterCommonFlags(syncToConfigCmd)
+	RegisterCommonFlags(syncToMapCmd)
 }
 
 func attachXDPWithMode(manager *xdp.Manager, interfaces []string, mode string) ([]string, error) {
