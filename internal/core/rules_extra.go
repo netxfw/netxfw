@@ -434,6 +434,116 @@ func persistBlacklistRules(log *zap.SugaredLogger, globalCfg *types.GlobalConfig
 	}
 }
 
+type whitelistImportEntry struct {
+	cidr   string
+	port   uint16
+	source string
+}
+
+type ipPortImportEntry struct {
+	cidr   string
+	port   uint16
+	action uint8
+	source string
+}
+
+func persistImportedWhitelist(ctx context.Context, xdpMgr XDPManager, entries []whitelistImportEntry) error {
+	log := logger.Get(ctx)
+	configPath := config.GetConfigPath()
+
+	types.ConfigMu.Lock()
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err != nil {
+		types.ConfigMu.Unlock()
+		return err
+	}
+
+	oldWhitelist := append([]string(nil), globalCfg.Base.Whitelist...)
+	existing := make(map[string]bool, len(globalCfg.Base.Whitelist))
+	for _, entry := range globalCfg.Base.Whitelist {
+		existing[entry] = true
+	}
+
+	modified := false
+	for _, item := range entries {
+		entry := item.cidr
+		if item.port > 0 {
+			entry = fmt.Sprintf("%s:%d", item.cidr, item.port)
+		}
+		if existing[entry] {
+			continue
+		}
+		globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
+		existing[entry] = true
+		modified = true
+	}
+
+	newWhitelist := append([]string(nil), globalCfg.Base.Whitelist...)
+	if modified {
+		optimizer.OptimizeWhitelistConfig(globalCfg)
+		newWhitelist = append([]string(nil), globalCfg.Base.Whitelist...)
+		if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
+			log.Warnf("[WARN]  Failed to save config: %v", saveErr)
+		}
+	}
+	types.ConfigMu.Unlock()
+
+	if modified {
+		cleanupMergedWhitelistRules(ctx, xdpMgr, oldWhitelist, newWhitelist)
+		ensureWhitelistRulesInBPF(ctx, xdpMgr, newWhitelist)
+	}
+	return nil
+}
+
+func persistImportedIPPortRules(ctx context.Context, entries []ipPortImportEntry) error {
+	log := logger.Get(ctx)
+	configPath := config.GetConfigPath()
+
+	types.ConfigMu.Lock()
+	defer types.ConfigMu.Unlock()
+
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err != nil {
+		return err
+	}
+
+	modified := false
+	for _, item := range entries {
+		targetCIDR := iputil.NormalizeCIDR(item.cidr)
+		found := false
+		for i, rule := range globalCfg.Port.IPPortRules {
+			if iputil.NormalizeCIDR(rule.IP) != targetCIDR || rule.Port != item.port {
+				continue
+			}
+			found = true
+			if rule.Action != item.action {
+				globalCfg.Port.IPPortRules[i].Action = item.action
+				modified = true
+			}
+			break
+		}
+
+		if !found {
+			globalCfg.Port.IPPortRules = append(globalCfg.Port.IPPortRules, types.IPPortRule{
+				IP:     item.cidr,
+				Port:   item.port,
+				Action: item.action,
+			})
+			modified = true
+		}
+	}
+
+	if !modified {
+		return nil
+	}
+
+	optimizer.OptimizeIPPortRulesConfig(globalCfg)
+	if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
+		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
+	}
+	return nil
+}
+
 // ImportWhitelistFromFile imports IPs from a file to the whitelist.
 // ImportWhitelistFromFile 从文件导入 IP 到白名单。
 func ImportWhitelistFromFile(ctx context.Context, xdpMgr XDPManager, path string) error {
@@ -447,35 +557,47 @@ func ImportWhitelistFromFile(ctx context.Context, xdpMgr XDPManager, path string
 
 	log.Infof("[DATA] Importing whitelist from %s...", path)
 	scanner := bufio.NewScanner(file)
-	count := 0
+	entries := make([]whitelistImportEntry, 0)
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
-			// Format: IP or IP:Port / 格式：IP 或 IP:端口
 			var ip string
 			var port uint16
 			host, p, err := iputil.ParseIPPort(line)
 			if err == nil {
-				ip = host
+				ip = iputil.NormalizeCIDR(host)
 				port = p
 			} else {
-				// 验证纯 IP 格式
-				// Validate pure IP format
 				if !iputil.IsValidCIDR(line) {
 					continue
 				}
-				ip = line
+				ip = iputil.NormalizeCIDR(line)
 			}
-
-			if err := SyncWhitelistMap(ctx, xdpMgr, ip, port, true, true); err != nil {
-				log.Warnf("[WARN]  Failed to sync whitelist rule %s: %v", line, err)
-			}
-			count++
+			entries = append(entries, whitelistImportEntry{cidr: ip, port: port, source: line})
 		}
 	}
-	log.Infof("[OK] Imported %d whitelist rules.", count)
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	success := make([]whitelistImportEntry, 0, len(entries))
+	for _, entry := range entries {
+		if err := xdpMgr.AddWhitelistIP(entry.cidr, entry.port); err != nil {
+			log.Warnf("[WARN]  Failed to sync whitelist rule %s: %v", entry.source, err)
+			continue
+		}
+		success = append(success, entry)
+	}
+
+	if len(success) > 0 {
+		if err := persistImportedWhitelist(ctx, xdpMgr, success); err != nil {
+			log.Warnf("[WARN]  Failed to persist whitelist import: %v", err)
+		}
+	}
+
+	log.Infof("[OK] Imported %d whitelist rules.", len(success))
+	return nil
 }
 
 // ImportIPPortRulesFromFile imports IP+Port rules from a file.
@@ -491,17 +613,14 @@ func ImportIPPortRulesFromFile(ctx context.Context, xdpMgr XDPManager, path stri
 
 	log.Infof("[DATA] Importing IP+Port rules from %s...", path)
 	scanner := bufio.NewScanner(file)
-	count := 0
+	entries := make([]ipPortImportEntry, 0)
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
-			// Format: IP Port Action (allow/deny) / 格式：IP 端口 动作 (allow/deny)
 			parts := strings.Fields(line)
 			if len(parts) >= 3 {
-				ip := parts[0]
-				// 验证 IP 格式
-				// Validate IP format
+				ip := iputil.NormalizeCIDR(parts[0])
 				if !iputil.IsValidCIDR(ip) {
 					log.Warnf("[WARN]  Invalid IP format in line: %s", line)
 					continue
@@ -522,15 +641,29 @@ func ImportIPPortRulesFromFile(ctx context.Context, xdpMgr XDPManager, path stri
 				if actionStr == "allow" {
 					action = 1
 				}
-
-				if syncErr := SyncIPPortRule(ctx, xdpMgr, ip, uint16(port), action, true); syncErr != nil { // #nosec G115 // port is always 0-65535
-					log.Warnf("[WARN]  Failed to sync rule %s: %v", line, syncErr)
-				} else {
-					count++
-				}
+				entries = append(entries, ipPortImportEntry{cidr: ip, port: uint16(port), action: action, source: line})
 			}
 		}
 	}
-	log.Infof("[OK] Imported %d IP+Port rules.", count)
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	success := make([]ipPortImportEntry, 0, len(entries))
+	for _, entry := range entries {
+		if err := xdpMgr.AddIPPortRule(entry.cidr, entry.port, entry.action); err != nil {
+			log.Warnf("[WARN]  Failed to sync rule %s: %v", entry.source, err)
+			continue
+		}
+		success = append(success, entry)
+	}
+
+	if len(success) > 0 {
+		if err := persistImportedIPPortRules(ctx, success); err != nil {
+			log.Warnf("[WARN]  Failed to persist IP+Port import: %v", err)
+		}
+	}
+
+	log.Infof("[OK] Imported %d IP+Port rules.", len(success))
 	return nil
 }

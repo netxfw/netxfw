@@ -5,12 +5,54 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"sync"
 
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/version"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
+
+type packetStats struct {
+	Total   uint64 `json:"total"`
+	Passed  uint64 `json:"passed"`
+	Dropped uint64 `json:"dropped"`
+}
+
+type dropReasonStats struct {
+	Blacklist   uint64 `json:"blacklist"`
+	NoRule      uint64 `json:"no_rule"`
+	Invalid     uint64 `json:"invalid"`
+	RateLimit   uint64 `json:"rate_limit"`
+	SynFlood    uint64 `json:"syn_flood"`
+	IcmpLimit   uint64 `json:"icmp_limit"`
+	PortBlocked uint64 `json:"port_blocked"`
+	DefaultDeny uint64 `json:"default_deny"`
+}
+
+type passReasonStats struct {
+	Whitelist   uint64 `json:"whitelist"`
+	Rule        uint64 `json:"rule"`
+	Return      uint64 `json:"return"`
+	Established uint64 `json:"established"`
+}
+
+type statsResponse struct {
+	Packets     packetStats     `json:"packets"`
+	DropReasons dropReasonStats `json:"drop_reasons"`
+	PassReasons passReasonStats `json:"pass_reasons"`
+}
+
+type rulesResponse struct {
+	Blacklist      []sdk.BlockedIP  `json:"blacklist"`
+	TotalBlacklist int              `json:"totalBlacklist"`
+	Whitelist      []string         `json:"whitelist"`
+	TotalWhitelist int              `json:"totalWhitelist"`
+	IPPortRules    []sdk.IPPortRule `json:"ipPortRules"`
+	TotalIPPort    int              `json:"totalIPPort"`
+	Limit          int              `json:"limit"`
+}
 
 // handleHealthz returns the health status of the service.
 // handleHealthz 返回服务的健康状态。
@@ -35,13 +77,37 @@ func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 // handleStats returns the global pass/drop statistics.
 // handleStats 返回全局放行/拦截统计信息。
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	pass, drop, _ := s.sdk.Stats.GetCounters()
+	globalStats, err := s.sdk.Stats.GetGlobalStats()
+	if err != nil {
+		http.Error(w, "Failed to get statistics: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]uint64{
-		"pass": pass,
-		"drop": drop,
-	})
+	res := statsResponse{
+		Packets: packetStats{
+			Total:   globalStats.TotalPackets,
+			Passed:  globalStats.TotalPass,
+			Dropped: globalStats.TotalDrop,
+		},
+		DropReasons: dropReasonStats{
+			Blacklist:   globalStats.DropBlacklist,
+			NoRule:      globalStats.DropNoRule,
+			Invalid:     globalStats.DropInvalid,
+			RateLimit:   globalStats.DropRateLimit,
+			SynFlood:    globalStats.DropSynFlood,
+			IcmpLimit:   globalStats.DropIcmpLimit,
+			PortBlocked: globalStats.DropPortBlocked,
+			DefaultDeny: globalStats.DropDefaultDeny,
+		},
+		PassReasons: passReasonStats{
+			Whitelist:   globalStats.PassWhitelist,
+			Rule:        globalStats.PassRule,
+			Return:      globalStats.PassReturn,
+			Established: globalStats.PassEstablished,
+		},
+	}
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 // handleRules provides a REST interface for listing, adding, and removing BPF rules.
@@ -53,21 +119,43 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		search := r.URL.Query().Get("search")
 		limit := 100
 
-		locked, totalLocked, _ := s.sdk.Blacklist.List(limit, search)
-		whitelist, totalWhitelist, _ := s.sdk.Whitelist.List(limit, search)
+		var wg sync.WaitGroup
+		wg.Add(3)
 
-		// Get IP+Port rules (action 0=deny, 1=allow)
-		// 获取 IP+端口规则（action 0=拒绝, 1=允许）
-		ipPortRules, totalIPPort, _ := s.sdk.Rule.List(true, limit, search)
+		var locked []sdk.BlockedIP
+		var totalLocked int
+		var whitelist []string
+		var totalWhitelist int
+		var ipPortRules []sdk.IPPortRule
+		var totalIPPort int
 
-		res := map[string]any{
-			"blacklist":      locked,
-			"totalBlacklist": totalLocked,
-			"whitelist":      whitelist,
-			"totalWhitelist": totalWhitelist,
-			"ipPortRules":    ipPortRules,
-			"totalIPPort":    totalIPPort,
-			"limit":          limit,
+		go func() {
+			defer wg.Done()
+			locked, totalLocked, _ = s.sdk.Blacklist.List(limit, search)
+		}()
+
+		go func() {
+			defer wg.Done()
+			whitelist, totalWhitelist, _ = s.sdk.Whitelist.List(limit, search)
+		}()
+
+		go func() {
+			defer wg.Done()
+			// Get IP+Port rules (action 0=deny, 1=allow)
+			// 获取 IP+端口规则（action 0=拒绝, 1=允许）
+			ipPortRules, totalIPPort, _ = s.sdk.Rule.List(true, limit, search)
+		}()
+
+		wg.Wait()
+
+		res := rulesResponse{
+			Blacklist:      locked,
+			TotalBlacklist: totalLocked,
+			Whitelist:      whitelist,
+			TotalWhitelist: totalWhitelist,
+			IPPortRules:    ipPortRules,
+			TotalIPPort:    totalIPPort,
+			Limit:          limit,
 		}
 		_ = json.NewEncoder(w).Encode(res)
 

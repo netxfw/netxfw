@@ -65,10 +65,15 @@ func TestHandleStats(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp map[string]uint64
-	json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Contains(t, resp, "pass")
-	assert.Contains(t, resp, "drop")
+	var resp map[string]any
+	err := json.Unmarshal(rec.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Contains(t, resp, "packets")
+	
+	packets, ok := resp["packets"].(map[string]any)
+	assert.True(t, ok)
+	assert.Contains(t, packets, "passed")
+	assert.Contains(t, packets, "dropped")
 }
 
 // TestHandleRulesGet tests the rules GET endpoint

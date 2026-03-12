@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -532,12 +531,6 @@ func ShowRateLimitRules(ctx context.Context, xdpMgr XDPManager) error {
  * ShowStatus 显示当前的防火墙状态和统计信息。
  */
 func ShowStatus(ctx context.Context, xdpMgr XDPManager) error {
-	log := logger.Get(ctx)
-	_, loadErr := types.LoadGlobalConfig(config.GetConfigPath())
-	if loadErr != nil {
-		log.Warnf("[WARN]  Could not load global config: %v", loadErr)
-	}
-
 	fmt.Println("[OK] XDP Program Status: Loaded and Running")
 
 	showDropStats(xdpMgr)

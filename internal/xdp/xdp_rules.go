@@ -375,10 +375,11 @@ func ListIPPortRulesFromMap(mapPtr *ebpf.Map, limit int, search string) ([]IPPor
 			prefixLen = key.Prefixlen
 		}
 
-		fullStr := fmt.Sprintf("%s/%d:%d", ipStr, prefixLen, key.Port)
-
-		if search != "" && !strings.Contains(fullStr, search) {
-			continue
+		if search != "" {
+			fullStr := fmt.Sprintf("%s/%d:%d", ipStr, prefixLen, key.Port)
+			if !strings.Contains(fullStr, search) {
+				continue
+			}
 		}
 
 		count++

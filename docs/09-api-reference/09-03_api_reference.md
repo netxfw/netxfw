@@ -78,7 +78,14 @@ GET /api/stats
   "drop_reasons": {
     "blacklist": 300,
     "rate_limit": 150,
-    "port_blocked": 117
+    "port_blocked": 117,
+    "default_deny": 50
+  },
+  "pass_reasons": {
+    "whitelist": 1000,
+    "rule": 200,
+    "return": 123000,
+    "established": 1110800
   },
   "maps": {
     "blacklist_count": 1234,

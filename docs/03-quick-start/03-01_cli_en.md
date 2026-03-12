@@ -180,7 +180,7 @@ sudo netxfw system status -c /etc/netxfw/config.yaml
 sudo netxfw system status -i eth0
 ```
 
-**Output includes**: traffic rates, pass/drop counters, conntrack health, BPF map usage, protocol distribution, policy configuration, attached interfaces.
+**Output includes**: traffic rates, pass/drop counters (including blacklist, rate-limit, default-deny reasons), conntrack health, BPF map usage, protocol distribution, policy configuration, attached interfaces.
 
 ### 3. Whitelist Management (allow)
 
