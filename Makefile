@@ -1,6 +1,11 @@
-.PHONY: build build-compressed generate clean
+.PHONY: build build-compressed generate clean build-zig-amd64 build-zig-arm64
 
 BPF_CFLAGS :=
+# Zig compiler configuration
+ZIG_CC := zig cc
+ZIG_TARGET_AMD64 := x86_64-linux-gnu.2.17
+ZIG_TARGET_ARM64 := aarch64-linux-gnu.2.17
+
 # Default to ipv6=yes if not specified
 ipv6 ?= yes
 
@@ -11,6 +16,8 @@ endif
 
 help:
 	@echo "  make build           - Build binary (stripped)"
+	@echo "  make build-zig-amd64 - Build binary using Zig (amd64, glibc 2.17)"
+	@echo "  make build-zig-arm64 - Build binary using Zig (arm64, glibc 2.17)"
 	@echo "  make build-compressed - Build binary with UPX compression (smallest)"
 	@echo "  make generate        - Generate BPF code"
 	@echo "  make install         - Install binary and config"
@@ -19,6 +26,18 @@ help:
 
 build:
 	go build -ldflags="-s -w -X 'github.com/netxfw/netxfw/internal/version.Version=$(VERSION)' -X 'github.com/netxfw/netxfw/internal/version.GitCommit=$(COMMIT)'" -trimpath -o netxfw ./cmd/netxfw
+
+# Build with Zig for amd64
+build-zig-amd64:
+	CGO_ENABLED=1 CC="$(ZIG_CC) -target $(ZIG_TARGET_AMD64)" \
+	go build -ldflags="-s -w -X 'github.com/netxfw/netxfw/internal/version.Version=$(VERSION)'" \
+	-trimpath -o netxfw-amd64 ./cmd/netxfw
+
+# Build with Zig for arm64
+build-zig-arm64:
+	CGO_ENABLED=1 CC="$(ZIG_CC) -target $(ZIG_TARGET_ARM64)" \
+	go build -ldflags="-s -w -X 'github.com/netxfw/netxfw/internal/version.Version=$(VERSION)'" \
+	-trimpath -o netxfw-arm64 ./cmd/netxfw
 
 # Default build target with dev version
 build-dev:

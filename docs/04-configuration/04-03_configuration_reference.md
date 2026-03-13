@@ -155,8 +155,8 @@ lock_list_v6_mask = 64
 | `lock_list_binary` | string | `/etc/netxfw/deny_list.bin.zst` | 拒绝列表文件路径（压缩二进制） |
 | `bpf_pin_path` | string | `""` | BPF Map 固定路径（空 = 默认） |
 | `lock_list_merge_threshold` | int | `0` | 触发子网合并的最小条目数 |
-| `lock_list_v4_mask` | int | `24` | IPv4 锁定列表聚合的子网掩码 |
-| `lock_list_v6_mask` | int | `64` | IPv6 锁定列表聚合的子网掩码 |
+| `lock_list_v4_mask` | int | `24` | IPv4 锁定列表聚合的子网掩码（/24 = 256 个 IP） |
+| `lock_list_v6_mask` | int | `64` | IPv6 锁定列表聚合的子网掩码（/64 = 标准子网） |
 
 ---
 
@@ -165,12 +165,21 @@ lock_list_v6_mask = 64
 ### 2.1 白名单 (Whitelist)
 
 ```toml
-whitelist = ["192.168.1.0/24", "10.0.0.1"]
+whitelist = [
+    # IPv4 Addresses
+    "127.0.0.1/32",
+    "192.168.1.0/24",
+    "10.0.0.0/8",
+    # IPv6 Addresses
+    "::1/128",
+    "fe80::/10",
+    "2001:db8::/32",
+]
 ```
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `whitelist` | []string | `[]` | 允许的 IP 地址或网络（CIDR 格式） |
+| `whitelist` | []string | `[]` | 允许的 IP 地址或网络（CIDR 格式，支持 IPv4/IPv6） |
 
 ### 2.2 端口配置 (Port Configuration)
 
@@ -187,14 +196,23 @@ allowed_ports = [22, 80, 443]
 
 ```toml
 ip_port_rules = [
-    { ip = "0.0.0.0", port = 22, action = 1 },
+    # IPv4 Rules
+    { ip = "0.0.0.0/0", port = 22, action = 1 },
+    { ip = "0.0.0.0/0", port = 80, action = 1 },
+    { ip = "0.0.0.0/0", port = 443, action = 1 },
+    # IPv6 Rules
+    { ip = "::/0", port = 22, action = 1 },
+    { ip = "::/0", port = 80, action = 1 },
+    { ip = "::/0", port = 443, action = 1 },
+    # Mixed Rules
     { ip = "192.168.1.100", port = 3306, action = 0 },
+    { ip = "2001:db8::/32", port = 8080, action = 0 },
 ]
 ```
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `ip` | string | IP 地址或 CIDR |
+| `ip` | string | IP 地址或 CIDR（支持 IPv4/IPv6） |
 | `port` | uint16 | 端口号 |
 | `action` | uint8 | 动作：`0` = 拒绝，`1` = 允许 |
 
@@ -221,9 +239,24 @@ rules = [
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `ip` | string | IP 地址或 CIDR |
+| `ip` | string | IP 地址或 CIDR（支持 IPv4/IPv6） |
 | `rate` | uint64 | 每秒允许的请求数 |
 | `burst` | uint64 | 允许的突发请求数 |
+
+**示例：**
+
+```toml
+rules = [
+    # IPv4 Rate Limits
+    { ip = "10.0.0.0/24", rate = 100, burst = 200 },
+    { ip = "192.168.1.0/24", rate = 500, burst = 1000 },
+    # IPv6 Rate Limits
+    { ip = "2001:db8::/32", rate = 1000, burst = 2000 },
+    { ip = "2400:3200::/32", rate = 800, burst = 1600 },
+    # Mixed Rate Limits
+    { ip = "::/0", port = 80, rate = 50, burst = 100 },
+]
+```
 
 ### 2.5 连接跟踪 (Connection Tracking)
 
@@ -458,8 +491,22 @@ cache_ttl = "5m"
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `enabled` | bool | `false` | 解析 PROXY 协议头 |
-| `trusted_lb_ranges` | []string | `[]` | 可信负载均衡器 IP 范围 |
+| `trusted_lb_ranges` | []string | `[]` | 可信负载均衡器 IP 范围（支持 IPv4/IPv6） |
 | `cache_ttl` | string | `"5m"` | 真实 IP 缓存持续时间 |
+
+**示例：**
+
+```toml
+trusted_lb_ranges = [
+    # IPv4 LB Ranges
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    # IPv6 LB Ranges
+    "fc00::/7",
+    "2001:db8::/32",
+]
+```
 
 ### 6.3 AI 助手 (AI Assistant)
 

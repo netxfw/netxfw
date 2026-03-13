@@ -67,20 +67,15 @@ func uniqueIPs(ips []netip.Addr) []netip.Addr {
 	if len(ips) <= 1 {
 		return ips
 	}
-	// In-place deduplication (O(N^2) is fast for small N)
-	uniqCount := 0
-	for i := 0; i < len(ips); i++ {
-		duplicate := false
-		for j := 0; j < uniqCount; j++ {
-			if ips[i] == ips[j] {
-				duplicate = true
-				break
-			}
-		}
-		if !duplicate {
-			ips[uniqCount] = ips[i]
-			uniqCount++
+	// Use map for O(N) deduplication
+	// 使用 map 实现 O(N) 去重
+	seen := make(map[netip.Addr]struct{}, len(ips))
+	result := make([]netip.Addr, 0, len(ips))
+	for _, ip := range ips {
+		if _, exists := seen[ip]; !exists {
+			seen[ip] = struct{}{}
+			result = append(result, ip)
 		}
 	}
-	return ips[:uniqCount]
+	return result
 }

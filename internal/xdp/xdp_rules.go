@@ -86,52 +86,24 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 		return fmt.Errorf("invalid IP address %s: %w", ipStr, err)
 	}
 
+	mapObj := m.DynLockList()
+	if mapObj == nil {
+		return fmt.Errorf("dyn_lock_list not available")
+	}
+
 	expiry := uint64(0)
 	if ttl > 0 {
 		expiry = uint64(time.Now().Add(ttl).UnixNano())
 	}
 
-	if ip.Is4() {
-		mapObj := m.DynLockList()
-		if mapObj == nil {
-			return fmt.Errorf("dyn_lock_list not available")
-		}
+	key := NetipAddrToIn6Addr(ip)
+	val := NetXfwRuleValue{
+		Counter:   2,
+		ExpiresAt: expiry,
+	}
 
-		// Use mapped IPv6 for key / 使用映射的 IPv6 作为键
-		key := acquireIn6Addr()
-		defer releaseIn6Addr(key)
-		b := ip.As4()
-		// ::ffff:a.b.c.d
-		key.In6U.U6Addr8[10] = 0xff
-		key.In6U.U6Addr8[11] = 0xff
-		copy(key.In6U.U6Addr8[12:], b[:])
-
-		val := acquireRuleValue()
-		defer releaseRuleValue(val)
-		val.Counter = 2 // Deny / 拒绝
-		val.ExpiresAt = expiry
-		if err := mapObj.Update(key, val, ebpf.UpdateAny); err != nil {
-			return fmt.Errorf("failed to block IPv4 %s: %v", ip, err)
-		}
-	} else if ip.Is6() {
-		mapObj := m.DynLockList()
-		if mapObj == nil {
-			return fmt.Errorf("dyn_lock_list not available")
-		}
-
-		key := acquireIn6Addr()
-		defer releaseIn6Addr(key)
-		b := ip.As16()
-		copy(key.In6U.U6Addr8[:], b[:])
-
-		val := acquireRuleValue()
-		defer releaseRuleValue(val)
-		val.Counter = 2 // Deny / 拒绝
-		val.ExpiresAt = expiry
-
-		if err := mapObj.Update(key, val, ebpf.UpdateAny); err != nil {
-			return fmt.Errorf("failed to block IPv6 %s: %v", ip, err)
-		}
+	if err := mapObj.Update(&key, &val, ebpf.UpdateAny); err != nil {
+		return fmt.Errorf("failed to block IP %s: %v", ip, err)
 	}
 
 	m.logger.Infof("[BLOCK] Blocked IP %s for %v (expiry: %d)", ip, ttl, expiry)
@@ -146,48 +118,19 @@ func (m *Manager) UnblockDynamic(ipStr string) error {
 		return fmt.Errorf("invalid IP address %s: %w", ipStr, err)
 	}
 
-	if ip.Is4() {
-		mapObj := m.DynLockList()
-		if mapObj == nil {
-			return fmt.Errorf("dyn_lock_list not available")
-		}
+	mapObj := m.DynLockList()
+	if mapObj == nil {
+		return fmt.Errorf("dyn_lock_list not available")
+	}
 
-		// Use mapped IPv6 for key / 使用映射的 IPv6 作为键
-		key := acquireIn6Addr()
-		defer releaseIn6Addr(key)
-		b := ip.As4()
-		// ::ffff:a.b.c.d
-		key.In6U.U6Addr8[10] = 0xff
-		key.In6U.U6Addr8[11] = 0xff
-		copy(key.In6U.U6Addr8[12:], b[:])
+	key := NetipAddrToIn6Addr(ip)
 
-		if err := mapObj.Delete(key); err != nil {
-			// Ignore if not found / 如果未找到则忽略
-			if strings.Contains(err.Error(), "key does not exist") {
-				m.logger.Infof("[INFO] IP %s not found in dynamic blacklist", ip)
-				return nil
-			}
-			return fmt.Errorf("failed to unblock IPv4 %s: %v", ip, err)
+	if err := mapObj.Delete(&key); err != nil {
+		if strings.Contains(err.Error(), "key does not exist") {
+			m.logger.Infof("[INFO] IP %s not found in dynamic blacklist", ip)
+			return nil
 		}
-	} else if ip.Is6() {
-		mapObj := m.DynLockList()
-		if mapObj == nil {
-			return fmt.Errorf("dyn_lock_list not available")
-		}
-
-		key := acquireIn6Addr()
-		defer releaseIn6Addr(key)
-		b := ip.As16()
-		copy(key.In6U.U6Addr8[:], b[:])
-
-		if err := mapObj.Delete(key); err != nil {
-			// Ignore if not found / 如果未找到则忽略
-			if strings.Contains(err.Error(), "key does not exist") {
-				m.logger.Infof("[INFO] IP %s not found in dynamic blacklist", ip)
-				return nil
-			}
-			return fmt.Errorf("failed to unblock IPv6 %s: %v", ip, err)
-		}
+		return fmt.Errorf("failed to unblock IP %s: %v", ip, err)
 	}
 
 	m.logger.Infof("[OK] Unblocked IP %s from dynamic blacklist", ip)
@@ -199,27 +142,11 @@ func (m *Manager) UnblockDynamic(ipStr string) error {
  * AddIPPortRuleToMap 向 Map 中添加一条 IP+端口规则。
  */
 func AddIPPortRuleToMap(mapPtr *ebpf.Map, ipNet *net.IPNet, port uint16, action uint8, expiresAt *time.Time) error {
-	ones, _ := ipNet.Mask.Size()
+	key := IPNetToLpmIPPortKey(ipNet, port)
 	val := NetXfwRuleValue{
 		Counter:   uint64(action),
 		ExpiresAt: timeToBootNS(expiresAt),
 	}
-
-	var key NetXfwLpmIpPortKey
-	key.Port = port
-
-	if ip4 := ipNet.IP.To4(); ip4 != nil {
-		// IPv4-mapped IPv6 / IPv4 映射的 IPv6
-		key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
-		key.Ip.In6U.U6Addr8[10] = 0xff
-		key.Ip.In6U.U6Addr8[11] = 0xff
-		copy(key.Ip.In6U.U6Addr8[12:], ip4)
-	} else {
-		// Native IPv6 / 原生 IPv6
-		key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
-		copy(key.Ip.In6U.U6Addr8[:], ipNet.IP.To16())
-	}
-
 	return mapPtr.Update(&key, &val, ebpf.UpdateAny)
 }
 
@@ -250,23 +177,7 @@ func (m *Manager) AddIPPortRule(ipNet *net.IPNet, port uint16, action uint8, exp
  * RemoveIPPortRuleFromMap 从 Map 中移除一条 IP+端口规则。
  */
 func RemoveIPPortRuleFromMap(mapPtr *ebpf.Map, ipNet *net.IPNet, port uint16) error {
-	ones, _ := ipNet.Mask.Size()
-
-	var key NetXfwLpmIpPortKey
-	key.Port = port
-
-	if ip4 := ipNet.IP.To4(); ip4 != nil {
-		// IPv4-mapped IPv6 / IPv4 映射的 IPv6
-		key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
-		key.Ip.In6U.U6Addr8[10] = 0xff
-		key.Ip.In6U.U6Addr8[11] = 0xff
-		copy(key.Ip.In6U.U6Addr8[12:], ip4)
-	} else {
-		// Native IPv6 / 原生 IPv6
-		key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
-		copy(key.Ip.In6U.U6Addr8[:], ipNet.IP.To16())
-	}
-
+	key := IPNetToLpmIPPortKey(ipNet, port)
 	return mapPtr.Delete(&key)
 }
 
@@ -358,22 +269,8 @@ func ListIPPortRulesFromMap(mapPtr *ebpf.Map, limit int, search string) ([]IPPor
 	var val NetXfwRuleValue
 
 	for iter.Next(&key, &val) {
-		var ipStr string
-		var prefixLen uint32
-
-		isMappedIPv4 := key.Ip.In6U.U6Addr8[10] == 0xff && key.Ip.In6U.U6Addr8[11] == 0xff
-
-		if isMappedIPv4 {
-			ip := net.IP(key.Ip.In6U.U6Addr8[12:])
-			ipStr = ip.String()
-			if key.Prefixlen >= 96 {
-				prefixLen = key.Prefixlen - 96
-			}
-		} else {
-			ip := net.IP(key.Ip.In6U.U6Addr8[:])
-			ipStr = ip.String()
-			prefixLen = key.Prefixlen
-		}
+		ipStr := FormatIn6Addr(&key.Ip)
+		prefixLen := AdjustPrefixLen(&key.Ip, key.Prefixlen)
 
 		if search != "" {
 			fullStr := fmt.Sprintf("%s/%d:%d", ipStr, prefixLen, key.Port)
@@ -477,34 +374,19 @@ func (m *Manager) ListAllowedPorts() ([]uint16, error) {
  * 注意：使用统一的 ratelimit_map，键为 NetXfwIn6Addr，值为 NetXfwRatelimitValue。
  */
 func AddRateLimitRuleToMap(ratelimitMap *ebpf.Map, ipNet *net.IPNet, rate, burst uint64) error {
-	ip := ipNet.IP
-	key := acquireIn6Addr()
-	defer releaseIn6Addr(key)
-
-	ip4 := ip.To4()
-	if ip4 != nil {
-		key.In6U.U6Addr8[10] = 0xff
-		key.In6U.U6Addr8[11] = 0xff
-		copy(key.In6U.U6Addr8[12:], ip4)
-	} else {
-		ip6 := ip.To16()
-		if ip6 == nil {
-			return fmt.Errorf("invalid IP address")
-		}
-		copy(key.In6U.U6Addr8[:], ip6)
-	}
+	key := IPToIn6Addr(ipNet.IP)
 
 	rateScaled := (rate << 32) / 1000000000
 
-	val := acquireRatelimitValue()
-	defer releaseRatelimitValue(val)
-	val.Rate = rate
-	val.RateScaled = rateScaled
-	val.Burst = burst
-	val.ConfigVersion = 1
-	val.LastTime = 0
-	val.Tokens = burst
-	return ratelimitMap.Update(key, val, ebpf.UpdateAny)
+	val := NetXfwRatelimitValue{
+		Rate:          rate,
+		RateScaled:    rateScaled,
+		Burst:         burst,
+		ConfigVersion: 1,
+		LastTime:      0,
+		Tokens:        burst,
+	}
+	return ratelimitMap.Update(&key, &val, ebpf.UpdateAny)
 }
 
 /**
@@ -536,26 +418,7 @@ func (m *Manager) AddRateLimitRule(ipNet *net.IPNet, rate, burst uint64) error {
  * RemoveRateLimitRuleFromMap 从统一的 Map 移除速率限制规则。
  */
 func RemoveRateLimitRuleFromMap(ratelimitMap *ebpf.Map, ipNet *net.IPNet) error {
-	ip := ipNet.IP
-	var key NetXfwIn6Addr
-
-	ip4 := ip.To4()
-	if ip4 != nil {
-		// IPv4-mapped IPv6: ::ffff:a.b.c.d
-		// IPv4 映射的 IPv6：::ffff:a.b.c.d
-		key.In6U.U6Addr8[10] = 0xff
-		key.In6U.U6Addr8[11] = 0xff
-		copy(key.In6U.U6Addr8[12:], ip4)
-	} else {
-		// Native IPv6
-		// 原生 IPv6
-		ip6 := ip.To16()
-		if ip6 == nil {
-			return fmt.Errorf("invalid IP address")
-		}
-		copy(key.In6U.U6Addr8[:], ip6)
-	}
-
+	key := IPToIn6Addr(ipNet.IP)
 	return ratelimitMap.Delete(&key)
 }
 
@@ -600,19 +463,7 @@ func ListRateLimitRulesFromMap(mapPtr *ebpf.Map, limit int, search string) (map[
 	var val NetXfwRatelimitValue
 
 	for iter.Next(&key, &val) {
-		var ipStr string
-
-		// Check for IPv4-mapped address
-		// 检查是否为 IPv4 映射地址
-		isMappedIPv4 := key.In6U.U6Addr8[10] == 0xff && key.In6U.U6Addr8[11] == 0xff
-
-		if isMappedIPv4 {
-			ip := net.IP(key.In6U.U6Addr8[12:])
-			ipStr = ip.String()
-		} else {
-			ip := net.IP(key.In6U.U6Addr8[:])
-			ipStr = ip.String()
-		}
+		ipStr := FormatIn6Addr(&key)
 
 		if search != "" && !strings.Contains(ipStr, search) {
 			continue

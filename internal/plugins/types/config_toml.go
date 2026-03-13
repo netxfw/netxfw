@@ -125,24 +125,36 @@ lock_list_v6_mask = 64
 whitelist = []
 
 # ----------------------------------------------------------------------------
-# 2.2 Port Configuration / 端口配置
+# 2.2 Log Engine / 日志引擎
+# ----------------------------------------------------------------------------
+[log_engine]
+# Enable Log Engine: Enable structured logging.
+# 启用日志引擎：启用结构化日志。
+enabled = false
+# Workers: Number of log processing workers.
+# 工作线程：日志处理工作线程数。
+workers = 4
+# Log Rules: Log filtering and processing rules.
+# 日志规则：日志过滤和处理规则。
+rules = []
+
+# ----------------------------------------------------------------------------
+# 2.3 Port Configuration / 端口配置
 # ----------------------------------------------------------------------------
 [port]
 # Allowed Ports: List of ports allowed for incoming connections.
 # 允许端口：允许传入连接的端口列表。
-allowed_ports = []
+allowed_ports = [22]
 
 # ----------------------------------------------------------------------------
-# 2.3 IP-Port Rules / IP-端口规则
+# 2.4 IP-Port Rules / IP-端口规则
 # ----------------------------------------------------------------------------
 # Specific IP+Port based filtering rules / 基于特定 IP+端口的过滤规则
-# action: 0 = Deny / 拒绝, 1 = Allow / 允许
-ip_port_rules = [
-    { ip = "0.0.0.0", port = 22, action = 1 },
-]
+# action: 0 = Deny / 拒绝，1 = Allow / 允许
+ip_port_rules = []
 
 # ----------------------------------------------------------------------------
-# 2.4 Rate Limit / 速率限制
+# 2.5 Rate Limit / 速率限制
 # ----------------------------------------------------------------------------
 [rate_limit]
 # Enable Rate Limit: Enable per-client rate limiting.
@@ -159,7 +171,7 @@ auto_block_expiry = "10m"
 rules = []
 
 # ----------------------------------------------------------------------------
-# 2.5 Connection Tracking / 连接跟踪
+# 2.6 Connection Tracking / 连接跟踪
 # ----------------------------------------------------------------------------
 [conntrack]
 # Enable Conntrack: Track TCP/UDP connections.
@@ -309,21 +321,7 @@ avg_packet_size = 500
 # ============================================================================
 
 # ----------------------------------------------------------------------------
-# 5.1 Log Engine / 日志引擎
-# ----------------------------------------------------------------------------
-[log_engine]
-# Enable Log Engine: Enable structured logging.
-# 启用日志引擎：启用结构化日志。
-enabled = false
-# Workers: Number of log processing workers.
-# 工作线程：日志处理工作线程数。
-workers = 4
-# Log Rules: Log filtering and processing rules.
-# 日志规则：日志过滤和处理规则。
-rules = []
-
-# ----------------------------------------------------------------------------
-# 5.2 Application Logging / 应用日志
+# 5.1 Application Logging / 应用日志
 # ----------------------------------------------------------------------------
 [logging]
 # Enable Logging: Enable file-based logging.
@@ -381,39 +379,5 @@ trusted_lb_ranges = []
 # Cache TTL: Cache duration for resolved real IPs.
 # 缓存 TTL：解析的真实 IP 缓存持续时间。
 cache_ttl = "5m"
-
-# ----------------------------------------------------------------------------
-# 6.3 AI Assistant / AI 助手
-# ----------------------------------------------------------------------------
-[ai]
-# Enable AI: Enable AI assistant features.
-# 启用 AI：启用 AI 助手功能。
-enabled = false
-# AI Port: HTTP server port for AI assistant.
-# AI 端口：AI 助手 HTTP 服务器端口。
-port = 11813
-# API Key: API key for AI service.
-# API 密钥：AI 服务的 API 密钥。
-api_key = ""
-# Model: AI model to use.
-# 模型：使用的 AI 模型。
-model = ""
-# Base URL: AI service base URL.
-# 基础 URL：AI 服务基础 URL。
-base_url = ""
-
-# ----------------------------------------------------------------------------
-# 6.4 MCP Server / MCP 服务器
-# ----------------------------------------------------------------------------
-[mcp]
-# Enable MCP: Enable MCP server.
-# 启用 MCP：启用 MCP 服务器。
-enabled = false
-# MCP Port: MCP server port.
-# MCP 端口：MCP 服务器端口。
-port = 11814
-# MCP Mode: Communication mode (stdio/sse).
-# MCP 模式：通信模式（stdio/sse）。
-mode = "sse"
 
 `

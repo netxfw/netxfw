@@ -217,8 +217,10 @@ func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
 		case <-ticker.C:
 			m, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
 			if err != nil {
+				log.Warnf("[WARN]  Failed to create XDP manager for cleanup: %v", err)
 				continue
 			}
+
 			// Cleanup all maps that support expiration / 清理所有支持过期的 Map
 			removed, _ := xdp.CleanupExpiredRules(m.LockList(), false)
 			removedW, _ := xdp.CleanupExpiredRules(m.Whitelist(), false)

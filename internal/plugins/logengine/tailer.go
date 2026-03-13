@@ -81,6 +81,8 @@ func (t *Tailer) tailFile(filename string, mode string) {
 
 			if pos, err := tailer.Tell(); err == nil {
 				t.checkpoint.UpdateOffset(filename, pos)
+			} else {
+				t.logger.Warnf("[WARN]  Failed to get position for %s: %v", filename, err)
 			}
 		}
 		t.wg.Done()
