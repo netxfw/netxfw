@@ -37,68 +37,56 @@ Use -v for verbose output with detailed statistics`,
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
+			if verbose {
+				return showStatus(cmd.Context(), s)
+			}
+
 			pass, drops, err := s.Stats.GetCounters()
 			if err != nil {
 				fmt.Printf("[WARN] Could not retrieve statistics: %v\n", err)
 				return nil
 			}
 
-			if verbose {
-				fmt.Println("[OK] XDP Program Status: Loaded and Running")
-				showTrafficMetrics(pass, drops)
-				showConntrackHealth(s.GetManager())
-				showMapStatistics(s.GetManager())
-				showConclusionStatistics(s.GetManager(), s.Stats)
+			fmt.Println("[OK] Firewall Status: Running")
+			fmt.Println()
 
-				fmt.Println()
-				fmt.Println("=== Verbose Status ===")
-				showDropStatistics(s.Stats, drops, pass)
-				showPassStatistics(s.Stats, pass, drops)
-				showProtocolDistribution(s.Stats, pass, drops)
-				showPolicyConfiguration()
-				showAttachedInterfaces()
-			} else {
-				fmt.Println("[OK] Firewall Status: Running")
-				fmt.Println()
+			totalPackets := pass + drops
+			passPercent := float64(pass) / float64(totalPackets) * 100
+			fmt.Printf("[Stats] Traffic: %s packets (Pass: %.1f%%, Drop: %.1f%%)\n",
+				fmtutil.FormatNumberWithComma(totalPackets), passPercent, 100-passPercent)
 
-				totalPackets := pass + drops
-				passPercent := float64(pass) / float64(totalPackets) * 100
-				fmt.Printf("[Stats] Traffic: %s packets (Pass: %.1f%%, Drop: %.1f%%)\n",
-					fmtutil.FormatNumberWithComma(totalPackets), passPercent, 100-passPercent)
-
-				trafficStats, err := xdp.LoadTrafficStats()
-				if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
-					fmt.Printf("[Rate] Current: %s pps (%s)\n",
-						fmtutil.FormatNumberWithComma(trafficStats.CurrentPPS),
-						fmtutil.FormatBPS(trafficStats.CurrentBPS))
-				}
-
-				blacklistCount, _ := s.GetManager().GetLockedIPCount()
-				dynBlacklistCount, _ := s.GetManager().GetDynLockListCount()
-				totalBlocked := uint64(blacklistCount) + uint64(dynBlacklistCount)
-				if totalBlocked > 0 {
-					fmt.Printf("[Block] Banned IPs: %s (Static: %s, Dynamic: %s)\n",
-						fmtutil.FormatNumberWithComma(totalBlocked),
-						fmtutil.FormatNumberWithComma(uint64(blacklistCount)),
-						fmtutil.FormatNumberWithComma(uint64(dynBlacklistCount)))
-				} else {
-					fmt.Println("[Block] Banned IPs: 0")
-				}
-
-				connCount, _ := s.GetManager().GetConntrackCount()
-				fmt.Printf("[Conn] Active connections: %s\n", fmtutil.FormatNumberWithComma(uint64(connCount)))
-
-				whitelistCount, _ := s.GetManager().GetWhitelistCount()
-				if whitelistCount > 0 {
-					fmt.Printf("[Allow] Whitelisted IPs: %s\n", fmtutil.FormatNumberWithComma(uint64(whitelistCount)))
-				}
-
-				showCompactMapStatistics(s.GetManager())
-				showTopBlockedIPs(s.Stats, drops)
-
-				fmt.Println()
-				fmt.Println("[Tip] Use 'netxfw status -v' for detailed info")
+			trafficStats, err := xdp.LoadTrafficStats()
+			if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
+				fmt.Printf("[Rate] Current: %s pps (%s)\n",
+					fmtutil.FormatNumberWithComma(trafficStats.CurrentPPS),
+					fmtutil.FormatBPS(trafficStats.CurrentBPS))
 			}
+
+			blacklistCount, _ := s.GetManager().GetLockedIPCount()
+			dynBlacklistCount, _ := s.GetManager().GetDynLockListCount()
+			totalBlocked := uint64(blacklistCount) + uint64(dynBlacklistCount)
+			if totalBlocked > 0 {
+				fmt.Printf("[Block] Banned IPs: %s (Static: %s, Dynamic: %s)\n",
+					fmtutil.FormatNumberWithComma(totalBlocked),
+					fmtutil.FormatNumberWithComma(uint64(blacklistCount)),
+					fmtutil.FormatNumberWithComma(uint64(dynBlacklistCount)))
+			} else {
+				fmt.Println("[Block] Banned IPs: 0")
+			}
+
+			connCount, _ := s.GetManager().GetConntrackCount()
+			fmt.Printf("[Conn] Active connections: %s\n", fmtutil.FormatNumberWithComma(uint64(connCount)))
+
+			whitelistCount, _ := s.GetManager().GetWhitelistCount()
+			if whitelistCount > 0 {
+				fmt.Printf("[Allow] Whitelisted IPs: %s\n", fmtutil.FormatNumberWithComma(uint64(whitelistCount)))
+			}
+
+			showCompactMapStatistics(s.GetManager())
+			showTopBlockedIPs(s.Stats, drops)
+
+			fmt.Println()
+			fmt.Println("[Tip] Use 'netxfw status -v' for detailed info")
 			return nil
 		})
 	},

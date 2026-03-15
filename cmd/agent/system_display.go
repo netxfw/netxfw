@@ -42,15 +42,15 @@ func showStatus(ctx context.Context, s *sdk.SDK) error {
 		return nil
 	}
 
-	showTrafficMetrics(pass, drops)
 	showDropStatistics(s.Stats, drops, pass)
 	showPassStatistics(s.Stats, pass, drops)
 	showProtocolDistribution(s.Stats, pass, drops)
 	showConntrackHealth(mgr)
-	showMapStatistics(mgr)
 	showPolicyConfiguration()
-	showAttachedInterfaces()
 	showConclusionStatistics(mgr, s.Stats)
+	showMapStatistics(mgr)
+	showTrafficMetrics(pass, drops)
+	showAttachedInterfaces()
 
 	return nil
 }
