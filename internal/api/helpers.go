@@ -49,7 +49,7 @@ func parseIPPortAction(input string) (string, uint16, uint8, error) {
 	// Check if the last part is a valid action
 	// 检查最后一部分是否为有效动作
 	suffix := input[lastColon+1:]
-	var action uint8 = 0 // Default deny
+	var action uint8 = 0
 	hasAction := false
 
 	if suffix == "allow" {

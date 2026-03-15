@@ -52,8 +52,8 @@ func (c *PortConfig) Validate() error {
 		if rule.Port == 0 {
 			return fmt.Errorf("invalid ip_port_rule #%d: port cannot be 0", i)
 		}
-		if rule.Action != 1 && rule.Action != 2 {
-			return fmt.Errorf("invalid ip_port_rule #%d: action must be 1 (allow) or 2 (deny)", i)
+		if rule.Action != 0 && rule.Action != 1 {
+			return fmt.Errorf("invalid ip_port_rule #%d: action must be 0 (deny) or 1 (allow)", i)
 		}
 		if err := validateIP(rule.IP); err != nil {
 			return fmt.Errorf("invalid ip_port_rule #%d IP (%s): %w", i, rule.IP, err)

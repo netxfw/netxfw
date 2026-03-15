@@ -59,10 +59,10 @@ func TestRuleAddCmd(t *testing.T) {
 	mockBlacklist.AssertExpectations(t)
 
 	// Test adding IP+Port rule / 测试添加 IP+端口规则
-	mockRule.On("AddIPPortRule", "10.0.0.1", uint16(80), uint8(2)).Return(nil)
+	mockRule.On("AddIPPortRule", "10.0.0.1", uint16(80), uint8(0)).Return(nil)
 	output, err = executeCommand(RuleCmd, "add", "10.0.0.1:80", "deny")
 	assert.NoError(t, err)
-	assert.Contains(t, output, "Rule added: 10.0.0.1:80 (Action: 2)")
+	assert.Contains(t, output, "Rule added: 10.0.0.1:80 (Action: 0)")
 	mockRule.AssertExpectations(t)
 }
 
@@ -81,7 +81,7 @@ func TestRuleListCmd(t *testing.T) {
 
 	mockWhitelist.On("List", 100, "").Return([]string{"1.1.1.1"}, 1, nil)
 	mockBlacklist.On("List", 100, "").Return([]sdk.BlockedIP{{IP: "2.2.2.2"}}, 1, nil)
-	mockRule.On("ListIPPortRules", 100, "").Return([]sdk.IPPortRule{{IP: "3.3.3.3", Port: 80, Action: 2}}, 1, nil)
+	mockRule.On("ListIPPortRules", 100, "").Return([]sdk.IPPortRule{{IP: "3.3.3.3", Port: 80, Action: 0}}, 1, nil)
 
 	// Test list all / 测试列出所有
 	output, err := executeCommand(RuleCmd, "list")

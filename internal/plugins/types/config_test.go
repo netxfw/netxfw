@@ -297,7 +297,7 @@ func TestPortConfig_Fields(t *testing.T) {
 	cfg := PortConfig{
 		IPPortRules: []IPPortRule{
 			{IP: "192.168.1.1", Port: 80, Action: 1},
-			{IP: "10.0.0.1", Port: 443, Action: 2},
+			{IP: "10.0.0.1", Port: 443, Action: 0},
 		},
 	}
 

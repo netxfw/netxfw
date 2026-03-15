@@ -175,7 +175,7 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
             update_pass_stats_with_reason(PASS_REASON_WHITELIST, ip->protocol, &src_ip6, dest_port);
             return XDP_PASS;
         }
-        if (unlikely(rule_action == 2)) {
+        if (unlikely(rule_action == 0)) {
             update_drop_stats_with_reason(DROP_REASON_BLACKLIST, ip->protocol, &src_ip6, dest_port);
             return XDP_DROP;
         }
@@ -197,11 +197,11 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
     if (unlikely(cached_allow_return == 1)) {
         if (ip->protocol == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip + sizeof(*ip);
-            if ((void *)tcp + sizeof(*tcp) <= data_end && tcp->ack && dest_port >= 32768) {
+            if ((void *)tcp + sizeof(*tcp) <= data_end && tcp->ack) {
                 update_pass_stats_with_reason(PASS_REASON_RETURN, ip->protocol, &src_ip6, dest_port);
                 return XDP_PASS;
             }
-        } else if (ip->protocol == IPPROTO_UDP && dest_port >= 32768) {
+        } else if (ip->protocol == IPPROTO_UDP) {
             update_pass_stats_with_reason(PASS_REASON_RETURN, ip->protocol, &src_ip6, dest_port);
             return XDP_PASS;
         }

@@ -141,7 +141,7 @@ Examples:
 
 			// 4. Execute
 			if port > 0 {
-				var act uint8 = 2
+				var act uint8 = 0
 				if isAllow {
 					act = 1
 				}
@@ -563,7 +563,7 @@ func importIPPortRules(s *sdk.SDK, rules []ExportRule) importResult {
 			result.failed++
 			continue
 		}
-		action := uint8(0) // Deny default
+		action := uint8(0)
 		if rule.Action == actionAllow {
 			action = 1
 		}

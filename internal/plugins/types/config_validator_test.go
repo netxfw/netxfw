@@ -210,7 +210,7 @@ func TestConfigValidator_ValidatePortConfig(t *testing.T) {
 				AllowedPorts: []uint16{80, 443, 8080},
 				IPPortRules: []IPPortRule{
 					{IP: "192.168.1.1", Port: 80, Action: 1},
-					{IP: "10.0.0.0/24", Port: 443, Action: 2},
+					{IP: "10.0.0.0/24", Port: 443, Action: 0},
 				},
 			},
 		}

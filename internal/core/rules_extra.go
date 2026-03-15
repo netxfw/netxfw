@@ -637,7 +637,7 @@ func ImportIPPortRulesFromFile(ctx context.Context, xdpMgr XDPManager, path stri
 					continue
 				}
 				actionStr := strings.ToLower(parts[2])
-				action := uint8(0) // Deny
+				action := uint8(0)
 				if actionStr == "allow" {
 					action = 1
 				}

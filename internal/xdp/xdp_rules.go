@@ -164,9 +164,9 @@ func AddIPPortRuleToMapString(mapPtr *ebpf.Map, cidr string, port uint16, action
 
 /**
  * AddIPPortRule adds an IP+Port rule to the firewall.
- * action: 1 for allow, 2 for deny
+ * action: 0 for deny, 1 for allow
  * AddIPPortRule 向防火墙添加 IP+端口规则。
- * action: 1 表示允许，2 表示拒绝
+ * action: 0 表示拒绝，1 表示允许
  */
 func (m *Manager) AddIPPortRule(ipNet *net.IPNet, port uint16, action uint8, expiresAt *time.Time) error {
 	return AddIPPortRuleToMap(m.ruleMap, ipNet, port, action, expiresAt)
@@ -313,9 +313,9 @@ func (m *Manager) ListIPPortRules(isIPv6 bool, limit int, search string) (map[st
 
 	for _, r := range rulesSlice {
 		key := fmt.Sprintf("%s:%d", r.IP, r.Port)
-		action := "allow"
-		if r.Action == 2 {
-			action = "deny"
+		action := "deny"
+		if r.Action == 1 {
+			action = "allow"
 		}
 		rulesMap[key] = action
 	}

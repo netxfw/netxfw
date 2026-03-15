@@ -25,14 +25,21 @@ func NewMetricsHandler(s *sdk.SDK) *MetricsHandler {
 
 // RegisterMetricsRoutes registers metrics API routes to the server's mux.
 // RegisterMetricsRoutes 注册指标 API 路由到服务器的 mux。
-func RegisterMetricsRoutes(mux *http.ServeMux, s *sdk.SDK) {
+func RegisterMetricsRoutes(mux *http.ServeMux, s *sdk.SDK, middleware func(http.Handler) http.Handler) {
 	handler := NewMetricsHandler(s)
-	mux.HandleFunc("/api/v1/metrics", handler.HandleMetrics)
-	mux.HandleFunc("/api/v1/metrics/traffic", handler.HandleTrafficMetrics)
-	mux.HandleFunc("/api/v1/metrics/conntrack", handler.HandleConntrackHealth)
-	mux.HandleFunc("/api/v1/metrics/maps", handler.HandleMapUsage)
-	mux.HandleFunc("/api/v1/metrics/ratelimit", handler.HandleRateLimitStats)
-	mux.HandleFunc("/api/v1/metrics/protocols", handler.HandleProtocolStats)
+	register := func(path string, fn http.HandlerFunc) {
+		h := http.Handler(http.HandlerFunc(fn))
+		if middleware != nil {
+			h = middleware(h)
+		}
+		mux.Handle(path, h)
+	}
+	register("/api/v1/metrics", handler.HandleMetrics)
+	register("/api/v1/metrics/traffic", handler.HandleTrafficMetrics)
+	register("/api/v1/metrics/conntrack", handler.HandleConntrackHealth)
+	register("/api/v1/metrics/maps", handler.HandleMapUsage)
+	register("/api/v1/metrics/ratelimit", handler.HandleRateLimitStats)
+	register("/api/v1/metrics/protocols", handler.HandleProtocolStats)
 }
 
 // getManager extracts the xdp.Manager from the SDK.

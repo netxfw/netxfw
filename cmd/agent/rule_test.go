@@ -48,7 +48,7 @@ func TestRuleAddIPPortCmd(t *testing.T) {
 	}
 
 	// Test adding IP:Port deny rule / 测试添加 IP:端口 拒绝规则
-	mockRule.On("AddIPPortRule", "192.168.1.1", uint16(80), uint8(2)).Return(nil)
+	mockRule.On("AddIPPortRule", "192.168.1.1", uint16(80), uint8(0)).Return(nil)
 	_, err := executeCommand(RuleCmd, "add", "192.168.1.1:80", "deny")
 	assert.NoError(t, err)
 	mockRule.AssertExpectations(t)
@@ -206,7 +206,7 @@ func TestRuleAddPort8080Cmd(t *testing.T) {
 	}
 
 	// Test adding IP:Port rule for port 8080 / 测试添加端口 8080 的 IP:端口 规则
-	mockRule.On("AddIPPortRule", "10.0.0.1", uint16(8080), uint8(2)).Return(nil)
+	mockRule.On("AddIPPortRule", "10.0.0.1", uint16(8080), uint8(0)).Return(nil)
 	_, err := executeCommand(RuleCmd, "add", "10.0.0.1:8080", "deny")
 	assert.NoError(t, err)
 	mockRule.AssertExpectations(t)
@@ -295,7 +295,7 @@ func TestRuleAddPort3306Cmd(t *testing.T) {
 	}
 
 	// Test adding IP:Port rule for MySQL / 测试添加 MySQL 的 IP:端口 规则
-	mockRule.On("AddIPPortRule", "192.168.1.100", uint16(3306), uint8(2)).Return(nil)
+	mockRule.On("AddIPPortRule", "192.168.1.100", uint16(3306), uint8(0)).Return(nil)
 	_, err := executeCommand(RuleCmd, "add", "192.168.1.100:3306", "deny")
 	assert.NoError(t, err)
 	mockRule.AssertExpectations(t)

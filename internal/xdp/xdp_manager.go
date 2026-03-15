@@ -100,20 +100,8 @@ func NewManager(cfg types.CapacityConfig, logger Logger) (*Manager, error) {
 	// Initialize performance statistics tracker / 初始化性能统计跟踪器
 	manager.perfStats = NewPerformanceStats()
 
-	// Initialize jump table with default protocol handlers / 初始化跳转表，填充默认的协议处理程序
-	if objs.XdpIpv4 != nil {
-		// objs.XdpIpv4 now contains the MAIN logic (IPv4 + IPv6 + etc)
-		// objs.XdpIpv4 现在包含主逻辑（IPv4 + IPv6 + 等），将其放入 ProgIdxMain (1)
-		if err := objs.JmpTable.Update(uint32(ProgIdxMain), objs.XdpIpv4, ebpf.UpdateAny); err != nil {
-			return nil, fmt.Errorf("failed to update jmp_table with main program (was xdp_ipv4): %w", err)
-		}
-	}
-	if objs.XdpIpv6 != nil {
-		// objs.XdpIpv6 now contains the DEFAULT DENY logic
-		// objs.XdpIpv6 现在包含默认拒绝逻辑，将其放入 ProgIdxDefaultDeny (15)
-		if err := objs.JmpTable.Update(uint32(ProgIdxDefaultDeny), objs.XdpIpv6, ebpf.UpdateAny); err != nil {
-			return nil, fmt.Errorf("failed to update jmp_table with default deny (was xdp_ipv6): %w", err)
-		}
+	if err := manager.initCoreJumpTable(); err != nil {
+		return nil, err
 	}
 
 	return manager, nil
@@ -140,6 +128,20 @@ func (m *Manager) initMapReferences(objs *NetXfwObjects) {
 	m.jmpTable = objs.JmpTable
 	m.chainMap = objs.ChainMap
 	m.xskMap = objs.XskMap
+}
+
+func (m *Manager) initCoreJumpTable() error {
+	if m.objs.XdpIpv4 != nil {
+		if err := m.objs.JmpTable.Update(uint32(ProgIdxMain), m.objs.XdpIpv4, ebpf.UpdateAny); err != nil {
+			return fmt.Errorf("failed to update jmp_table with main program (was xdp_ipv4): %w", err)
+		}
+	}
+	if m.objs.XdpIpv6 != nil {
+		if err := m.objs.JmpTable.Update(uint32(ProgIdxDefaultDeny), m.objs.XdpIpv6, ebpf.UpdateAny); err != nil {
+			return fmt.Errorf("failed to update jmp_table with default deny (was xdp_ipv6): %w", err)
+		}
+	}
+	return nil
 }
 
 /**
@@ -237,6 +239,10 @@ func NewManagerFromPins(path string, logger Logger) (*Manager, error) {
 
 	// Initialize performance statistics tracker / 初始化性能统计跟踪器
 	m.perfStats = NewPerformanceStats()
+
+	if err := m.initCoreJumpTable(); err != nil {
+		return nil, err
+	}
 
 	return m, nil
 }

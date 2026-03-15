@@ -52,7 +52,7 @@ struct lpm_ip_port_key {
 struct rule_value {
     __u64 counter;     // Packet counter / 数据包计数器
     __u64 expires_at;  // Expiry timestamp (0 = never) / 过期时间戳（0 = 永不过期）
-    __u8  action;      // Action: 1=allow, 2=deny / 动作：1=允许，2=拒绝
+    __u8  action;      // Action: 0=deny, 1=allow / 动作：0=拒绝，1=允许
     __u8  priority;    // Priority for rule ordering / 规则优先级
     __u8  _pad[6];
 };

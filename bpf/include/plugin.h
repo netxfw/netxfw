@@ -24,22 +24,8 @@
  * 继续执行后续插件或核心逻辑的辅助函数
  */
 static __always_inline void netxfw_plugin_continue(struct xdp_md *ctx) {
-    // For now, we jump directly to the protocol handlers
-    // Currently, we don't support chaining plugins automatically via this helper 
-    // without more complex logic. 
-    // Simple approach: Jump to the core firewall logic entry point
-    // 目前，我们直接跳转到协议处理程序
-    // 当前，如果不使用更复杂的逻辑，我们不支持通过此辅助函数自动链接插件。
-    // 简单方法：跳转到核心防火墙逻辑入口点
-    struct ethhdr *eth = (void *)(long)ctx->data;
-    void *data_end = (void *)(long)ctx->data_end;
-    if ((void *)(eth + 1) > data_end) return;
-
-    if (eth->h_proto == bpf_htons(ETH_P_IP)) {
-        bpf_tail_call(ctx, &jmp_table, PROG_IDX_IPV4);
-    } else if (eth->h_proto == bpf_htons(ETH_P_IPV6)) {
-        bpf_tail_call(ctx, &jmp_table, PROG_IDX_IPV6);
-    }
+    bpf_tail_call(ctx, &jmp_table, PROG_IDX_MAIN);
+    bpf_tail_call(ctx, &jmp_table, PROG_IDX_DEFAULT_DENY);
 }
 
 /**

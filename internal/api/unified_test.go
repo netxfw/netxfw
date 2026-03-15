@@ -69,7 +69,7 @@ func TestHandleStats(t *testing.T) {
 	err := json.Unmarshal(rec.Body.Bytes(), &resp)
 	assert.NoError(t, err)
 	assert.Contains(t, resp, "packets")
-	
+
 	packets, ok := resp["packets"].(map[string]any)
 	assert.True(t, ok)
 	assert.Contains(t, packets, "passed")
@@ -1003,7 +1003,7 @@ func TestHandleRules_RateLimit(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	server.handleRules(rec, req)
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 // TestHandleRules_AllowedPorts tests allowed ports handling
@@ -1019,13 +1019,13 @@ func TestHandleRules_AllowedPorts(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	server.handleRules(rec, req)
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 // TestHandleRules_UnknownType tests rules with unknown type
 // TestHandleRules_UnknownType 测试未知类型的规则
-// Note: Unknown types are ignored and return success
-// 注意：未知类型被忽略并返回成功
+// Note: Unknown types now return bad request
+// 注意：未知类型现在返回 bad request
 func TestHandleRules_UnknownType(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	s := sdk.NewSDK(mockMgr)
@@ -1037,9 +1037,7 @@ func TestHandleRules_UnknownType(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	server.handleRules(rec, req)
-	// Unknown type is ignored, returns success
-	// 未知类型被忽略，返回成功
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 // TestHandleConfig_Get tests config GET endpoint

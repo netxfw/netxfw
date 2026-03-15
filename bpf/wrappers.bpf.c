@@ -28,6 +28,7 @@ static __always_inline int parse_packet_info(struct xdp_md *ctx, void **data_end
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
     *data_end_ptr = data_end;
+    *ip_ptr = 0;
 
     struct ethhdr *eth = data;
     if (unlikely(data + sizeof(*eth) > data_end)) return -1;
@@ -74,10 +75,62 @@ static __always_inline int parse_packet_info(struct xdp_md *ctx, void **data_end
                 *dest_port = bpf_ntohs(udp->dest);
             }
         }
-        return 0; // IPv4
+        return 0;
     }
-    // TODO: IPv6 support
-    return -2; // Not IPv4
+    if (h_proto == bpf_htons(ETH_P_IPV6)) {
+        struct ipv6hdr *ip6 = network_header;
+        if (unlikely((void *)ip6 + sizeof(*ip6) > data_end)) return -1;
+        *protocol = ip6->nexthdr;
+        *src_ip6 = ip6->saddr;
+
+        void *cur_header = (void *)ip6 + sizeof(*ip6);
+        __u8 next_proto = *protocol;
+
+        #pragma unroll
+        for (int i = 0; i < 4; i++) {
+            if (unlikely(cur_header + 2 > data_end)) return -1;
+            if (next_proto == IPPROTO_TCP || next_proto == IPPROTO_UDP) break;
+
+            if (next_proto == IPPROTO_HOPOPTS || next_proto == IPPROTO_ROUTING ||
+                next_proto == IPPROTO_DSTOPTS || next_proto == IPPROTO_AH) {
+                __u8 *hdr_ptr = cur_header;
+                next_proto = *hdr_ptr;
+                __u8 len_val = *(hdr_ptr + 1);
+                int ext_len = (len_val + 1) * 8;
+                if (unlikely(cur_header + ext_len > data_end)) return -1;
+                cur_header += ext_len;
+            } else if (next_proto == IPPROTO_FRAGMENT) {
+                if (unlikely(cur_header + 8 > data_end)) return -1;
+                struct ipv6_frag_hdr *frag = cur_header;
+                next_proto = frag->nexthdr;
+                if (bpf_ntohs(frag->frag_off) & 0xfff8) {
+                    *protocol = next_proto;
+                    return 1;
+                }
+                cur_header += 8;
+            } else {
+                break;
+            }
+        }
+
+        *protocol = next_proto;
+        if (next_proto == IPPROTO_TCP) {
+            struct tcphdr *tcp = cur_header;
+            if (likely((void *)tcp + sizeof(*tcp) <= data_end)) {
+                *dest_port = bpf_ntohs(tcp->dest);
+                if (likely(tcp->doff >= 5)) {
+                    *tcp_flags = ((__u8 *)tcp)[13];
+                }
+            }
+        } else if (next_proto == IPPROTO_UDP) {
+            struct udphdr *udp = cur_header;
+            if (likely((void *)udp + sizeof(*udp) <= data_end)) {
+                *dest_port = bpf_ntohs(udp->dest);
+            }
+        }
+        return 1;
+    }
+    return -2;
 }
 
 SEC("xdp/sanity")
@@ -90,7 +143,8 @@ int xdp_sanity(struct xdp_md *ctx) {
     __u8 tcp_flags = 0;
 
     int ret = parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags);
-    if (ret != 0) return XDP_PASS; // Skip non-IPv4 for now or pass
+    if (ret < 0) return XDP_PASS;
+    if (ret != 0) return tail_call_next(ctx, MOD_ID_SANITY);
 
     // Bogon Filter
     if (unlikely(cached_bogon_filter == 1)) {
@@ -138,7 +192,7 @@ int xdp_critical(struct xdp_md *ctx) {
     __u8 protocol = 0;
     __u8 tcp_flags = 0;
 
-    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) != 0) return XDP_PASS;
+    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) < 0) return XDP_PASS;
 
     struct rule_value *critical = bpf_map_lookup_elem(&critical_blacklist, &src_ip6);
     if (unlikely(critical)) {
@@ -159,7 +213,7 @@ int xdp_whitelist(struct xdp_md *ctx) {
     __u8 protocol = 0;
     __u8 tcp_flags = 0;
 
-    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) != 0) return XDP_PASS;
+    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) < 0) return XDP_PASS;
 
     if (unlikely(is_whitelisted(&src_ip6, dest_port))) {
         update_pass_stats_with_reason(PASS_REASON_WHITELIST, protocol, &src_ip6, dest_port);
@@ -180,7 +234,7 @@ int xdp_blacklist(struct xdp_md *ctx) {
     __u8 protocol = 0;
     __u8 tcp_flags = 0;
 
-    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) != 0) return XDP_PASS;
+    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) < 0) return XDP_PASS;
 
     // Check static blacklist (LPM)
     // 检查静态黑名单 (LPM)
@@ -203,7 +257,7 @@ int xdp_dynamic_blacklist(struct xdp_md *ctx) {
     __u8 protocol = 0;
     __u8 tcp_flags = 0;
 
-    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) != 0) return XDP_PASS;
+    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) < 0) return XDP_PASS;
 
     // Check dynamic blacklist (LRU)
     // 检查动态黑名单 (LRU)
@@ -226,7 +280,7 @@ int xdp_ratelimit(struct xdp_md *ctx) {
     __u8 protocol = 0;
     __u8 tcp_flags = 0;
 
-    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) != 0) return XDP_PASS;
+    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) < 0) return XDP_PASS;
 
     if (likely(cached_ratelimit_enabled == 1)) {
         int is_syn = (protocol == IPPROTO_TCP && (tcp_flags & 0x02));
@@ -250,9 +304,11 @@ int xdp_conntrack(struct xdp_md *ctx) {
     __u8 protocol = 0;
     __u8 tcp_flags = 0;
 
-    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) != 0) return XDP_PASS;
+    int ret = parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags);
+    if (ret < 0) return XDP_PASS;
 
     if (likely(cached_ct_enabled == 1)) {
+        if (ret != 0) return tail_call_next(ctx, MOD_ID_CONNTRACK);
         struct in6_addr dst_ip6 = {};
         ipv4_to_ipv6_mapped(ip->daddr, &dst_ip6);
 
@@ -292,7 +348,7 @@ int xdp_rules(struct xdp_md *ctx) {
     __u8 protocol = 0;
     __u8 tcp_flags = 0;
 
-    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) != 0) return XDP_PASS;
+    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) < 0) return XDP_PASS;
 
     if (dest_port > 0) {
         int rule_action = check_ip_port_rule(&src_ip6, dest_port);
@@ -300,7 +356,7 @@ int xdp_rules(struct xdp_md *ctx) {
             update_pass_stats_with_reason(PASS_REASON_WHITELIST, protocol, &src_ip6, dest_port);
             return XDP_PASS;
         }
-        if (unlikely(rule_action == 2)) {
+        if (unlikely(rule_action == 0)) {
             update_drop_stats_with_reason(DROP_REASON_BLACKLIST, protocol, &src_ip6, dest_port);
             return XDP_DROP;
         }
@@ -318,7 +374,7 @@ int xdp_icmp(struct xdp_md *ctx) {
     __u8 protocol = 0;
     __u8 tcp_flags = 0;
 
-    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) != 0) return XDP_PASS;
+    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) < 0) return XDP_PASS;
 
     if (unlikely(protocol == IPPROTO_ICMP && cached_allow_icmp == 1)) {
         if (likely(check_icmp_limit(cached_icmp_rate, cached_icmp_burst))) {
@@ -341,15 +397,17 @@ int xdp_return(struct xdp_md *ctx) {
     __u8 protocol = 0;
     __u8 tcp_flags = 0;
 
-    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) != 0) return XDP_PASS;
+    if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) < 0) return XDP_PASS;
 
     if (unlikely(cached_allow_return == 1)) {
         if (protocol == IPPROTO_TCP) {
-            struct tcphdr *tcp = (void *)ip + (ip->ihl * 4);
-            if ((void *)tcp + sizeof(*tcp) <= data_end && tcp->ack && dest_port >= 32768) {
+            if (tcp_flags & 0x10) {
                 update_pass_stats_with_reason(PASS_REASON_RETURN, protocol, &src_ip6, dest_port);
                 return XDP_PASS;
             }
+        } else if (protocol == IPPROTO_UDP) {
+            update_pass_stats_with_reason(PASS_REASON_RETURN, protocol, &src_ip6, dest_port);
+            return XDP_PASS;
         }
     }
 

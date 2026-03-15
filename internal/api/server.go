@@ -80,7 +80,7 @@ func (s *Server) Handler() http.Handler {
 			return nil
 		}
 
-		log.Infof("[KEY] No Web Token configured. Automatically generated a new one: %s", token)
+		log.Infof("[KEY] No Web Token configured. Automatically generated and saved a new token")
 		log.Infof("[LOG] Token has been saved to %s", s.configPath)
 	} else {
 		log.Infof("[KEY] Using configured Web Token for authentication")
@@ -103,23 +103,24 @@ func (s *Server) Handler() http.Handler {
 
 	// API Routes
 	// API 路由
-	mux.HandleFunc("/api/stats", s.handleStats)
-	mux.HandleFunc("/api/rules", s.handleRules)
-	mux.HandleFunc("/api/config", s.handleConfig)
-	mux.HandleFunc("/api/sync", s.handleSync)
-	mux.HandleFunc("/api/conntrack", s.handleConntrack)
+	mux.HandleFunc("/api/login", s.handleLogin)
+	mux.Handle("/api/stats", s.withAuth(http.HandlerFunc(s.handleStats)))
+	mux.Handle("/api/rules", s.withAuth(http.HandlerFunc(s.handleRules)))
+	mux.Handle("/api/config", s.withAuth(http.HandlerFunc(s.handleConfig)))
+	mux.Handle("/api/sync", s.withAuth(http.HandlerFunc(s.handleSync)))
+	mux.Handle("/api/conntrack", s.withAuth(http.HandlerFunc(s.handleConntrack)))
 
 	// Performance monitoring API routes
 	// 性能监控 API 路由
-	mux.HandleFunc("/api/perf", s.handlePerfStats)
-	mux.HandleFunc("/api/perf/latency", s.handlePerfLatency)
-	mux.HandleFunc("/api/perf/cache", s.handlePerfCache)
-	mux.HandleFunc("/api/perf/traffic", s.handlePerfTraffic)
-	mux.HandleFunc("/api/perf/reset", s.handlePerfReset)
+	mux.Handle("/api/perf", s.withAuth(http.HandlerFunc(s.handlePerfStats)))
+	mux.Handle("/api/perf/latency", s.withAuth(http.HandlerFunc(s.handlePerfLatency)))
+	mux.Handle("/api/perf/cache", s.withAuth(http.HandlerFunc(s.handlePerfCache)))
+	mux.Handle("/api/perf/traffic", s.withAuth(http.HandlerFunc(s.handlePerfTraffic)))
+	mux.Handle("/api/perf/reset", s.withAuth(http.HandlerFunc(s.handlePerfReset)))
 
 	// Metrics API routes (v1)
 	// 指标 API 路由 (v1)
-	RegisterMetricsRoutes(mux, s.sdk)
+	RegisterMetricsRoutes(mux, s.sdk, s.withAuth)
 
 	// UI Route
 	// UI 路由
@@ -128,11 +129,11 @@ func (s *Server) Handler() http.Handler {
 	// Pprof routes for debugging (only if enabled in config)
 	// 调试用 Pprof 路由（仅在配置中启用时）
 	if cfg.Base.EnablePprof {
-		mux.HandleFunc("/debug/pprof/", pprof.Index)
-		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		mux.Handle("/debug/pprof/", s.withAuth(http.HandlerFunc(pprof.Index)))
+		mux.Handle("/debug/pprof/cmdline", s.withAuth(http.HandlerFunc(pprof.Cmdline)))
+		mux.Handle("/debug/pprof/profile", s.withAuth(http.HandlerFunc(pprof.Profile)))
+		mux.Handle("/debug/pprof/symbol", s.withAuth(http.HandlerFunc(pprof.Symbol)))
+		mux.Handle("/debug/pprof/trace", s.withAuth(http.HandlerFunc(pprof.Trace)))
 	}
 
 	return mux

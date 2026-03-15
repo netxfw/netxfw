@@ -291,9 +291,9 @@ func (v *ConfigValidator) validatePortConfig(cfg *PortConfig, result *Validation
 		}
 
 		// Validate action / 验证动作
-		if rule.Action != 0 && rule.Action != 1 && rule.Action != 2 {
+		if rule.Action != 0 && rule.Action != 1 {
 			result.AddError(fmt.Sprintf("%s.action", fieldPrefix),
-				"Action must be 0 (default), 1 (allow), or 2 (deny)", rule.Action)
+				"Action must be 0 (deny) or 1 (allow)", rule.Action)
 		}
 	}
 }

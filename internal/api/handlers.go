@@ -121,6 +121,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 
 		var wg sync.WaitGroup
 		wg.Add(3)
+		errCh := make(chan error, 3)
 
 		var locked []sdk.BlockedIP
 		var totalLocked int
@@ -131,22 +132,37 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 
 		go func() {
 			defer wg.Done()
-			locked, totalLocked, _ = s.sdk.Blacklist.List(limit, search)
+			var err error
+			locked, totalLocked, err = s.sdk.Blacklist.List(limit, search)
+			if err != nil {
+				errCh <- err
+			}
 		}()
 
 		go func() {
 			defer wg.Done()
-			whitelist, totalWhitelist, _ = s.sdk.Whitelist.List(limit, search)
+			var err error
+			whitelist, totalWhitelist, err = s.sdk.Whitelist.List(limit, search)
+			if err != nil {
+				errCh <- err
+			}
 		}()
 
 		go func() {
 			defer wg.Done()
-			// Get IP+Port rules (action 0=deny, 1=allow)
-			// 获取 IP+端口规则（action 0=拒绝, 1=允许）
-			ipPortRules, totalIPPort, _ = s.sdk.Rule.List(true, limit, search)
+			var err error
+			ipPortRules, totalIPPort, err = s.sdk.Rule.List(true, limit, search)
+			if err != nil {
+				errCh <- err
+			}
 		}()
 
 		wg.Wait()
+		close(errCh)
+		for err := range errCh {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		res := rulesResponse{
 			Blacklist:      locked,
@@ -171,13 +187,13 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var err error
-		if req.Action == "add" {
-			if req.Type == "blacklist" {
+		switch req.Action {
+		case "add":
+			switch req.Type {
+			case "blacklist":
 				err = s.sdk.Blacklist.Add(req.CIDR)
-			} else if req.Type == "whitelist" {
+			case "whitelist":
 				port := uint16(0)
-				// Parse optional port (e.g. 1.2.3.4:80 or [::1]:80)
-				// 解析可选端口（例如 1.2.3.4:80 或 [::1]:80）
 				host, pVal, pErr := iputil.ParseIPPort(req.CIDR)
 				if pErr == nil {
 					req.CIDR = host
@@ -189,24 +205,26 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 				} else {
 					err = s.sdk.Whitelist.Add(req.CIDR, 0)
 				}
-			} else if req.Type == "ip_port_rules" {
+			case "ip_port_rules":
 				ipStr, port, action, parseErr := parseIPPortAction(req.CIDR)
 				if parseErr != nil {
 					err = parseErr
 				} else {
 					ipNet, err2 := iputil.ParseCIDR(ipStr)
-
 					if err2 != nil {
 						err = err2
 					}
-
 					if err == nil {
 						err = s.sdk.Rule.Add(ipNet.String(), port, action)
 					}
 				}
+			default:
+				http.Error(w, "invalid type", http.StatusBadRequest)
+				return
 			}
-		} else {
-			if req.Type == "ip_port_rules" {
+		case "remove":
+			switch req.Type {
+			case "ip_port_rules":
 				ipStr, port, _, parseErr := parseIPPortAction(req.CIDR)
 				if parseErr != nil {
 					err = parseErr
@@ -219,11 +237,27 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 						err = s.sdk.Rule.Remove(ipNet.String(), port)
 					}
 				}
-			} else if req.Type == "blacklist" {
+			case "blacklist":
 				err = s.sdk.Blacklist.Remove(req.CIDR)
-			} else if req.Type == "whitelist" {
+			case "whitelist":
 				err = s.sdk.Whitelist.Remove(req.CIDR)
+			default:
+				http.Error(w, "invalid type", http.StatusBadRequest)
+				return
 			}
+		case "clear":
+			switch req.Type {
+			case "blacklist":
+				err = s.sdk.Blacklist.Clear()
+			case "whitelist":
+				err = s.sdk.Whitelist.Clear()
+			default:
+				http.Error(w, "invalid type", http.StatusBadRequest)
+				return
+			}
+		default:
+			http.Error(w, "invalid action", http.StatusBadRequest)
+			return
 		}
 
 		if err != nil {
@@ -231,6 +265,8 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 

@@ -134,7 +134,7 @@ func TestPortConfig_Validate(t *testing.T) {
 			name: "Valid rule - deny",
 			config: PortConfig{
 				IPPortRules: []IPPortRule{
-					{IP: "192.168.1.1", Port: 443, Action: 2},
+					{IP: "192.168.1.1", Port: 443, Action: 0},
 				},
 			},
 			wantErr: false,

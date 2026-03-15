@@ -202,7 +202,7 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
              update_pass_stats_with_reason(PASS_REASON_WHITELIST, next_proto, &ip6->saddr, dest_port);
              return XDP_PASS;
         }
-        if (unlikely(rule_action == 2)) {
+        if (unlikely(rule_action == 0)) {
              update_drop_stats_with_reason(DROP_REASON_BLACKLIST, next_proto, &ip6->saddr, dest_port);
              return XDP_DROP;
         }
@@ -222,13 +222,13 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
     // 8. Return traffic
     // 8. 返回流量
     if (unlikely(cached_allow_return == 1)) {
-        if (ip6->nexthdr == IPPROTO_TCP) {
+        if (next_proto == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
-            if ((void *)tcp + sizeof(*tcp) <= data_end && tcp->ack && dest_port >= 32768) {
+            if ((void *)tcp + sizeof(*tcp) <= data_end && tcp->ack) {
                 update_pass_stats_with_reason(PASS_REASON_RETURN, next_proto, &ip6->saddr, dest_port);
                 return XDP_PASS;
             }
-        } else if (ip6->nexthdr == IPPROTO_UDP && dest_port >= 32768) {
+        } else if (next_proto == IPPROTO_UDP) {
             update_pass_stats_with_reason(PASS_REASON_RETURN, next_proto, &ip6->saddr, dest_port);
             return XDP_PASS;
         }

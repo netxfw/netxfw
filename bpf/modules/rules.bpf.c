@@ -16,10 +16,10 @@ static __always_inline int is_whitelisted(struct in6_addr *ip, __u16 port) {
     // 使用最大前缀长度在 LPM Trie 中查找
     struct lpm_key key = { .prefixlen = 128 };
     __builtin_memcpy(&key.data, ip, sizeof(struct in6_addr));
-    
+
     struct rule_value *val = bpf_map_lookup_elem(&whitelist, &key);
     if (!val) return 0;
-    
+
     // If counter > 1, it's a specific port allowance (legacy/future feature?)
     // Standard whitelist usually allows all ports (counter=0 or 1?)
     // Based on original code: if (val->counter > 1 && val->counter != port) return 0;
@@ -29,7 +29,7 @@ static __always_inline int is_whitelisted(struct in6_addr *ip, __u16 port) {
     // 基于原始代码：if (val->counter > 1 && val->counter != port) return 0;
     // 假设如果 > 1，计数器保存端口。
     if (val->counter > 1 && val->counter != port) return 0;
-    
+
     return 1;
 }
 
@@ -48,9 +48,14 @@ static __always_inline int check_ip_port_rule(struct in6_addr *ip, __u16 port) {
         .port = port,
     };
     __builtin_memcpy(&key.ip, ip, sizeof(struct in6_addr));
-    
+
     struct rule_value *val = bpf_map_lookup_elem(&ip_port_rules, &key);
-    return val ? (__u8)val->counter : 0;
+    if (!val) return -1;
+
+    __u8 action = (__u8)val->counter;
+    if (action == 1) return 1;
+    if (action == 0 || action == 2) return 0;
+    return -1;
 }
 
 #endif // __NETXFW_RULES_BPF_C
