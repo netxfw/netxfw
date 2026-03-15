@@ -222,9 +222,11 @@ func AllowPortToMap(mapPtr *ebpf.Map, port uint16, expiresAt *time.Time) error {
  * 注意：allowed_ports 现在已合并到 rule_map 中作为仅端口规则。
  */
 func (m *Manager) AllowPort(port uint16, expiresAt *time.Time) error {
-	// Use ruleMap with empty IP (0.0.0.0/0) for port-only rules
-	// 使用 ruleMap 配合空 IP (0.0.0.0/0) 表示仅端口规则
-	_, ipNet, _ := net.ParseCIDR("0.0.0.0/0")
+	// Use ruleMap with empty IP (::/0) for port-only rules
+	// 使用 ruleMap 配合空 IP (::/0) 表示仅端口规则
+	// With the fix in IPNetToLpmIPPortKey, ::/0 results in Prefixlen=32 (Port+Pad), effectively ignoring IP.
+	// 使用 IPNetToLpmIPPortKey 中的修复，::/0 导致 Prefixlen=32 (端口+填充)，有效地忽略 IP。
+	_, ipNet, _ := net.ParseCIDR("::/0")
 	if ipNet == nil {
 		return fmt.Errorf("failed to create default IP network")
 	}
@@ -245,9 +247,9 @@ func RemovePortFromMap(mapPtr *ebpf.Map, port uint16) error {
  * 注意：allowed_ports 现在已合并到 rule_map 中作为仅端口规则。
  */
 func (m *Manager) RemovePort(port uint16) error {
-	// Use ruleMap with empty IP (0.0.0.0/0) for port-only rules
-	// 使用 ruleMap 配合空 IP (0.0.0.0/0) 表示仅端口规则
-	_, ipNet, _ := net.ParseCIDR("0.0.0.0/0")
+	// Use ruleMap with empty IP (::/0) for port-only rules
+	// 使用 ruleMap 配合空 IP (::/0) 表示仅端口规则
+	_, ipNet, _ := net.ParseCIDR("::/0")
 	if ipNet == nil {
 		return fmt.Errorf("failed to create default IP network")
 	}
@@ -356,9 +358,11 @@ func (m *Manager) ListAllowedPorts() ([]uint16, error) {
 	for iter.Next(&key, &val) {
 		// Check if this is a port-only rule (IP prefix = 0)
 		// 检查是否为仅端口规则（IP 前缀 = 0）
-		if key.Prefixlen == 0 || (key.Prefixlen == 96 && key.Ip.In6U.U6Addr8[10] == 0xff && key.Ip.In6U.U6Addr8[11] == 0xff) {
-			// This is a port-only rule (0.0.0.0/0)
-			// 这是仅端口规则 (0.0.0.0/0)
+		// Prefixlen 32 means only Port+Pad are matched (::/0 with fix).
+		// Prefixlen 96 is for legacy IPv4 rules (::ffff:0.0.0.0/0 without fix).
+		if key.Prefixlen == 32 || (key.Prefixlen == 96 && key.Ip.In6U.U6Addr8[10] == 0xff && key.Ip.In6U.U6Addr8[11] == 0xff) {
+			// This is a port-only rule
+			// 这是仅端口规则
 			if val.Counter == 1 { // action=allow
 				ports = append(ports, key.Port)
 			}

@@ -419,6 +419,47 @@ default_deny = false
 	assert.NotContains(t, contentStr, "secret =")
 }
 
+// TestAIConfigHiddenFromTOML tests that AIConfig fields are hidden from TOML output
+// TestAIConfigHiddenFromTOML 测试 AIConfig 字段在 TOML 输出中被隐藏
+func TestAIConfigHiddenFromTOML(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "config_test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	cfg := &GlobalConfig{
+		Base: BaseConfig{
+			DefaultDeny: true,
+		},
+		AI: AIConfig{
+			Enabled: true,
+			Port:    11813,
+			Model:   "gpt-4",
+			APIKey:  "secret-key",
+			BaseURL: "https://api.openai.com",
+		},
+		MCP: MCPConfig{
+			Enabled: true,
+			Port:    11814,
+			Mode:    "sse",
+		},
+	}
+
+	err = SaveGlobalConfig(configPath, cfg)
+	assert.NoError(t, err)
+
+	content, err := os.ReadFile(configPath)
+	assert.NoError(t, err)
+	contentStr := string(content)
+
+	assert.NotContains(t, contentStr, "[ai]")
+	assert.NotContains(t, contentStr, "[mcp]")
+	assert.NotContains(t, contentStr, "api_key")
+	assert.NotContains(t, contentStr, "11813")
+	assert.NotContains(t, contentStr, "11814")
+}
+
 // TestSaveGlobalConfigWithBackup tests saving config with backup.
 // TestSaveGlobalConfigWithBackup 测试带备份保存配置。
 func TestSaveGlobalConfigWithBackup(t *testing.T) {

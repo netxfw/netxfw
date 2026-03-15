@@ -49,14 +49,11 @@ func ParseCIDR(s string) (*net.IPNet, error) {
 		return nil, fmt.Errorf("invalid CIDR or IP")
 	}
 
-	maskBits := 32
-	if ip.To4() == nil {
-		maskBits = 128
+	ip4 := ip.To4()
+	if ip4 != nil {
+		return &net.IPNet{IP: ip4, Mask: net.CIDRMask(32, 32)}, nil
 	}
-	return &net.IPNet{
-		IP:   ip,
-		Mask: net.CIDRMask(maskBits, maskBits),
-	}, nil
+	return &net.IPNet{IP: ip, Mask: net.CIDRMask(128, 128)}, nil
 }
 
 // ParseIPPort parses an input string like "1.2.3.4:80" or "[::1]:80" into IP and port.

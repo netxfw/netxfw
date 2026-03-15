@@ -65,24 +65,19 @@ var limitAddCmd = &cobra.Command{
 }
 
 var limitRemoveCmd = &cobra.Command{
-	Use:   "remove <ip>",
-	Short: "Remove rate limit rule",
-	// Short: 移除限速规则
-	Long: `Remove IP rate limit rule`,
-	// Long: 移除 IP 限速规则
-	Args: cobra.ExactArgs(1),
+	Use:     "remove <ip>",
+	Aliases: []string{"del", "delete"},
+	Short:   "Remove rate limit rule",
+	Long:    `Remove IP rate limit rule`,
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		ExecuteWithArgs(cmd, args, func(s *sdk.SDK, args []string) error {
 			ip := args[0]
 
-			// 验证 IP 格式：必须是有效的 IPv4/IPv6 地址或 CIDR
-			// Validate IP format: must be valid IPv4/IPv6 address or CIDR
 			if err := common.ValidateIP(ip); err != nil {
 				return err
 			}
 
-			// Remove rate limit rule
-			// 移除限速规则
 			if err := s.Rule.RemoveRateLimitRule(ip); err != nil {
 				return err
 			}

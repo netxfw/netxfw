@@ -54,8 +54,8 @@ type GlobalConfig struct {
 	Capacity  CapacityConfig       `toml:"capacity"`
 	Logging   logger.LoggingConfig `toml:"logging"`
 	Cloud     CloudConfig          `toml:"cloud"`
-	AI        AIConfig             `toml:"ai"`
-	MCP       MCPConfig            `toml:"mcp"`
+	AI        AIConfig             `toml:"-"`
+	MCP       MCPConfig            `toml:"-"`
 	BPFPlugin BPFPluginSettings    `toml:"bpf_plugin"`
 	Modules   []ModuleConfig       `toml:"modules"`
 }
@@ -151,19 +151,19 @@ type WebConfig struct {
 // AIConfig defines the configuration for AI features.
 // AIConfig 定义 AI 功能配置。
 type AIConfig struct {
-	Enabled bool   `toml:"enabled"`
-	Port    int    `toml:"port"`
-	Model   string `toml:"model"`
-	APIKey  string `toml:"api_key"`
-	BaseURL string `toml:"base_url"`
+	Enabled bool   `toml:"-"`
+	Port    int    `toml:"-"`
+	Model   string `toml:"-"`
+	APIKey  string `toml:"-"`
+	BaseURL string `toml:"-"`
 }
 
 // MCPConfig defines the configuration for Model Context Protocol.
 // MCPConfig 定义模型上下文协议 (MCP) 配置。
 type MCPConfig struct {
-	Enabled bool   `toml:"enabled"`
-	Port    int    `toml:"port"`
-	Mode    string `toml:"mode"` // "stdio", "sse"
+	Enabled bool   `toml:"-"`
+	Port    int    `toml:"-"`
+	Mode    string `toml:"-"` // "stdio", "sse"
 }
 
 // CloudConfig defines the configuration for cloud environment support.

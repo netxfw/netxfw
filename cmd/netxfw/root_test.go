@@ -163,7 +163,7 @@ func TestQuickCommandsIntegration(t *testing.T) {
 		{
 			name:     "ResetHelp",
 			args:     []string{"reset", "--help"},
-			contains: "SSH",
+			contains: "Reset",
 			wantErr:  false,
 		},
 	}

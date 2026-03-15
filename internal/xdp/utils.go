@@ -64,10 +64,14 @@ func IPNetToLpmIPPortKey(ipNet *net.IPNet, port uint16) NetXfwLpmIpPortKey {
 	key.Port = port
 	key.Ip = IPToIn6Addr(ipNet.IP)
 
+	// Prefixlen must account for Port (16 bits) and Pad (16 bits) which precede the IP in the key structure.
+	// Prefixlen 必须包含键结构中位于 IP 之前的端口 (16 位) 和填充 (16 位)。
+	const keyHeaderLen = 32
+
 	if ipNet.IP.To4() != nil {
-		key.Prefixlen = uint32(96 + ones) // #nosec G115 // prefixlen is always 0-128
+		key.Prefixlen = uint32(keyHeaderLen + 96 + ones) // #nosec G115 // prefixlen is always 0-160
 	} else {
-		key.Prefixlen = uint32(ones) // #nosec G115 // prefixlen is always 0-128
+		key.Prefixlen = uint32(keyHeaderLen + ones) // #nosec G115 // prefixlen is always 0-160
 	}
 	return key
 }

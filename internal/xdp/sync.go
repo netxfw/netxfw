@@ -151,9 +151,12 @@ func (m *Manager) syncIPPortRules(rules []types.IPPortRule) {
 // syncAllowedPorts syncs allowed ports from config to BPF maps.
 // syncAllowedPorts 从配置同步允许端口到 BPF Map。
 func (m *Manager) syncAllowedPorts(ports []uint16) {
+	m.logger.Infof("[CONFIG] Syncing allowed ports: %v (count: %d), rule_map=%v", ports, len(ports), m.ruleMap)
 	for _, port := range ports {
 		if err := m.AllowPort(port, nil); err != nil {
 			m.logger.Warnf("[WARN]  Failed to allow port %d: %v", port, err)
+		} else {
+			m.logger.Infof("[CONFIG] Allowed port: %d", port)
 		}
 	}
 }
@@ -174,6 +177,8 @@ func (m *Manager) syncRateLimitRules(rules []types.RateLimitRule) {
 // syncGlobalConfig syncs global configuration to BPF maps.
 // syncGlobalConfig 将全局配置同步到 BPF Map。
 func (m *Manager) syncGlobalConfig(cfg *types.GlobalConfig) {
+	m.logger.Infof("[CONFIG] Syncing global config: default_deny=%v, allow_return=%v, allow_icmp=%v, enable_afxdp=%v, enable_ratelimit=%v, conntrack=%v",
+		cfg.Base.DefaultDeny, cfg.Base.AllowReturnTraffic, cfg.Base.AllowICMP, cfg.Base.EnableAFXDP, cfg.RateLimit.Enabled, cfg.Conntrack.Enabled)
 	m.setGlobalConfigValue(m.SetDefaultDeny, cfg.Base.DefaultDeny, "default deny")
 	m.setGlobalConfigValue(m.SetAllowReturnTraffic, cfg.Base.AllowReturnTraffic, "allow return traffic")
 	m.setGlobalConfigValue(m.SetAllowICMP, cfg.Base.AllowICMP, "allow ICMP")
@@ -183,18 +188,23 @@ func (m *Manager) syncGlobalConfig(cfg *types.GlobalConfig) {
 
 	if err := m.SetICMPRateLimit(cfg.Base.ICMPRate, cfg.Base.ICMPBurst); err != nil {
 		m.logger.Warnf("[WARN]  Failed to set ICMP rate limit: %v", err)
+	} else {
+		m.logger.Infof("[CONFIG] ICMP rate limit: rate=%d, burst=%d", cfg.Base.ICMPRate, cfg.Base.ICMPBurst)
 	}
 
 	if cfg.Conntrack.TCPTimeout != "" {
 		if d, err := time.ParseDuration(cfg.Conntrack.TCPTimeout); err == nil {
 			m.SetConntrackTimeout(d)
+			m.logger.Infof("[CONFIG] Conntrack TCP timeout: %v", d)
 		}
 	}
 
 	m.SetAutoBlock(cfg.RateLimit.AutoBlock)
+	m.logger.Infof("[CONFIG] Auto block: enabled=%v", cfg.RateLimit.AutoBlock)
 	if cfg.RateLimit.AutoBlockExpiry != "" {
 		if d, err := time.ParseDuration(cfg.RateLimit.AutoBlockExpiry); err == nil {
 			m.SetAutoBlockExpiry(d)
+			m.logger.Infof("[CONFIG] Auto block expiry: %v", d)
 		}
 	}
 }
@@ -212,13 +222,29 @@ func (m *Manager) setGlobalConfigValue(setter func(bool) error, value bool, name
 // SyncFromFiles 从文本或二进制文件读取规则并更新 BPF Map。
 // 如果 overwrite 为 true，则先清除 Map 中的现有规则。
 func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
-	if cfg.Base.LockListFile == "" {
-		return fmt.Errorf("lock_list_file must be configured for sync")
-	}
-
 	if overwrite {
 		m.logger.Infof("[CLEAN] Overwrite mode: Clearing BPF maps before sync...")
 		m.ClearMaps()
+	}
+
+	// Sync global config first (even without lock_list_file)
+	// 先同步全局配置（即使没有 lock_list_file）
+	m.logger.Infof("[SYNC] Syncing global config to BPF maps...")
+	m.syncGlobalConfig(cfg)
+
+	// If no lock_list_file configured, skip file loading but sync other config
+	// 如果没有配置 lock_list_file，跳过文件加载但同步其他配置
+	if cfg.Base.LockListFile == "" {
+		m.logger.Infof("[INFO]  No lock_list_file configured, skipping file sync")
+		// Still sync allowed ports, rate limit rules, and modules
+		// 仍然同步允许端口、速率限制规则和模块
+		m.syncAllowedPorts(cfg.Port.AllowedPorts)
+		m.syncRateLimitRules(cfg.RateLimit.Rules)
+		m.syncIPPortRules(cfg.Port.IPPortRules)
+		if err := m.SyncModules(cfg.Modules); err != nil {
+			m.logger.Warnf("Failed to sync modules chain: %v", err)
+		}
+		return nil
 	}
 
 	// Try to load from binary file first if configured (for better performance)
@@ -234,6 +260,7 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	}
 
 	// 1. Sync Whitelist / 1. 同步白名单
+	m.logger.Infof("[CONFIG] Syncing whitelist: %v (count: %d)", cfg.Base.Whitelist, len(cfg.Base.Whitelist))
 	m.syncWhitelistFromConfig(cfg.Base.Whitelist)
 
 	var records []binary.Record
@@ -258,24 +285,22 @@ func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
 	}
 
 	// 3. Sync Blacklist / 3. 同步黑名单
+	m.logger.Infof("[CONFIG] Syncing blacklist: %d records from file", len(records))
 	m.syncBlacklistRecords(records)
-
-	// 4. Sync IP+Port rules / 4. 同步 IP+端口规则
-	m.syncIPPortRules(cfg.Port.IPPortRules)
-
-	// 5. Sync allowed ports / 5. 同步允许端口
-	m.syncAllowedPorts(cfg.Port.AllowedPorts)
 
 	// 6. Sync rate limit rules / 6. 同步速率限制规则
 	m.syncRateLimitRules(cfg.RateLimit.Rules)
 
-	// 7. Sync Global Config / 7. 同步全局配置
-	m.syncGlobalConfig(cfg)
+	// 7. Sync allowed ports / 7. 同步允许端口
+	m.syncAllowedPorts(cfg.Port.AllowedPorts)
 
-	// 8. Update binary cache / 8. 更新二进制缓存
+	// 8. Sync IP+Port rules / 8. 同步 IP+端口规则
+	m.syncIPPortRules(cfg.Port.IPPortRules)
+
+	// 9. Update binary cache / 9. 更新二进制缓存
 	go m.UpdateBinaryCache(cfg, records)
 
-	// 9. Sync Modules Chain / 9. 同步模块链
+	// 10. Sync Modules Chain / 10. 同步模块链
 	if err := m.SyncModules(cfg.Modules); err != nil {
 		m.logger.Warnf("Failed to sync modules chain: %v", err)
 		return err

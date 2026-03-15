@@ -29,9 +29,28 @@ import (
 /**
  * InstallXDP initializes the XDP manager and mounts the program to interfaces, then exits.
  * InstallXDP 初始化 XDP 管理器并将程序挂载到接口，然后退出。
+ *
+ * 功能说明 / Function Description:
+ * 1. 加载全局配置文件 / Load global configuration file
+ * 2. 解析网络接口 / Resolve network interfaces
+ * 3. 创建 XDP 管理器 / Create XDP manager
+ * 4. 固定 BPF maps 到文件系统 / Pin BPF maps to filesystem
+ * 5. 同步配置和规则到 BPF maps / Sync configuration and rules to BPF maps
+ * 6. 挂载 XDP 程序到网络接口 / Attach XDP program to network interfaces
+ * 7. 初始化并启动核心模块 / Initialize and start core modules
+ * 8. 初始化并启动插件 / Initialize and start plugins
+ *
+ * 参数 / Parameters:
+ * - ctx: 上下文 / Context
+ * - cliInterfaces: 命令行指定的接口列表，为空则使用配置文件 / CLI specified interfaces, use config if empty
+ *
+ * 返回值 / Returns:
+ * - error: 错误信息 / Error message
  */
 func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 	log := logger.Get(ctx)
+
+	// 1. 加载全局配置 / Load global configuration
 	cfgManager := config.GetConfigManager()
 	err := cfgManager.LoadConfig()
 	if err != nil {
@@ -43,40 +62,51 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		return fmt.Errorf("config is nil after loading")
 	}
 
+	// 2. 解析网络接口 / Resolve network interfaces
 	interfaces, err := resolveInterfaces(cliInterfaces, globalCfg, log)
 	if err != nil {
 		return err
 	}
 
-	manager, err := xdp.NewManager(globalCfg.Capacity, log)
+	// 3. 创建 XDP 管理器 / Create XDP manager
+	// 检查是否已有固定的 maps，如果有则加载现有的管理器
+	// Check if maps are already pinned, if so load existing manager
+	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
 	if err != nil {
-		return fmt.Errorf("failed to create XDP manager: %v", err)
+		// No pinned maps found, create new manager
+		// 未找到固定的 maps，创建新的管理器
+		manager, err = xdp.NewManager(globalCfg.Capacity, log)
+		if err != nil {
+			return fmt.Errorf("failed to create XDP manager: %v", err)
+		}
+	} else {
+		log.Infof("[INFO]  Loaded existing manager from pinned maps")
 	}
 
+	// 4. 固定 BPF maps 到文件系统 / Pin BPF maps to filesystem
 	if err := manager.Pin(config.GetPinPath()); err != nil {
 		return fmt.Errorf("failed to pin maps: %v", err)
 	}
 
-	// Load persisted rules from lock_list.txt before attaching
-	// 在挂载前从 lock_list.txt 加载持久化的规则
-	if globalCfg.Base.LockListFile != "" {
-		log.Infof("[LOAD] Loading persisted rules from %s...", globalCfg.Base.LockListFile)
-		if err := manager.SyncFromFiles(globalCfg, false); err != nil {
-			log.Warnf("[WARN]  Failed to load persisted rules: %v (continuing anyway)", err)
-		}
+	// 5. 同步配置和规则到 BPF maps / Sync configuration and rules to BPF maps
+	log.Infof("[SYNC] Syncing global config and loading persisted rules...")
+	if err := manager.SyncFromFiles(globalCfg, false); err != nil {
+		log.Warnf("[WARN]  Failed to sync config and load rules: %v (continuing anyway)", err)
 	}
 
+	// 6. 挂载 XDP 程序到网络接口 / Attach XDP program to network interfaces
 	if err := manager.Attach(interfaces); err != nil {
 		return fmt.Errorf("failed to attach XDP: %v", err)
 	}
-
+	// 分离孤立接口 / Detach orphaned interfaces
 	detachOrphanedInterfaces(manager, interfaces, log)
 
-	// Load BPF plugins if enabled / 如果启用则加载 BPF 插件
+	// 加载 BPF 插件 / Load BPF plugins
 	if err := loadBPFPlugins(manager, globalCfg, log); err != nil {
 		log.Warnf("[WARN]  Failed to load BPF plugins: %v (continuing anyway)", err)
 	}
 
+	// 7. 初始化 SDK 和插件上下文 / Initialize SDK and plugin context
 	s := sdk.NewSDK(xdp.NewAdapter(manager))
 	pluginCtx := &sdk.PluginContext{
 		Context: ctx,
@@ -86,11 +116,12 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		SDK:     s,
 	}
 
+	// 8. 初始化并启动核心模块 / Initialize and start core modules
 	coreModules := []engine.CoreModule{
-		&engine.BaseModule{},
-		&engine.ConntrackModule{},
-		&engine.PortModule{},
-		&engine.RateLimitModule{},
+		&engine.BaseModule{},      // 基础模块：默认策略、ICMP 速率限制 / Base module: default policy, ICMP rate limit
+		&engine.ConntrackModule{}, // 连接跟踪模块 / Connection tracking module
+		&engine.PortModule{},      // 端口管理模块 / Port management module
+		&engine.RateLimitModule{}, // 速率限制模块 / Rate limit module
 	}
 
 	for _, mod := range coreModules {
@@ -102,6 +133,7 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		}
 	}
 
+	// 9. 初始化并启动插件 / Initialize and start plugins
 	for _, p := range plugins.GetPlugins() {
 		if err := p.Init(pluginCtx); err != nil {
 			log.Errorf("[WARN]  Failed to init plugin %s: %v", p.Name(), err)

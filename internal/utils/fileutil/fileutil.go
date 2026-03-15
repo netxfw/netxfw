@@ -65,19 +65,23 @@ func AppendToFile(filePath, line string) error {
 	if filePath == "" {
 		return nil
 	}
-	safePath := filepath.Clean(filePath)                                       // Sanitize path to prevent directory traversal
-	f, err := os.OpenFile(safePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644) // #nosec G304 // filePath is sanitized with filepath.Clean
+	safePath := filepath.Clean(filePath)
+
+	content, err := os.ReadFile(safePath)
+	if err == nil {
+		lines := strings.Split(string(content), "\n")
+		for _, l := range lines {
+			if strings.TrimSpace(l) == line {
+				return nil
+			}
+		}
+	}
+
+	f, err := os.OpenFile(safePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-
-	// Check if already exists (naive check, good for small files)
-	// 检查是否已存在（简单的检查，适用于小文件）
-	content, err := os.ReadFile(safePath) // #nosec G304 // filePath is sanitized with filepath.Clean
-	if err == nil && strings.Contains(string(content), line) {
-		return nil
-	}
 
 	_, err = f.WriteString(line + "\n")
 	return err
@@ -89,8 +93,8 @@ func RemoveFromFile(filePath, line string) error {
 	if filePath == "" {
 		return nil
 	}
-	safePath := filepath.Clean(filePath) // Sanitize path to prevent directory traversal
-	input, err := os.ReadFile(safePath)  // #nosec G304 // filePath is sanitized with filepath.Clean
+	safePath := filepath.Clean(filePath)
+	input, err := os.ReadFile(safePath)
 	if err != nil {
 		return err
 	}
@@ -104,5 +108,8 @@ func RemoveFromFile(filePath, line string) error {
 		}
 	}
 
-	return os.WriteFile(safePath, []byte(strings.Join(newLines, "\n")+"\n"), 0600) // #nosec G304 G703 // filePath is sanitized with filepath.Clean
+	if len(newLines) == 0 {
+		return os.WriteFile(safePath, []byte(""), 0600)
+	}
+	return os.WriteFile(safePath, []byte(strings.Join(newLines, "\n")+"\n"), 0600)
 }

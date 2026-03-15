@@ -681,7 +681,11 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 			}
 			executor.PrintSuccess(fmt.Sprintf("[BLOCK] IP added to dynamic blacklist: %s (TTL: %s)", ip, ttlStr))
 		} else {
-			if err := s.Blacklist.Add(ip); err != nil {
+			persistFile := ""
+			if cfg.Base.PersistRules && cfg.Base.LockListFile != "" {
+				persistFile = cfg.Base.LockListFile
+			}
+			if err := s.Blacklist.AddWithFile(ip, persistFile); err != nil {
 				return fmt.Errorf("[ERROR] Failed to add to static blacklist: %v", err)
 			}
 			executor.PrintSuccess("[BLOCK] IP added to static blacklist: " + ip)

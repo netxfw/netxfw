@@ -81,8 +81,8 @@ func TestNewLpmIPPortKey(t *testing.T) {
 		wantLen  uint32
 		wantPort uint16
 	}{
-		{"IPv4 Port", "1.2.3.4", 80, 128, 80},
-		{"IPv6 Port", "::1", 443, 128, 443},
+		{"IPv4 Port", "1.2.3.4", 80, 160, 80}, // 32 (header) + 96 (IPv4 prefix) + 32 (IPv4) = 160
+		{"IPv6 Port", "::1", 443, 160, 443},   // 32 (header) + 128 (IPv6) = 160
 	}
 
 	for _, tt := range tests {

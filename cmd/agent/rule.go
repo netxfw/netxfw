@@ -14,7 +14,11 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/binary"
+	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/utils/fileutil"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -170,7 +174,6 @@ Examples:
 var ruleDelCmd = &cobra.Command{
 	Use:   "del <ip>[:port]",
 	Short: "Delete a rule",
-	// Short: 删除规则
 	Long: `Delete a rule for an IP or IP+Port combination
 删除 IP 或 IP+端口组合的规则
 
@@ -179,23 +182,21 @@ Aliases: delete, remove
 	Aliases: []string{"delete", "remove"},
 	Args:    cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		Execute(cmd, args, func(s *sdk.SDK) error {
+		configFile, _ := cmd.Flags().GetString("config")
+		executor := NewCommandExecutor(cmd).WithConfig(configFile)
+
+		executor.ExecuteWithConfigManager(func(cfg *types.GlobalConfig, manager *xdp.Manager) error {
+			s := sdk.NewSDK(xdp.NewAdapter(manager))
 			input := args[0]
 
-			// 使用公共函数解析并验证 IP 输入
-			// Use common function to parse and validate IP input
 			ip, portVal, err := parseAndValidateIPInput(input)
 			if err != nil {
 				return fmt.Errorf("[ERROR] %s", err.Error())
 			}
 			port := int(portVal)
 
-			// Check second arg for port if not found yet
-			// 如果未找到端口，检查第二个参数
 			if len(args) > 1 && port == 0 {
 				if p, parseErr := strconv.Atoi(args[1]); parseErr == nil {
-					// 验证端口范围
-					// Validate port range
 					if p < 0 || p > 65535 {
 						return fmt.Errorf("[ERROR] Port must be between 0-65535, got %d", p)
 					}
@@ -203,8 +204,6 @@ Aliases: delete, remove
 				}
 			}
 
-			// 验证端口范围：0 表示未指定端口，有效范围 0-65535
-			// Validate port range: 0 means no port specified, valid range 0-65535
 			if err := common.ValidatePort(port); err != nil {
 				return err
 			}
@@ -216,12 +215,16 @@ Aliases: delete, remove
 				cmd.Printf("[OK] Deleted rule: %s:%d\n", ip, port)
 			} else {
 				removed := false
+				normalizedIP := iputil.NormalizeCIDR(ip)
 				if err := s.Blacklist.Remove(ip); err == nil {
-					cmd.Printf("[OK] Deleted %s from Blacklist\n", ip)
+					if cfg.Base.PersistRules && cfg.Base.LockListFile != "" {
+						_ = fileutil.RemoveFromFile(cfg.Base.LockListFile, normalizedIP)
+					}
+					cmd.Printf("[OK] Removed %s from static blacklist\n", ip)
 					removed = true
 				}
 				if err := s.Whitelist.Remove(ip); err == nil {
-					cmd.Printf("[OK] Deleted %s from Whitelist\n", ip)
+					cmd.Printf("[OK] Removed %s from whitelist\n", ip)
 					removed = true
 				}
 				if !removed {
