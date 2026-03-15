@@ -178,7 +178,7 @@ Use --limit to restrict the number of results (default: 100).
 				return fmt.Errorf("[ERROR] Whitelist map not available")
 			}
 
-			ips, total, err := xdp.ListBlockedIPs(whitelist, false, limit, "")
+			ips, total, err := xdp.ListWhitelistIPs(whitelist, limit, "")
 			if err != nil {
 				return fmt.Errorf("[ERROR] Failed to list whitelist: %v", err)
 			}
@@ -190,7 +190,7 @@ Use --limit to restrict the number of results (default: 100).
 
 			cmd.Println("=== Whitelist IPs ===")
 			for _, ip := range ips {
-				cmd.Printf("  %s\n", ip.IP)
+				cmd.Printf("  %s\n", ip)
 			}
 			if total > limit {
 				cmd.Printf("\n[INFO] Showing %d of %d IPs (use --limit to see more)\n", len(ips), total)
@@ -630,10 +630,11 @@ func runAllowCommand(cmd *cobra.Command, input string) {
 	executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 	executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-		defer manager.Close()
-
 		if err := manager.AllowStatic(ip, port); err != nil {
 			return fmt.Errorf("[ERROR] Failed to allow IP: %v", err)
+		}
+		if err := persistWhitelistEntryToConfig(ip, port); err != nil {
+			return fmt.Errorf("[ERROR] Failed to persist whitelist entry: %v", err)
 		}
 		if port > 0 {
 			executor.PrintSuccess(fmt.Sprintf("[OK] IP allowed at XDP layer: %s:%d", ip, port))
@@ -664,8 +665,11 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 				cmd.PrintErrln("[WARN]  WARNING: TTL parameter is ignored for IP+Port rules")
 				cmd.PrintErrln("[WARN]  警告：TTL 参数对 IP+Port 规则无效")
 			}
-			if err := s.Rule.AddIPPortRule(ip, port, 2); err != nil {
+			if err := s.Rule.AddIPPortRule(ip, port, 0); err != nil {
 				return fmt.Errorf("[ERROR] Failed to add IP+Port deny rule: %v", err)
+			}
+			if err := persistIPPortRuleToConfig(ip, port, 0); err != nil {
+				return fmt.Errorf("[ERROR] Failed to persist IP+Port deny rule: %v", err)
 			}
 			executor.PrintSuccess(fmt.Sprintf("[BLOCK] IP+Port deny rule added: %s:%d", ip, port))
 			return nil

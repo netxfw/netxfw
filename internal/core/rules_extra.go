@@ -489,7 +489,7 @@ func persistImportedWhitelist(ctx context.Context, xdpMgr XDPManager, entries []
 	types.ConfigMu.Unlock()
 
 	if modified {
-		cleanupMergedWhitelistRules(ctx, xdpMgr, oldWhitelist, newWhitelist)
+		cleanupMergedWhitelistRules(ctx, xdpMgr, oldWhitelist, newWhitelist, "")
 		ensureWhitelistRulesInBPF(ctx, xdpMgr, newWhitelist)
 	}
 	return nil

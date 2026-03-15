@@ -249,30 +249,55 @@ func updateWhitelistInConfig(ctx context.Context, xdpMgr XDPManager, cidrStr str
 	newWhitelist := append([]string(nil), globalCfg.Base.Whitelist...)
 	types.ConfigMu.Unlock()
 
-	cleanupMergedWhitelistRules(ctx, xdpMgr, oldWhitelist, newWhitelist)
+	cleanupMergedWhitelistRules(ctx, xdpMgr, oldWhitelist, newWhitelist, entry)
 	ensureWhitelistRulesInBPF(ctx, xdpMgr, newWhitelist)
 	return nil
 }
 
 // cleanupMergedWhitelistRules removes rules that were merged into larger subnets.
 // cleanupMergedWhitelistRules 删除已合并到较大子网中的规则。
-func cleanupMergedWhitelistRules(ctx context.Context, xdpMgr XDPManager, oldWhitelist, newWhitelist []string) {
+func cleanupMergedWhitelistRules(ctx context.Context, xdpMgr XDPManager, oldWhitelist, newWhitelist []string, currentEntry string) {
 	log := logger.Get(ctx)
-	newSet := make(map[string]bool)
-	for _, ip := range newWhitelist {
-		newSet[ip] = true
+	desiredSet := make(map[string]bool)
+	for _, entry := range newWhitelist {
+		cidr, port := parseWhitelistEntry(entry)
+		desiredSet[whitelistRuleKey(cidr, port)] = true
 	}
 
-	for _, oldEntry := range oldWhitelist {
-		if !newSet[oldEntry] {
-			cidrToRemove := oldEntry
-			if host, _, err := iputil.ParseIPPort(oldEntry); err == nil {
-				cidrToRemove = host
-			}
-			_ = xdpMgr.RemoveWhitelistIP(cidrToRemove)
-			log.Infof("[CLEAN] Optimized runtime: Removed subsumed whitelist rule %s", cidrToRemove)
+	candidates := make([]string, 0, len(oldWhitelist)+1)
+	candidates = append(candidates, oldWhitelist...)
+	if currentEntry != "" {
+		candidates = append(candidates, currentEntry)
+	}
+
+	seen := make(map[string]bool)
+	for _, candidate := range candidates {
+		cidr, port := parseWhitelistEntry(candidate)
+		key := whitelistRuleKey(cidr, port)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		if !desiredSet[key] {
+			_ = xdpMgr.RemoveWhitelistIP(cidr)
+			log.Infof("[CLEAN] Optimized runtime: Removed subsumed whitelist rule %s", cidr)
 		}
 	}
+}
+
+func parseWhitelistEntry(entry string) (string, uint16) {
+	cidr := entry
+	port := uint16(0)
+	if host, p, err := iputil.ParseIPPort(entry); err == nil {
+		cidr = host
+		port = p
+	}
+	return iputil.NormalizeCIDR(cidr), port
+}
+
+func whitelistRuleKey(cidr string, port uint16) string {
+	return fmt.Sprintf("%d|%s", port, iputil.NormalizeCIDR(cidr))
 }
 
 // ensureWhitelistRulesInBPF ensures all whitelist rules are in BPF map.

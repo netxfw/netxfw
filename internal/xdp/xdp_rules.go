@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
+	"github.com/netxfw/netxfw/internal/utils/ipmerge"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 )
 
@@ -25,25 +26,71 @@ func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 		return fmt.Errorf("invalid IP or CIDR %s: %w", ipStr, err)
 	}
 	cidr := ipNet.String()
-
-	// Use LockList (Static) / 使用 LockList（静态）
 	mapObj := m.LockList()
-
-	// Reuse existing LockIP helper / 复用现有的 LockIP 辅助函数
-	if err := LockIP(mapObj, cidr); err != nil {
-		return fmt.Errorf("failed to add to static blacklist %s: %v", cidr, err)
+	existing, err := collectStaticBlacklistCIDRs(mapObj)
+	if err != nil {
+		return fmt.Errorf("failed to read static blacklist: %v", err)
 	}
 
-	// Persist to lock list file if configured / 如果配置了，持久化到锁定列表文件
+	merged, err := ipmerge.MergeCIDRs(append(existing, cidr))
+	if err != nil {
+		return fmt.Errorf("failed to merge static blacklist: %v", err)
+	}
+
+	if err := replaceStaticBlacklistCIDRs(mapObj, merged); err != nil {
+		return fmt.Errorf("failed to rebuild static blacklist: %v", err)
+	}
+
 	if persistFile != "" {
-		if err := fileutil.AppendToFile(persistFile, cidr); err != nil {
+		content := strings.Join(merged, "\n")
+		if content != "" {
+			content += "\n"
+		}
+		if err := fileutil.AtomicWriteFile(persistFile, []byte(content), 0644); err != nil {
 			m.logger.Warnf("[WARN] Failed to write to lock list file: %v", err)
 		} else {
-			m.logger.Infof("[SAVE] Persisted IP %s to %s", cidr, persistFile)
+			m.logger.Infof("[SAVE] Persisted %d merged rules to %s", len(merged), persistFile)
 		}
 	}
 
 	m.logger.Infof("[BLOCK] Added IP %s to STATIC blacklist (permanent)", cidr)
+	return nil
+}
+
+func collectStaticBlacklistCIDRs(mapObj *ebpf.Map) ([]string, error) {
+	var cidrs []string
+	iter := mapObj.Iterate()
+	var key NetXfwLpmKey
+	var val NetXfwRuleValue
+	for iter.Next(&key, &val) {
+		cidrs = append(cidrs, FormatLpmKey(&key))
+	}
+	return cidrs, iter.Err()
+}
+
+func replaceStaticBlacklistCIDRs(mapObj *ebpf.Map, cidrs []string) error {
+	var keys []NetXfwLpmKey
+	iter := mapObj.Iterate()
+	var key NetXfwLpmKey
+	var val NetXfwRuleValue
+	for iter.Next(&key, &val) {
+		keys = append(keys, key)
+	}
+	if err := iter.Err(); err != nil {
+		return err
+	}
+
+	for i := range keys {
+		if err := mapObj.Delete(&keys[i]); err != nil && !strings.Contains(err.Error(), "key does not exist") {
+			return err
+		}
+	}
+
+	for _, cidr := range cidrs {
+		if err := LockIP(mapObj, cidr); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

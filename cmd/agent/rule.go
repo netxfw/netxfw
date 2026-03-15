@@ -14,7 +14,10 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/binary"
+	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/optimizer"
 	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/utils/logger"
@@ -40,6 +43,84 @@ const (
 	ruleTypeCSV    = "csv"
 	ruleTypeRules  = "rules"
 )
+
+func persistWhitelistEntryToConfig(ip string, port uint16) error {
+	if runtime.Mode == modeTest {
+		return nil
+	}
+
+	configPath := config.GetConfigPath()
+	types.ConfigMu.Lock()
+	defer types.ConfigMu.Unlock()
+
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err != nil {
+		return err
+	}
+
+	normalizedCIDR := iputil.NormalizeCIDR(ip)
+	entry := normalizedCIDR
+	if port > 0 {
+		entry = fmt.Sprintf("%s:%d", normalizedCIDR, port)
+	}
+
+	for _, existing := range globalCfg.Base.Whitelist {
+		host, existingPort, parseErr := iputil.ParseIPPort(existing)
+		existingCIDR := ""
+		if parseErr == nil {
+			existingCIDR = iputil.NormalizeCIDR(host)
+		} else {
+			existingCIDR = iputil.NormalizeCIDR(existing)
+			existingPort = 0
+		}
+
+		if existingCIDR == normalizedCIDR && existingPort == port {
+			return nil
+		}
+	}
+
+	globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
+	optimizer.OptimizeWhitelistConfig(globalCfg)
+	return types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep())
+}
+
+func persistIPPortRuleToConfig(ip string, port uint16, action uint8) error {
+	if runtime.Mode == modeTest {
+		return nil
+	}
+
+	configPath := config.GetConfigPath()
+	types.ConfigMu.Lock()
+	defer types.ConfigMu.Unlock()
+
+	globalCfg, err := types.LoadGlobalConfig(configPath)
+	if err != nil {
+		return err
+	}
+
+	normalizedCIDR := iputil.NormalizeCIDR(ip)
+	updated := false
+
+	for i := range globalCfg.Port.IPPortRules {
+		ruleCIDR := iputil.NormalizeCIDR(globalCfg.Port.IPPortRules[i].IP)
+		if ruleCIDR == normalizedCIDR && globalCfg.Port.IPPortRules[i].Port == port {
+			globalCfg.Port.IPPortRules[i].Action = action
+			updated = true
+			break
+		}
+	}
+
+	if !updated {
+		globalCfg.Port.IPPortRules = append(globalCfg.Port.IPPortRules, types.IPPortRule{
+			IP:     normalizedCIDR,
+			Port:   port,
+			Action: action,
+		})
+	}
+
+	optimizer.OptimizeIPPortRulesConfig(globalCfg)
+	return types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep())
+}
 
 var RuleCmd = &cobra.Command{
 	Use:   "rule",
@@ -148,11 +229,17 @@ Examples:
 				if err := s.Rule.AddIPPortRule(ip, uint16(port), act); err != nil {
 					return err
 				}
+				if err := persistIPPortRuleToConfig(ip, uint16(port), act); err != nil {
+					return fmt.Errorf("[ERROR] failed to persist IP+Port rule: %v", err)
+				}
 				cmd.Printf("[OK] Rule added: %s:%d (Action: %d)\n", ip, port, act)
 			} else {
 				if isAllow {
 					if err := s.Whitelist.Add(ip, 0); err != nil {
 						return err
+					}
+					if err := persistWhitelistEntryToConfig(ip, 0); err != nil {
+						return fmt.Errorf("[ERROR] failed to persist whitelist entry: %v", err)
 					}
 					s.Blacklist.Remove(ip)
 					cmd.Printf("[OK] Added %s to Whitelist\n", ip)

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	"github.com/netxfw/netxfw/internal/utils/iputil"
 )
 
 // TimedMapOperations provides timed map operation wrappers.
@@ -146,37 +145,7 @@ func (t *TimedMapOperations) BlockDynamicTimed(ipStr string, ttl time.Duration, 
 // BlockStaticTimed adds an IP to the static blocklist with timing.
 // BlockStaticTimed 将 IP 添加到静态黑名单并计时。
 func (m *Manager) BlockStaticTimed(ipStr string, persistFile string) error {
-	ipNet, err := iputil.ParseCIDR(ipStr)
-	if err != nil {
-		return fmt.Errorf("invalid IP or CIDR %s: %w", ipStr, err)
-	}
-	cidr := ipNet.String()
-
-	mapObj := m.LockList()
-
-	if m.perfStats == nil {
-		if err := LockIP(mapObj, cidr); err != nil {
-			return fmt.Errorf("failed to add to static blacklist %s: %v", cidr, err)
-		}
-	} else {
-		helper := NewMapOpHelper(m.perfStats, "blacklist")
-		if err := helper.TimeWrite(func() error {
-			return LockIP(mapObj, cidr)
-		}); err != nil {
-			return fmt.Errorf("failed to add to static blacklist %s: %v", cidr, err)
-		}
-	}
-
-	if persistFile != "" {
-		if err := writeToFile(persistFile, cidr); err != nil {
-			m.logger.Warnf("[WARN] Failed to write to lock list file: %v", err)
-		} else {
-			m.logger.Infof("[SAVE] Persisted IP %s to %s", cidr, persistFile)
-		}
-	}
-
-	m.logger.Infof("[BLOCK] Added IP %s to STATIC blacklist (permanent)", cidr)
-	return nil
+	return m.BlockStatic(ipStr, persistFile)
 }
 
 // AllowStaticTimed adds an IP/CIDR to the whitelist with timing.

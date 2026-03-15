@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/netxfw/netxfw/internal/binary"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
+	"github.com/netxfw/netxfw/internal/utils/ipmerge"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -32,24 +35,97 @@ func (m *Manager) VerifyAndRepair(cfg *types.GlobalConfig) error {
 // syncWhitelistFromConfig syncs whitelist rules from config to BPF maps.
 // syncWhitelistFromConfig 从配置同步白名单规则到 BPF Map。
 func (m *Manager) syncWhitelistFromConfig(whitelist []string) {
+	if m.whitelist == nil {
+		return
+	}
+
+	desiredByPort := make(map[uint16][]string)
 	for _, rule := range whitelist {
 		cidr := rule
 		port := uint16(0)
-		if strings.Contains(rule, ":") && !strings.Contains(rule, "[") && !strings.Contains(rule, "/") {
-			parts := strings.Split(rule, ":")
-			if len(parts) == 2 {
-				cidr = parts[0]
-				if _, err := fmt.Sscanf(parts[1], "%d", &port); err != nil {
-					m.logger.Warnf("[WARN]  Failed to parse port from whitelist rule %s: %v", rule, err)
-				}
-			}
+		if host, p, err := iputil.ParseIPPort(rule); err == nil {
+			cidr = host
+			port = p
 		}
-		if m.whitelist != nil {
-			if err := AllowIP(m.whitelist, cidr, port); err != nil {
-				m.logger.Warnf("[WARN]  Failed to whitelist %s: %v", rule, err)
-			}
+		cidr = iputil.NormalizeCIDR(cidr)
+		desiredByPort[port] = append(desiredByPort[port], cidr)
+	}
+
+	desiredEntries := make(map[string]struct{})
+	for port, cidrs := range desiredByPort {
+		merged, err := ipmerge.MergeCIDRs(cidrs)
+		if err != nil {
+			merged = cidrs
+		}
+		for _, cidr := range merged {
+			desiredEntries[whitelistEntryKey(cidr, port)] = struct{}{}
 		}
 	}
+
+	type currentEntry struct {
+		key  NetXfwLpmKey
+		cidr string
+		port uint16
+	}
+
+	currentEntries := make([]currentEntry, 0)
+	currentEntrySet := make(map[string]struct{})
+	iter := m.whitelist.Iterate()
+	var key NetXfwLpmKey
+	var val NetXfwRuleValue
+	for iter.Next(&key, &val) {
+		port := uint16(0)
+		if val.Counter > 1 && val.Counter <= uint64(^uint16(0)) {
+			port = uint16(val.Counter)
+		}
+
+		entry := currentEntry{
+			key:  key,
+			cidr: FormatLpmKey(&key),
+			port: port,
+		}
+		currentEntries = append(currentEntries, entry)
+		currentEntrySet[whitelistEntryKey(entry.cidr, entry.port)] = struct{}{}
+	}
+	if err := iter.Err(); err != nil {
+		m.logger.Warnf("[WARN]  Failed to iterate whitelist map: %v", err)
+		return
+	}
+
+	for _, entry := range currentEntries {
+		entryKey := whitelistEntryKey(entry.cidr, entry.port)
+		if _, shouldKeep := desiredEntries[entryKey]; shouldKeep {
+			continue
+		}
+		if err := m.whitelist.Delete(&entry.key); err != nil && !strings.Contains(err.Error(), "key does not exist") {
+			m.logger.Warnf("[WARN]  Failed to remove stale whitelist %s: %v", entry.cidr, err)
+		}
+	}
+
+	for entryKey := range desiredEntries {
+		if _, exists := currentEntrySet[entryKey]; exists {
+			continue
+		}
+		cidr, port := parseWhitelistEntryKey(entryKey)
+		if err := AllowIP(m.whitelist, cidr, port); err != nil {
+			m.logger.Warnf("[WARN]  Failed to whitelist %s: %v", cidr, err)
+		}
+	}
+}
+
+func whitelistEntryKey(cidr string, port uint16) string {
+	return fmt.Sprintf("%d|%s", port, iputil.NormalizeCIDR(cidr))
+}
+
+func parseWhitelistEntryKey(entry string) (string, uint16) {
+	parts := strings.SplitN(entry, "|", 2)
+	if len(parts) != 2 {
+		return iputil.NormalizeCIDR(entry), 0
+	}
+
+	var port uint16
+	fmt.Sscanf(parts[0], "%d", &port)
+	return parts[1], port
 }
 
 // parseLockListFile reads and parses the lock list file.
@@ -418,20 +494,90 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 // syncWhitelistToConfig syncs whitelist from BPF map to config.
 // syncWhitelistToConfig 从 BPF Map 同步白名单到配置。
 func (m *Manager) syncWhitelistToConfig(cfg *types.GlobalConfig) {
-	wl, _, err := ListBlockedIPs(m.whitelist, false, 0, "")
-	if err != nil {
+	if m.whitelist == nil {
+		cfg.Base.Whitelist = nil
 		return
 	}
 
-	newWhitelist := []string{}
-	for _, entry := range wl {
-		if entry.Counter > 1 {
-			newWhitelist = append(newWhitelist, fmt.Sprintf("%s:%d", entry.IP, entry.Counter))
-		} else {
-			newWhitelist = append(newWhitelist, entry.IP)
+	groupedByPort := make(map[uint16][]string)
+	iter := m.whitelist.Iterate()
+	var key NetXfwLpmKey
+	var val NetXfwRuleValue
+	for iter.Next(&key, &val) {
+		port := uint16(0)
+		if val.Counter > 1 && val.Counter <= uint64(^uint16(0)) {
+			port = uint16(val.Counter)
+		}
+		groupedByPort[port] = append(groupedByPort[port], FormatLpmKey(&key))
+	}
+	if err := iter.Err(); err != nil {
+		return
+	}
+
+	mergedByPort := make(map[uint16][]string, len(groupedByPort))
+	ports := make([]int, 0, len(groupedByPort))
+	for port, cidrs := range groupedByPort {
+		merged, err := ipmerge.MergeCIDRs(cidrs)
+		if err != nil {
+			merged = cidrs
+		}
+		sort.Strings(merged)
+		mergedByPort[port] = merged
+		ports = append(ports, int(port))
+	}
+
+	if err := m.replaceWhitelistCIDRsByPort(mergedByPort); err != nil {
+		m.logger.Warnf("[WARN]  Failed to optimize whitelist map during sync: %v", err)
+	}
+
+	sort.Ints(ports)
+	newWhitelist := make([]string, 0)
+	for _, p := range ports {
+		port := uint16(p)
+		for _, cidr := range mergedByPort[port] {
+			if port > 0 {
+				newWhitelist = append(newWhitelist, fmt.Sprintf("%s:%d", cidr, port))
+			} else {
+				newWhitelist = append(newWhitelist, cidr)
+			}
 		}
 	}
 	cfg.Base.Whitelist = newWhitelist
+}
+
+func (m *Manager) replaceWhitelistCIDRsByPort(grouped map[uint16][]string) error {
+	var keys []NetXfwLpmKey
+	iter := m.whitelist.Iterate()
+	var key NetXfwLpmKey
+	var val NetXfwRuleValue
+	for iter.Next(&key, &val) {
+		keys = append(keys, key)
+	}
+	if err := iter.Err(); err != nil {
+		return err
+	}
+
+	for i := range keys {
+		if err := m.whitelist.Delete(&keys[i]); err != nil && !strings.Contains(err.Error(), "key does not exist") {
+			return err
+		}
+	}
+
+	ports := make([]int, 0, len(grouped))
+	for port := range grouped {
+		ports = append(ports, int(port))
+	}
+	sort.Ints(ports)
+
+	for _, p := range ports {
+		port := uint16(p)
+		for _, cidr := range grouped[port] {
+			if err := AllowIP(m.whitelist, cidr, port); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // syncBlacklistToConfig syncs blacklist from BPF map to config.

@@ -140,6 +140,15 @@ func TestPortConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "Valid rule - deny legacy action",
+			config: PortConfig{
+				IPPortRules: []IPPortRule{
+					{IP: "192.168.1.1", Port: 8443, Action: 2},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "Invalid port - zero",
 			config: PortConfig{
 				IPPortRules: []IPPortRule{
