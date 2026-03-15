@@ -32,12 +32,12 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
         if (unlikely(cur_header + 2 > data_end)) break; // Need at least 2 bytes for next header
 
         if (likely(next_proto == IPPROTO_TCP || next_proto == IPPROTO_UDP)) break;
-        
+
         // Check for known extension headers
         // 检查已知的扩展头
-        if (next_proto == IPPROTO_HOPOPTS || next_proto == IPPROTO_ROUTING || 
+        if (next_proto == IPPROTO_HOPOPTS || next_proto == IPPROTO_ROUTING ||
             next_proto == IPPROTO_DSTOPTS || next_proto == IPPROTO_AH) {
-            
+
             // Ext header format: [Next Header (1B)][Hdr Ext Len (1B)][...payload...]
             // Length is in 8-octet units, not including the first 8 octets
             // 扩展头格式：[下一个头 (1B)][头扩展长度 (1B)][...负载...]
@@ -45,24 +45,24 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
             __u8 *hdr_ptr = cur_header;
             next_proto = *hdr_ptr;
             __u8 len_val = *(hdr_ptr + 1);
-            
+
             // RFC 2460: Length field is in 8-octet units, excluding the first 8 octets
             // Actual length = (len_val + 1) * 8
             // RFC 2460：长度字段以 8 字节为单位，不包括前 8 个字节
             // 实际长度 = (len_val + 1) * 8
             int ext_len = (len_val + 1) * 8;
-            
+
             if (unlikely(cur_header + ext_len > data_end)) return XDP_PASS; // Malformed
             cur_header += ext_len;
         } else if (next_proto == IPPROTO_FRAGMENT) {
             // Fragment header is fixed 8 bytes
             // 分片头固定为 8 字节
             if (unlikely(cur_header + 8 > data_end)) return XDP_PASS;
-            
+
             // If it's a fragment (offset != 0 or M flag), we can't find ports
             // 如果是分片（偏移量 != 0 或 M 标志），我们无法找到端口
             struct ipv6_frag_hdr *frag = cur_header;
-            
+
             // Check fragment offset and More Fragments flag
             // frag_off is network byte order. Mask 0xFFF8 is offset, 0x0001 is M flag
             // 检查分片偏移量和更多分片标志
@@ -74,7 +74,7 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
                  }
                  return XDP_PASS; // Cannot find L4 header
             }
-            
+
             next_proto = frag->nexthdr;
             cur_header += 8;
         } else {
@@ -115,7 +115,7 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
             dest_port = bpf_ntohs(udp->dest);
         }
     }
-    
+
     // Land Attack (IPv6)
     // Land 攻击 (IPv6)
     if (unlikely(is_land_attack_ipv6(&ip6->saddr, &ip6->daddr))) {
@@ -168,7 +168,7 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
     // 4. 速率限制和 SYN Flood 保护（统一）
     if (likely(cached_ratelimit_enabled == 1)) {
         int is_syn = (next_proto == IPPROTO_TCP && (tcp_flags & 0x02));
-        
+
         if (likely(cached_syn_limit == 0 || is_syn)) {
             if (unlikely(!check_ratelimit(&ip6->saddr))) {
                 update_drop_stats_with_reason(DROP_REASON_RATELIMIT, next_proto, &ip6->saddr, dest_port);
@@ -181,9 +181,9 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
     // 5. 连接跟踪（统一）
     if (likely(cached_ct_enabled == 1)) {
         struct ct_key look_key = {
-            .src_ip = ip6->daddr, 
+            .src_ip = ip6->daddr,
             .dst_ip = ip6->saddr,
-            .src_port = dest_port, 
+            .src_port = dest_port,
             .dst_port = src_port,
             .protocol = next_proto,
         };
@@ -221,7 +221,7 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
 
     // 8. Return traffic
     // 8. 返回流量
-    if (unlikely(cached_allow_return == 1 && cached_ct_enabled == 0)) {
+    if (unlikely(cached_allow_return == 1)) {
         if (ip6->nexthdr == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
             if ((void *)tcp + sizeof(*tcp) <= data_end && tcp->ack && dest_port >= 32768) {
@@ -234,13 +234,11 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
         }
     }
 
-    // 9. Default Deny / Port Whitelist
-    // 9. 默认拒绝 / 端口白名单
-    if (likely(dest_port > 0 && cached_default_deny == 1)) {
-        if (likely(bpf_map_lookup_elem(&allowed_ports, &dest_port))) {
-            update_pass_stats_with_reason(PASS_REASON_WHITELIST, next_proto, &ip6->saddr, dest_port);
-            return XDP_PASS;
-        }
+    // 9. Default Deny
+    // 9. 默认拒绝
+    if (unlikely(cached_default_deny == 1)) {
+        // If we reached here, no rule matched (neither whitelist, blacklist, nor ip/port rules).
+        // 如果到达这里，说明没有规则匹配（既不是白名单，也不是黑名单，也不是 IP/端口规则）。
         update_drop_stats_with_reason(DROP_REASON_DEFAULT, next_proto, &ip6->saddr, dest_port);
         return XDP_DROP;
     }

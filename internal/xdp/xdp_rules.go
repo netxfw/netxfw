@@ -272,7 +272,12 @@ func ListIPPortRulesFromMap(mapPtr *ebpf.Map, limit int, search string) ([]IPPor
 
 	for iter.Next(&key, &val) {
 		ipStr := FormatIn6Addr(&key.Ip)
-		prefixLen := AdjustPrefixLen(&key.Ip, key.Prefixlen)
+		// Subtract key header length (32 bits for Port + Pad)
+		realPrefixLen := key.Prefixlen
+		if realPrefixLen >= 32 {
+			realPrefixLen -= 32
+		}
+		prefixLen := AdjustPrefixLen(&key.Ip, realPrefixLen)
 
 		if search != "" {
 			fullStr := fmt.Sprintf("%s/%d:%d", ipStr, prefixLen, key.Port)

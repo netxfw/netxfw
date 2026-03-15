@@ -343,7 +343,7 @@ int xdp_return(struct xdp_md *ctx) {
 
     if (parse_packet_info(ctx, &data_end, &ip, &src_ip6, &dest_port, &protocol, &tcp_flags) != 0) return XDP_PASS;
 
-    if (unlikely(cached_allow_return == 1 && cached_ct_enabled == 0)) {
+    if (unlikely(cached_allow_return == 1)) {
         if (protocol == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip + (ip->ihl * 4);
             if ((void *)tcp + sizeof(*tcp) <= data_end && tcp->ack && dest_port >= 32768) {

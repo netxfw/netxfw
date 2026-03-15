@@ -38,14 +38,14 @@ static __always_inline int is_whitelisted(struct in6_addr *ip, __u16 port) {
  * 检查 IP+端口特定规则
  */
 static __always_inline int check_ip_port_rule(struct in6_addr *ip, __u16 port) {
-    // Key structure: port (16) + pad (16) + ip (128)
+    // Key structure: pad (16) + port (16) + ip (128)
     // Total bits = 160
-    // 键结构：端口 (16) + 填充 (16) + IP (128)
+    // 键结构：填充 (16) + 端口 (16) + IP (128)
     // 总位数 = 160
     struct lpm_ip_port_key key = {
         .prefixlen = 160,
-        .port = port,
         .pad = 0,
+        .port = port,
     };
     __builtin_memcpy(&key.ip, ip, sizeof(struct in6_addr));
     

@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"fmt"
+
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -42,7 +44,73 @@ func (m *PortModule) Sync() error {
 		return nil
 	}
 
-	// 1. Sync Allowed Ports
+	// 1. Sync IP+Port Rules (Incremental update to avoid empty window)
+	currentRules, _, err := m.manager.ListIPPortRules(false, 0, "")
+	if err != nil {
+		m.logger.Warnf("[WARN] [Port] Failed to list current IP+Port rules: %v", err)
+	} else {
+		// Build map of current rules for easy lookup
+		// Key format: "IP:Port"
+		currentRulesMap := make(map[string]sdk.IPPortRule)
+		for _, rule := range currentRules {
+			// ListIPPortRules returns normalized CIDR
+			key := fmt.Sprintf("%s:%d", rule.IP, rule.Port)
+			currentRulesMap[key] = rule
+		}
+
+		// Build map of desired rules
+		desiredRulesMap := make(map[string]types.IPPortRule)
+		for _, rule := range m.config.IPPortRules {
+			// We need to normalize IP to match what ListIPPortRules returns
+			// Assuming ListIPPortRules returns normalized CIDRs
+			// But since we can't easily access iputil here without import, we might rely on exact match or careful normalization
+			// However, let's try to match by key constructed same way
+			key := fmt.Sprintf("%s:%d", rule.IP, rule.Port)
+			desiredRulesMap[key] = rule
+		}
+
+		// Remove rules that are not in desired config
+		for key, rule := range currentRulesMap {
+			if _, desired := desiredRulesMap[key]; !desired {
+				// Safety check: Do not delete "Allowed Ports" (Wildcard IP rules)
+				// ListIPPortRules returns wildcard rules as "::/0" or "0.0.0.0/0"
+				// We should preserve them if the port is in AllowedPorts config
+				isWildcard := (rule.IP == "::/0" || rule.IP == "0.0.0.0/0")
+
+				isAllowedPort := false
+				if isWildcard {
+					for _, p := range m.config.AllowedPorts {
+						if p == rule.Port {
+							isAllowedPort = true
+							break
+						}
+					}
+				}
+
+				if isWildcard && isAllowedPort {
+					// This is an Allowed Port rule, do not delete it here.
+					// It will be handled in step 2 (Sync Allowed Ports).
+					continue
+				}
+
+				if err := m.manager.RemoveIPPortRule(rule.IP, rule.Port); err != nil {
+					m.logger.Warnf("[WARN] [Port] Failed to remove rule %s:%d: %v", rule.IP, rule.Port, err)
+				}
+			}
+		}
+
+		// Add or Update rules
+		for key, rule := range desiredRulesMap {
+			existing, exists := currentRulesMap[key]
+			if !exists || existing.Action != rule.Action {
+				if err := m.manager.AddIPPortRule(rule.IP, rule.Port, rule.Action); err != nil {
+					m.logger.Warnf("[WARN] [Port] Failed to add/update rule %s:%d: %v", rule.IP, rule.Port, err)
+				}
+			}
+		}
+	}
+
+	// 2. Sync Allowed Ports
 	currentPorts, err := m.manager.ListAllowedPorts()
 	if err != nil {
 		m.logger.Warnf("[WARN] [Port] Failed to list current allowed ports: %v", err)
@@ -70,16 +138,6 @@ func (m *PortModule) Sync() error {
 					m.logger.Warnf("[WARN] [Port] Failed to allow port %d: %v", port, err)
 				}
 			}
-		}
-	}
-
-	// 2. Sync IP+Port Rules (Simplified logic for migration)
-	if err := m.manager.ClearIPPortRules(); err != nil {
-		m.logger.Warnf("[WARN] [Port] Failed to clear IP+Port rules: %v", err)
-	}
-	for _, rule := range m.config.IPPortRules {
-		if err := m.manager.AddIPPortRule(rule.IP, rule.Port, rule.Action); err != nil {
-			m.logger.Warnf("[WARN] [Port] Failed to add rule %s:%d: %v", rule.IP, rule.Port, err)
 		}
 	}
 

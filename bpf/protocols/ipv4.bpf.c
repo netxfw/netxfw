@@ -27,7 +27,7 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
     // 转换为 IPv4 映射的 IPv6 地址以进行统一处理
     struct in6_addr src_ip6 = {};
     ipv4_to_ipv6_mapped(ip->saddr, &src_ip6);
-    
+
     // 0. Sanity Checks & Bogon Filtering
     // 0. 合法性检查和 Bogon 过滤
     if (unlikely(cached_bogon_filter == 1)) {
@@ -134,7 +134,7 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
         // Or if it's just general rate limiting
         // 或者如果只是通用速率限制
         int is_syn = (ip->protocol == IPPROTO_TCP && (tcp_flags & 0x02));
-        
+
         if (likely(cached_syn_limit == 0 || is_syn)) {
             if (unlikely(!check_ratelimit(&src_ip6))) {
                 update_drop_stats_with_reason(DROP_REASON_RATELIMIT, ip->protocol, &src_ip6, dest_port);
@@ -148,15 +148,15 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
     if (likely(cached_ct_enabled == 1)) {
         struct in6_addr dst_ip6 = {};
         ipv4_to_ipv6_mapped(ip->daddr, &dst_ip6);
-        
+
         struct ct_key look_key = {
             // Using mapped addresses for unified lookup
             // 使用映射地址进行统一查找
             // Original: src=daddr, dst=saddr (reverse flow check)
             // 原始：src=daddr, dst=saddr（反向流检查）
-            .src_ip = dst_ip6, 
+            .src_ip = dst_ip6,
             .dst_ip = src_ip6,
-            .src_port = dest_port, 
+            .src_port = dest_port,
             .dst_port = src_port,
             .protocol = ip->protocol,
         };
@@ -194,7 +194,7 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
 
     // 8. Return traffic
     // 8. 返回流量
-    if (unlikely(cached_allow_return == 1 && cached_ct_enabled == 0)) {
+    if (unlikely(cached_allow_return == 1)) {
         if (ip->protocol == IPPROTO_TCP) {
             struct tcphdr *tcp = (void *)ip + sizeof(*ip);
             if ((void *)tcp + sizeof(*tcp) <= data_end && tcp->ack && dest_port >= 32768) {
@@ -207,13 +207,13 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
         }
     }
 
-    // 9. Default Deny / Port Whitelist
-    // 9. 默认拒绝 / 端口白名单
-    if (likely(dest_port > 0 && cached_default_deny == 1)) {
-        if (likely(bpf_map_lookup_elem(&allowed_ports, &dest_port))) {
-            update_pass_stats_with_reason(PASS_REASON_WHITELIST, ip->protocol, &src_ip6, dest_port);
-            return XDP_PASS;
-        }
+    // 9. Default Deny
+    // 9. 默认拒绝
+    if (unlikely(cached_default_deny == 1)) {
+        // If we reached here, no rule matched (neither whitelist, blacklist, nor ip/port rules).
+        // 如果到达这里，说明没有规则匹配（既不是白名单，也不是黑名单，也不是 IP/端口规则）。
+        // Since IP+Port rules (including allowed_ports) are checked in Step 6, we just drop here.
+        // 由于 IP+端口规则（包括 allowed_ports）已在步骤 6 中检查，我们只需在这里丢弃。
         update_drop_stats_with_reason(DROP_REASON_DEFAULT, ip->protocol, &src_ip6, dest_port);
         return XDP_DROP;
     }

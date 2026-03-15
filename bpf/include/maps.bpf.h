@@ -42,8 +42,8 @@ struct lpm_key {
 // 统一的 LPM IP+端口键（用于 rule_map）
 struct lpm_ip_port_key {
     __u32 prefixlen;
-    __u16 port;
     __u16 pad;
+    __u16 port;
     struct in6_addr ip;
 };
 
