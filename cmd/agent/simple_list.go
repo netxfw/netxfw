@@ -2,13 +2,11 @@ package agent
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
-	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -37,11 +35,9 @@ Use --limit to restrict the number of results (default: 100).
 
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
+		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
 			if static {
-				ips, total, err := xdp.ListBlockedIPs(manager.LockList(), false, limit, "")
+				ips, total, err := s.GetManager().ListBlacklistIPs(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list blocked IPs: %v", err)
 				}
@@ -55,7 +51,7 @@ Use --limit to restrict the number of results (default: 100).
 					cmd.Printf("\n[INFO] Total: %d IPs\n", total)
 				}
 			} else if dynamic {
-				ips, total, err := xdp.ListBlockedIPs(manager.DynLockList(), false, limit, "")
+				ips, total, err := s.GetManager().ListDynamicBlacklistIPs(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list blocked IPs: %v", err)
 				}
@@ -69,11 +65,11 @@ Use --limit to restrict the number of results (default: 100).
 					cmd.Printf("\n[INFO] Total: %d IPs\n", total)
 				}
 			} else {
-				staticIPs, staticTotal, err := xdp.ListBlockedIPs(manager.LockList(), false, limit, "")
+				staticIPs, staticTotal, err := s.GetManager().ListBlacklistIPs(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list static blocked IPs: %v", err)
 				}
-				dynamicIPs, dynamicTotal, err := xdp.ListDynamicBlockedIPs(manager.DynLockList(), limit, "")
+				dynamicIPs, dynamicTotal, err := s.GetManager().ListDynamicBlacklistIPs(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list dynamic blocked IPs: %v", err)
 				}
@@ -170,15 +166,8 @@ Use --limit to restrict the number of results (default: 100).
 
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
-			whitelist := manager.Whitelist()
-			if whitelist == nil {
-				return fmt.Errorf("[ERROR] Whitelist map not available")
-			}
-
-			ips, total, err := xdp.ListWhitelistIPs(whitelist, limit, "")
+		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
+			ips, total, err := s.Whitelist.List(limit, "")
 			if err != nil {
 				return fmt.Errorf("[ERROR] Failed to list whitelist: %v", err)
 			}
@@ -219,15 +208,18 @@ var allowPortListCmd = &cobra.Command{
 
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
-			rules, _, err := manager.ListIPPortRules(false, 0, "")
+		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
+			rules, _, err := s.GetManager().ListIPPortRules(false, 0, "")
 			if err != nil {
 				return fmt.Errorf("[ERROR] Failed to list IP+Port rules: %v", err)
 			}
 
-			allowRules := common.FilterIPPortRules(rules, "allow")
+			var allowRules []sdk.IPPortRule
+			for _, rule := range rules {
+				if rule.Action == 1 {
+					allowRules = append(allowRules, rule)
+				}
+			}
 
 			if len(allowRules) == 0 {
 				cmd.Println("[INFO] No IP+Port allow rules")
@@ -313,11 +305,9 @@ Use --limit to restrict the number of results (default: 100).
 
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
+		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
 			if static {
-				ips, total, err := xdp.ListBlockedIPs(manager.LockList(), false, limit, "")
+				ips, total, err := s.Blacklist.List(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list blocked IPs: %v", err)
 				}
@@ -331,7 +321,7 @@ Use --limit to restrict the number of results (default: 100).
 					cmd.Printf("\n[INFO] Total: %d IPs\n", total)
 				}
 			} else if dynamic {
-				ips, total, err := xdp.ListDynamicBlockedIPs(manager.DynLockList(), limit, "")
+				ips, total, err := s.GetManager().ListDynamicBlacklistIPs(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list dynamic blocked IPs: %v", err)
 				}
@@ -345,11 +335,11 @@ Use --limit to restrict the number of results (default: 100).
 					cmd.Printf("\n[INFO] Total: %d IPs\n", total)
 				}
 			} else {
-				staticIPs, staticTotal, err := xdp.ListBlockedIPs(manager.LockList(), false, limit, "")
+				staticIPs, staticTotal, err := s.Blacklist.List(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list static blocked IPs: %v", err)
 				}
-				dynamicIPs, dynamicTotal, err := xdp.ListDynamicBlockedIPs(manager.DynLockList(), limit, "")
+				dynamicIPs, dynamicTotal, err := s.GetManager().ListDynamicBlacklistIPs(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list dynamic blocked IPs: %v", err)
 				}
@@ -399,15 +389,18 @@ var denyPortListCmd = &cobra.Command{
 
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
-			rules, _, err := manager.ListIPPortRules(false, 0, "")
+		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
+			rules, _, err := s.GetManager().ListIPPortRules(false, 0, "")
 			if err != nil {
 				return fmt.Errorf("[ERROR] Failed to list IP+Port rules: %v", err)
 			}
 
-			denyRules := common.FilterIPPortRules(rules, "deny")
+			var denyRules []sdk.IPPortRule
+			for _, rule := range rules {
+				if rule.Action == 0 {
+					denyRules = append(denyRules, rule)
+				}
+			}
 
 			if len(denyRules) == 0 {
 				cmd.Println("[INFO] No IP+Port deny rules")
@@ -439,8 +432,8 @@ var SimpleDeleteCmd = &cobra.Command{
 
 		ip, port, err := parseAndValidateIPInput(input)
 		if err != nil {
-			cmd.PrintErrln("[ERROR] " + err.Error())
-			os.Exit(1)
+			reportCommandError(cmd, fmt.Errorf("[ERROR] %s", err.Error()))
+			return
 		}
 
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
@@ -466,15 +459,9 @@ var SimpleDeleteCmd = &cobra.Command{
 				removed = true
 			}
 
-			mgr := s.GetManager()
-			if mgr != nil {
-				dynList := mgr.DynLockList()
-				if dynList != nil {
-					if err := xdp.UnlockIP(dynList, ip); err == nil {
-						cmd.Printf("[OK] Removed %s from dynamic blacklist\n", ip)
-						removed = true
-					}
-				}
+			if err := s.Blacklist.RemoveDynamic(ip); err == nil {
+				cmd.Printf("[OK] Removed %s from dynamic blacklist\n", ip)
+				removed = true
 			}
 
 			if err := s.Whitelist.Remove(ip); err == nil {
@@ -501,16 +488,14 @@ var SimpleUnallowCmd = &cobra.Command{
 		ip := args[0]
 
 		if err := common.ValidateIP(ip); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
+			reportCommandError(cmd, err)
+			return
 		}
 
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
-			if err := manager.RemoveAllowStatic(ip); err != nil {
+		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
+			if err := s.Whitelist.Remove(ip); err != nil {
 				return fmt.Errorf("[ERROR] Failed to unallow IP: %v", err)
 			}
 			executor.PrintSuccess("IP unallowed at XDP layer: " + ip)
@@ -533,26 +518,30 @@ var SimpleBlockCmd = &cobra.Command{
 		persistFile, _ := cmd.Flags().GetString("file")
 
 		if err := common.ValidateIP(ip); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
+			reportCommandError(cmd, err)
+			return
 		}
 
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
+		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
 			if duration != "" {
 				dur, err := common.ParseAndValidateTTL(duration)
 				if err != nil {
 					return err
 				}
-				if err := manager.BlockDynamic(ip, dur); err != nil {
+				if err := s.Blacklist.AddWithDuration(ip, dur); err != nil {
 					return fmt.Errorf("[ERROR] Failed to block IP: %v", err)
 				}
 				executor.PrintSuccess(fmt.Sprintf("IP blocked at XDP layer: %s (duration: %s)", ip, duration))
 			} else {
-				if err := manager.BlockStatic(ip, persistFile); err != nil {
+				var err error
+				if persistFile != "" {
+					err = s.Blacklist.AddWithFile(ip, persistFile)
+				} else {
+					err = s.Blacklist.Add(ip)
+				}
+				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to block IP: %v", err)
 				}
 				executor.PrintSuccess("IP blocked at XDP layer: " + ip)
@@ -573,23 +562,21 @@ var SimpleUnblockCmd = &cobra.Command{
 		ip := args[0]
 
 		if err := common.ValidateIP(ip); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
+			reportCommandError(cmd, err)
+			return
 		}
 
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
+		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
 			removed := false
 
-			if err := xdp.UnlockIP(manager.LockList(), ip); err == nil {
+			if err := s.Blacklist.Remove(ip); err == nil {
 				executor.PrintSuccess("IP unblocked from static blacklist: " + ip)
 				removed = true
 			}
 
-			if err := xdp.UnlockIP(manager.DynLockList(), ip); err == nil {
+			if err := s.Blacklist.RemoveDynamic(ip); err == nil {
 				executor.PrintSuccess("IP unblocked from dynamic blacklist: " + ip)
 				removed = true
 			}
@@ -623,14 +610,14 @@ func runAllowCommand(cmd *cobra.Command, input string) {
 
 	ip, port, err := parseAndValidateIPInput(input)
 	if err != nil {
-		cmd.PrintErrln("[ERROR] " + err.Error())
-		os.Exit(1)
+		reportCommandError(cmd, fmt.Errorf("[ERROR] %s", err.Error()))
+		return
 	}
 
 	executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-	executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-		if err := manager.AllowStatic(ip, port); err != nil {
+	executor.ExecuteWithSDK(func(s *sdk.SDK) error {
+		if err := s.Whitelist.Add(ip, port); err != nil {
 			return fmt.Errorf("[ERROR] Failed to allow IP: %v", err)
 		}
 		if err := persistWhitelistEntryToConfig(ip, port); err != nil {
@@ -651,15 +638,13 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 
 	ip, port, err := parseAndValidateIPInput(input)
 	if err != nil {
-		cmd.PrintErrln("[ERROR] " + err.Error())
-		os.Exit(1)
+		reportCommandError(cmd, fmt.Errorf("[ERROR] %s", err.Error()))
+		return
 	}
 
 	executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-	executor.ExecuteWithConfigManager(func(cfg *types.GlobalConfig, manager *xdp.Manager) error {
-		s := sdk.NewSDK(xdp.NewAdapter(manager))
-
+	executor.ExecuteWithSDKAndConfig(func(cfg *types.GlobalConfig, s *sdk.SDK) error {
 		if port > 0 {
 			if ttlStr != "" {
 				cmd.PrintErrln("[WARN]  WARNING: TTL parameter is ignored for IP+Port rules")

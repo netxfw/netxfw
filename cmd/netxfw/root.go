@@ -167,6 +167,8 @@ Examples:
 }
 
 func Execute() {
+	_ = agent.ConsumeLastCommandError()
+
 	// Replace default completion command with custom one (no powershell)
 	// 用自定义补全命令替换默认命令（不含 powershell）
 	for _, cmd := range RootCmd.Commands() {
@@ -181,6 +183,9 @@ func Execute() {
 
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if err := agent.ConsumeLastCommandError(); err != nil {
 		os.Exit(1)
 	}
 }

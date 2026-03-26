@@ -2,8 +2,6 @@ package sdk
 
 import (
 	"context"
-
-	"github.com/netxfw/netxfw/internal/plugins/types"
 )
 
 // PluginContext provides the environment for a plugin to operate in.
@@ -22,7 +20,7 @@ type PluginContext struct {
 	Manager ManagerInterface
 	// Config holds the current global configuration snapshot.
 	// Config 保存当前的全局配置快照。
-	Config *types.GlobalConfig
+	Config *GlobalConfig
 	// Logger is the standard logger for plugins.
 	// Logger 是插件的标准日志记录器。
 	Logger Logger
@@ -86,7 +84,7 @@ type Plugin interface {
 	// It should return an error if the configuration is invalid.
 	// Validate 在应用之前检查配置是否有效。
 	// 如果配置无效，它应该返回错误。
-	Validate(config *types.GlobalConfig) error
+	Validate(config *GlobalConfig) error
 
 	// Type returns the type of the plugin (Core or Extension).
 	// Core plugins are required for the system to function.

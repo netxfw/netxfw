@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -337,7 +336,7 @@ func TestConntrackAPI(t *testing.T) {
 func TestSyncAPI(t *testing.T) {
 	mockMgr := NewMockManager()
 	s := NewSDK(mockMgr)
-	cfg := &types.GlobalConfig{}
+	cfg := &GlobalConfig{}
 
 	// Test ToConfig
 	// 测试 ToConfig

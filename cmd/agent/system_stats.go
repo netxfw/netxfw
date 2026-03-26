@@ -2,20 +2,64 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
-	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
+// mapCapacity holds the maximum capacity for each BPF map.
+// mapCapacity 保存每个 BPF Map 的最大容量。
+type mapCapacity struct {
+	Blacklist    int
+	Whitelist    int
+	DynBlacklist int
+	IPPortRules  int
+	RateLimits   int
+}
+
+// getMapCapacity reads map capacity from config with sensible defaults.
+// getMapCapacity 从配置读取 Map 容量，使用合理的默认值。
+func getMapCapacity() mapCapacity {
+	capacity := mapCapacity{
+		Blacklist:    2000000,
+		Whitelist:    65536,
+		DynBlacklist: 2000000,
+		IPPortRules:  65536,
+		RateLimits:   1000,
+	}
+
+	cfgManager := config.GetConfigManager()
+	if err := cfgManager.LoadConfig(); err == nil {
+		if c := cfgManager.GetCapacityConfig(); c != nil {
+			if c.LockList > 0 {
+				capacity.Blacklist = c.LockList
+			}
+			if c.Whitelist > 0 {
+				capacity.Whitelist = c.Whitelist
+			}
+			if c.DynLockList > 0 {
+				capacity.DynBlacklist = c.DynLockList
+			}
+			if c.IPPortRules > 0 {
+				capacity.IPPortRules = c.IPPortRules
+			}
+			if c.RateLimits > 0 {
+				capacity.RateLimits = c.RateLimits
+			}
+		}
+	}
+	return capacity
+}
+
 // showDropStatistics 显示带百分比的丢弃统计
-func showDropStatistics(s StatsAPI, drops, pass uint64) {
-	trafficStats, err := xdp.LoadTrafficStats()
+func showDropStatistics(w io.Writer, s StatsAPI, drops, pass uint64) {
+	trafficStats, err := app.LoadTrafficStats()
 	var currentDropPPS uint64
 	if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
 		currentDropPPS = trafficStats.CurrentDropPPS
@@ -31,7 +75,7 @@ func showDropStatistics(s StatsAPI, drops, pass uint64) {
 		wrappedDetails[i] = DropDetailEntryWrapper{d}
 	}
 
-	showDetailStatistics(wrappedDetails, detailStatsConfig{
+	showDetailStatistics(w, wrappedDetails, detailStatsConfig{
 		title:      "[BLOCK] Drop Statistics:",
 		subTitle:   "[BLOCK] Top Drops by Reason & Source:",
 		reasonFunc: dropReasonToString,
@@ -43,8 +87,8 @@ func showDropStatistics(s StatsAPI, drops, pass uint64) {
 
 // showPassStatistics displays pass statistics with percentages
 // showPassStatistics 显示带百分比的通过统计
-func showPassStatistics(s StatsAPI, pass, drops uint64) {
-	trafficStats, err := xdp.LoadTrafficStats()
+func showPassStatistics(w io.Writer, s StatsAPI, pass, drops uint64) {
+	trafficStats, err := app.LoadTrafficStats()
 	var currentPassPPS uint64
 	if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
 		currentPassPPS = trafficStats.CurrentPassPPS
@@ -60,7 +104,7 @@ func showPassStatistics(s StatsAPI, pass, drops uint64) {
 		wrappedDetails[i] = PassDetailEntryWrapper{d}
 	}
 
-	showDetailStatistics(wrappedDetails, detailStatsConfig{
+	showDetailStatistics(w, wrappedDetails, detailStatsConfig{
 		title:      "[OK] Pass Statistics:",
 		subTitle:   "[OK] Top Allowed by Reason & Source:",
 		reasonFunc: passReasonToString,
@@ -72,15 +116,11 @@ func showPassStatistics(s StatsAPI, pass, drops uint64) {
 
 // showMapStatistics displays BPF map statistics
 // showMapStatistics 显示 BPF Map 统计和使用率
-func showMapStatistics(mgr sdk.ManagerInterface) {
-	fmt.Println()
-	fmt.Println("[DATA] Map Statistics:")
+func showMapStatistics(w io.Writer, mgr sdk.ManagerInterface) {
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[DATA] Map Statistics:")
 
-	cfgManager := config.GetConfigManager()
-	var capacityCfg *types.CapacityConfig
-	if err := cfgManager.LoadConfig(); err == nil {
-		capacityCfg = cfgManager.GetCapacityConfig()
-	}
+	cap := getMapCapacity()
 
 	blacklistCount, _ := mgr.GetLockedIPCount()
 	whitelistCount, _ := mgr.GetWhitelistCount()
@@ -89,48 +129,24 @@ func showMapStatistics(mgr sdk.ManagerInterface) {
 	ipPortRules, _, _ := mgr.ListIPPortRules(false, 0, "")
 	allowedPorts, _ := mgr.ListAllowedPorts()
 
-	maxBlacklist := 2000000
-	maxWhitelist := 65536
-	maxDynBlacklist := 2000000
-	maxIPPortRules := 65536
-	maxRateLimits := 1000
-
-	if capacityCfg != nil {
-		if capacityCfg.LockList > 0 {
-			maxBlacklist = capacityCfg.LockList
-		}
-		if capacityCfg.Whitelist > 0 {
-			maxWhitelist = capacityCfg.Whitelist
-		}
-		if capacityCfg.DynLockList > 0 {
-			maxDynBlacklist = capacityCfg.DynLockList
-		}
-		if capacityCfg.IPPortRules > 0 {
-			maxIPPortRules = capacityCfg.IPPortRules
-		}
-		if capacityCfg.RateLimits > 0 {
-			maxRateLimits = capacityCfg.RateLimits
-		}
-	}
-
-	fmt.Printf("   %-18s %12s / %-12s %s\n", "Map", "Used", "Max", "Usage")
-	fmt.Printf("   %s\n", strings.Repeat("-", 70))
-	fmt.Printf("   %-18s %12d / %-12d %s\n",
-		"[LOCK] Blacklist", blacklistCount, maxBlacklist,
-		renderUsageBar(blacklistCount, maxBlacklist, 20))
-	fmt.Printf("   %-18s %12d / %-12d %s\n",
-		"[DYNDYNLOCK] Dyn Blacklist", dynBlacklistCount, maxDynBlacklist,
-		renderUsageBar(int(dynBlacklistCount), maxDynBlacklist, 20))
-	fmt.Printf("   %-18s %12d / %-12d %s\n",
-		"[WHITE] Whitelist", whitelistCount, maxWhitelist,
-		renderUsageBar(whitelistCount, maxWhitelist, 20))
-	fmt.Printf("   %-18s %12d / %-12d %s\n",
-		"[IPPort] IP+Port Rules", len(ipPortRules), maxIPPortRules,
-		renderUsageBar(len(ipPortRules), maxIPPortRules, 20))
-	fmt.Printf("   %-18s %12d / %-12d %s\n",
-		"[Limit]  Rate Limits", len(rateLimitRules), maxRateLimits,
-		renderUsageBar(len(rateLimitRules), maxRateLimits, 20))
-	fmt.Printf("   %-18s %12d\n", "[Allowport] Allowed Ports", len(allowedPorts))
+	fmt.Fprintf(w, "   %-18s %12s / %-12s %s\n", "Map", "Used", "Max", "Usage")
+	fmt.Fprintf(w, "   %s\n", strings.Repeat("-", 70))
+	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
+		"[LOCK] Blacklist", blacklistCount, cap.Blacklist,
+		renderUsageBar(blacklistCount, cap.Blacklist, 20))
+	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
+		"[DYNDYNLOCK] Dyn Blacklist", dynBlacklistCount, cap.DynBlacklist,
+		renderUsageBar(int(dynBlacklistCount), cap.DynBlacklist, 20))
+	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
+		"[WHITE] Whitelist", whitelistCount, cap.Whitelist,
+		renderUsageBar(whitelistCount, cap.Whitelist, 20))
+	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
+		"[IPPort] IP+Port Rules", len(ipPortRules), cap.IPPortRules,
+		renderUsageBar(len(ipPortRules), cap.IPPortRules, 20))
+	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
+		"[Limit]  Rate Limits", len(rateLimitRules), cap.RateLimits,
+		renderUsageBar(len(rateLimitRules), cap.RateLimits, 20))
+	fmt.Fprintf(w, "   %-18s %12d\n", "[Allowport] Allowed Ports", len(allowedPorts))
 }
 
 // renderUsageBar renders a visual progress bar like top command
@@ -174,12 +190,8 @@ func renderUsageBar(current, maximum int, width int) string {
 
 // showCompactMapStatistics displays compact map statistics in single line format
 // showCompactMapStatistics 以紧凑格式显示 Map 统计
-func showCompactMapStatistics(mgr sdk.ManagerInterface) {
-	cfgManager := config.GetConfigManager()
-	var capacityCfg *types.CapacityConfig
-	if err := cfgManager.LoadConfig(); err == nil {
-		capacityCfg = cfgManager.GetCapacityConfig()
-	}
+func showCompactMapStatistics(w io.Writer, mgr sdk.ManagerInterface) {
+	cap := getMapCapacity()
 
 	blacklistCount, _ := mgr.GetLockedIPCount()
 	whitelistCount, _ := mgr.GetWhitelistCount()
@@ -187,37 +199,13 @@ func showCompactMapStatistics(mgr sdk.ManagerInterface) {
 	rateLimitRules, _, _ := mgr.ListRateLimitRules(0, "")
 	ipPortRules, _, _ := mgr.ListIPPortRules(false, 0, "")
 
-	maxBlacklist := 2000000
-	maxWhitelist := 65536
-	maxDynBlacklist := 2000000
-	maxIPPortRules := 65536
-	maxRateLimits := 1000
-
-	if capacityCfg != nil {
-		if capacityCfg.LockList > 0 {
-			maxBlacklist = capacityCfg.LockList
-		}
-		if capacityCfg.Whitelist > 0 {
-			maxWhitelist = capacityCfg.Whitelist
-		}
-		if capacityCfg.DynLockList > 0 {
-			maxDynBlacklist = capacityCfg.DynLockList
-		}
-		if capacityCfg.IPPortRules > 0 {
-			maxIPPortRules = capacityCfg.IPPortRules
-		}
-		if capacityCfg.RateLimits > 0 {
-			maxRateLimits = capacityCfg.RateLimits
-		}
-	}
-
-	fmt.Println()
-	fmt.Println("[DATA] Map Usage:")
-	fmt.Printf("   %-16s %s\n", "[LOCK] Blacklist:", renderMiniBar(blacklistCount, maxBlacklist))
-	fmt.Printf("   %-16s %s\n", "[DynLOCK] Dyn:", renderMiniBar(int(dynBlacklistCount), maxDynBlacklist))
-	fmt.Printf("   %-16s %s\n", "[WHITE] Whitelist:", renderMiniBar(whitelistCount, maxWhitelist))
-	fmt.Printf("   %-16s %s\n", "[IPPort] IP+Port:", renderMiniBar(len(ipPortRules), maxIPPortRules))
-	fmt.Printf("   %-16s %s\n", "[Limit] RateLimit:", renderMiniBar(len(rateLimitRules), maxRateLimits))
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[DATA] Map Usage:")
+	fmt.Fprintf(w, "   %-16s %s\n", "[LOCK] Blacklist:", renderMiniBar(blacklistCount, cap.Blacklist))
+	fmt.Fprintf(w, "   %-16s %s\n", "[DynLOCK] Dyn:", renderMiniBar(int(dynBlacklistCount), cap.DynBlacklist))
+	fmt.Fprintf(w, "   %-16s %s\n", "[WHITE] Whitelist:", renderMiniBar(whitelistCount, cap.Whitelist))
+	fmt.Fprintf(w, "   %-16s %s\n", "[IPPort] IP+Port:", renderMiniBar(len(ipPortRules), cap.IPPortRules))
+	fmt.Fprintf(w, "   %-16s %s\n", "[Limit] RateLimit:", renderMiniBar(len(rateLimitRules), cap.RateLimits))
 }
 
 // renderMiniBar renders a mini progress bar for compact display
@@ -247,7 +235,7 @@ func renderMiniBar(current, maximum int) string {
 
 // showTopBlockedIPs displays top blocked attacker IPs
 // showTopBlockedIPs 显示被拦截最多的攻击 IP
-func showTopBlockedIPs(s StatsAPI, drops uint64) {
+func showTopBlockedIPs(w io.Writer, s StatsAPI, drops uint64) {
 	if drops == 0 {
 		return
 	}
@@ -275,15 +263,15 @@ func showTopBlockedIPs(s StatsAPI, drops uint64) {
 	})
 
 	if len(sorted) > 0 {
-		fmt.Println()
-		fmt.Println("[ALERT] Top Blocked Attackers:")
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "[ALERT] Top Blocked Attackers:")
 		maxShow := 3
 		if len(sorted) < maxShow {
 			maxShow = len(sorted)
 		}
 		for i := 0; i < maxShow; i++ {
 			percent := float64(sorted[i].count) / float64(drops) * 100
-			fmt.Printf("   %d. %s - %s drops (%.1f%%)\n", i+1, sorted[i].ip,
+			fmt.Fprintf(w, "   %d. %s - %s drops (%.1f%%)\n", i+1, sorted[i].ip,
 				fmtutil.FormatNumberWithComma(sorted[i].count), percent)
 		}
 	}
@@ -291,17 +279,17 @@ func showTopBlockedIPs(s StatsAPI, drops uint64) {
 
 // showConclusionStatistics displays summary statistics at the end
 // showConclusionStatistics 在末尾显示汇总统计
-func showConclusionStatistics(mgr sdk.ManagerInterface, s StatsAPI) {
-	fmt.Println()
-	fmt.Println("[SUMMARY] System Summary:")
+func showConclusionStatistics(w io.Writer, mgr sdk.ManagerInterface, s StatsAPI) {
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[SUMMARY] System Summary:")
 
 	blacklistCount, _ := mgr.GetLockedIPCount()
 	dynBlacklistCount, _ := mgr.GetDynLockListCount()
 	whitelistCount, _ := mgr.GetWhitelistCount()
 
-	fmt.Printf("   ├─ Blacklisted IPs: %d (static) + %d (dynamic) = %d total\n",
+	fmt.Fprintf(w, "   ├─ Blacklisted IPs: %d (static) + %d (dynamic) = %d total\n",
 		blacklistCount, dynBlacklistCount, blacklistCount+int(dynBlacklistCount))
-	fmt.Printf("   └─ Whitelisted IPs: %d\n", whitelistCount)
+	fmt.Fprintf(w, "   └─ Whitelisted IPs: %d\n", whitelistCount)
 
-	showTopBlockedIPs(s, 0)
+	showTopBlockedIPs(w, s, 0)
 }

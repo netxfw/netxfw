@@ -23,14 +23,14 @@
 
 ### 2. 文档更新 / Documentation Updated
 
-#### `/root/netxfw/docs/04-configuration/04-03_configuration_reference.md`
+#### `docs/04-configuration/04-03_configuration_reference.md`
 - ✅ 更新白名单示例，添加 IPv6 地址
 - ✅ 更新 IP-端口规则示例，添加 IPv6 规则
 - ✅ 更新速率限制示例，添加 IPv6 速率限制
 - ✅ 更新可信负载均衡范围示例，添加 IPv6 范围
 - ✅ 详细说明 IPv4/IPv6 掩码配置
 
-#### `/root/netxfw/docs/05-advanced-features/config_example.yaml`
+#### `docs/05-advanced-features/config_example.toml`
 - ✅ 重写为完整的 IPv4/IPv6 双栈配置示例
 - ✅ 包含 8 个主要配置部分
 - ✅ 每个配置项都有中英文双语注释
@@ -128,10 +128,10 @@ curl -6 https://ipv6.google.com
 
 ## 相关文档 / Related Documents
 
-- [配置参考文档](/root/netxfw/docs/04-configuration/04-03_configuration_reference.md)
-- [配置示例](/root/netxfw/docs/05-advanced-features/config_example.yaml)
-- [配置文件](/root/netxfw/config/config-agent.toml)
-- [代码模板](/root/netxfw/internal/plugins/types/config_toml.go)
+- [配置参考文档](04-03_configuration_reference.md)
+- [配置示例](../05-advanced-features/config_example.toml)
+- [配置文件](../../config/config-agent.toml)
+- [代码模板](../../internal/plugins/types/config_toml.go)
 
 ---
 

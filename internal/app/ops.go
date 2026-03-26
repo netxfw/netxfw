@@ -3,7 +3,10 @@ package app
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -11,6 +14,8 @@ import (
 	// #nosec G108 // pprof is intentionally exposed for debugging in development
 	_ "net/http/pprof"
 	"strconv"
+
+	"github.com/cilium/ebpf/link"
 
 	"github.com/netxfw/netxfw/internal/api"
 	"github.com/netxfw/netxfw/internal/config"
@@ -25,6 +30,46 @@ import (
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
+
+// TrafficStats is the app-layer alias for shared runtime traffic statistics.
+type TrafficStats = xdp.TrafficStats
+
+// PerformanceStats is the app-layer alias for performance statistics.
+type PerformanceStats = xdp.PerformanceStats
+
+// OperationStats is the app-layer alias for per-operation stats.
+type OperationStats = xdp.OperationStats
+
+// PluginSlot describes a loaded BPF plugin slot.
+type PluginSlot struct {
+	Index   int
+	Program uint32
+}
+
+// IsXDPLoaded returns true if XDP is attached to any interface.
+func IsXDPLoaded() bool {
+	ifaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
+	return err == nil && len(ifaces) > 0
+}
+
+// LoadPerformanceStats returns performance statistics from the manager if available.
+func LoadPerformanceStats(mgr sdk.ManagerInterface) (*PerformanceStats, error) {
+	if mgr == nil {
+		return nil, fmt.Errorf("manager not available")
+	}
+
+	perfInterface := mgr.PerfStats()
+	if perfInterface == nil {
+		return nil, fmt.Errorf("performance statistics not available")
+	}
+
+	perfStats, ok := perfInterface.(*xdp.PerformanceStats)
+	if !ok {
+		return nil, fmt.Errorf("invalid performance statistics type")
+	}
+
+	return perfStats, nil
+}
 
 /**
  * InstallXDP initializes the XDP manager and mounts the program to interfaces, then exits.
@@ -203,6 +248,27 @@ func detachOrphanedInterfaces(manager *xdp.Manager, interfaces []string, log *za
 	}
 }
 
+// GetAttachedInterfaceInfos returns detailed XDP attachment information.
+func GetAttachedInterfaceInfos() ([]xdp.InterfaceXDPInfo, error) {
+	return xdp.GetAttachedInterfacesWithInfo(config.GetPinPath())
+}
+
+// LoadTrafficStats returns shared runtime traffic statistics.
+func LoadTrafficStats() (xdp.TrafficStats, error) {
+	return xdp.LoadTrafficStats()
+}
+
+// GetConntrackMax returns configured conntrack capacity with a default fallback.
+func GetConntrackMax() int {
+	cfgManager := config.GetConfigManager()
+	if err := cfgManager.LoadConfig(); err == nil {
+		if cfg := cfgManager.GetCapacityConfig(); cfg != nil && cfg.Conntrack > 0 {
+			return cfg.Conntrack
+		}
+	}
+	return 100000
+}
+
 // loadBPFPlugins loads BPF plugins configured in the global config.
 // loadBPFPlugins 加载全局配置中配置的 BPF 插件。
 func loadBPFPlugins(manager *xdp.Manager, globalCfg *types.GlobalConfig, log *zap.SugaredLogger) error {
@@ -291,7 +357,7 @@ func RunDaemonWithInterfaces(ctx context.Context, interfaces []string) {
 func HandlePluginCommand(ctx context.Context, args []string) error {
 	log := logger.Get(ctx)
 	if len(args) < 1 {
-		return fmt.Errorf("usage: netxfw plugin <load|remove>")
+		return fmt.Errorf("usage: netxfw plugin <load|remove|list>")
 	}
 
 	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
@@ -328,6 +394,8 @@ func HandlePluginCommand(ctx context.Context, args []string) error {
 		if err := manager.RemovePlugin(idx); err != nil {
 			return fmt.Errorf("failed to remove plugin: %v", err)
 		}
+	case "list":
+		return nil
 	default:
 		return fmt.Errorf("unknown plugin command: %s", args[0])
 	}
@@ -420,6 +488,63 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 // ReloadXDP performs a hot-reload of the XDP program.
 // It loads new objects, migrates state from old pinned maps, and swaps the program.
 // ReloadXDP 执行 XDP 程序的平滑重载：加载新对象，从旧的固定 Map 迁移状态，并切换程序。
+func ListLoadedPlugins(ctx context.Context) ([]PluginSlot, error) {
+	log := logger.Get(ctx)
+	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
+	}
+	defer manager.Close()
+
+	var slots []PluginSlot
+	for i := xdp.ProgIdxPluginStart; i <= xdp.ProgIdxPluginEnd; i++ {
+		var progID uint32
+		if err := manager.JmpTable().Lookup(uint32(i), &progID); err == nil {
+			slots = append(slots, PluginSlot{Index: i, Program: progID})
+		}
+	}
+	return slots, nil
+}
+
+func ClearBlacklist(ctx context.Context, dynamic bool) error {
+	log := logger.Get(ctx)
+	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+	if err != nil {
+		return fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
+	}
+	defer manager.Close()
+
+	if dynamic {
+		return xdp.ClearBlacklistMap(manager.DynLockList())
+	}
+	return xdp.ClearBlacklistMap(manager.LockList())
+}
+
+func ReloadPinnedMaps(ctx context.Context) error {
+	cfgManager := config.GetConfigManager()
+	if err := cfgManager.LoadConfig(); err != nil {
+		return fmt.Errorf("failed to load global config: %v", err)
+	}
+
+	globalCfg := cfgManager.GetConfig()
+	if globalCfg == nil {
+		return fmt.Errorf("config is nil after loading")
+	}
+
+	log := logger.Get(ctx)
+	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+	if err != nil {
+		return fmt.Errorf("failed to load XDP manager: %v", err)
+	}
+	defer manager.Close()
+
+	if err := manager.SyncFromFiles(globalCfg, false); err != nil {
+		return fmt.Errorf("failed to sync configuration to BPF maps: %v", err)
+	}
+
+	return nil
+}
+
 func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 	log := logger.Get(ctx)
 	log.Info("[RELOAD] Starting hot-reload of XDP program...")
@@ -556,6 +681,80 @@ func reloadPlugins(pluginCtx *sdk.PluginContext, log *zap.SugaredLogger) {
  * RunWebServer starts the API and UI server.
  * RunWebServer 启动 API 和 UI 服务器。
  */
+func AttachXDPWithMode(ctx context.Context, interfaces []string, mode string) ([]string, error) {
+	cfgManager := config.GetConfigManager()
+	if err := cfgManager.LoadConfig(); err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+	globalCfg := cfgManager.GetConfig()
+	if globalCfg == nil {
+		return nil, fmt.Errorf("config is nil after loading")
+	}
+
+	log := logger.Get(ctx)
+	manager, err := xdp.NewManager(globalCfg.Capacity, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create XDP manager: %w", err)
+	}
+	defer manager.Close()
+
+	if err := manager.Pin(config.GetPinPath()); err != nil {
+		return nil, fmt.Errorf("failed to pin maps: %w", err)
+	}
+
+	var attachMode link.XDPAttachFlags
+	var attachModeName string
+	switch mode {
+	case "offload":
+		attachMode = link.XDPOffloadMode
+		attachModeName = "Offload"
+	case "drv":
+		attachMode = link.XDPDriverMode
+		attachModeName = "Native"
+	case "skb":
+		attachMode = link.XDPGenericMode
+		attachModeName = "Generic"
+	default:
+		return nil, fmt.Errorf("invalid mode: %s", mode)
+	}
+
+	var attached []string
+	for _, name := range interfaces {
+		iface, err := net.InterfaceByName(name)
+		if err != nil {
+			log.Warnf("[WARN]  Skip interface %s: %v", name, err)
+			continue
+		}
+
+		log.Infof("[INFO]  Attempting to attach XDP on %s with mode: %s", name, attachModeName)
+		l, err := link.AttachXDP(link.XDPOptions{
+			Program:   manager.XdpFirewall(),
+			Interface: iface.Index,
+			Flags:     attachMode,
+		})
+		if err != nil {
+			log.Warnf("[WARN]  Failed to attach XDP on %s using %s mode: %v", name, attachModeName, err)
+			continue
+		}
+
+		linkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("link_%s", name))
+		_ = os.Remove(linkPath)
+		if pinErr := l.Pin(linkPath); pinErr != nil {
+			log.Warnf("[WARN]  Failed to pin link on %s: %v", name, pinErr)
+			l.Close()
+			continue
+		}
+		log.Infof("[OK] Attached XDP on %s (Mode: %s) and pinned link", name, attachModeName)
+		attached = append(attached, name)
+	}
+
+	if len(attached) == 0 {
+		return nil, fmt.Errorf("failed to attach XDP on any interface")
+	}
+
+	return attached, nil
+}
+
 func RunWebServer(ctx context.Context, port int) error {
 	log := logger.Get(ctx)
 	// 1. Try to load manager from pins / 尝试从固定点加载管理器

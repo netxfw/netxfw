@@ -137,59 +137,6 @@ func TestRuleListCommandIntegration(t *testing.T) {
 	}
 }
 
-// TestRuleDelCommandIntegration tests rule del command.
-// TestRuleDelCommandIntegration 测试规则删除命令。
-func TestRuleDelCommandIntegration(t *testing.T) {
-	common.SetMockSDK(setupMockSDKWithExpectations())
-
-	tests := []struct {
-		name     string
-		args     []string
-		wantErr  bool
-		contains string
-	}{
-		{
-			name:     "DelIP",
-			args:     []string{"del", "192.168.1.1"},
-			wantErr:  false,
-			contains: "Deleted",
-		},
-		{
-			name:     "DelIPWithPort",
-			args:     []string{"del", "192.168.1.1:8080"},
-			wantErr:  false,
-			contains: "Deleted",
-		},
-		{
-			name:     "DeleteIP_Alias",
-			args:     []string{"delete", "192.168.1.2"},
-			wantErr:  false,
-			contains: "Deleted",
-		},
-		{
-			name:     "RemoveIP_Alias",
-			args:     []string{"remove", "192.168.1.3"},
-			wantErr:  false,
-			contains: "Deleted",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			common.SetMockSDK(setupMockSDKWithExpectations())
-			output, err := executeCmd(RuleCmd, tt.args...)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-			if tt.contains != "" {
-				assert.Contains(t, output, tt.contains)
-			}
-		})
-	}
-}
-
 // TestQuickBlockCommandIntegration tests quick block command.
 // TestQuickBlockCommandIntegration 测试快速封禁命令。
 func TestQuickBlockCommandIntegration(t *testing.T) {

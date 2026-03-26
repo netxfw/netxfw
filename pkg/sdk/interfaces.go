@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 )
 
 // =============================================================================
@@ -43,9 +42,9 @@ type Firewall interface {
 // 这提供了对 BPF Map 和低级配置的直接访问。
 type ManagerInterface interface {
 	// Sync Operations - 同步操作
-	SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error
-	SyncToFiles(cfg *types.GlobalConfig) error
-	VerifyAndRepair(cfg *types.GlobalConfig) error
+	SyncFromFiles(cfg *GlobalConfig, overwrite bool) error
+	SyncToFiles(cfg *GlobalConfig) error
+	VerifyAndRepair(cfg *GlobalConfig) error
 
 	// Map Getters - Map 获取器（不推荐直接使用，优先使用高级方法）
 	LockList() *ebpf.Map
@@ -312,13 +311,13 @@ type ConntrackAPI interface {
 type SyncAPI interface {
 	// ToConfig synchronizes state to the configuration.
 	// ToConfig 将状态同步到配置。
-	ToConfig(cfg *types.GlobalConfig) error
+	ToConfig(cfg *GlobalConfig) error
 
 	// ToMap synchronizes configuration to BPF maps.
 	// ToMap 将配置同步到 BPF Map。
-	ToMap(cfg *types.GlobalConfig, overwrite bool) error
+	ToMap(cfg *GlobalConfig, overwrite bool) error
 
 	// VerifyAndRepair verifies and repairs the state.
 	// VerifyAndRepair 验证并修复状态。
-	VerifyAndRepair(cfg *types.GlobalConfig) error
+	VerifyAndRepair(cfg *GlobalConfig) error
 }

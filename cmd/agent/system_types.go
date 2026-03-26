@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -86,12 +87,12 @@ type detailStatsConfig struct {
 
 // showDetailStatistics displays detailed statistics using generics.
 // showDetailStatistics 使用泛型显示详细统计。
-func showDetailStatistics[T DetailEntry](details []T, cfg detailStatsConfig) {
+func showDetailStatistics[T DetailEntry](w io.Writer, details []T, cfg detailStatsConfig) {
 	if len(details) == 0 {
 		return
 	}
 
-	fmt.Printf("\n%s\n", cfg.title)
+	fmt.Fprintf(w, "\n%s\n", cfg.title)
 	sort.Slice(details, func(i, j int) bool {
 		return details[i].GetCount() > details[j].GetCount()
 	})
@@ -101,13 +102,13 @@ func showDetailStatistics[T DetailEntry](details []T, cfg detailStatsConfig) {
 		maxShow = len(details)
 	}
 
-	fmt.Printf("\n   %s\n", cfg.subTitle)
+	fmt.Fprintf(w, "\n   %s\n", cfg.subTitle)
 	if cfg.showRate && cfg.currentPPS > 0 {
-		fmt.Printf("   %-20s %-8s %-40s %-8s %-10s %-10s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count", "Rate/s", "Percent")
-		fmt.Printf("   %s\n", strings.Repeat("-", 115))
+		fmt.Fprintf(w, "   %-20s %-8s %-40s %-8s %-10s %-10s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count", "Rate/s", "Percent")
+		fmt.Fprintf(w, "   %s\n", strings.Repeat("-", 115))
 	} else {
-		fmt.Printf("   %-20s %-8s %-40s %-8s %-10s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count", "Percent")
-		fmt.Printf("   %s\n", strings.Repeat("-", 100))
+		fmt.Fprintf(w, "   %-20s %-8s %-40s %-8s %-10s %s\n", "Reason", "Proto", "Source IP", "DstPort", "Count", "Percent")
+		fmt.Fprintf(w, "   %s\n", strings.Repeat("-", 100))
 	}
 
 	for i := 0; i < maxShow; i++ {
@@ -116,7 +117,7 @@ func showDetailStatistics[T DetailEntry](details []T, cfg detailStatsConfig) {
 
 		if cfg.showRate && cfg.currentPPS > 0 {
 			ratePerSec := calculateRateGeneric(cfg.currentPPS, percent)
-			fmt.Printf("   %-20s %-8s %-40s %-8d %-10d %-10s %.2f%%\n",
+			fmt.Fprintf(w, "   %-20s %-8s %-40s %-8d %-10d %-10s %.2f%%\n",
 				cfg.reasonFunc(d.GetReason()),
 				protocolToString(d.GetProtocol()),
 				d.GetSrcIP(),
@@ -125,7 +126,7 @@ func showDetailStatistics[T DetailEntry](details []T, cfg detailStatsConfig) {
 				fmtutil.FormatNumberWithComma(ratePerSec),
 				percent)
 		} else {
-			fmt.Printf("   %-20s %-8s %-40s %-8d %-10d %.2f%%\n",
+			fmt.Fprintf(w, "   %-20s %-8s %-40s %-8d %-10d %.2f%%\n",
 				cfg.reasonFunc(d.GetReason()),
 				protocolToString(d.GetProtocol()),
 				d.GetSrcIP(),
@@ -135,29 +136,29 @@ func showDetailStatistics[T DetailEntry](details []T, cfg detailStatsConfig) {
 		}
 	}
 	if len(details) > 10 {
-		fmt.Printf("   ... and more\n")
+		fmt.Fprintf(w, "   ... and more\n")
 	}
 
-	showReasonSummary(details, cfg)
+	showReasonSummary(w, details, cfg)
 }
 
 // showReasonSummary displays a summary of reasons using generics.
 // showReasonSummary 使用泛型显示原因汇总。
-func showReasonSummary[T DetailEntry](details []T, cfg detailStatsConfig) {
+func showReasonSummary[T DetailEntry](w io.Writer, details []T, cfg detailStatsConfig) {
 	reasonSummary := make(map[string]uint64)
 	for _, d := range details {
 		reason := cfg.reasonFunc(d.GetReason())
 		reasonSummary[reason] += d.GetCount()
 	}
 	if len(reasonSummary) > 0 {
-		fmt.Println("\n   [RATE] Reason Summary:")
+		fmt.Fprintln(w, "\n   [RATE] Reason Summary:")
 		for reason, count := range reasonSummary {
 			percent := calculatePercentGeneric(count, cfg.totalCount)
 			if cfg.showRate && cfg.currentPPS > 0 {
 				ratePerSec := calculateRateGeneric(cfg.currentPPS, percent)
-				fmt.Printf("      %s: %d (%.2f%%) - %s/s\n", reason, count, percent, fmtutil.FormatNumberWithComma(ratePerSec))
+				fmt.Fprintf(w, "      %s: %d (%.2f%%) - %s/s\n", reason, count, percent, fmtutil.FormatNumberWithComma(ratePerSec))
 			} else {
-				fmt.Printf("      %s: %d (%.2f%%)\n", reason, count, percent)
+				fmt.Fprintf(w, "      %s: %d (%.2f%%)\n", reason, count, percent)
 			}
 		}
 	}

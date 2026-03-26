@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 )
 
 // MockManager is a unified mock implementation of ManagerInterface for testing.
@@ -94,7 +93,7 @@ func NewMockManager() *MockManager {
 // Sync Operations
 // 同步操作
 
-func (m *MockManager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
+func (m *MockManager) SyncFromFiles(cfg *GlobalConfig, overwrite bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -113,7 +112,7 @@ func (m *MockManager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) err
 	return nil
 }
 
-func (m *MockManager) SyncToFiles(cfg *types.GlobalConfig) error {
+func (m *MockManager) SyncToFiles(cfg *GlobalConfig) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -126,7 +125,7 @@ func (m *MockManager) SyncToFiles(cfg *types.GlobalConfig) error {
 	return nil
 }
 
-func (m *MockManager) VerifyAndRepair(cfg *types.GlobalConfig) error {
+func (m *MockManager) VerifyAndRepair(cfg *GlobalConfig) error {
 	return m.SyncFromFiles(cfg, true)
 }
 

@@ -60,7 +60,7 @@ func TestShowDropReasonSummary(t *testing.T) {
 		wrappedDetails[i] = DropDetailEntryWrapper{d}
 	}
 
-	showReasonSummary(wrappedDetails, detailStatsConfig{
+	showReasonSummary(w, wrappedDetails, detailStatsConfig{
 		reasonFunc: dropReasonToString,
 		totalCount: drops,
 		showRate:   false,
@@ -102,7 +102,7 @@ func TestShowPassReasonSummary(t *testing.T) {
 		wrappedDetails[i] = PassDetailEntryWrapper{d}
 	}
 
-	showReasonSummary(wrappedDetails, detailStatsConfig{
+	showReasonSummary(w, wrappedDetails, detailStatsConfig{
 		reasonFunc: passReasonToString,
 		totalCount: pass,
 		showRate:   false,
@@ -137,7 +137,7 @@ func TestShowDropReasonSummaryEmpty(t *testing.T) {
 	// Wrap details for generic function / 包装详情用于泛型函数
 	wrappedDetails := make([]DropDetailEntryWrapper, len(dropDetails))
 
-	showReasonSummary(wrappedDetails, detailStatsConfig{
+	showReasonSummary(w, wrappedDetails, detailStatsConfig{
 		reasonFunc: dropReasonToString,
 		totalCount: drops,
 		showRate:   false,
@@ -170,7 +170,7 @@ func TestShowPassReasonSummaryEmpty(t *testing.T) {
 	// Wrap details for generic function / 包装详情用于泛型函数
 	wrappedDetails := make([]PassDetailEntryWrapper, len(passDetails))
 
-	showReasonSummary(wrappedDetails, detailStatsConfig{
+	showReasonSummary(w, wrappedDetails, detailStatsConfig{
 		reasonFunc: passReasonToString,
 		totalCount: pass,
 		showRate:   false,
@@ -210,7 +210,7 @@ func TestShowDropReasonSummaryZeroDrops(t *testing.T) {
 
 	// Should not panic with zero drops
 	// 零丢弃时不应 panic
-	showReasonSummary(wrappedDetails, detailStatsConfig{
+	showReasonSummary(w, wrappedDetails, detailStatsConfig{
 		reasonFunc: dropReasonToString,
 		totalCount: drops,
 		showRate:   false,
@@ -248,7 +248,7 @@ func TestShowPassReasonSummaryZeroPass(t *testing.T) {
 
 	// Should not panic with zero pass
 	// 零通过时不应 panic
-	showReasonSummary(wrappedDetails, detailStatsConfig{
+	showReasonSummary(w, wrappedDetails, detailStatsConfig{
 		reasonFunc: passReasonToString,
 		totalCount: pass,
 		showRate:   false,
@@ -273,7 +273,7 @@ func TestShowAttachedInterfaces(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	showAttachedInterfaces()
+	showAttachedInterfaces(w)
 
 	w.Close()
 	os.Stdout = old
@@ -366,7 +366,7 @@ func TestShowDropStatisticsWithDetails(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	showDropStatistics(mockStatsAPI, 150, 1000)
+	showDropStatistics(w, mockStatsAPI, 150, 1000)
 
 	w.Close()
 	os.Stdout = old
@@ -405,7 +405,7 @@ func TestShowPassStatisticsWithDetails(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	showPassStatistics(mockStatsAPI, 350, 50)
+	showPassStatistics(w, mockStatsAPI, 350, 50)
 
 	w.Close()
 	os.Stdout = old
@@ -492,7 +492,7 @@ func TestShowDropStatisticsEmpty(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	showDropStatistics(mockStatsAPI, 0, 1000)
+	showDropStatistics(w, mockStatsAPI, 0, 1000)
 
 	w.Close()
 	os.Stdout = old
@@ -523,7 +523,7 @@ func TestShowPassStatisticsEmpty(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	showPassStatistics(mockStatsAPI, 0, 0)
+	showPassStatistics(w, mockStatsAPI, 0, 0)
 
 	w.Close()
 	os.Stdout = old
@@ -566,7 +566,7 @@ func TestShowDropStatisticsTop10(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	showDropStatistics(mockStatsAPI, 1500, 0)
+	showDropStatistics(w, mockStatsAPI, 1500, 0)
 
 	w.Close()
 	os.Stdout = old
@@ -595,7 +595,7 @@ func TestShowDropStatisticsError(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	showDropStatistics(mockStatsAPI, 100, 1000)
+	showDropStatistics(w, mockStatsAPI, 100, 1000)
 
 	w.Close()
 	os.Stdout = old
@@ -626,7 +626,7 @@ func TestShowPassStatisticsError(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	showPassStatistics(mockStatsAPI, 100, 50)
+	showPassStatistics(w, mockStatsAPI, 100, 50)
 
 	w.Close()
 	os.Stdout = old
@@ -686,7 +686,7 @@ func TestShowDropReasonSummaryAggregation(t *testing.T) {
 		wrappedDetails[i] = DropDetailEntryWrapper{d}
 	}
 
-	showReasonSummary(wrappedDetails, detailStatsConfig{
+	showReasonSummary(w, wrappedDetails, detailStatsConfig{
 		reasonFunc: dropReasonToString,
 		totalCount: drops,
 		showRate:   false,
@@ -730,7 +730,7 @@ func TestShowPassReasonSummaryAggregation(t *testing.T) {
 		wrappedDetails[i] = PassDetailEntryWrapper{d}
 	}
 
-	showReasonSummary(wrappedDetails, detailStatsConfig{
+	showReasonSummary(w, wrappedDetails, detailStatsConfig{
 		reasonFunc: passReasonToString,
 		totalCount: pass,
 		showRate:   false,
@@ -774,7 +774,7 @@ func TestShowDropStatisticsSorting(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	showDropStatistics(mockStatsAPI, 350, 0)
+	showDropStatistics(w, mockStatsAPI, 350, 0)
 
 	w.Close()
 	os.Stdout = old
@@ -811,7 +811,7 @@ func TestShowPassStatisticsSorting(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	showPassStatistics(mockStatsAPI, 350, 0)
+	showPassStatistics(w, mockStatsAPI, 350, 0)
 
 	w.Close()
 	os.Stdout = old

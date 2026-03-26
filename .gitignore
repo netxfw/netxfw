@@ -17,6 +17,7 @@
 
 /bin/
 .trae/
+.old/
 # BPF objects
 internal/xdp/netxfw_bpfel.o
 internal/xdp/netxfw_bpfeb.o

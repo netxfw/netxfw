@@ -1,4 +1,4 @@
-.PHONY: build build-compressed generate clean build-zig-amd64 build-zig-arm64
+.PHONY: build build-compressed generate clean build-zig-amd64 build-zig-arm64 test lint check bench
 
 BPF_CFLAGS :=
 # Zig compiler configuration
@@ -15,14 +15,18 @@ ifeq ($(filter $(ipv6),1 yes true on YES TRUE ON),$(ipv6))
 endif
 
 help:
-	@echo "  make build           - Build binary (stripped)"
-	@echo "  make build-zig-amd64 - Build binary using Zig (amd64, glibc 2.17)"
-	@echo "  make build-zig-arm64 - Build binary using Zig (arm64, glibc 2.17)"
+	@echo "  make build            - Build binary (stripped)"
+	@echo "  make build-zig-amd64  - Build binary using Zig (amd64, glibc 2.17)"
+	@echo "  make build-zig-arm64  - Build binary using Zig (arm64, glibc 2.17)"
 	@echo "  make build-compressed - Build binary with UPX compression (smallest)"
-	@echo "  make generate        - Generate BPF code"
-	@echo "  make install         - Install binary and config"
-	@echo "  make uninstall       - Remove binary and config"
-	@echo "  make clean           - Clean build artifacts"
+	@echo "  make generate         - Generate BPF code"
+	@echo "  make test             - Run fast test suite"
+	@echo "  make lint             - Run static checks"
+	@echo "  make check            - Run architecture, lint, build and test checks"
+	@echo "  make bench            - Run benchmark tests"
+	@echo "  make install          - Install binary and config"
+	@echo "  make uninstall        - Remove binary and config"
+	@echo "  make clean            - Clean build artifacts"
 
 build:
 	go build -ldflags="-s -w -X 'github.com/netxfw/netxfw/internal/version.Version=$(VERSION)' -X 'github.com/netxfw/netxfw/internal/version.GitCommit=$(COMMIT)'" -trimpath -o netxfw ./cmd/netxfw
@@ -61,6 +65,22 @@ else
 endif
 	@echo "#endif" >> bpf/include/bpf_features.h
 	cd internal/xdp && go generate
+
+test:
+	go test ./test/unit/... ./internal/... ./cmd/... ./pkg/...
+
+lint:
+	golangci-lint run --timeout=5m
+
+check:
+	bash ./scripts/check_markdown_links.sh
+	bash ./scripts/check_architecture.sh
+	$(MAKE) lint
+	go build -trimpath ./cmd/netxfw
+	$(MAKE) test
+
+bench:
+	go test -bench=. ./test/performance/...
 
 plugins:
 	@mkdir -p bpf/plugins/out

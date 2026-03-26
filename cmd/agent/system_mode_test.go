@@ -3,7 +3,6 @@ package agent
 import (
 	"testing"
 
-	"github.com/cilium/ebpf/link"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -58,53 +57,44 @@ func TestXDPModeValidation(t *testing.T) {
 	}
 }
 
-// TestXDPModeMapping tests XDP mode to link.XDPAttachFlags mapping
-// TestXDPModeMapping 测试 XDP 模式到 link.XDPAttachFlags 的映射
+// TestXDPModeMapping tests XDP mode to display-name mapping
+// TestXDPModeMapping 测试 XDP 模式到显示名称的映射
 func TestXDPModeMapping(t *testing.T) {
 	tests := []struct {
 		name         string
 		mode         string
-		wantFlags    link.XDPAttachFlags
 		wantModeName string
 	}{
 		{
 			name:         "Offload mode mapping",
 			mode:         "offload",
-			wantFlags:    link.XDPOffloadMode,
 			wantModeName: "Offload",
 		},
 		{
 			name:         "Driver mode mapping",
 			mode:         "drv",
-			wantFlags:    link.XDPDriverMode,
 			wantModeName: "Native",
 		},
 		{
 			name:         "SKB mode mapping",
 			mode:         "skb",
-			wantFlags:    link.XDPGenericMode,
 			wantModeName: "Generic",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var attachMode link.XDPAttachFlags
 			var attachModeName string
 
 			switch tt.mode {
 			case "offload":
-				attachMode = link.XDPOffloadMode
 				attachModeName = "Offload"
 			case "drv":
-				attachMode = link.XDPDriverMode
 				attachModeName = "Native"
 			case "skb":
-				attachMode = link.XDPGenericMode
 				attachModeName = "Generic"
 			}
 
-			assert.Equal(t, tt.wantFlags, attachMode, "XDP attach flags should match expected value")
 			assert.Equal(t, tt.wantModeName, attachModeName, "XDP mode name should match expected value")
 		})
 	}

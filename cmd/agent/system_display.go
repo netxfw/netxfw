@@ -3,14 +3,15 @@ package agent
 import (
 	"context"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
-	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -32,30 +33,30 @@ Display Order / 显示顺序:
   9. Summary Statistics / 总结统计
 */
 
-func showStatus(ctx context.Context, s *sdk.SDK) error {
-	fmt.Println("[OK] XDP Program Status: Loaded and Running")
+func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
+	fmt.Fprintln(w, "[OK] XDP Program Status: Loaded and Running")
 
 	mgr := s.GetManager()
 	pass, drops, err := s.Stats.GetCounters()
 	if err != nil {
-		fmt.Printf("[WARN]  Could not retrieve statistics: %v\n", err)
+		fmt.Fprintf(w, "[WARN]  Could not retrieve statistics: %v\n", err)
 		return nil
 	}
 
-	showDropStatistics(s.Stats, drops, pass)
-	showPassStatistics(s.Stats, pass, drops)
-	showProtocolDistribution(s.Stats, pass, drops)
-	showConntrackHealth(mgr)
-	showPolicyConfiguration()
-	showConclusionStatistics(mgr, s.Stats)
-	showMapStatistics(mgr)
-	showTrafficMetrics(pass, drops)
-	showAttachedInterfaces()
+	showDropStatistics(w, s.Stats, drops, pass)
+	showPassStatistics(w, s.Stats, pass, drops)
+	showProtocolDistribution(w, s.Stats, pass, drops)
+	showConntrackHealth(w, mgr)
+	showPolicyConfiguration(w)
+	showConclusionStatistics(w, mgr, s.Stats)
+	showMapStatistics(w, mgr)
+	showTrafficMetrics(w, pass, drops)
+	showAttachedInterfaces(w)
 
 	return nil
 }
 
-func showPolicyConfiguration() {
+func showPolicyConfiguration(w io.Writer) {
 	cfgManager := config.GetConfigManager()
 	if err := cfgManager.LoadConfig(); err != nil {
 		return
@@ -66,8 +67,8 @@ func showPolicyConfiguration() {
 		return
 	}
 
-	fmt.Println()
-	fmt.Println("[CONFIG]  Policy Configuration:")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[CONFIG]  Policy Configuration:")
 
 	items := []struct {
 		icon  string
@@ -83,20 +84,20 @@ func showPolicyConfiguration() {
 	}
 
 	for i, item := range items {
-		printConfigItem(item.icon, item.name, item.value, i == len(items)-1)
+		printConfigItem(w, item.icon, item.name, item.value, i == len(items)-1)
 	}
 
-	printConntrackConfig(cfg)
-	printRateLimitConfig(cfg)
-	printLogEngineConfig(cfg)
-	printWebConfig(cfg)
+	printConntrackConfig(w, cfg)
+	printRateLimitConfig(w, cfg)
+	printLogEngineConfig(w, cfg)
+	printWebConfig(w, cfg)
 }
 
-func showAttachedInterfaces() {
-	fmt.Println("\n[LINK] Attached Interfaces:")
-	ifaceInfos, err := xdp.GetAttachedInterfacesWithInfo(config.GetPinPath())
+func showAttachedInterfaces(w io.Writer) {
+	fmt.Fprintln(w, "\n[LINK] Attached Interfaces:")
+	ifaceInfos, err := app.GetAttachedInterfaceInfos()
 	if err != nil || len(ifaceInfos) == 0 {
-		fmt.Println("  - None")
+		fmt.Fprintln(w, "  - None")
 		return
 	}
 
@@ -105,22 +106,22 @@ func showAttachedInterfaces() {
 		if !info.LoadTime.IsZero() {
 			uptime = fmtutil.FormatDuration(time.Since(info.LoadTime))
 		}
-		fmt.Printf("  - %s (Mode: %s, ProgID: %d, Uptime: %s)\n", info.Name, info.Mode, info.ProgramID, uptime)
+		fmt.Fprintf(w, "  - %s (Mode: %s, ProgID: %d, Uptime: %s)\n", info.Name, info.Mode, info.ProgramID, uptime)
 	}
 }
 
-func showTrafficMetrics(pass, drops uint64) {
-	fmt.Println()
-	fmt.Println("[RATE] Traffic Rate:")
+func showTrafficMetrics(w io.Writer, pass, drops uint64) {
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[RATE] Traffic Rate:")
 
 	total := pass + drops
-	fmt.Printf("   ├─ Total RX: %s packets\n", fmtutil.FormatNumberWithComma(total))
-	fmt.Printf("   ├─ Total Pass: %s (%.2f%%)\n", fmtutil.FormatNumberWithComma(pass), calculatePercentGeneric(pass, total))
-	fmt.Printf("   ├─ Total Drop: %s (%.2f%%)\n", fmtutil.FormatNumberWithComma(drops), calculatePercentGeneric(drops, total))
+	fmt.Fprintf(w, "   ├─ Total RX: %s packets\n", fmtutil.FormatNumberWithComma(total))
+	fmt.Fprintf(w, "   ├─ Total Pass: %s (%.2f%%)\n", fmtutil.FormatNumberWithComma(pass), calculatePercentGeneric(pass, total))
+	fmt.Fprintf(w, "   ├─ Total Drop: %s (%.2f%%)\n", fmtutil.FormatNumberWithComma(drops), calculatePercentGeneric(drops, total))
 
-	trafficStats, err := xdp.LoadTrafficStats()
+	trafficStats, err := app.LoadTrafficStats()
 	if err != nil || !trafficStats.LastUpdateTime.After(time.Time{}) || (trafficStats.CurrentPPS == 0 && trafficStats.CurrentBPS == 0) {
-		fmt.Println("   └─ Real-time rates: Unavailable (daemon not running)")
+		fmt.Fprintln(w, "   └─ Real-time rates: Unavailable (daemon not running)")
 		return
 	}
 
@@ -131,45 +132,45 @@ func showTrafficMetrics(pass, drops uint64) {
 		passRate = float64(trafficStats.CurrentPassPPS) / float64(pps) * 100
 	}
 
-	fmt.Printf("   ├─ PPS: %s pkt/s\n", fmtutil.FormatNumberWithComma(pps))
-	fmt.Printf("   ├─ BPS: %s\n", fmtutil.FormatBPS(trafficStats.CurrentBPS))
-	fmt.Printf("   ├─ Pass PPS: %s pkt/s (%.2f%%)\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentPassPPS), passRate)
-	fmt.Printf("   └─ Drop PPS: %s pkt/s (%.2f%%)\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentDropPPS), dropRate)
+	fmt.Fprintf(w, "   ├─ PPS: %s pkt/s\n", fmtutil.FormatNumberWithComma(pps))
+	fmt.Fprintf(w, "   ├─ BPS: %s\n", fmtutil.FormatBPS(trafficStats.CurrentBPS))
+	fmt.Fprintf(w, "   ├─ Pass PPS: %s pkt/s (%.2f%%)\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentPassPPS), passRate)
+	fmt.Fprintf(w, "   └─ Drop PPS: %s pkt/s (%.2f%%)\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentDropPPS), dropRate)
 }
 
-func showConntrackHealth(mgr sdk.ManagerInterface) {
-	fmt.Println()
-	fmt.Println("[TRACK]  Conntrack Health:")
+func showConntrackHealth(w io.Writer, mgr sdk.ManagerInterface) {
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[TRACK]  Conntrack Health:")
 
 	count, err := mgr.GetConntrackCount()
 	if err != nil {
-		fmt.Println("   └─ Status: Unavailable")
+		fmt.Fprintln(w, "   └─ Status: Unavailable")
 		return
 	}
 
 	maxVal := getConntrackMax()
 	entries, _ := mgr.ListAllConntrackEntries()
 
-	fmt.Printf("   ├─ Active Connections: %d / %d (%.1f%%)\n", count, maxVal, calculatePercentGeneric(count, uint64(maxVal)))
+	fmt.Fprintf(w, "   ├─ Active Connections: %d / %d (%.1f%%)\n", count, maxVal, calculatePercentGeneric(count, uint64(maxVal)))
 
 	if entries != nil {
 		tcp, udp, icmp, other := getConntrackProtocolStats(entries)
-		fmt.Printf("   ├─ TCP: %d (%.1f%%)  UDP: %d (%.1f%%)  ICMP: %d (%.1f%%)  Other: %d\n",
+		fmt.Fprintf(w, "   ├─ TCP: %d (%.1f%%)  UDP: %d (%.1f%%)  ICMP: %d (%.1f%%)  Other: %d\n",
 			tcp, calculatePercentGeneric(uint64(tcp), uint64(count)),
 			udp, calculatePercentGeneric(uint64(udp), uint64(count)),
 			icmp, calculatePercentGeneric(uint64(icmp), uint64(count)),
 			other)
 	}
 
-	trafficStats, err := xdp.LoadTrafficStats()
+	trafficStats, err := app.LoadTrafficStats()
 	hasRate := err == nil && trafficStats.LastUpdateTime.After(time.Time{})
 	if hasRate {
-		fmt.Printf("   ├─ New/s: %s  Evict/s: %s\n",
+		fmt.Fprintf(w, "   ├─ New/s: %s  Evict/s: %s\n",
 			fmtutil.FormatNumberWithComma(trafficStats.CurrentConntrackNew),
 			fmtutil.FormatNumberWithComma(trafficStats.CurrentConntrackEvict))
 	}
 
-	fmt.Printf("   └─ %s\n", getConntrackHealthStatus(uint64(count), uint64(maxVal), hasRate, trafficStats))
+	fmt.Fprintf(w, "   └─ %s\n", getConntrackHealthStatus(uint64(count), uint64(maxVal), hasRate, trafficStats))
 }
 
 func getConntrackMax() int {
@@ -198,7 +199,7 @@ func getConntrackProtocolStats(entries []sdk.ConntrackEntry) (tcp, udp, icmp, ot
 	return
 }
 
-func getConntrackHealthStatus(count, maxVal uint64, hasRate bool, stats xdp.TrafficStats) string {
+func getConntrackHealthStatus(count, maxVal uint64, hasRate bool, stats app.TrafficStats) string {
 	usage := calculatePercentGeneric(count, maxVal)
 	critical, high, _ := getThresholdsFromConfig()
 
@@ -216,18 +217,18 @@ func getConntrackHealthStatus(count, maxVal uint64, hasRate bool, stats xdp.Traf
 	}
 }
 
-func showProtocolDistribution(s StatsAPI, pass, drops uint64) {
-	fmt.Println()
-	fmt.Println("[PROTO] Protocol Distribution:")
+func showProtocolDistribution(w io.Writer, s StatsAPI, pass, drops uint64) {
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[PROTO] Protocol Distribution:")
 
 	dropDetails, err := s.GetDropDetails()
 	if err != nil {
-		fmt.Println("   └─ Status: Unavailable")
+		fmt.Fprintln(w, "   └─ Status: Unavailable")
 		return
 	}
 	passDetails, err := s.GetPassDetails()
 	if err != nil {
-		fmt.Println("   └─ Status: Unavailable")
+		fmt.Fprintln(w, "   └─ Status: Unavailable")
 		return
 	}
 
@@ -244,12 +245,12 @@ func showProtocolDistribution(s StatsAPI, pass, drops uint64) {
 	}
 
 	if len(protoStats) == 0 {
-		fmt.Println("   └─ No protocol data available")
+		fmt.Fprintln(w, "   └─ No protocol data available")
 		return
 	}
 
-	fmt.Printf("   %-10s %-15s %-15s %-10s\n", "Protocol", "Dropped", "Passed", "Percent")
-	fmt.Printf("   %s\n", strings.Repeat("-", 50))
+	fmt.Fprintf(w, "   %-10s %-15s %-15s %-10s\n", "Protocol", "Dropped", "Passed", "Percent")
+	fmt.Fprintf(w, "   %s\n", strings.Repeat("-", 50))
 
 	type stat struct {
 		proto                  uint8
@@ -263,7 +264,7 @@ func showProtocolDistribution(s StatsAPI, pass, drops uint64) {
 
 	total := pass + drops
 	for _, s := range stats {
-		fmt.Printf("   %-10s %-15d %-15d %.1f%%\n", protocolToString(s.proto), s.dropped, s.passed, calculatePercentGeneric(s.total, total))
+		fmt.Fprintf(w, "   %-10s %-15d %-15d %.1f%%\n", protocolToString(s.proto), s.dropped, s.passed, calculatePercentGeneric(s.total, total))
 	}
 }
 
@@ -295,54 +296,54 @@ func boolStr(cond bool, trueVal, falseVal string) string {
 	return falseVal
 }
 
-func printConfigItem(icon, name, value string, last bool) {
+func printConfigItem(w io.Writer, icon, name, value string, last bool) {
 	prefix := "   ├─"
 	if last {
 		prefix = "   └─"
 	}
-	fmt.Printf("%s [%s] %s: %s\n", prefix, icon, name, value)
+	fmt.Fprintf(w, "%s [%s] %s: %s\n", prefix, icon, name, value)
 }
 
-func printConntrackConfig(cfg *types.GlobalConfig) {
+func printConntrackConfig(w io.Writer, cfg *types.GlobalConfig) {
 	if cfg.Conntrack.Enabled {
-		fmt.Printf("   ├─ [TRACK]  Connection Tracking: Enabled")
+		fmt.Fprintf(w, "   ├─ [TRACK]  Connection Tracking: Enabled")
 		if cfg.Conntrack.TCPTimeout != "" {
-			fmt.Printf(" (TCP: %s", cfg.Conntrack.TCPTimeout)
+			fmt.Fprintf(w, " (TCP: %s", cfg.Conntrack.TCPTimeout)
 			if cfg.Conntrack.UDPTimeout != "" {
-				fmt.Printf(", UDP: %s", cfg.Conntrack.UDPTimeout)
+				fmt.Fprintf(w, ", UDP: %s", cfg.Conntrack.UDPTimeout)
 			}
-			fmt.Print(")")
+			fmt.Fprint(w, ")")
 		}
-		fmt.Println()
+		fmt.Fprintln(w)
 	} else {
-		fmt.Println("   ├─ [TRACK]  Connection Tracking: Disabled")
+		fmt.Fprintln(w, "   ├─ [TRACK]  Connection Tracking: Disabled")
 	}
 }
 
-func printRateLimitConfig(cfg *types.GlobalConfig) {
+func printRateLimitConfig(w io.Writer, cfg *types.GlobalConfig) {
 	if cfg.RateLimit.Enabled {
-		fmt.Printf("   ├─ [START] Rate Limiting: Enabled")
+		fmt.Fprintf(w, "   ├─ [START] Rate Limiting: Enabled")
 		if cfg.RateLimit.AutoBlock {
-			fmt.Printf(" (Auto Block: %s)", cfg.RateLimit.AutoBlockExpiry)
+			fmt.Fprintf(w, " (Auto Block: %s)", cfg.RateLimit.AutoBlockExpiry)
 		}
-		fmt.Println()
+		fmt.Fprintln(w)
 	} else {
-		fmt.Println("   ├─ [START] Rate Limiting: Disabled")
+		fmt.Fprintln(w, "   ├─ [START] Rate Limiting: Disabled")
 	}
 }
 
-func printLogEngineConfig(cfg *types.GlobalConfig) {
+func printLogEngineConfig(w io.Writer, cfg *types.GlobalConfig) {
 	if cfg.LogEngine.Enabled {
-		fmt.Printf("   ├─ [LOG] Log Engine: Enabled (%d rules)\n", len(cfg.LogEngine.Rules))
+		fmt.Fprintf(w, "   ├─ [LOG] Log Engine: Enabled (%d rules)\n", len(cfg.LogEngine.Rules))
 	} else {
-		fmt.Println("   ├─ [LOG] Log Engine: Disabled")
+		fmt.Fprintln(w, "   ├─ [LOG] Log Engine: Disabled")
 	}
 }
 
-func printWebConfig(cfg *types.GlobalConfig) {
+func printWebConfig(w io.Writer, cfg *types.GlobalConfig) {
 	if cfg.Web.Enabled {
-		fmt.Printf("   └─ [WEB] Web Interface: Enabled (Port: %d)\n", cfg.Web.Port)
+		fmt.Fprintf(w, "   └─ [WEB] Web Interface: Enabled (Port: %d)\n", cfg.Web.Port)
 	} else {
-		fmt.Println("   └─ [WEB] Web Interface: Disabled")
+		fmt.Fprintln(w, "   └─ [WEB] Web Interface: Disabled")
 	}
 }

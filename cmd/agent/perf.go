@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
-	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -120,23 +120,8 @@ func init() {
 
 // getPerfStats retrieves the performance stats from the manager
 // getPerfStats 从 manager 获取性能统计
-func getPerfStats(s *sdk.SDK) (*xdp.PerformanceStats, error) {
-	mgr := s.GetManager()
-	if mgr == nil {
-		return nil, fmt.Errorf("manager not available")
-	}
-
-	perfInterface := mgr.PerfStats()
-	if perfInterface == nil {
-		return nil, fmt.Errorf("performance statistics not available")
-	}
-
-	perfStats, ok := perfInterface.(*xdp.PerformanceStats)
-	if !ok {
-		return nil, fmt.Errorf("invalid performance statistics type")
-	}
-
-	return perfStats, nil
+func getPerfStats(s *sdk.SDK) (*app.PerformanceStats, error) {
+	return app.LoadPerformanceStats(s.GetManager())
 }
 
 // showPerformanceStats displays all performance statistics
@@ -328,7 +313,7 @@ func showTrafficStats(s *sdk.SDK) error {
 
 // printOpStats prints operation statistics
 // printOpStats 打印操作统计
-func printOpStats(name string, stats xdp.OperationStats) {
+func printOpStats(name string, stats app.OperationStats) {
 	if stats.Count == 0 {
 		return
 	}

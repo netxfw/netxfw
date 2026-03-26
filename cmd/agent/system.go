@@ -2,21 +2,14 @@ package agent
 
 import (
 	"fmt"
-	"net"
-	"os"
-	"path/filepath"
 
-	"github.com/cilium/ebpf/link"
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/core"
 	"github.com/netxfw/netxfw/internal/daemon"
 	"github.com/netxfw/netxfw/internal/plugins/types"
-	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
-	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -174,7 +167,7 @@ var systemStatusCmd = &cobra.Command{
 	Long:  `Show current runtime status and statistics`,
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
-			return showStatus(cmd.Context(), s)
+			return showStatus(cmd.OutOrStdout(), cmd.Context(), s)
 		})
 	},
 }
@@ -211,8 +204,8 @@ var systemLoadCmd = &cobra.Command{
 		common.EnsureStandaloneMode()
 
 		if err := app.InstallXDP(cmd.Context(), interfaces); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
+			reportCommandError(cmd, err)
+			return
 		}
 	},
 }
@@ -254,8 +247,8 @@ Examples:
 			"skb":     true,
 		}
 		if !validModes[xdpMode] {
-			cmd.PrintErrln("[ERROR] Invalid mode. Must be one of: offload, drv, skb")
-			os.Exit(1)
+			reportCommandError(cmd, fmt.Errorf("[ERROR] Invalid mode. Must be one of: offload, drv, skb"))
+			return
 		}
 
 		ifaceList := interfaces
@@ -263,34 +256,10 @@ Examples:
 			ifaceList = args
 		}
 
-		cfgManager := config.GetConfigManager()
-		if err := cfgManager.LoadConfig(); err != nil {
-			cmd.PrintErrln("[ERROR] Failed to load config:", err)
-			os.Exit(1)
-		}
-		globalCfg := cfgManager.GetConfig()
-
-		log := logger.Get(cmd.Context())
-		manager, err := xdp.NewManager(globalCfg.Capacity, log)
+		attached, err := app.AttachXDPWithMode(cmd.Context(), ifaceList, xdpMode)
 		if err != nil {
-			cmd.PrintErrln("[ERROR] Failed to create XDP manager:", err)
-			os.Exit(1)
-		}
-
-		if pinErr := manager.Pin(config.GetPinPath()); pinErr != nil {
-			cmd.PrintErrln("[ERROR] Failed to pin maps:", pinErr)
-			os.Exit(1)
-		}
-
-		attached, err := attachXDPWithMode(manager, ifaceList, xdpMode)
-		if err != nil {
-			cmd.PrintErrln("[ERROR] Failed to attach XDP:", err)
-			os.Exit(1)
-		}
-
-		if len(attached) == 0 {
-			cmd.PrintErrln("[ERROR] Failed to attach XDP on any interface")
-			os.Exit(1)
+			reportCommandError(cmd, fmt.Errorf("[ERROR] Failed to attach XDP: %w", err))
+			return
 		}
 
 		fmt.Printf("[OK] XDP attached successfully on %v with mode: %s\n", attached, xdpMode)
@@ -305,8 +274,8 @@ var systemUnloadCmd = &cobra.Command{
 		common.EnsureStandaloneMode()
 
 		if err := app.RemoveXDP(cmd.Context(), interfaces); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
+			reportCommandError(cmd, err)
+			return
 		}
 	},
 }
@@ -319,28 +288,9 @@ This is faster than full reload and maintains existing connections.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.EnsureStandaloneMode()
 
-		configPath := runtime.ConfigPath
-		if configPath == "" {
-			configPath = config.DefaultConfigPath
-		}
-
-		globalCfg, err := types.LoadGlobalConfig(configPath)
-		if err != nil {
-			cmd.PrintErrln("[ERROR] Failed to load configuration:", err)
-			os.Exit(1)
-		}
-
-		log := logger.Get(cmd.Context())
-		manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
-		if err != nil {
-			cmd.PrintErrln("[ERROR] Failed to load XDP manager:", err)
-			os.Exit(1)
-		}
-		defer manager.Close()
-
-		if err := manager.SyncFromFiles(globalCfg, false); err != nil {
-			cmd.PrintErrln("[ERROR] Failed to sync configuration to BPF maps:", err)
-			os.Exit(1)
+		if err := app.ReloadPinnedMaps(cmd.Context()); err != nil {
+			reportCommandError(cmd, fmt.Errorf("[ERROR] Failed to reload configuration: %w", err))
+			return
 		}
 
 		fmt.Println("[OK] Configuration reloaded and synced to BPF maps successfully")
@@ -365,8 +315,8 @@ Examples:
 		}
 
 		if err := app.InstallXDP(cmd.Context(), ifaceList); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
+			reportCommandError(cmd, err)
+			return
 		}
 	},
 }
@@ -389,8 +339,8 @@ Examples:
 		}
 
 		if err := app.RemoveXDP(cmd.Context(), ifaceList); err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
+			reportCommandError(cmd, err)
+			return
 		}
 	},
 }
@@ -403,9 +353,8 @@ This will restart the netxfw service if an update is performed.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("[START] Checking for updates...")
 		execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
-		if err := fmtutil.RunShellCommand(execCmd); err != nil {
-			fmt.Printf("[ERROR] Update failed: %v\n", err)
-			os.Exit(1)
+		if err := fmtutil.RunShellPipeline(execCmd); err != nil {
+			reportCommandError(cmd, fmt.Errorf("[ERROR] Update failed: %w", err))
 		}
 	},
 }
@@ -487,55 +436,3 @@ func init() {
 	RegisterCommonFlags(syncToMapCmd)
 }
 
-func attachXDPWithMode(manager *xdp.Manager, interfaces []string, mode string) ([]string, error) {
-	log := logger.Get(nil)
-	var attached []string
-
-	var attachMode link.XDPAttachFlags
-	var attachModeName string
-	switch mode {
-	case "offload":
-		attachMode = link.XDPOffloadMode
-		attachModeName = "Offload"
-	case "drv":
-		attachMode = link.XDPDriverMode
-		attachModeName = "Native"
-	case "skb":
-		attachMode = link.XDPGenericMode
-		attachModeName = "Generic"
-	default:
-		return nil, fmt.Errorf("invalid mode: %s", mode)
-	}
-
-	for _, name := range interfaces {
-		iface, err := net.InterfaceByName(name)
-		if err != nil {
-			log.Warnf("[WARN]  Skip interface %s: %v", name, err)
-			continue
-		}
-
-		log.Infof("[INFO]  Attempting to attach XDP on %s with mode: %s", name, attachModeName)
-
-		l, err := link.AttachXDP(link.XDPOptions{
-			Program:   manager.XdpFirewall(),
-			Interface: iface.Index,
-			Flags:     attachMode,
-		})
-
-		if err == nil {
-			linkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("link_%s", name))
-			_ = os.Remove(linkPath)
-			if pinErr := l.Pin(linkPath); pinErr != nil {
-				log.Warnf("[WARN]  Failed to pin link on %s: %v", name, pinErr)
-				l.Close()
-				continue
-			}
-			log.Infof("[OK] Attached XDP on %s (Mode: %s) and pinned link", name, attachModeName)
-			attached = append(attached, name)
-		} else {
-			log.Warnf("[WARN]  Failed to attach XDP on %s using %s mode: %v", name, attachModeName, err)
-		}
-	}
-
-	return attached, nil
-}

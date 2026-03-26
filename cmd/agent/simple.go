@@ -16,7 +16,6 @@ import (
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 	"github.com/netxfw/netxfw/internal/version"
-	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -37,27 +36,28 @@ Use -v for verbose output with detailed statistics`,
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
+			w := cmd.OutOrStdout()
 			if verbose {
-				return showStatus(cmd.Context(), s)
+				return showStatus(w, cmd.Context(), s)
 			}
 
 			pass, drops, err := s.Stats.GetCounters()
 			if err != nil {
-				fmt.Printf("[WARN] Could not retrieve statistics: %v\n", err)
+				fmt.Fprintf(w, "[WARN] Could not retrieve statistics: %v\n", err)
 				return nil
 			}
 
-			fmt.Println("[OK] Firewall Status: Running")
-			fmt.Println()
+			fmt.Fprintln(w, "[OK] Firewall Status: Running")
+			fmt.Fprintln(w)
 
 			totalPackets := pass + drops
 			passPercent := float64(pass) / float64(totalPackets) * 100
-			fmt.Printf("[Stats] Traffic: %s packets (Pass: %.1f%%, Drop: %.1f%%)\n",
+			fmt.Fprintf(w, "[Stats] Traffic: %s packets (Pass: %.1f%%, Drop: %.1f%%)\n",
 				fmtutil.FormatNumberWithComma(totalPackets), passPercent, 100-passPercent)
 
-			trafficStats, err := xdp.LoadTrafficStats()
+			trafficStats, err := app.LoadTrafficStats()
 			if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
-				fmt.Printf("[Rate] Current: %s pps (%s)\n",
+				fmt.Fprintf(w, "[Rate] Current: %s pps (%s)\n",
 					fmtutil.FormatNumberWithComma(trafficStats.CurrentPPS),
 					fmtutil.FormatBPS(trafficStats.CurrentBPS))
 			}
@@ -66,27 +66,27 @@ Use -v for verbose output with detailed statistics`,
 			dynBlacklistCount, _ := s.GetManager().GetDynLockListCount()
 			totalBlocked := uint64(blacklistCount) + uint64(dynBlacklistCount)
 			if totalBlocked > 0 {
-				fmt.Printf("[Block] Banned IPs: %s (Static: %s, Dynamic: %s)\n",
+				fmt.Fprintf(w, "[Block] Banned IPs: %s (Static: %s, Dynamic: %s)\n",
 					fmtutil.FormatNumberWithComma(totalBlocked),
 					fmtutil.FormatNumberWithComma(uint64(blacklistCount)),
 					fmtutil.FormatNumberWithComma(uint64(dynBlacklistCount)))
 			} else {
-				fmt.Println("[Block] Banned IPs: 0")
+				fmt.Fprintln(w, "[Block] Banned IPs: 0")
 			}
 
 			connCount, _ := s.GetManager().GetConntrackCount()
-			fmt.Printf("[Conn] Active connections: %s\n", fmtutil.FormatNumberWithComma(uint64(connCount)))
+			fmt.Fprintf(w, "[Conn] Active connections: %s\n", fmtutil.FormatNumberWithComma(uint64(connCount)))
 
 			whitelistCount, _ := s.GetManager().GetWhitelistCount()
 			if whitelistCount > 0 {
-				fmt.Printf("[Allow] Whitelisted IPs: %s\n", fmtutil.FormatNumberWithComma(uint64(whitelistCount)))
+				fmt.Fprintf(w, "[Allow] Whitelisted IPs: %s\n", fmtutil.FormatNumberWithComma(uint64(whitelistCount)))
 			}
 
-			showCompactMapStatistics(s.GetManager())
-			showTopBlockedIPs(s.Stats, drops)
+			showCompactMapStatistics(w, s.GetManager())
+			showTopBlockedIPs(w, s.Stats, drops)
 
-			fmt.Println()
-			fmt.Println("[Tip] Use 'netxfw status -v' for detailed info")
+			fmt.Fprintln(w)
+			fmt.Fprintln(w, "[Tip] Use 'netxfw status -v' for detailed info")
 			return nil
 		})
 	},
@@ -103,8 +103,7 @@ var SimpleStartCmd = &cobra.Command{
 
 		executor.Do(func() error {
 			if err := app.InstallXDP(cmd.Context(), nil); err != nil {
-				cmd.PrintErrln("[ERROR] Failed to start XDP program:", err)
-				os.Exit(1)
+				return fmt.Errorf("[ERROR] Failed to start XDP program: %w", err)
 			}
 
 			if runtime.Mode == "agent" || runtime.Mode == "" {
@@ -132,8 +131,7 @@ var SimpleStopCmd = &cobra.Command{
 			}
 
 			if err := app.RemoveXDP(cmd.Context(), nil); err != nil {
-				cmd.PrintErrln("[ERROR] Failed to stop XDP program:", err)
-				os.Exit(1)
+				return fmt.Errorf("[ERROR] Failed to stop XDP program: %w", err)
 			}
 
 			executor.PrintSuccess("netxfw stopped successfully")
@@ -151,8 +149,8 @@ This is faster than full reload and maintains existing connections.`,
 		configFile, _ := cmd.Flags().GetString("config")
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithConfigManager(func(cfg *types.GlobalConfig, manager *xdp.Manager) error {
-			if err := manager.SyncFromFiles(cfg, false); err != nil {
+		executor.ExecuteWithSDKAndConfig(func(cfg *types.GlobalConfig, s *sdk.SDK) error {
+			if err := s.Sync.ToMap(cfg, false); err != nil {
 				return fmt.Errorf("[ERROR] Failed to sync configuration to BPF maps: %v", err)
 			}
 			executor.PrintSuccess("Configuration reloaded and synced to BPF maps successfully")
@@ -172,7 +170,7 @@ var SimpleUpdateCmd = &cobra.Command{
 		executor.Do(func() error {
 			fmt.Println("[START] Checking for updates...")
 			execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
-			if err := fmtutil.RunShellCommand(execCmd); err != nil {
+			if err := fmtutil.RunShellPipeline(execCmd); err != nil {
 				return fmt.Errorf("[ERROR] Update failed: %v", err)
 			}
 			return nil
@@ -224,17 +222,15 @@ Plugin ELF files must contain a valid XDP program.`,
 		path := args[0]
 		index, err := strconv.Atoi(args[1])
 		if err != nil {
-			cmd.PrintErrln("[ERROR] Invalid index: must be a number")
-			os.Exit(1)
+			reportCommandError(cmd, fmt.Errorf("[ERROR] Invalid index: must be a number"))
+			return
 		}
 
 		configFile, _ := cmd.Flags().GetString("config")
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
-			if err := manager.LoadPlugin(path, index); err != nil {
+		executor.Do(func() error {
+			if err := app.HandlePluginCommand(cmd.Context(), []string{"load", path, strconv.Itoa(index)}); err != nil {
 				return fmt.Errorf("[ERROR] Failed to load plugin: %v", err)
 			}
 			executor.PrintSuccess(fmt.Sprintf("Plugin loaded: %s at index %d", path, index))
@@ -251,17 +247,15 @@ var pluginRemoveCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		index, err := strconv.Atoi(args[0])
 		if err != nil {
-			cmd.PrintErrln("[ERROR] Invalid index: must be a number")
-			os.Exit(1)
+			reportCommandError(cmd, fmt.Errorf("[ERROR] Invalid index: must be a number"))
+			return
 		}
 
 		configFile, _ := cmd.Flags().GetString("config")
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
-			if err := manager.RemovePlugin(index); err != nil {
+		executor.Do(func() error {
+			if err := app.HandlePluginCommand(cmd.Context(), []string{"remove", strconv.Itoa(index)}); err != nil {
 				return fmt.Errorf("[ERROR] Failed to remove plugin: %v", err)
 			}
 			executor.PrintSuccess(fmt.Sprintf("Plugin removed from index %d", index))
@@ -279,25 +273,21 @@ var pluginListCmd = &cobra.Command{
 		configFile, _ := cmd.Flags().GetString("config")
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
+		executor.Do(func() error {
 			fmt.Println("=== BPF Plugins ===")
-			fmt.Println("Index Range: 2-15")
+			fmt.Println("Index Range: 2-14")
 			fmt.Println()
 
-			hasPlugins := false
-			for i := xdp.ProgIdxPluginStart; i <= xdp.ProgIdxPluginEnd; i++ {
-				var progID uint32
-				err := manager.JmpTable().Lookup(uint32(i), &progID)
-				if err == nil {
-					hasPlugins = true
-					fmt.Printf("  [%d] Plugin loaded (ID: %d)\n", i, progID)
-				}
+			slots, err := app.ListLoadedPlugins(cmd.Context())
+			if err != nil {
+				return fmt.Errorf("[ERROR] Failed to list plugins: %v", err)
 			}
-
-			if !hasPlugins {
+			if len(slots) == 0 {
 				fmt.Println("  No plugins loaded")
+				return nil
+			}
+			for _, slot := range slots {
+				fmt.Printf("  [%d] Plugin loaded (ID: %d)\n", slot.Index, slot.Program)
 			}
 			return nil
 		})
@@ -384,18 +374,16 @@ Examples:
 
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithManager(func(manager *xdp.Manager) error {
-			defer manager.Close()
-
-			if clearDynamic {
-				if err := xdp.ClearBlacklistMap(manager.DynLockList()); err != nil {
+		executor.Do(func() error {
+			if err := app.ClearBlacklist(cmd.Context(), clearDynamic); err != nil {
+				if clearDynamic {
 					return fmt.Errorf("[ERROR] Failed to clear dynamic blacklist: %v", err)
 				}
+				return fmt.Errorf("[ERROR] Failed to clear static blacklist: %v", err)
+			}
+			if clearDynamic {
 				executor.PrintSuccess("Dynamic blacklist cleared successfully")
 			} else {
-				if err := xdp.ClearBlacklistMap(manager.LockList()); err != nil {
-					return fmt.Errorf("[ERROR] Failed to clear static blacklist: %v", err)
-				}
 				executor.PrintSuccess("Static blacklist cleared successfully")
 			}
 			return nil
@@ -438,24 +426,31 @@ var UfwResetCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
-			manager := s.GetManager()
-			defer manager.Close()
-
 			fmt.Println("[RESET] Clearing all firewall rules...")
 
-			if err := xdp.ClearBlacklistMap(manager.LockList()); err != nil {
+			if err := s.Blacklist.Clear(); err != nil {
 				cmd.PrintErrln("[WARN] Failed to clear static blacklist:", err)
 			} else {
 				fmt.Println("[OK] Static blacklist cleared")
 			}
 
-			if err := xdp.ClearBlacklistMap(manager.DynLockList()); err != nil {
-				cmd.PrintErrln("[WARN] Failed to clear dynamic blacklist:", err)
+			dynamicEntries, _, err := s.GetManager().ListDynamicBlacklistIPs(0, "")
+			if err != nil {
+				cmd.PrintErrln("[WARN] Failed to list dynamic blacklist:", err)
 			} else {
-				fmt.Println("[OK] Dynamic blacklist cleared")
+				clearErr := false
+				for _, entry := range dynamicEntries {
+					if err := s.Blacklist.RemoveDynamic(entry.IP); err != nil {
+						cmd.PrintErrln("[WARN] Failed to remove dynamic blacklist entry:", err)
+						clearErr = true
+					}
+				}
+				if !clearErr {
+					fmt.Println("[OK] Dynamic blacklist cleared")
+				}
 			}
 
-			if err := xdp.ClearBlacklistMap(manager.Whitelist()); err != nil {
+			if err := s.Whitelist.Clear(); err != nil {
 				cmd.PrintErrln("[WARN] Failed to clear whitelist:", err)
 			} else {
 				fmt.Println("[OK] Whitelist cleared")

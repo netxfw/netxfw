@@ -3,7 +3,6 @@ package mock
 import (
 	"time"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/mock"
 )
@@ -185,17 +184,17 @@ type MockSyncAPI struct {
 	mock.Mock
 }
 
-func (m *MockSyncAPI) ToConfig(cfg *types.GlobalConfig) error {
+func (m *MockSyncAPI) ToConfig(cfg *sdk.GlobalConfig) error {
 	args := m.Called(cfg)
 	return args.Error(0)
 }
 
-func (m *MockSyncAPI) ToMap(cfg *types.GlobalConfig, overwrite bool) error {
+func (m *MockSyncAPI) ToMap(cfg *sdk.GlobalConfig, overwrite bool) error {
 	args := m.Called(cfg, overwrite)
 	return args.Error(0)
 }
 
-func (m *MockSyncAPI) VerifyAndRepair(cfg *types.GlobalConfig) error {
+func (m *MockSyncAPI) VerifyAndRepair(cfg *sdk.GlobalConfig) error {
 	args := m.Called(cfg)
 	return args.Error(0)
 }
