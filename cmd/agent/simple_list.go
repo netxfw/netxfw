@@ -209,29 +209,7 @@ var allowPortListCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
-			rules, _, err := s.GetManager().ListIPPortRules(false, 0, "")
-			if err != nil {
-				return fmt.Errorf("[ERROR] Failed to list IP+Port rules: %v", err)
-			}
-
-			var allowRules []sdk.IPPortRule
-			for _, rule := range rules {
-				if rule.Action == 1 {
-					allowRules = append(allowRules, rule)
-				}
-			}
-
-			if len(allowRules) == 0 {
-				cmd.Println("[INFO] No IP+Port allow rules")
-				return nil
-			}
-
-			cmd.Println("=== IP+Port Allow Rules ===")
-			for _, rule := range allowRules {
-				cmd.Printf("  %s:%d\n", rule.IP, rule.Port)
-			}
-			cmd.Printf("\n[INFO] Total: %d rules\n", len(allowRules))
-			return nil
+			return listIPPortRulesByAction(cmd, s, 1, "[INFO] No IP+Port allow rules", "=== IP+Port Allow Rules ===")
 		})
 	},
 }
@@ -390,29 +368,7 @@ var denyPortListCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
-			rules, _, err := s.GetManager().ListIPPortRules(false, 0, "")
-			if err != nil {
-				return fmt.Errorf("[ERROR] Failed to list IP+Port rules: %v", err)
-			}
-
-			var denyRules []sdk.IPPortRule
-			for _, rule := range rules {
-				if rule.Action == 0 {
-					denyRules = append(denyRules, rule)
-				}
-			}
-
-			if len(denyRules) == 0 {
-				cmd.Println("[INFO] No IP+Port deny rules")
-				return nil
-			}
-
-			cmd.Println("=== IP+Port Deny Rules ===")
-			for _, rule := range denyRules {
-				cmd.Printf("  %s:%d\n", rule.IP, rule.Port)
-			}
-			cmd.Printf("\n[INFO] Total: %d rules\n", len(denyRules))
-			return nil
+			return listIPPortRulesByAction(cmd, s, 0, "[INFO] No IP+Port deny rules", "=== IP+Port Deny Rules ===")
 		})
 	},
 }
@@ -603,6 +559,32 @@ var UfwDeleteCmd = &cobra.Command{
 	Long:  `Delete/unblock an IP address (alias for 'unblock').`,
 	Args:  SimpleUnblockCmd.Args,
 	Run:   SimpleUnblockCmd.Run,
+}
+
+func listIPPortRulesByAction(cmd *cobra.Command, s *sdk.SDK, action uint8, emptyMessage string, header string) error {
+	rules, _, err := s.GetManager().ListIPPortRules(false, 0, "")
+	if err != nil {
+		return fmt.Errorf("[ERROR] Failed to list IP+Port rules: %v", err)
+	}
+
+	filtered := make([]sdk.IPPortRule, 0, len(rules))
+	for _, rule := range rules {
+		if rule.Action == action {
+			filtered = append(filtered, rule)
+		}
+	}
+
+	if len(filtered) == 0 {
+		cmd.Println(emptyMessage)
+		return nil
+	}
+
+	cmd.Println(header)
+	for _, rule := range filtered {
+		cmd.Printf("  %s:%d\n", rule.IP, rule.Port)
+	}
+	cmd.Printf("\n[INFO] Total: %d rules\n", len(filtered))
+	return nil
 }
 
 func runAllowCommand(cmd *cobra.Command, input string) {

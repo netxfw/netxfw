@@ -34,6 +34,7 @@ Display Order / 显示顺序:
 */
 
 func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
+	_ = ctx
 	fmt.Fprintln(w, "[OK] XDP Program Status: Loaded and Running")
 
 	mgr := s.GetManager()
@@ -256,7 +257,7 @@ func showProtocolDistribution(w io.Writer, s StatsAPI, pass, drops uint64) {
 		proto                  uint8
 		dropped, passed, total uint64
 	}
-	var stats []stat
+	stats := make([]stat, 0, len(protoStats))
 	for p, s := range protoStats {
 		stats = append(stats, stat{p, s.dropped, s.passed, s.dropped + s.passed})
 	}
@@ -268,26 +269,6 @@ func showProtocolDistribution(w io.Writer, s StatsAPI, pass, drops uint64) {
 	}
 }
 
-func getUsageIndicator(current, maximum int, isLRU bool) string {
-	if maximum == 0 {
-		return ""
-	}
-	usage := float64(current) / float64(maximum) * 100
-	critical, high, medium := getThresholdsFromConfig()
-
-	switch {
-	case isLRU && usage >= 99.0:
-		return "[OK (LRU Full)]"
-	case usage >= float64(critical):
-		return "[CRITICAL]"
-	case usage >= float64(high):
-		return "[HIGH]"
-	case usage >= float64(medium):
-		return "[MEDIUM]"
-	default:
-		return "[OK]"
-	}
-}
 
 func boolStr(cond bool, trueVal, falseVal string) string {
 	if cond {

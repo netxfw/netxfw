@@ -38,7 +38,7 @@ Use -v for verbose output with detailed statistics`,
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
 			w := cmd.OutOrStdout()
 			if verbose {
-				return showStatus(w, cmd.Context(), s)
+				return showStatus(cmd.Context(), w, s)
 			}
 
 			pass, drops, err := s.Stats.GetCounters()
@@ -434,14 +434,15 @@ var UfwResetCmd = &cobra.Command{
 				fmt.Println("[OK] Static blacklist cleared")
 			}
 
-			dynamicEntries, _, err := s.GetManager().ListDynamicBlacklistIPs(0, "")
-			if err != nil {
-				cmd.PrintErrln("[WARN] Failed to list dynamic blacklist:", err)
+			dynamicEntries, _, listErr := s.GetManager().ListDynamicBlacklistIPs(0, "")
+			if listErr != nil {
+				cmd.PrintErrln("[WARN] Failed to list dynamic blacklist:", listErr)
 			} else {
 				clearErr := false
 				for _, entry := range dynamicEntries {
-					if err := s.Blacklist.RemoveDynamic(entry.IP); err != nil {
-						cmd.PrintErrln("[WARN] Failed to remove dynamic blacklist entry:", err)
+					removeErr := s.Blacklist.RemoveDynamic(entry.IP)
+					if removeErr != nil {
+						cmd.PrintErrln("[WARN] Failed to remove dynamic blacklist entry:", removeErr)
 						clearErr = true
 					}
 				}
@@ -450,8 +451,9 @@ var UfwResetCmd = &cobra.Command{
 				}
 			}
 
-			if err := s.Whitelist.Clear(); err != nil {
-				cmd.PrintErrln("[WARN] Failed to clear whitelist:", err)
+			clearWhitelistErr := s.Whitelist.Clear()
+			if clearWhitelistErr != nil {
+				cmd.PrintErrln("[WARN] Failed to clear whitelist:", clearWhitelistErr)
 			} else {
 				fmt.Println("[OK] Whitelist cleared")
 			}

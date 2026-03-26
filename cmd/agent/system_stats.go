@@ -120,7 +120,7 @@ func showMapStatistics(w io.Writer, mgr sdk.ManagerInterface) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[DATA] Map Statistics:")
 
-	cap := getMapCapacity()
+	mapCap := getMapCapacity()
 
 	blacklistCount, _ := mgr.GetLockedIPCount()
 	whitelistCount, _ := mgr.GetWhitelistCount()
@@ -132,20 +132,20 @@ func showMapStatistics(w io.Writer, mgr sdk.ManagerInterface) {
 	fmt.Fprintf(w, "   %-18s %12s / %-12s %s\n", "Map", "Used", "Max", "Usage")
 	fmt.Fprintf(w, "   %s\n", strings.Repeat("-", 70))
 	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
-		"[LOCK] Blacklist", blacklistCount, cap.Blacklist,
-		renderUsageBar(blacklistCount, cap.Blacklist, 20))
+		"[LOCK] Blacklist", blacklistCount, mapCap.Blacklist,
+		renderUsageBar(blacklistCount, mapCap.Blacklist, 20))
 	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
-		"[DYNDYNLOCK] Dyn Blacklist", dynBlacklistCount, cap.DynBlacklist,
-		renderUsageBar(int(dynBlacklistCount), cap.DynBlacklist, 20))
+		"[DYNDYNLOCK] Dyn Blacklist", dynBlacklistCount, mapCap.DynBlacklist,
+		renderUsageBar(int(dynBlacklistCount), mapCap.DynBlacklist, 20))
 	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
-		"[WHITE] Whitelist", whitelistCount, cap.Whitelist,
-		renderUsageBar(whitelistCount, cap.Whitelist, 20))
+		"[WHITE] Whitelist", whitelistCount, mapCap.Whitelist,
+		renderUsageBar(whitelistCount, mapCap.Whitelist, 20))
 	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
-		"[IPPort] IP+Port Rules", len(ipPortRules), cap.IPPortRules,
-		renderUsageBar(len(ipPortRules), cap.IPPortRules, 20))
+		"[IPPort] IP+Port Rules", len(ipPortRules), mapCap.IPPortRules,
+		renderUsageBar(len(ipPortRules), mapCap.IPPortRules, 20))
 	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
-		"[Limit]  Rate Limits", len(rateLimitRules), cap.RateLimits,
-		renderUsageBar(len(rateLimitRules), cap.RateLimits, 20))
+		"[Limit]  Rate Limits", len(rateLimitRules), mapCap.RateLimits,
+		renderUsageBar(len(rateLimitRules), mapCap.RateLimits, 20))
 	fmt.Fprintf(w, "   %-18s %12d\n", "[Allowport] Allowed Ports", len(allowedPorts))
 }
 
@@ -191,7 +191,7 @@ func renderUsageBar(current, maximum int, width int) string {
 // showCompactMapStatistics displays compact map statistics in single line format
 // showCompactMapStatistics 以紧凑格式显示 Map 统计
 func showCompactMapStatistics(w io.Writer, mgr sdk.ManagerInterface) {
-	cap := getMapCapacity()
+	mapCap := getMapCapacity()
 
 	blacklistCount, _ := mgr.GetLockedIPCount()
 	whitelistCount, _ := mgr.GetWhitelistCount()
@@ -201,11 +201,11 @@ func showCompactMapStatistics(w io.Writer, mgr sdk.ManagerInterface) {
 
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[DATA] Map Usage:")
-	fmt.Fprintf(w, "   %-16s %s\n", "[LOCK] Blacklist:", renderMiniBar(blacklistCount, cap.Blacklist))
-	fmt.Fprintf(w, "   %-16s %s\n", "[DynLOCK] Dyn:", renderMiniBar(int(dynBlacklistCount), cap.DynBlacklist))
-	fmt.Fprintf(w, "   %-16s %s\n", "[WHITE] Whitelist:", renderMiniBar(whitelistCount, cap.Whitelist))
-	fmt.Fprintf(w, "   %-16s %s\n", "[IPPort] IP+Port:", renderMiniBar(len(ipPortRules), cap.IPPortRules))
-	fmt.Fprintf(w, "   %-16s %s\n", "[Limit] RateLimit:", renderMiniBar(len(rateLimitRules), cap.RateLimits))
+	fmt.Fprintf(w, "   %-16s %s\n", "[LOCK] Blacklist:", renderMiniBar(blacklistCount, mapCap.Blacklist))
+	fmt.Fprintf(w, "   %-16s %s\n", "[DynLOCK] Dyn:", renderMiniBar(int(dynBlacklistCount), mapCap.DynBlacklist))
+	fmt.Fprintf(w, "   %-16s %s\n", "[WHITE] Whitelist:", renderMiniBar(whitelistCount, mapCap.Whitelist))
+	fmt.Fprintf(w, "   %-16s %s\n", "[IPPort] IP+Port:", renderMiniBar(len(ipPortRules), mapCap.IPPortRules))
+	fmt.Fprintf(w, "   %-16s %s\n", "[Limit] RateLimit:", renderMiniBar(len(rateLimitRules), mapCap.RateLimits))
 }
 
 // renderMiniBar renders a mini progress bar for compact display

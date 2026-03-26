@@ -23,10 +23,6 @@ func setLastCommandError(err error) {
 	lastCommandErr = err
 }
 
-func clearLastCommandError() {
-	lastCommandErr = nil
-}
-
 // ConsumeLastCommandError returns the latest command error and clears it.
 func ConsumeLastCommandError() error {
 	err := lastCommandErr

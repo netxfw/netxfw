@@ -167,7 +167,7 @@ var systemStatusCmd = &cobra.Command{
 	Long:  `Show current runtime status and statistics`,
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
-			return showStatus(cmd.OutOrStdout(), cmd.Context(), s)
+			return showStatus(cmd.Context(), cmd.OutOrStdout(), s)
 		})
 	},
 }
