@@ -3,8 +3,8 @@ package web_test
 import (
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/plugins/webplugin"
 	"github.com/netxfw/netxfw/internal/plugins/types"
+	web "github.com/netxfw/netxfw/internal/plugins/webplugin"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )

@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -298,23 +296,4 @@ func (m *Manager) RemoveIPPortRuleTimed(ipNet *net.IPNet, port uint16) error {
 	return helper.TimeDelete(func() error {
 		return RemoveIPPortRuleFromMap(m.ruleMap, ipNet, port)
 	})
-}
-
-// writeToFile is a helper for file writing.
-// writeToFile 是文件写入的辅助函数。
-func writeToFile(path, content string) error {
-	f, err := openFileForAppend(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = fmt.Fprintln(f, content)
-	return err
-}
-
-// openFileForAppend opens a file for appending.
-// openFileForAppend 打开文件用于追加。
-func openFileForAppend(path string) (*os.File, error) {
-	safePath := filepath.Clean(path)                                        // Sanitize path to prevent directory traversal
-	return os.OpenFile(safePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644) // #nosec G304 // path is sanitized with filepath.Clean
 }

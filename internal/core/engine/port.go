@@ -39,6 +39,7 @@ func (m *PortModule) Stop() error {
 	return nil
 }
 
+//nolint:gocyclo // sync logic intentionally handles full incremental reconciliation in one place.
 func (m *PortModule) Sync() error {
 	if m.config == nil {
 		return nil
@@ -71,31 +72,33 @@ func (m *PortModule) Sync() error {
 
 		// Remove rules that are not in desired config
 		for key, rule := range currentRulesMap {
-			if _, desired := desiredRulesMap[key]; !desired {
-				// Safety check: Do not delete "Allowed Ports" (Wildcard IP rules)
-				// ListIPPortRules returns wildcard rules as "::/0" or "0.0.0.0/0"
-				// We should preserve them if the port is in AllowedPorts config
-				isWildcard := (rule.IP == "::/0" || rule.IP == "0.0.0.0/0")
+			if _, desired := desiredRulesMap[key]; desired {
+				continue
+			}
 
-				isAllowedPort := false
-				if isWildcard {
-					for _, p := range m.config.AllowedPorts {
-						if p == rule.Port {
-							isAllowedPort = true
-							break
-						}
+			// Safety check: Do not delete "Allowed Ports" (Wildcard IP rules)
+			// ListIPPortRules returns wildcard rules as "::/0" or "0.0.0.0/0"
+			// We should preserve them if the port is in AllowedPorts config
+			isWildcard := (rule.IP == "::/0" || rule.IP == "0.0.0.0/0")
+
+			isAllowedPort := false
+			if isWildcard {
+				for _, p := range m.config.AllowedPorts {
+					if p == rule.Port {
+						isAllowedPort = true
+						break
 					}
 				}
+			}
 
-				if isWildcard && isAllowedPort {
-					// This is an Allowed Port rule, do not delete it here.
-					// It will be handled in step 2 (Sync Allowed Ports).
-					continue
-				}
+			if isWildcard && isAllowedPort {
+				// This is an Allowed Port rule, do not delete it here.
+				// It will be handled in step 2 (Sync Allowed Ports).
+				continue
+			}
 
-				if err := m.manager.RemoveIPPortRule(rule.IP, rule.Port); err != nil {
-					m.logger.Warnf("[WARN] [Port] Failed to remove rule %s:%d: %v", rule.IP, rule.Port, err)
-				}
+			if removeErr := m.manager.RemoveIPPortRule(rule.IP, rule.Port); removeErr != nil {
+				m.logger.Warnf("[WARN] [Port] Failed to remove rule %s:%d: %v", rule.IP, rule.Port, removeErr)
 			}
 		}
 
@@ -103,8 +106,8 @@ func (m *PortModule) Sync() error {
 		for key, rule := range desiredRulesMap {
 			existing, exists := currentRulesMap[key]
 			if !exists || existing.Action != rule.Action {
-				if err := m.manager.AddIPPortRule(rule.IP, rule.Port, rule.Action); err != nil {
-					m.logger.Warnf("[WARN] [Port] Failed to add/update rule %s:%d: %v", rule.IP, rule.Port, err)
+				if addErr := m.manager.AddIPPortRule(rule.IP, rule.Port, rule.Action); addErr != nil {
+					m.logger.Warnf("[WARN] [Port] Failed to add/update rule %s:%d: %v", rule.IP, rule.Port, addErr)
 				}
 			}
 		}

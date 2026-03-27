@@ -638,7 +638,7 @@ burst = 2000
 default_deny = "not_a_boolean"
 `
 
-	result, err = ValidateConfig([]byte(invalidTOML))
+	_, err = ValidateConfig([]byte(invalidTOML))
 	assert.Error(t, err)
 }
 

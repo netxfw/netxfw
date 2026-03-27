@@ -54,6 +54,11 @@ type rulesResponse struct {
 	Limit          int              `json:"limit"`
 }
 
+const (
+	ruleTypeBlacklist = "blacklist"
+	ruleTypeWhitelist = "whitelist"
+)
+
 // handleHealthz returns the health status of the service.
 // handleHealthz 返回服务的健康状态。
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
@@ -112,6 +117,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 // handleRules provides a REST interface for listing, adding, and removing BPF rules.
 // handleRules 提供用于列出、添加和移除 BPF 规则的 REST 接口。
+//
+//nolint:gocyclo // legacy HTTP handler kept inline; behavior changes should stay localized.
 func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	switch r.Method {
@@ -190,9 +197,9 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 		switch req.Action {
 		case "add":
 			switch req.Type {
-			case "blacklist":
+			case ruleTypeBlacklist:
 				err = s.sdk.Blacklist.Add(req.CIDR)
-			case "whitelist":
+			case ruleTypeWhitelist:
 				port := uint16(0)
 				host, pVal, pErr := iputil.ParseIPPort(req.CIDR)
 				if pErr == nil {
@@ -237,9 +244,9 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 						err = s.sdk.Rule.Remove(ipNet.String(), port)
 					}
 				}
-			case "blacklist":
+			case ruleTypeBlacklist:
 				err = s.sdk.Blacklist.Remove(req.CIDR)
-			case "whitelist":
+			case ruleTypeWhitelist:
 				err = s.sdk.Whitelist.Remove(req.CIDR)
 			default:
 				http.Error(w, "invalid type", http.StatusBadRequest)
@@ -247,9 +254,9 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 			}
 		case "clear":
 			switch req.Type {
-			case "blacklist":
+			case ruleTypeBlacklist:
 				err = s.sdk.Blacklist.Clear()
-			case "whitelist":
+			case ruleTypeWhitelist:
 				err = s.sdk.Whitelist.Clear()
 			default:
 				http.Error(w, "invalid type", http.StatusBadRequest)

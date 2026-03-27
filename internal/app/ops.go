@@ -327,13 +327,23 @@ func loadBPFPlugins(manager *xdp.Manager, globalCfg *types.GlobalConfig, log *za
 	return nil
 }
 
+// InitConfiguration initializes the default configuration file if needed.
+func InitConfiguration(ctx context.Context) {
+	core.InitConfiguration(ctx)
+}
+
+// TestConfiguration validates the current configuration.
+func TestConfiguration(ctx context.Context) {
+	daemon.TestConfiguration(ctx)
+}
+
 /**
  * RunDaemon starts the background process for metrics and rule synchronization.
  * RunDaemon 启动用于指标和规则同步的后台进程。
  */
 func RunDaemon(ctx context.Context) {
-	core.InitConfiguration(ctx)
-	daemon.TestConfiguration(ctx)
+	InitConfiguration(ctx)
+	TestConfiguration(ctx)
 	daemon.Run(ctx, runtime.Mode, nil)
 }
 
@@ -342,12 +352,57 @@ func RunDaemon(ctx context.Context) {
  * RunDaemonWithInterfaces 启动用于指标和规则同步的后台进程，支持指定接口。
  */
 func RunDaemonWithInterfaces(ctx context.Context, interfaces []string) {
-	core.InitConfiguration(ctx)
-	daemon.TestConfiguration(ctx)
+	InitConfiguration(ctx)
+	TestConfiguration(ctx)
 	opts := &daemon.DaemonOptions{
 		Interfaces: interfaces,
 	}
 	daemon.Run(ctx, runtime.Mode, opts)
+}
+
+// LoadConfig loads the current configuration using the configured path.
+func LoadConfig() (*sdk.GlobalConfig, error) {
+	cfgPath := config.GetConfigPath()
+	cfg, err := types.LoadGlobalConfig(cfgPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load configuration: %w", err)
+	}
+	return cfg, nil
+}
+
+// SaveConfigWithBackup persists configuration using the configured backup policy.
+func SaveConfigWithBackup(cfg *sdk.GlobalConfig) error {
+	return types.SaveGlobalConfigWithBackup(config.GetConfigPath(), cfg, config.GetBackupKeep())
+}
+
+// WithConfigLock runs fn while holding the shared config persistence mutex.
+func WithConfigLock(fn func() error) error {
+	types.ConfigMu.Lock()
+	defer types.ConfigMu.Unlock()
+	return fn()
+}
+
+// SyncRuntimeToConfig dumps runtime BPF state into configuration files.
+func SyncRuntimeToConfig(s *sdk.SDK) error {
+	cfg, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+	return s.Sync.ToConfig(cfg)
+}
+
+// SyncConfigToRuntime applies configuration files to runtime BPF maps.
+func SyncConfigToRuntime(s *sdk.SDK, overwrite bool) error {
+	cfg, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+	return s.Sync.ToMap(cfg, overwrite)
+}
+
+// SyncConfigToRuntimeOverwrite applies configuration files to runtime BPF maps with overwrite enabled.
+func SyncConfigToRuntimeOverwrite(s *sdk.SDK) error {
+	return SyncConfigToRuntime(s, true)
 }
 
 /**
@@ -718,7 +773,7 @@ func AttachXDPWithMode(ctx context.Context, interfaces []string, mode string) ([
 		return nil, fmt.Errorf("invalid mode: %s", mode)
 	}
 
-	var attached []string
+	attached := make([]string, 0, len(interfaces))
 	for _, name := range interfaces {
 		iface, err := net.InterfaceByName(name)
 		if err != nil {

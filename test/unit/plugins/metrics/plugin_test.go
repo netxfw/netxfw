@@ -3,7 +3,7 @@ package metrics_test
 import (
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/plugins/metricsplugin"
+	metrics "github.com/netxfw/netxfw/internal/plugins/metricsplugin"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"

@@ -10,7 +10,6 @@ import (
 
 	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -269,7 +268,6 @@ func showProtocolDistribution(w io.Writer, s StatsAPI, pass, drops uint64) {
 	}
 }
 
-
 func boolStr(cond bool, trueVal, falseVal string) string {
 	if cond {
 		return trueVal
@@ -285,7 +283,7 @@ func printConfigItem(w io.Writer, icon, name, value string, last bool) {
 	fmt.Fprintf(w, "%s [%s] %s: %s\n", prefix, icon, name, value)
 }
 
-func printConntrackConfig(w io.Writer, cfg *types.GlobalConfig) {
+func printConntrackConfig(w io.Writer, cfg *sdk.GlobalConfig) {
 	if cfg.Conntrack.Enabled {
 		fmt.Fprintf(w, "   ├─ [TRACK]  Connection Tracking: Enabled")
 		if cfg.Conntrack.TCPTimeout != "" {
@@ -301,7 +299,7 @@ func printConntrackConfig(w io.Writer, cfg *types.GlobalConfig) {
 	}
 }
 
-func printRateLimitConfig(w io.Writer, cfg *types.GlobalConfig) {
+func printRateLimitConfig(w io.Writer, cfg *sdk.GlobalConfig) {
 	if cfg.RateLimit.Enabled {
 		fmt.Fprintf(w, "   ├─ [START] Rate Limiting: Enabled")
 		if cfg.RateLimit.AutoBlock {
@@ -313,7 +311,7 @@ func printRateLimitConfig(w io.Writer, cfg *types.GlobalConfig) {
 	}
 }
 
-func printLogEngineConfig(w io.Writer, cfg *types.GlobalConfig) {
+func printLogEngineConfig(w io.Writer, cfg *sdk.GlobalConfig) {
 	if cfg.LogEngine.Enabled {
 		fmt.Fprintf(w, "   ├─ [LOG] Log Engine: Enabled (%d rules)\n", len(cfg.LogEngine.Rules))
 	} else {
@@ -321,7 +319,7 @@ func printLogEngineConfig(w io.Writer, cfg *types.GlobalConfig) {
 	}
 }
 
-func printWebConfig(w io.Writer, cfg *types.GlobalConfig) {
+func printWebConfig(w io.Writer, cfg *sdk.GlobalConfig) {
 	if cfg.Web.Enabled {
 		fmt.Fprintf(w, "   └─ [WEB] Web Interface: Enabled (Port: %d)\n", cfg.Web.Port)
 	} else {

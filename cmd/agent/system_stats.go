@@ -254,7 +254,7 @@ func showTopBlockedIPs(w io.Writer, s StatsAPI, drops uint64) {
 		ip    string
 		count uint64
 	}
-	var sorted []ipCount
+	sorted := make([]ipCount, 0, len(ipCounts))
 	for ip, count := range ipCounts {
 		sorted = append(sorted, ipCount{ip, count})
 	}

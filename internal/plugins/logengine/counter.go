@@ -19,7 +19,7 @@ type Counter struct {
 }
 
 type CounterShard struct {
-	sync.RWMutex
+	mu sync.RWMutex
 	// map ip -> stats
 	counts map[netip.Addr]*IPStats
 }
@@ -79,7 +79,7 @@ func (c *Counter) Inc(ip netip.Addr) {
 	now := time.Now().Unix()
 	mw := int64(c.maxWindowSeconds)
 
-	shard.Lock()
+	shard.mu.Lock()
 	stats, ok := shard.counts[ip]
 	if !ok || stats == nil {
 		stats = &IPStats{
@@ -120,7 +120,7 @@ func (c *Counter) Inc(ip netip.Addr) {
 	}
 
 	stats.buckets[idx]++
-	shard.Unlock()
+	shard.mu.Unlock()
 }
 
 // Count returns the number of hits for the IP in the last windowSeconds.
@@ -130,8 +130,8 @@ func (c *Counter) Count(ip netip.Addr, windowSeconds int) int {
 	}
 
 	shard := c.getShard(ip)
-	shard.RLock()
-	defer shard.RUnlock()
+	shard.mu.RLock()
+	defer shard.mu.RUnlock()
 
 	stats, ok := shard.counts[ip]
 	if !ok {
@@ -177,7 +177,7 @@ func (c *Counter) Cleanup() {
 	mw := int64(c.maxWindowSeconds)
 	for i := 0; i < shardsCount; i++ {
 		shard := c.shards[i]
-		shard.Lock()
+		shard.mu.Lock()
 		for ip, stats := range shard.counts {
 			if now-stats.lastUnixTime > mw {
 				delete(shard.counts, ip)
@@ -185,6 +185,6 @@ func (c *Counter) Cleanup() {
 				c.statsPool.Put(stats)
 			}
 		}
-		shard.Unlock()
+		shard.mu.Unlock()
 	}
 }

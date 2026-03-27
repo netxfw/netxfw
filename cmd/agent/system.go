@@ -6,9 +6,6 @@ import (
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/core"
-	"github.com/netxfw/netxfw/internal/daemon"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -157,7 +154,7 @@ var systemInitCmd = &cobra.Command{
 	Long:  `Initialize default configuration file in /root/netxfw/`,
 	Run: func(cmd *cobra.Command, args []string) {
 		initCommand(cmd)
-		core.InitConfiguration(cmd.Context())
+		app.InitConfiguration(cmd.Context())
 	},
 }
 
@@ -178,7 +175,7 @@ var systemTestCmd = &cobra.Command{
 	Long:  `Test configuration validity`,
 	Run: func(cmd *cobra.Command, args []string) {
 		initCommand(cmd)
-		daemon.TestConfiguration(cmd.Context())
+		app.TestConfiguration(cmd.Context())
 	},
 }
 
@@ -370,14 +367,7 @@ var syncToConfigCmd = &cobra.Command{
 	Short: "Dump runtime BPF maps to configuration files",
 	Long:  `Dump runtime BPF maps to configuration files (config.yaml and rules.deny.txt).`,
 	Run: func(cmd *cobra.Command, args []string) {
-		Execute(cmd, args, func(s *sdk.SDK) error {
-			cfgPath := config.GetConfigPath()
-			cfg, err := types.LoadGlobalConfig(cfgPath)
-			if err != nil {
-				return fmt.Errorf("failed to load configuration: %w", err)
-			}
-			return s.Sync.ToConfig(cfg)
-		})
+		Execute(cmd, args, app.SyncRuntimeToConfig)
 	},
 }
 
@@ -387,14 +377,7 @@ var syncToMapCmd = &cobra.Command{
 	Long: `Apply configuration files (config.yaml and rules.deny.txt) to runtime BPF maps.
 This will overwrite the runtime state with what is defined in the configuration files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		Execute(cmd, args, func(s *sdk.SDK) error {
-			cfgPath := config.GetConfigPath()
-			cfg, err := types.LoadGlobalConfig(cfgPath)
-			if err != nil {
-				return fmt.Errorf("failed to load configuration: %w", err)
-			}
-			return s.Sync.ToMap(cfg, true)
-		})
+		Execute(cmd, args, app.SyncConfigToRuntimeOverwrite)
 	},
 }
 
@@ -435,4 +418,3 @@ func init() {
 	RegisterCommonFlags(syncToConfigCmd)
 	RegisterCommonFlags(syncToMapCmd)
 }
-

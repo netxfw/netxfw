@@ -6,16 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockMap struct {
-	maxEntries uint32
-	entries    int
-	err        error
-}
-
-func (m *mockMap) MaxEntries() uint32 {
-	return m.maxEntries
-}
-
 func TestNewHealthChecker(t *testing.T) {
 	checker := NewHealthChecker(nil)
 	assert.NotNil(t, checker)

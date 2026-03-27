@@ -406,7 +406,7 @@ func (m *MockManager) GetDynLockListCount() (uint64, error) { return 0, nil }
 func (m *MockManager) GetGlobalStats() (*sdk.GlobalStats, error) {
 	return &sdk.GlobalStats{}, nil
 }
-func (m *MockManager) InvalidateStatsCache()                {}
+func (m *MockManager) InvalidateStatsCache() {}
 
 // PerfStats returns a mock performance stats tracker.
 // PerfStats 返回模拟的性能统计跟踪器。
