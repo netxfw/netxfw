@@ -12,7 +12,6 @@ import (
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/core"
 	"github.com/netxfw/netxfw/internal/daemon"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 	"github.com/netxfw/netxfw/internal/version"
@@ -149,7 +148,7 @@ This is faster than full reload and maintains existing connections.`,
 		configFile, _ := cmd.Flags().GetString("config")
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithSDKAndConfig(func(cfg *types.GlobalConfig, s *sdk.SDK) error {
+		executor.ExecuteWithSDKAndConfig(func(cfg *sdk.GlobalConfig, s *sdk.SDK) error {
 			if err := s.Sync.ToMap(cfg, false); err != nil {
 				return fmt.Errorf("[ERROR] Failed to sync configuration to BPF maps: %v", err)
 			}

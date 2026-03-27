@@ -6,7 +6,6 @@ import (
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -92,12 +91,8 @@ func (e *CommandExecutor) GetSDK() (*sdk.SDK, error) {
 
 // LoadConfig 加载配置
 // LoadConfig loads the configuration
-func (e *CommandExecutor) LoadConfig() (*types.GlobalConfig, error) {
-	configPath := runtime.ConfigPath
-	if configPath == "" {
-		configPath = config.DefaultConfigPath
-	}
-	return types.LoadGlobalConfig(configPath)
+func (e *CommandExecutor) LoadConfig() (*sdk.GlobalConfig, error) {
+	return app.LoadConfig()
 }
 
 // ExecuteWithSDK 使用SDK执行命令
@@ -121,7 +116,7 @@ func (e *CommandExecutor) ExecuteWithSDK(execFunc func(*sdk.SDK) error) {
 }
 
 // ExecuteWithSDKAndConfig executes command with config and SDK.
-func (e *CommandExecutor) ExecuteWithSDKAndConfig(execFunc func(*types.GlobalConfig, *sdk.SDK) error) {
+func (e *CommandExecutor) ExecuteWithSDKAndConfig(execFunc func(*sdk.GlobalConfig, *sdk.SDK) error) {
 	if err := e.EnsureMode().ApplyFlags().Do(func() error {
 		cfg, err := e.LoadConfig()
 		if err != nil {

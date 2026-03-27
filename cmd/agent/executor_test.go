@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/app"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -66,7 +65,7 @@ func TestExecutorXDPCheckWithSDKAndConfig(t *testing.T) {
 	executor := NewCommandExecutor(cmd)
 
 	executed := false
-	execFunc := func(_ *types.GlobalConfig, _ *sdk.SDK) error {
+	execFunc := func(_ *sdk.GlobalConfig, _ *sdk.SDK) error {
 		executed = true
 		return nil
 	}

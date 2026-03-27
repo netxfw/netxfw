@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -626,7 +625,7 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 
 	executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-	executor.ExecuteWithSDKAndConfig(func(cfg *types.GlobalConfig, s *sdk.SDK) error {
+	executor.ExecuteWithSDKAndConfig(func(cfg *sdk.GlobalConfig, s *sdk.SDK) error {
 		if port > 0 {
 			if ttlStr != "" {
 				cmd.PrintErrln("[WARN]  WARNING: TTL parameter is ignored for IP+Port rules")

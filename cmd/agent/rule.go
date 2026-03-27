@@ -14,10 +14,9 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/klauspost/compress/zstd"
 	"github.com/netxfw/netxfw/cmd/common"
+	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/internal/binary"
-	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/optimizer"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
@@ -49,39 +48,37 @@ func persistWhitelistEntryToConfig(ip string, port uint16) error {
 		return nil
 	}
 
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	defer types.ConfigMu.Unlock()
-
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err != nil {
-		return err
-	}
-
-	normalizedCIDR := iputil.NormalizeCIDR(ip)
-	entry := normalizedCIDR
-	if port > 0 {
-		entry = fmt.Sprintf("%s:%d", normalizedCIDR, port)
-	}
-
-	for _, existing := range globalCfg.Base.Whitelist {
-		host, existingPort, parseErr := iputil.ParseIPPort(existing)
-		existingCIDR := ""
-		if parseErr == nil {
-			existingCIDR = iputil.NormalizeCIDR(host)
-		} else {
-			existingCIDR = iputil.NormalizeCIDR(existing)
-			existingPort = 0
+	return app.WithConfigLock(func() error {
+		globalCfg, err := app.LoadConfig()
+		if err != nil {
+			return err
 		}
 
-		if existingCIDR == normalizedCIDR && existingPort == port {
-			return nil
+		normalizedCIDR := iputil.NormalizeCIDR(ip)
+		entry := normalizedCIDR
+		if port > 0 {
+			entry = fmt.Sprintf("%s:%d", normalizedCIDR, port)
 		}
-	}
 
-	globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
-	optimizer.OptimizeWhitelistConfig(globalCfg)
-	return types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep())
+		for _, existing := range globalCfg.Base.Whitelist {
+			host, existingPort, parseErr := iputil.ParseIPPort(existing)
+			existingCIDR := ""
+			if parseErr == nil {
+				existingCIDR = iputil.NormalizeCIDR(host)
+			} else {
+				existingCIDR = iputil.NormalizeCIDR(existing)
+				existingPort = 0
+			}
+
+			if existingCIDR == normalizedCIDR && existingPort == port {
+				return nil
+			}
+		}
+
+		globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
+		optimizer.OptimizeWhitelistConfig(globalCfg)
+		return app.SaveConfigWithBackup(globalCfg)
+	})
 }
 
 func persistIPPortRuleToConfig(ip string, port uint16, action uint8) error {
@@ -89,37 +86,35 @@ func persistIPPortRuleToConfig(ip string, port uint16, action uint8) error {
 		return nil
 	}
 
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	defer types.ConfigMu.Unlock()
-
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err != nil {
-		return err
-	}
-
-	normalizedCIDR := iputil.NormalizeCIDR(ip)
-	updated := false
-
-	for i := range globalCfg.Port.IPPortRules {
-		ruleCIDR := iputil.NormalizeCIDR(globalCfg.Port.IPPortRules[i].IP)
-		if ruleCIDR == normalizedCIDR && globalCfg.Port.IPPortRules[i].Port == port {
-			globalCfg.Port.IPPortRules[i].Action = action
-			updated = true
-			break
+	return app.WithConfigLock(func() error {
+		globalCfg, err := app.LoadConfig()
+		if err != nil {
+			return err
 		}
-	}
 
-	if !updated {
-		globalCfg.Port.IPPortRules = append(globalCfg.Port.IPPortRules, types.IPPortRule{
-			IP:     normalizedCIDR,
-			Port:   port,
-			Action: action,
-		})
-	}
+		normalizedCIDR := iputil.NormalizeCIDR(ip)
+		updated := false
 
-	optimizer.OptimizeIPPortRulesConfig(globalCfg)
-	return types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep())
+		for i := range globalCfg.Port.IPPortRules {
+			ruleCIDR := iputil.NormalizeCIDR(globalCfg.Port.IPPortRules[i].IP)
+			if ruleCIDR == normalizedCIDR && globalCfg.Port.IPPortRules[i].Port == port {
+				globalCfg.Port.IPPortRules[i].Action = action
+				updated = true
+				break
+			}
+		}
+
+		if !updated {
+			globalCfg.Port.IPPortRules = append(globalCfg.Port.IPPortRules, sdk.IPPortRule{
+				IP:     normalizedCIDR,
+				Port:   port,
+				Action: action,
+			})
+		}
+
+		optimizer.OptimizeIPPortRulesConfig(globalCfg)
+		return app.SaveConfigWithBackup(globalCfg)
+	})
 }
 
 var RuleCmd = &cobra.Command{
@@ -272,7 +267,7 @@ Aliases: delete, remove
 		configFile, _ := cmd.Flags().GetString("config")
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithSDKAndConfig(func(cfg *types.GlobalConfig, s *sdk.SDK) error {
+		executor.ExecuteWithSDKAndConfig(func(cfg *sdk.GlobalConfig, s *sdk.SDK) error {
 			input := args[0]
 
 			ip, portVal, err := parseAndValidateIPInput(input)
