@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -665,9 +665,9 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 }
 
 func parseIPInput(input string) (ip string, port uint16, err error) {
-	host, pVal, parseErr := iputil.ParseIPPort(input)
+	host, pVal, parseErr := app.ParseIPPort(input)
 	if parseErr != nil {
-		if iputil.IsValidCIDR(input) {
+		if app.IsValidCIDR(input) {
 			return input, 0, nil
 		}
 		if strings.Contains(input, ":") && !strings.HasPrefix(input, "[") {

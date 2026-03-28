@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/internal/app"
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -34,24 +32,22 @@ func getMapCapacity() mapCapacity {
 		RateLimits:   1000,
 	}
 
-	cfgManager := config.GetConfigManager()
-	if err := cfgManager.LoadConfig(); err == nil {
-		if c := cfgManager.GetCapacityConfig(); c != nil {
-			if c.LockList > 0 {
-				capacity.Blacklist = c.LockList
-			}
-			if c.Whitelist > 0 {
-				capacity.Whitelist = c.Whitelist
-			}
-			if c.DynLockList > 0 {
-				capacity.DynBlacklist = c.DynLockList
-			}
-			if c.IPPortRules > 0 {
-				capacity.IPPortRules = c.IPPortRules
-			}
-			if c.RateLimits > 0 {
-				capacity.RateLimits = c.RateLimits
-			}
+	cfg, err := app.LoadConfig()
+	if err == nil && cfg != nil {
+		if cfg.Capacity.LockList > 0 {
+			capacity.Blacklist = cfg.Capacity.LockList
+		}
+		if cfg.Capacity.Whitelist > 0 {
+			capacity.Whitelist = cfg.Capacity.Whitelist
+		}
+		if cfg.Capacity.DynLockList > 0 {
+			capacity.DynBlacklist = cfg.Capacity.DynLockList
+		}
+		if cfg.Capacity.IPPortRules > 0 {
+			capacity.IPPortRules = cfg.Capacity.IPPortRules
+		}
+		if cfg.Capacity.RateLimits > 0 {
+			capacity.RateLimits = cfg.Capacity.RateLimits
 		}
 	}
 	return capacity
@@ -272,7 +268,7 @@ func showTopBlockedIPs(w io.Writer, s StatsAPI, drops uint64) {
 		for i := 0; i < maxShow; i++ {
 			percent := float64(sorted[i].count) / float64(drops) * 100
 			fmt.Fprintf(w, "   %d. %s - %s drops (%.1f%%)\n", i+1, sorted[i].ip,
-				fmtutil.FormatNumberWithComma(sorted[i].count), percent)
+				app.FormatNumberWithComma(sorted[i].count), percent)
 		}
 	}
 }

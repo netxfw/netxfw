@@ -6,10 +6,7 @@ import (
 
 	"github.com/netxfw/netxfw/cmd/agent"
 	"github.com/netxfw/netxfw/cmd/dp"
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
-	"github.com/netxfw/netxfw/internal/runtime"
-	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/app"
 	"github.com/spf13/cobra"
 )
 
@@ -22,40 +19,18 @@ It provides stateful packet filtering, connection tracking, and rate limiting.
 netxfw 是一个基于 eBPF/XDP 技术构建的高性能防火墙。
 它提供有状态包过滤、连接跟踪和速率限制。`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		// Load configuration to get logging settings
-		// 加载配置以获取日志设置
-		cfgPath := runtime.ConfigPath
-		if cfgPath == "" {
-			cfgPath = config.DefaultConfigPath
-		}
-
-		globalCfg, err := types.LoadGlobalConfig(cfgPath)
-		if err != nil {
-			// If config fails to load, use default logging config (console only)
-			// 如果加载配置失败，使用默认日志配置（仅控制台）
-			logger.Init(logger.LoggingConfig{
-				Enabled: true,
-				Level:   "info",
-			})
-		} else {
-			logger.Init(globalCfg.Logging)
-		}
-
-		// Inject logger into context
-		// 将 Logger 注入 Context
-		ctx := logger.WithContext(cmd.Context(), logger.Get(nil))
-		cmd.SetContext(ctx)
+		cmd.SetContext(app.InitRootCommandContext(cmd.Context()))
 	},
 }
 
 func init() {
 	// Operation mode: dp (Data Plane) or agent (Control Plane)
 	// 运行模式：dp（数据平面）或 agent（控制平面）
-	RootCmd.PersistentFlags().StringVar(&runtime.Mode, "mode", "", "Operation mode: dp (Data Plane) or agent (Control Plane)")
+	RootCmd.PersistentFlags().StringVar(app.RuntimeModeVar(), "mode", "", "Operation mode: dp (Data Plane) or agent (Control Plane)")
 
 	// Config file path
 	// 配置文件路径
-	RootCmd.PersistentFlags().StringVarP(&runtime.ConfigPath, "config", "c", "", fmt.Sprintf("Path to configuration file (default: %s)", config.DefaultConfigPath))
+	RootCmd.PersistentFlags().StringVarP(app.RuntimeConfigPathVar(), "config", "c", "", fmt.Sprintf("Path to configuration file (default: %s)", app.GetDefaultConfigPath()))
 
 	// Register simplified core commands
 	// 注册精简版核心命令

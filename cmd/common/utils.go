@@ -8,10 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
-	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -53,14 +50,10 @@ func GetSDK() (*sdk.SDK, error) {
 		return realSDK, nil
 	}
 
-	pinPath := config.GetPinPath()
-	mgr, err := xdp.NewManagerFromPins(pinPath, logger.Get(nil))
+	realSDK, err := app.NewPinnedSDK()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load XDP manager from %s: %w", pinPath, err)
+		return nil, err
 	}
-	// Use NewAdapter to ensure interface compliance
-	adapter := xdp.NewAdapter(mgr)
-	realSDK = sdk.NewSDK(adapter)
 	return realSDK, nil
 }
 
@@ -106,8 +99,7 @@ func ImportLockListFromFile(s *sdk.SDK, path string) error {
 		return err
 	}
 
-	cfgPath := config.GetConfigPath()
-	cfg, cfgErr := types.LoadGlobalConfig(cfgPath)
+	cfg, cfgErr := app.LoadConfig()
 	persistFile := ""
 	if cfgErr == nil {
 		persistFile = cfg.Base.LockListFile

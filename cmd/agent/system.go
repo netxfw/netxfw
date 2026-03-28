@@ -5,8 +5,6 @@ import (
 
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/app"
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -143,7 +141,7 @@ var SystemCmd = &cobra.Command{
 func initCommand(cmd *cobra.Command) {
 	configFile, _ := cmd.Flags().GetString("config")
 	if configFile != "" {
-		config.SetConfigPath(configFile)
+		app.SetConfigPath(configFile)
 	}
 	common.EnsureStandaloneMode()
 }
@@ -350,7 +348,7 @@ This will restart the netxfw service if an update is performed.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("[START] Checking for updates...")
 		execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
-		if err := fmtutil.RunShellPipeline(execCmd); err != nil {
+		if err := app.RunShellPipeline(execCmd); err != nil {
 			reportCommandError(cmd, fmt.Errorf("[ERROR] Update failed: %w", err))
 		}
 	},

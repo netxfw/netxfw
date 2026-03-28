@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/internal/app"
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -57,13 +55,8 @@ func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
 }
 
 func showPolicyConfiguration(w io.Writer) {
-	cfgManager := config.GetConfigManager()
-	if err := cfgManager.LoadConfig(); err != nil {
-		return
-	}
-
-	cfg := cfgManager.GetConfig()
-	if cfg == nil {
+	cfg, err := app.LoadConfig()
+	if err != nil || cfg == nil {
 		return
 	}
 
@@ -104,7 +97,7 @@ func showAttachedInterfaces(w io.Writer) {
 	for _, info := range ifaceInfos {
 		uptime := "N/A"
 		if !info.LoadTime.IsZero() {
-			uptime = fmtutil.FormatDuration(time.Since(info.LoadTime))
+			uptime = app.FormatDuration(time.Since(info.LoadTime))
 		}
 		fmt.Fprintf(w, "  - %s (Mode: %s, ProgID: %d, Uptime: %s)\n", info.Name, info.Mode, info.ProgramID, uptime)
 	}
@@ -115,9 +108,9 @@ func showTrafficMetrics(w io.Writer, pass, drops uint64) {
 	fmt.Fprintln(w, "[RATE] Traffic Rate:")
 
 	total := pass + drops
-	fmt.Fprintf(w, "   ├─ Total RX: %s packets\n", fmtutil.FormatNumberWithComma(total))
-	fmt.Fprintf(w, "   ├─ Total Pass: %s (%.2f%%)\n", fmtutil.FormatNumberWithComma(pass), calculatePercentGeneric(pass, total))
-	fmt.Fprintf(w, "   ├─ Total Drop: %s (%.2f%%)\n", fmtutil.FormatNumberWithComma(drops), calculatePercentGeneric(drops, total))
+	fmt.Fprintf(w, "   ├─ Total RX: %s packets\n", app.FormatNumberWithComma(total))
+	fmt.Fprintf(w, "   ├─ Total Pass: %s (%.2f%%)\n", app.FormatNumberWithComma(pass), calculatePercentGeneric(pass, total))
+	fmt.Fprintf(w, "   ├─ Total Drop: %s (%.2f%%)\n", app.FormatNumberWithComma(drops), calculatePercentGeneric(drops, total))
 
 	trafficStats, err := app.LoadTrafficStats()
 	if err != nil || !trafficStats.LastUpdateTime.After(time.Time{}) || (trafficStats.CurrentPPS == 0 && trafficStats.CurrentBPS == 0) {
@@ -132,10 +125,10 @@ func showTrafficMetrics(w io.Writer, pass, drops uint64) {
 		passRate = float64(trafficStats.CurrentPassPPS) / float64(pps) * 100
 	}
 
-	fmt.Fprintf(w, "   ├─ PPS: %s pkt/s\n", fmtutil.FormatNumberWithComma(pps))
-	fmt.Fprintf(w, "   ├─ BPS: %s\n", fmtutil.FormatBPS(trafficStats.CurrentBPS))
-	fmt.Fprintf(w, "   ├─ Pass PPS: %s pkt/s (%.2f%%)\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentPassPPS), passRate)
-	fmt.Fprintf(w, "   └─ Drop PPS: %s pkt/s (%.2f%%)\n", fmtutil.FormatNumberWithComma(trafficStats.CurrentDropPPS), dropRate)
+	fmt.Fprintf(w, "   ├─ PPS: %s pkt/s\n", app.FormatNumberWithComma(pps))
+	fmt.Fprintf(w, "   ├─ BPS: %s\n", app.FormatBPS(trafficStats.CurrentBPS))
+	fmt.Fprintf(w, "   ├─ Pass PPS: %s pkt/s (%.2f%%)\n", app.FormatNumberWithComma(trafficStats.CurrentPassPPS), passRate)
+	fmt.Fprintf(w, "   └─ Drop PPS: %s pkt/s (%.2f%%)\n", app.FormatNumberWithComma(trafficStats.CurrentDropPPS), dropRate)
 }
 
 func showConntrackHealth(w io.Writer, mgr sdk.ManagerInterface) {
@@ -166,21 +159,15 @@ func showConntrackHealth(w io.Writer, mgr sdk.ManagerInterface) {
 	hasRate := err == nil && trafficStats.LastUpdateTime.After(time.Time{})
 	if hasRate {
 		fmt.Fprintf(w, "   ├─ New/s: %s  Evict/s: %s\n",
-			fmtutil.FormatNumberWithComma(trafficStats.CurrentConntrackNew),
-			fmtutil.FormatNumberWithComma(trafficStats.CurrentConntrackEvict))
+			app.FormatNumberWithComma(trafficStats.CurrentConntrackNew),
+			app.FormatNumberWithComma(trafficStats.CurrentConntrackEvict))
 	}
 
 	fmt.Fprintf(w, "   └─ %s\n", getConntrackHealthStatus(uint64(count), uint64(maxVal), hasRate, trafficStats))
 }
 
 func getConntrackMax() int {
-	cfgManager := config.GetConfigManager()
-	if err := cfgManager.LoadConfig(); err == nil {
-		if cfg := cfgManager.GetCapacityConfig(); cfg != nil && cfg.Conntrack > 0 {
-			return cfg.Conntrack
-		}
-	}
-	return 100000
+	return app.GetConntrackMax()
 }
 
 func getConntrackProtocolStats(entries []sdk.ConntrackEntry) (tcp, udp, icmp, other int) {

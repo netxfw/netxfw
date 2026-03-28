@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/internal/app"
 )
 
 const (
@@ -50,7 +50,7 @@ const (
 // 返回 nil 表示验证通过，否则返回错误信息
 // Returns nil if valid, otherwise returns error
 func ValidateIP(ip string) error {
-	if iputil.IsValidIP(ip) || iputil.IsValidCIDR(ip) {
+	if app.IsValidIP(ip) || app.IsValidCIDR(ip) {
 		return nil
 	}
 	return fmt.Errorf("[ERROR] Invalid IP address format: %s", ip)

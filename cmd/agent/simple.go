@@ -9,12 +9,6 @@ import (
 
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/app"
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/core"
-	"github.com/netxfw/netxfw/internal/daemon"
-	"github.com/netxfw/netxfw/internal/runtime"
-	"github.com/netxfw/netxfw/internal/utils/fmtutil"
-	"github.com/netxfw/netxfw/internal/version"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +21,7 @@ Use -v for verbose output with detailed statistics`,
 	Run: func(cmd *cobra.Command, args []string) {
 		configFile, _ := cmd.Flags().GetString("config")
 		if configFile != "" {
-			config.SetConfigPath(configFile)
+			app.SetConfigPath(configFile)
 		}
 
 		verbose, _ := cmd.Flags().GetBool("verbose")
@@ -52,13 +46,13 @@ Use -v for verbose output with detailed statistics`,
 			totalPackets := pass + drops
 			passPercent := float64(pass) / float64(totalPackets) * 100
 			fmt.Fprintf(w, "[Stats] Traffic: %s packets (Pass: %.1f%%, Drop: %.1f%%)\n",
-				fmtutil.FormatNumberWithComma(totalPackets), passPercent, 100-passPercent)
+				app.FormatNumberWithComma(totalPackets), passPercent, 100-passPercent)
 
 			trafficStats, err := app.LoadTrafficStats()
 			if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
 				fmt.Fprintf(w, "[Rate] Current: %s pps (%s)\n",
-					fmtutil.FormatNumberWithComma(trafficStats.CurrentPPS),
-					fmtutil.FormatBPS(trafficStats.CurrentBPS))
+					app.FormatNumberWithComma(trafficStats.CurrentPPS),
+					app.FormatBPS(trafficStats.CurrentBPS))
 			}
 
 			blacklistCount, _ := s.GetManager().GetLockedIPCount()
@@ -66,19 +60,19 @@ Use -v for verbose output with detailed statistics`,
 			totalBlocked := uint64(blacklistCount) + uint64(dynBlacklistCount)
 			if totalBlocked > 0 {
 				fmt.Fprintf(w, "[Block] Banned IPs: %s (Static: %s, Dynamic: %s)\n",
-					fmtutil.FormatNumberWithComma(totalBlocked),
-					fmtutil.FormatNumberWithComma(uint64(blacklistCount)),
-					fmtutil.FormatNumberWithComma(uint64(dynBlacklistCount)))
+					app.FormatNumberWithComma(totalBlocked),
+					app.FormatNumberWithComma(uint64(blacklistCount)),
+					app.FormatNumberWithComma(uint64(dynBlacklistCount)))
 			} else {
 				fmt.Fprintln(w, "[Block] Banned IPs: 0")
 			}
 
 			connCount, _ := s.GetManager().GetConntrackCount()
-			fmt.Fprintf(w, "[Conn] Active connections: %s\n", fmtutil.FormatNumberWithComma(uint64(connCount)))
+			fmt.Fprintf(w, "[Conn] Active connections: %s\n", app.FormatNumberWithComma(uint64(connCount)))
 
 			whitelistCount, _ := s.GetManager().GetWhitelistCount()
 			if whitelistCount > 0 {
-				fmt.Fprintf(w, "[Allow] Whitelisted IPs: %s\n", fmtutil.FormatNumberWithComma(uint64(whitelistCount)))
+				fmt.Fprintf(w, "[Allow] Whitelisted IPs: %s\n", app.FormatNumberWithComma(uint64(whitelistCount)))
 			}
 
 			showCompactMapStatistics(w, s.GetManager())
@@ -105,7 +99,7 @@ var SimpleStartCmd = &cobra.Command{
 				return fmt.Errorf("[ERROR] Failed to start XDP program: %w", err)
 			}
 
-			if runtime.Mode == "agent" || runtime.Mode == "" {
+			if app.GetRuntimeMode() == "agent" || app.GetRuntimeMode() == "" {
 				fmt.Println("[RELOAD] Starting agent...")
 			}
 
@@ -125,7 +119,7 @@ var SimpleStopCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			if runtime.Mode == "agent" || runtime.Mode == "" {
+			if app.GetRuntimeMode() == "agent" || app.GetRuntimeMode() == "" {
 				fmt.Println("[RELOAD] Stopping agent...")
 			}
 
@@ -169,7 +163,7 @@ var SimpleUpdateCmd = &cobra.Command{
 		executor.Do(func() error {
 			fmt.Println("[START] Checking for updates...")
 			execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
-			if err := fmtutil.RunShellPipeline(execCmd); err != nil {
+			if err := app.RunShellPipeline(execCmd); err != nil {
 				return fmt.Errorf("[ERROR] Update failed: %v", err)
 			}
 			return nil
@@ -182,7 +176,7 @@ var SimpleVersionCmd = &cobra.Command{
 	Short: "Show version information",
 	Long:  `Show version information`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("netxfw version %s\n", version.Version)
+		fmt.Printf("netxfw version %s\n", app.Version())
 	},
 }
 
@@ -317,7 +311,7 @@ var SimpleInitCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			core.InitConfiguration(cmd.Context())
+			app.InitConfiguration(cmd.Context())
 			executor.PrintSuccess("Configuration initialized")
 			return nil
 		})
@@ -333,7 +327,7 @@ var SimpleTestCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			daemon.TestConfiguration(cmd.Context())
+			app.TestConfiguration(cmd.Context())
 			executor.PrintSuccess("Configuration test passed")
 			return nil
 		})

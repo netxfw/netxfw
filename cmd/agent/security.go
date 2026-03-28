@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -29,7 +29,7 @@ func runSecurityBoolCommand(cmd *cobra.Command, args []string, setter func(*sdk.
 		if err := setter(s, enable); err != nil {
 			return err
 		}
-		logger.Get(cmd.Context()).Infof("[OK] %s set to %v", settingName, enable)
+		app.LogInfo(cmd.Context(), "[OK] %s set to %v", settingName, enable)
 		return nil
 	})
 }
@@ -125,7 +125,7 @@ Examples:
 			if err := s.Security.SetAutoBlockExpiry(duration); err != nil {
 				return err
 			}
-			logger.Get(cmd.Context()).Infof("[OK] Auto-block expiry set to %v", duration)
+			app.LogInfo(cmd.Context(), "[OK] Auto-block expiry set to %v", duration)
 			return nil
 		})
 	},

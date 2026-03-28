@@ -6,8 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/utils/fmtutil"
+	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -123,7 +122,7 @@ func showDetailStatistics[T DetailEntry](w io.Writer, details []T, cfg detailSta
 				d.GetSrcIP(),
 				d.GetDstPort(),
 				d.GetCount(),
-				fmtutil.FormatNumberWithComma(ratePerSec),
+				app.FormatNumberWithComma(ratePerSec),
 				percent)
 		} else {
 			fmt.Fprintf(w, "   %-20s %-8s %-40s %-8d %-10d %.2f%%\n",
@@ -156,7 +155,7 @@ func showReasonSummary[T DetailEntry](w io.Writer, details []T, cfg detailStatsC
 			percent := calculatePercentGeneric(count, cfg.totalCount)
 			if cfg.showRate && cfg.currentPPS > 0 {
 				ratePerSec := calculateRateGeneric(cfg.currentPPS, percent)
-				fmt.Fprintf(w, "      %s: %d (%.2f%%) - %s/s\n", reason, count, percent, fmtutil.FormatNumberWithComma(ratePerSec))
+				fmt.Fprintf(w, "      %s: %d (%.2f%%) - %s/s\n", reason, count, percent, app.FormatNumberWithComma(ratePerSec))
 			} else {
 				fmt.Fprintf(w, "      %s: %d (%.2f%%)\n", reason, count, percent)
 			}
@@ -167,12 +166,9 @@ func showReasonSummary[T DetailEntry](w io.Writer, details []T, cfg detailStatsC
 // getTopNFromConfig returns the top N value from config, defaulting to 10
 // getTopNFromConfig 从配置获取 Top N 值，默认为 10
 func getTopNFromConfig() int {
-	cfgManager := config.GetConfigManager()
-	if err := cfgManager.LoadConfig(); err == nil {
-		cfg := cfgManager.GetConfig()
-		if cfg != nil && cfg.Metrics.TopN > 0 {
-			return cfg.Metrics.TopN
-		}
+	cfg, err := app.LoadConfig()
+	if err == nil && cfg != nil && cfg.Metrics.TopN > 0 {
+		return cfg.Metrics.TopN
 	}
 	return 10
 }
@@ -180,27 +176,24 @@ func getTopNFromConfig() int {
 // getThresholdsFromConfig returns usage thresholds from config
 // getThresholdsFromConfig 从配置获取使用率阈值
 func getThresholdsFromConfig() (critical, high, medium int) {
-	cfgManager := config.GetConfigManager()
-	if err := cfgManager.LoadConfig(); err == nil {
-		cfg := cfgManager.GetConfig()
-		if cfg != nil {
-			if cfg.Metrics.ThresholdCritical > 0 {
-				critical = cfg.Metrics.ThresholdCritical
-			} else {
-				critical = 90
-			}
-			if cfg.Metrics.ThresholdHigh > 0 {
-				high = cfg.Metrics.ThresholdHigh
-			} else {
-				high = 75
-			}
-			if cfg.Metrics.ThresholdMedium > 0 {
-				medium = cfg.Metrics.ThresholdMedium
-			} else {
-				medium = 50
-			}
-			return
+	cfg, err := app.LoadConfig()
+	if err == nil && cfg != nil {
+		if cfg.Metrics.ThresholdCritical > 0 {
+			critical = cfg.Metrics.ThresholdCritical
+		} else {
+			critical = 90
 		}
+		if cfg.Metrics.ThresholdHigh > 0 {
+			high = cfg.Metrics.ThresholdHigh
+		} else {
+			high = 75
+		}
+		if cfg.Metrics.ThresholdMedium > 0 {
+			medium = cfg.Metrics.ThresholdMedium
+		} else {
+			medium = 50
+		}
+		return
 	}
 	return 90, 75, 50
 }

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/app"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )
@@ -35,7 +35,7 @@ func TestCommandExecutorFlagApplying(t *testing.T) {
 	common.SetMockSDK(setupMockSDKWithExpectations())
 
 	// Test config flag applying
-	config.SetConfigPath("")
+	app.SetConfigPath("")
 	cmd := &cobra.Command{}
 	RegisterCommonFlags(cmd)
 	cmd.SetArgs([]string{"-c", "/tmp/test_config.yaml"})
@@ -45,5 +45,5 @@ func TestCommandExecutorFlagApplying(t *testing.T) {
 	ce := NewCommandExecutor(cmd).WithConfig(configValue)
 	ce.ApplyFlags()
 
-	assert.Equal(t, "/tmp/test_config.yaml", config.GetConfigPath())
+	assert.Equal(t, "/tmp/test_config.yaml", app.GetConfigPath())
 }

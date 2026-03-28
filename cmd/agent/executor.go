@@ -5,15 +5,8 @@ import (
 
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/app"
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
-)
-
-// Runtime mode constants / 运行时模式常量
-const (
-	modeTest = "test"
 )
 
 var lastCommandErr error
@@ -71,7 +64,7 @@ func (e *CommandExecutor) WithInterface(name string) *CommandExecutor {
 // ApplyFlags applies command flags to config
 func (e *CommandExecutor) ApplyFlags() *CommandExecutor {
 	if e.config != "" {
-		config.SetConfigPath(e.config)
+		app.SetConfigPath(e.config)
 	}
 	return e
 }
@@ -99,7 +92,7 @@ func (e *CommandExecutor) LoadConfig() (*sdk.GlobalConfig, error) {
 // ExecuteWithSDK executes command with SDK
 func (e *CommandExecutor) ExecuteWithSDK(execFunc func(*sdk.SDK) error) {
 	if err := e.EnsureMode().ApplyFlags().Do(func() error {
-		if runtime.Mode != modeTest && !app.IsXDPLoaded() {
+		if !app.IsTestMode() && !app.IsXDPLoaded() {
 			e.PrintWarning("XDP is not attached to any interface. Please run 'netxfw system on' or 'netxfw system load' first.")
 			e.PrintWarning("XDP 未挂载到任何接口。请先运行 'netxfw system on' 或 'netxfw system load'。")
 			return nil
@@ -123,7 +116,7 @@ func (e *CommandExecutor) ExecuteWithSDKAndConfig(execFunc func(*sdk.GlobalConfi
 			return fmt.Errorf("[ERROR] Failed to load configuration: %v", err)
 		}
 
-		if runtime.Mode != modeTest && !app.IsXDPLoaded() {
+		if !app.IsTestMode() && !app.IsXDPLoaded() {
 			e.PrintWarning("XDP is not attached to any interface. Please run 'netxfw system on' or 'netxfw system load' first.")
 			e.PrintWarning("XDP 未挂载到任何接口。请先运行 'netxfw system on' 或 'netxfw system load'。")
 			return nil

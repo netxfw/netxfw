@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/runtime"
+	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/netxfw/netxfw/pkg/sdk/mock"
 	"github.com/spf13/cobra"
@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	runtime.Mode = "test"
+	app.SetRuntimeMode("test")
 }
 
 // executeCommand executes a cobra command and returns output.

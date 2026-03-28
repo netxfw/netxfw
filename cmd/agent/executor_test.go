@@ -5,19 +5,18 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/app"
-	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestExecutorXDPCheck(t *testing.T) {
-	originalMode := runtime.Mode
+	originalMode := app.GetRuntimeMode()
 	defer func() {
-		runtime.Mode = originalMode
+		app.SetRuntimeMode(originalMode)
 	}()
 
-	runtime.Mode = "prod"
+	app.SetRuntimeMode("prod")
 
 	attachedIfaces, _ := app.GetAttachedInterfaceInfos()
 	if len(attachedIfaces) > 0 {
@@ -45,12 +44,12 @@ func TestExecutorXDPCheck(t *testing.T) {
 }
 
 func TestExecutorXDPCheckWithSDKAndConfig(t *testing.T) {
-	originalMode := runtime.Mode
+	originalMode := app.GetRuntimeMode()
 	defer func() {
-		runtime.Mode = originalMode
+		app.SetRuntimeMode(originalMode)
 	}()
 
-	runtime.Mode = "prod"
+	app.SetRuntimeMode("prod")
 
 	attachedIfaces, _ := app.GetAttachedInterfaceInfos()
 	if len(attachedIfaces) > 0 {

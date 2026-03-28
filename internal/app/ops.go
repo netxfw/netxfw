@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -18,14 +19,20 @@ import (
 	"github.com/cilium/ebpf/link"
 
 	"github.com/netxfw/netxfw/internal/api"
+	"github.com/netxfw/netxfw/internal/binary"
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/core"
 	"github.com/netxfw/netxfw/internal/core/engine"
 	"github.com/netxfw/netxfw/internal/daemon"
+	"github.com/netxfw/netxfw/internal/optimizer"
 	"github.com/netxfw/netxfw/internal/plugins"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/runtime"
+	"github.com/netxfw/netxfw/internal/utils/fileutil"
+	"github.com/netxfw/netxfw/internal/utils/fmtutil"
+	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/internal/version"
 	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
@@ -40,6 +47,9 @@ type PerformanceStats = xdp.PerformanceStats
 // OperationStats is the app-layer alias for per-operation stats.
 type OperationStats = xdp.OperationStats
 
+// BinaryRecord is the app-layer alias for binary import/export records.
+type BinaryRecord = binary.Record
+
 // PluginSlot describes a loaded BPF plugin slot.
 type PluginSlot struct {
 	Index   int
@@ -48,7 +58,7 @@ type PluginSlot struct {
 
 // IsXDPLoaded returns true if XDP is attached to any interface.
 func IsXDPLoaded() bool {
-	ifaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
+	ifaces, err := xdp.GetAttachedInterfaces(GetPinPath())
 	return err == nil && len(ifaces) > 0
 }
 
@@ -96,13 +106,10 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 	log := logger.Get(ctx)
 
 	// 1. 加载全局配置 / Load global configuration
-	cfgManager := config.GetConfigManager()
-	err := cfgManager.LoadConfig()
+	globalCfg, err := LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load global config: %v", err)
 	}
-
-	globalCfg := cfgManager.GetConfig()
 	if globalCfg == nil {
 		return fmt.Errorf("config is nil after loading")
 	}
@@ -116,7 +123,7 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 	// 3. 创建 XDP 管理器 / Create XDP manager
 	// 检查是否已有固定的 maps，如果有则加载现有的管理器
 	// Check if maps are already pinned, if so load existing manager
-	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
 	if err != nil {
 		// No pinned maps found, create new manager
 		// 未找到固定的 maps，创建新的管理器
@@ -129,7 +136,7 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 	}
 
 	// 4. 固定 BPF maps 到文件系统 / Pin BPF maps to filesystem
-	if err := manager.Pin(config.GetPinPath()); err != nil {
+	if err := manager.Pin(GetPinPath()); err != nil {
 		return fmt.Errorf("failed to pin maps: %v", err)
 	}
 
@@ -190,7 +197,7 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		}
 	}
 
-	log.Infof("[START] XDP program installed successfully and pinned to %s", config.GetPinPath())
+	log.Infof("[START] XDP program installed successfully and pinned to %s", GetPinPath())
 	return nil
 }
 
@@ -221,7 +228,7 @@ func resolveInterfaces(cliInterfaces []string, globalCfg *types.GlobalConfig, lo
 // detachOrphanedInterfaces detaches XDP from interfaces not in the current configuration.
 // detachOrphanedInterfaces 从不在当前配置中的接口分离 XDP。
 func detachOrphanedInterfaces(manager *xdp.Manager, interfaces []string, log *zap.SugaredLogger) {
-	attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath())
+	attachedIfaces, err := xdp.GetAttachedInterfaces(GetPinPath())
 	if err != nil {
 		return
 	}
@@ -250,7 +257,7 @@ func detachOrphanedInterfaces(manager *xdp.Manager, interfaces []string, log *za
 
 // GetAttachedInterfaceInfos returns detailed XDP attachment information.
 func GetAttachedInterfaceInfos() ([]xdp.InterfaceXDPInfo, error) {
-	return xdp.GetAttachedInterfacesWithInfo(config.GetPinPath())
+	return xdp.GetAttachedInterfacesWithInfo(GetPinPath())
 }
 
 // LoadTrafficStats returns shared runtime traffic statistics.
@@ -260,11 +267,9 @@ func LoadTrafficStats() (xdp.TrafficStats, error) {
 
 // GetConntrackMax returns configured conntrack capacity with a default fallback.
 func GetConntrackMax() int {
-	cfgManager := config.GetConfigManager()
-	if err := cfgManager.LoadConfig(); err == nil {
-		if cfg := cfgManager.GetCapacityConfig(); cfg != nil && cfg.Conntrack > 0 {
-			return cfg.Conntrack
-		}
+	cfg, err := LoadConfig()
+	if err == nil && cfg != nil && cfg.Capacity.Conntrack > 0 {
+		return cfg.Capacity.Conntrack
 	}
 	return 100000
 }
@@ -327,6 +332,148 @@ func loadBPFPlugins(manager *xdp.Manager, globalCfg *types.GlobalConfig, log *za
 	return nil
 }
 
+// GetDefaultConfigPath returns the preferred default configuration path.
+func GetDefaultConfigPath() string {
+	return config.GetDefaultConfigPath()
+}
+
+// InitRootCommandContext initializes logging for CLI root commands and injects logger into context.
+func InitRootCommandContext(ctx context.Context) context.Context {
+	cfgPath := runtime.ConfigPath
+	if cfgPath == "" {
+		cfgPath = GetDefaultConfigPath()
+	}
+
+	cfg, err := types.LoadGlobalConfig(cfgPath)
+	if err != nil {
+		logger.Init(logger.LoggingConfig{Enabled: true, Level: "info"})
+	} else {
+		logger.Init(cfg.Logging)
+	}
+
+	return logger.WithContext(ctx, logger.Get(nil))
+}
+
+// BootstrapDaemon initializes a default logger, sets runtime mode, and returns a context with logger.
+func BootstrapDaemon(mode string) context.Context {
+	logger.Init(logger.LoggingConfig{Enabled: true, Level: "info"})
+	SetRuntimeMode(mode)
+
+	ctx := context.Background()
+	ctx = logger.WithContext(ctx, logger.Get(nil))
+	logger.Get(ctx).Infof("Starting netxfw-%s %s...", mode, version.Version)
+	return ctx
+}
+
+// NewPinnedSDK returns an SDK connected to the currently pinned maps.
+func NewPinnedSDK() (*sdk.SDK, error) {
+	mgr, err := xdp.NewManagerFromPins(GetPinPath(), logger.Get(nil))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load XDP manager from %s: %w", GetPinPath(), err)
+	}
+	return sdk.NewSDK(xdp.NewAdapter(mgr)), nil
+}
+
+// LogInfo writes an info log message using the logger stored in context.
+func LogInfo(ctx context.Context, format string, args ...any) {
+	logger.Get(ctx).Infof(format, args...)
+}
+
+// SyncLogger flushes any buffered logs.
+func SyncLogger() {
+	_ = logger.Sync()
+}
+
+// Version returns the current application version string.
+func Version() string {
+	return version.Version
+}
+
+// FormatNumber formats a number to a compact human readable string.
+func FormatNumber(n uint64) string {
+	return fmtutil.FormatNumber(n)
+}
+
+// FormatNumberWithComma formats a number with thousand separators.
+func FormatNumberWithComma(n uint64) string {
+	return fmtutil.FormatNumberWithComma(n)
+}
+
+// FormatBytes formats bytes to a human readable string.
+func FormatBytes(b uint64) string {
+	return fmtutil.FormatBytes(b)
+}
+
+// FormatBPS formats bytes per second to human readable format (in bits).
+func FormatBPS(bps uint64) string {
+	return fmtutil.FormatBPS(bps)
+}
+
+// FormatLatency formats latency in nanoseconds to a human readable string.
+func FormatLatency(ns uint64) string {
+	return fmtutil.FormatLatency(ns)
+}
+
+// FormatDuration formats a duration to human readable format.
+func FormatDuration(d time.Duration) string {
+	return fmtutil.FormatDuration(d)
+}
+
+// RunShellPipeline executes a trusted shell pipeline command.
+func RunShellPipeline(command string) error {
+	return fmtutil.RunShellPipeline(command)
+}
+
+// RemoveLineFromFile removes an exact line from a file.
+func RemoveLineFromFile(filePath, line string) error {
+	return fileutil.RemoveFromFile(filePath, line)
+}
+
+// ParseIPPort parses an input string like 1.2.3.4:80 or [::1]:80 into IP/CIDR and port.
+func ParseIPPort(input string) (string, uint16, error) {
+	return iputil.ParseIPPort(input)
+}
+
+// IsValidIP reports whether s is a valid IP address.
+func IsValidIP(s string) bool {
+	return iputil.IsValidIP(s)
+}
+
+// IsValidCIDR reports whether s is a valid IP or CIDR string.
+func IsValidCIDR(s string) bool {
+	return iputil.IsValidCIDR(s)
+}
+
+// NormalizeCIDR ensures the IP string is in canonical CIDR format when possible.
+func NormalizeCIDR(ipStr string) string {
+	return iputil.NormalizeCIDR(ipStr)
+}
+
+// GetRuntimeMode returns the active runtime mode.
+func GetRuntimeMode() string {
+	return runtime.Mode
+}
+
+// SetRuntimeMode sets the active runtime mode.
+func SetRuntimeMode(mode string) {
+	runtime.Mode = mode
+}
+
+// RuntimeModeVar returns a pointer to the runtime mode string for flag binding.
+func RuntimeModeVar() *string {
+	return &runtime.Mode
+}
+
+// RuntimeConfigPathVar returns a pointer to the runtime config path string for flag binding.
+func RuntimeConfigPathVar() *string {
+	return &runtime.ConfigPath
+}
+
+// IsTestMode reports whether the current runtime mode is test.
+func IsTestMode() bool {
+	return runtime.Mode == "test"
+}
+
 // InitConfiguration initializes the default configuration file if needed.
 func InitConfiguration(ctx context.Context) {
 	core.InitConfiguration(ctx)
@@ -360,10 +507,42 @@ func RunDaemonWithInterfaces(ctx context.Context, interfaces []string) {
 	daemon.Run(ctx, runtime.Mode, opts)
 }
 
+// GetPinPath returns the active BPF pin path.
+func GetPinPath() string {
+	return config.GetPinPath()
+}
+
+// SetConfigPath updates the active configuration path.
+func SetConfigPath(path string) {
+	config.SetConfigPath(path)
+}
+
+// ReinitLoggerFromConfig reloads config and re-initializes logging.
+func ReinitLoggerFromConfig(ctx context.Context) context.Context {
+	cfg, err := LoadConfig()
+	if err != nil || cfg == nil {
+		return ctx
+	}
+
+	logger.Init(cfg.Logging)
+	ctx = logger.WithContext(ctx, logger.Get(nil))
+	logger.Get(ctx).Infof("Logging re-initialized from config")
+	return ctx
+}
+
+// GetConfigPath returns the active configuration file path.
+func GetConfigPath() string {
+	return config.GetConfigPath()
+}
+
+// GetBackupKeep returns the active backup retention policy.
+func GetBackupKeep() int {
+	return config.GetBackupKeep()
+}
+
 // LoadConfig loads the current configuration using the configured path.
 func LoadConfig() (*sdk.GlobalConfig, error) {
-	cfgPath := config.GetConfigPath()
-	cfg, err := types.LoadGlobalConfig(cfgPath)
+	cfg, err := types.LoadGlobalConfig(GetConfigPath())
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
@@ -372,7 +551,27 @@ func LoadConfig() (*sdk.GlobalConfig, error) {
 
 // SaveConfigWithBackup persists configuration using the configured backup policy.
 func SaveConfigWithBackup(cfg *sdk.GlobalConfig) error {
-	return types.SaveGlobalConfigWithBackup(config.GetConfigPath(), cfg, config.GetBackupKeep())
+	return types.SaveGlobalConfigWithBackup(GetConfigPath(), cfg, GetBackupKeep())
+}
+
+// OptimizeWhitelistConfig normalizes and merges whitelist entries in config.
+func OptimizeWhitelistConfig(cfg *sdk.GlobalConfig) {
+	optimizer.OptimizeWhitelistConfig(cfg)
+}
+
+// OptimizeIPPortRulesConfig normalizes and merges IP+Port rules in config.
+func OptimizeIPPortRulesConfig(cfg *sdk.GlobalConfig) {
+	optimizer.OptimizeIPPortRulesConfig(cfg)
+}
+
+// DecodeBinaryRecords decodes binary rule records from a reader.
+func DecodeBinaryRecords(r io.Reader) ([]BinaryRecord, error) {
+	return binary.Decode(r)
+}
+
+// EncodeBinaryRecords encodes binary rule records to a writer.
+func EncodeBinaryRecords(w io.Writer, records []BinaryRecord) error {
+	return binary.Encode(w, records)
 }
 
 // WithConfigLock runs fn while holding the shared config persistence mutex.
@@ -415,7 +614,7 @@ func HandlePluginCommand(ctx context.Context, args []string) error {
 		return fmt.Errorf("usage: netxfw plugin <load|remove|list>")
 	}
 
-	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
 	if err != nil {
 		return fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
 	}
@@ -464,20 +663,13 @@ func HandlePluginCommand(ctx context.Context, args []string) error {
  */
 func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 	log := logger.Get(ctx)
-	var globalCfg *types.GlobalConfig
-
-	// Load global configuration to get max entries (needed for NewManager)
-	// 加载全局配置以获取最大条目数（NewManager 需要）
-	cfgManager := config.GetConfigManager()
-	err := cfgManager.LoadConfig()
+	globalCfg, err := LoadConfig()
 	if err != nil {
 		log.Warnf("[WARN]  Failed to load global config, using default map capacity: %v", err)
 		globalCfg = &types.GlobalConfig{}
-	} else {
-		globalCfg = cfgManager.GetConfig()
-		if globalCfg == nil {
-			globalCfg = &types.GlobalConfig{} // fallback
-		}
+	}
+	if globalCfg == nil {
+		globalCfg = &types.GlobalConfig{}
 	}
 
 	var interfaces []string
@@ -506,7 +698,7 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 		}
 
 		// 3. Get currently attached interfaces from pins / 3. 从固定路径获取当前已附加的接口
-		attachedIfaces, attachErr := xdp.GetAttachedInterfaces(config.GetPinPath())
+		attachedIfaces, attachErr := xdp.GetAttachedInterfaces(GetPinPath())
 		if attachErr == nil {
 			for _, iface := range attachedIfaces {
 				uniqueInterfaces[iface] = true
@@ -530,7 +722,7 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 	}
 
 	if fullUnload {
-		if err := manager.Unpin(config.GetPinPath()); err != nil {
+		if err := manager.Unpin(GetPinPath()); err != nil {
 			log.Warnf("[WARN]  Could not unpin all maps: %v", err)
 		}
 		log.Info("[OK] XDP driver removed and maps unpinned.")
@@ -545,7 +737,7 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 // ReloadXDP 执行 XDP 程序的平滑重载：加载新对象，从旧的固定 Map 迁移状态，并切换程序。
 func ListLoadedPlugins(ctx context.Context) ([]PluginSlot, error) {
 	log := logger.Get(ctx)
-	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
 	}
@@ -563,7 +755,7 @@ func ListLoadedPlugins(ctx context.Context) ([]PluginSlot, error) {
 
 func ClearBlacklist(ctx context.Context, dynamic bool) error {
 	log := logger.Get(ctx)
-	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
 	if err != nil {
 		return fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
 	}
@@ -576,18 +768,16 @@ func ClearBlacklist(ctx context.Context, dynamic bool) error {
 }
 
 func ReloadPinnedMaps(ctx context.Context) error {
-	cfgManager := config.GetConfigManager()
-	if err := cfgManager.LoadConfig(); err != nil {
+	globalCfg, err := LoadConfig()
+	if err != nil {
 		return fmt.Errorf("failed to load global config: %v", err)
 	}
-
-	globalCfg := cfgManager.GetConfig()
 	if globalCfg == nil {
 		return fmt.Errorf("config is nil after loading")
 	}
 
 	log := logger.Get(ctx)
-	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
 	if err != nil {
 		return fmt.Errorf("failed to load XDP manager: %v", err)
 	}
@@ -604,13 +794,10 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 	log := logger.Get(ctx)
 	log.Info("[RELOAD] Starting hot-reload of XDP program...")
 
-	cfgManager := config.GetConfigManager()
-	err := cfgManager.LoadConfig()
+	globalCfg, err := LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load global config: %v", err)
 	}
-
-	globalCfg := cfgManager.GetConfig()
 	if globalCfg == nil {
 		return fmt.Errorf("config is nil after loading")
 	}
@@ -620,18 +807,18 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 		return err
 	}
 
-	oldManager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+	oldManager, err := xdp.NewManagerFromPins(GetPinPath(), log)
 	if err != nil {
 		log.Info("[INFO]  No existing XDP program found. Performing clean install...")
 		return InstallXDP(ctx, cliInterfaces)
 	}
 
-	return reloadExistingManager(ctx, oldManager, globalCfg, interfaces, cfgManager, log)
+	return reloadExistingManager(ctx, oldManager, globalCfg, interfaces, globalCfg, log)
 }
 
 // reloadExistingManager handles reload when an existing manager is found.
 // reloadExistingManager 处理发现现有管理器时的重载。
-func reloadExistingManager(ctx context.Context, oldManager *xdp.Manager, globalCfg *types.GlobalConfig, interfaces []string, cfgManager *config.ConfigManager, log *zap.SugaredLogger) error {
+func reloadExistingManager(ctx context.Context, oldManager *xdp.Manager, globalCfg *types.GlobalConfig, interfaces []string, oldCfg *types.GlobalConfig, log *zap.SugaredLogger) error {
 	defer oldManager.Close()
 
 	oldAdapter := xdp.NewAdapter(oldManager)
@@ -643,7 +830,7 @@ func reloadExistingManager(ctx context.Context, oldManager *xdp.Manager, globalC
 	}
 
 	if oldManager.MatchesCapacity(globalCfg.Capacity) {
-		return performIncrementalReload(oldManager, globalCfg, interfaces, pluginCtx, cfgManager, log)
+		return performIncrementalReload(oldManager, globalCfg, interfaces, pluginCtx, oldCfg, log)
 	}
 
 	return performFullMigration(ctx, oldManager, globalCfg, interfaces, log)
@@ -651,10 +838,9 @@ func reloadExistingManager(ctx context.Context, oldManager *xdp.Manager, globalC
 
 // performIncrementalReload performs incremental reload when capacity matches.
 // performIncrementalReload 当容量匹配时执行增量重载。
-func performIncrementalReload(oldManager *xdp.Manager, globalCfg *types.GlobalConfig, interfaces []string, pluginCtx *sdk.PluginContext, cfgManager *config.ConfigManager, log *zap.SugaredLogger) error {
+func performIncrementalReload(oldManager *xdp.Manager, globalCfg *types.GlobalConfig, interfaces []string, pluginCtx *sdk.PluginContext, oldCfg *types.GlobalConfig, log *zap.SugaredLogger) error {
 	log.Info("⚡ Capacity unchanged. Performing incremental hot-reload...")
 
-	oldCfg := cfgManager.GetConfig()
 	updater := oldManager.IncrementalUpdater()
 	if updater != nil {
 		diff, diffErr := updater.ComputeDiff(oldCfg, globalCfg)
@@ -697,7 +883,7 @@ func performFullMigration(ctx context.Context, oldManager *xdp.Manager, globalCf
 	}
 	oldManager.Close()
 
-	if err := newManager.Pin(config.GetPinPath()); err != nil {
+	if err := newManager.Pin(GetPinPath()); err != nil {
 		return fmt.Errorf("failed to pin new maps: %v", err)
 	}
 	if err := newManager.Attach(interfaces); err != nil {
@@ -737,11 +923,10 @@ func reloadPlugins(pluginCtx *sdk.PluginContext, log *zap.SugaredLogger) {
  * RunWebServer 启动 API 和 UI 服务器。
  */
 func AttachXDPWithMode(ctx context.Context, interfaces []string, mode string) ([]string, error) {
-	cfgManager := config.GetConfigManager()
-	if err := cfgManager.LoadConfig(); err != nil {
+	globalCfg, err := LoadConfig()
+	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
-	globalCfg := cfgManager.GetConfig()
 	if globalCfg == nil {
 		return nil, fmt.Errorf("config is nil after loading")
 	}
@@ -753,7 +938,7 @@ func AttachXDPWithMode(ctx context.Context, interfaces []string, mode string) ([
 	}
 	defer manager.Close()
 
-	if err := manager.Pin(config.GetPinPath()); err != nil {
+	if err := manager.Pin(GetPinPath()); err != nil {
 		return nil, fmt.Errorf("failed to pin maps: %w", err)
 	}
 
@@ -792,7 +977,7 @@ func AttachXDPWithMode(ctx context.Context, interfaces []string, mode string) ([
 			continue
 		}
 
-		linkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("link_%s", name))
+		linkPath := filepath.Join(GetPinPath(), fmt.Sprintf("link_%s", name))
 		_ = os.Remove(linkPath)
 		if pinErr := l.Pin(linkPath); pinErr != nil {
 			log.Warnf("[WARN]  Failed to pin link on %s: %v", name, pinErr)
@@ -813,7 +998,7 @@ func AttachXDPWithMode(ctx context.Context, interfaces []string, mode string) ([
 func RunWebServer(ctx context.Context, port int) error {
 	log := logger.Get(ctx)
 	// 1. Try to load manager from pins / 尝试从固定点加载管理器
-	manager, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
 	if err != nil {
 		log.Warnf("[WARN]  Could not load pinned maps (is XDP loaded?): %v", err)
 		return fmt.Errorf("web server requires netxfw XDP to be loaded. Run 'netxfw system load' first")

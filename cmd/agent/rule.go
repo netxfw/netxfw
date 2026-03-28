@@ -15,12 +15,6 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/app"
-	"github.com/netxfw/netxfw/internal/binary"
-	"github.com/netxfw/netxfw/internal/optimizer"
-	"github.com/netxfw/netxfw/internal/runtime"
-	"github.com/netxfw/netxfw/internal/utils/fileutil"
-	"github.com/netxfw/netxfw/internal/utils/iputil"
-	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -44,7 +38,7 @@ const (
 )
 
 func persistWhitelistEntryToConfig(ip string, port uint16) error {
-	if runtime.Mode == modeTest {
+	if app.IsTestMode() {
 		return nil
 	}
 
@@ -54,19 +48,19 @@ func persistWhitelistEntryToConfig(ip string, port uint16) error {
 			return err
 		}
 
-		normalizedCIDR := iputil.NormalizeCIDR(ip)
+		normalizedCIDR := app.NormalizeCIDR(ip)
 		entry := normalizedCIDR
 		if port > 0 {
 			entry = fmt.Sprintf("%s:%d", normalizedCIDR, port)
 		}
 
 		for _, existing := range globalCfg.Base.Whitelist {
-			host, existingPort, parseErr := iputil.ParseIPPort(existing)
+			host, existingPort, parseErr := app.ParseIPPort(existing)
 			existingCIDR := ""
 			if parseErr == nil {
-				existingCIDR = iputil.NormalizeCIDR(host)
+				existingCIDR = app.NormalizeCIDR(host)
 			} else {
-				existingCIDR = iputil.NormalizeCIDR(existing)
+				existingCIDR = app.NormalizeCIDR(existing)
 				existingPort = 0
 			}
 
@@ -76,13 +70,13 @@ func persistWhitelistEntryToConfig(ip string, port uint16) error {
 		}
 
 		globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
-		optimizer.OptimizeWhitelistConfig(globalCfg)
+		app.OptimizeWhitelistConfig(globalCfg)
 		return app.SaveConfigWithBackup(globalCfg)
 	})
 }
 
 func persistIPPortRuleToConfig(ip string, port uint16, action uint8) error {
-	if runtime.Mode == modeTest {
+	if app.IsTestMode() {
 		return nil
 	}
 
@@ -92,11 +86,11 @@ func persistIPPortRuleToConfig(ip string, port uint16, action uint8) error {
 			return err
 		}
 
-		normalizedCIDR := iputil.NormalizeCIDR(ip)
+		normalizedCIDR := app.NormalizeCIDR(ip)
 		updated := false
 
 		for i := range globalCfg.Port.IPPortRules {
-			ruleCIDR := iputil.NormalizeCIDR(globalCfg.Port.IPPortRules[i].IP)
+			ruleCIDR := app.NormalizeCIDR(globalCfg.Port.IPPortRules[i].IP)
 			if ruleCIDR == normalizedCIDR && globalCfg.Port.IPPortRules[i].Port == port {
 				globalCfg.Port.IPPortRules[i].Action = action
 				updated = true
@@ -112,7 +106,7 @@ func persistIPPortRuleToConfig(ip string, port uint16, action uint8) error {
 			})
 		}
 
-		optimizer.OptimizeIPPortRulesConfig(globalCfg)
+		app.OptimizeIPPortRulesConfig(globalCfg)
 		return app.SaveConfigWithBackup(globalCfg)
 	})
 }
@@ -146,7 +140,7 @@ var portAddCmd = &cobra.Command{
 			if err := s.Rule.AllowPort(uint16(port)); err != nil {
 				return err
 			}
-			logger.Get(cmd.Context()).Infof("[OK] Port %d added to allowed list", port)
+			app.LogInfo(cmd.Context(), "[OK] Port %d added to allowed list", port)
 			return nil
 		})
 	},
@@ -170,7 +164,7 @@ var portRemoveCmd = &cobra.Command{
 			if err := s.Rule.RemoveAllowedPort(uint16(port)); err != nil {
 				return err
 			}
-			logger.Get(cmd.Context()).Infof("[OK] Port %d removed from allowed list", port)
+			app.LogInfo(cmd.Context(), "[OK] Port %d removed from allowed list", port)
 			return nil
 		})
 	},
@@ -296,10 +290,10 @@ Aliases: delete, remove
 				cmd.Printf("[OK] Deleted rule: %s:%d\n", ip, port)
 			} else {
 				removed := false
-				normalizedIP := iputil.NormalizeCIDR(ip)
+				normalizedIP := app.NormalizeCIDR(ip)
 				if err := s.Blacklist.Remove(ip); err == nil {
 					if cfg.Base.PersistRules && cfg.Base.LockListFile != "" {
-						_ = fileutil.RemoveFromFile(cfg.Base.LockListFile, normalizedIP)
+						_ = app.RemoveLineFromFile(cfg.Base.LockListFile, normalizedIP)
 					}
 					cmd.Printf("[OK] Removed %s from static blacklist\n", ip)
 					removed = true
@@ -712,7 +706,7 @@ func importFromBinaryFile(w io.Writer, s *sdk.SDK, filePath string) error {
 
 	// Decode binary records
 	// 解码二进制记录
-	records, err := binary.Decode(decoder)
+	records, err := app.DecodeBinaryRecords(decoder)
 	if err != nil {
 		return fmt.Errorf("failed to decode binary file: %v", err)
 	}
@@ -754,7 +748,7 @@ var ruleClearCmd = &cobra.Command{
 			if err := s.Blacklist.Clear(); err != nil {
 				return err
 			}
-			logger.Get(cmd.Context()).Infof("[OK] Blacklist cleared")
+			app.LogInfo(cmd.Context(), "[OK] Blacklist cleared")
 			return nil
 		})
 	},
@@ -991,7 +985,7 @@ func exportToBinaryFile(w io.Writer, s *sdk.SDK, filePath string) error {
 
 	// Convert to binary records
 	// 转换为二进制记录
-	records := make([]binary.Record, 0, len(blacklist))
+	records := make([]app.BinaryRecord, 0, len(blacklist))
 	for _, entry := range blacklist {
 		// Parse IP, handling CIDR notation (e.g., "10.0.0.0/24" or "10.0.0.0")
 		// 解析 IP，处理 CIDR 表示法（例如 "10.0.0.0/24" 或 "10.0.0.0"）
@@ -1047,7 +1041,7 @@ func exportToBinaryFile(w io.Writer, s *sdk.SDK, filePath string) error {
 			}
 		}
 
-		records = append(records, binary.Record{
+		records = append(records, app.BinaryRecord{
 			IP:        ip,
 			PrefixLen: prefixLen,
 			IsIPv6:    isIPv6,
@@ -1065,7 +1059,7 @@ func exportToBinaryFile(w io.Writer, s *sdk.SDK, filePath string) error {
 
 	// Encode to binary format
 	// 编码为二进制格式
-	if encodeErr := binary.Encode(tmpFile, records); encodeErr != nil {
+	if encodeErr := app.EncodeBinaryRecords(tmpFile, records); encodeErr != nil {
 		tmpFile.Close()
 		return fmt.Errorf("failed to encode binary data: %v", encodeErr)
 	}
