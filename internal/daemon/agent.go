@@ -31,14 +31,11 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	}
 	defer removePidFileWithInterfaces(pidPath, interfaces)
 
-	// Use the config manager to load the configuration
-	cfgManager := config.GetConfigManager()
-	if err := cfgManager.LoadConfig(); err != nil {
+	globalCfg, err := config.ReloadCurrentConfig()
+	if err != nil {
 		log.Errorf("[ERROR] Failed to load global config from %s: %v", configPath, err)
 		return
 	}
-
-	globalCfg := cfgManager.GetConfig()
 	if globalCfg == nil {
 		log.Errorf("[ERROR] Config is nil after loading from %s", configPath)
 		return

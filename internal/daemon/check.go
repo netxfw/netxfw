@@ -6,7 +6,6 @@ import (
 
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/plugins"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
@@ -19,7 +18,7 @@ func TestConfiguration(ctx context.Context) {
 	configPath := config.GetConfigPath()
 	log.Infof("[SCAN] Testing global configuration in %s...", configPath)
 
-	cfg, err := types.LoadGlobalConfig(configPath)
+	cfg, err := config.ReloadCurrentConfig()
 	if err != nil {
 		log.Fatalf("[ERROR] Error loading config.yaml: %v", err)
 	}

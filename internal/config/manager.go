@@ -1,9 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
@@ -18,6 +20,18 @@ type ConfigManager struct {
 	mutex      sync.RWMutex
 	config     *types.GlobalConfig
 	backupKeep int // Number of backups to keep / 保留的备份数量
+}
+
+// resolvePath returns the current effective config path.
+// resolvePath 返回当前有效配置路径。
+func (cm *ConfigManager) resolvePath() string {
+	if runtime.ConfigPath != "" {
+		return runtime.ConfigPath
+	}
+	if cm.configPath != "" {
+		return cm.configPath
+	}
+	return GetDefaultConfigPath()
 }
 
 // NewConfigManager creates a new configuration manager instance
@@ -37,17 +51,67 @@ func (cm *ConfigManager) SetBackupKeep(keep int) {
 	cm.backupKeep = keep
 }
 
-// LoadConfig loads the configuration from the specified path
-// LoadConfig 从指定路径加载配置
-func (cm *ConfigManager) LoadConfig() error {
-	cm.mutex.Lock()
-	defer cm.mutex.Unlock()
+// ReloadConfig loads a fresh config snapshot from disk under the global config lock.
+// ReloadConfig 在全局配置锁保护下从磁盘加载最新配置快照。
+func (cm *ConfigManager) ReloadConfig() (*types.GlobalConfig, error) {
+	path := cm.GetConfigPath()
 
-	config, err := types.LoadGlobalConfig(cm.configPath)
+	types.ConfigMu.RLock()
+	cfg, err := types.LoadGlobalConfig(path)
+	types.ConfigMu.RUnlock()
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// MutateConfig applies fn to the in-memory config snapshot and persists it.
+// MutateConfig 对内存配置快照执行 fn 并持久化到文件。
+func (cm *ConfigManager) MutateConfig(fn func(*types.GlobalConfig) error) error {
+	cfg := cm.GetConfig()
+	if cfg == nil {
+		return fmt.Errorf("config is nil")
+	}
+	if err := fn(cfg); err != nil {
+		return err
+	}
+	cm.UpdateConfig(cfg)
+	return cm.SaveConfig()
+}
+
+// MutateLoadedConfig reloads config, applies fn, then persists.
+// MutateLoadedConfig 重新加载配置，执行 fn 后再持久化。
+func (cm *ConfigManager) MutateLoadedConfig(fn func(*types.GlobalConfig) error) error {
+	cfg, err := cm.ReloadConfig()
+	if err != nil {
+		return err
+	}
+	if cfg == nil {
+		return fmt.Errorf("config is nil")
+	}
+	if err := fn(cfg); err != nil {
+		return err
+	}
+	cm.UpdateConfig(cfg)
+	return cm.SaveConfig()
+}
+
+// LoadConfig loads the configuration from the current path.
+// LoadConfig 从当前路径加载配置。
+func (cm *ConfigManager) LoadConfig() error {
+	path := cm.GetConfigPath()
+
+	types.ConfigMu.RLock()
+	config, err := types.LoadGlobalConfig(path)
+	types.ConfigMu.RUnlock()
 	if err != nil {
 		return err
 	}
 
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
+	cm.configPath = path
 	cm.config = config
 
 	// Update backupKeep from config if set / 如果配置中设置了则更新 backupKeep
@@ -58,23 +122,24 @@ func (cm *ConfigManager) LoadConfig() error {
 	return nil
 }
 
-// SaveConfig saves the current configuration to the specified path with backup.
-// SaveConfig 将当前配置保存到指定路径（带备份）。
+// SaveConfig saves the current configuration to the current path with backup.
+// SaveConfig 将当前配置保存到当前路径（带备份）。
 func (cm *ConfigManager) SaveConfig() error {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	path := cm.GetConfigPath()
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	// Use config's BackupKeep if set, otherwise use manager's default / 如果配置中设置了则使用，否则使用管理器默认值
 	backupKeep := cm.backupKeep
-	if cm.config.Base.BackupKeep > 0 {
-		backupKeep = cm.config.Base.BackupKeep
+	if cfg.Base.BackupKeep > 0 {
+		backupKeep = cfg.Base.BackupKeep
 	}
 
-	return types.SaveGlobalConfigWithBackup(cm.configPath, cm.config, backupKeep)
+	types.ConfigMu.Lock()
+	defer types.ConfigMu.Unlock()
+
+	return types.SaveGlobalConfigWithBackup(path, cfg, backupKeep)
 }
 
 // GetConfig returns a copy of the current configuration
@@ -401,10 +466,15 @@ func (cm *ConfigManager) SetClusterConfig(clusterConfig types.ClusterConfig) {
 	}
 }
 
-// GetConfigPath returns the configuration file path
-// GetConfigPath 返回配置文件路径
+// GetConfigPath returns the current effective configuration file path
+// GetConfigPath 返回当前有效配置文件路径
 func (cm *ConfigManager) GetConfigPath() string {
-	return cm.configPath
+	path := cm.resolvePath()
+
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+	cm.configPath = path
+	return path
 }
 
 // Validate validates the current configuration

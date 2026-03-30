@@ -344,7 +344,7 @@ func InitRootCommandContext(ctx context.Context) context.Context {
 		cfgPath = GetDefaultConfigPath()
 	}
 
-	cfg, err := types.LoadGlobalConfig(cfgPath)
+	cfg, err := config.ReloadCurrentConfig()
 	if err != nil {
 		logger.Init(logger.LoggingConfig{Enabled: true, Level: "info"})
 	} else {
@@ -542,16 +542,16 @@ func GetBackupKeep() int {
 
 // LoadConfig loads the current configuration using the configured path.
 func LoadConfig() (*sdk.GlobalConfig, error) {
-	cfg, err := types.LoadGlobalConfig(GetConfigPath())
+	cfg, err := config.ReloadCurrentConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
 	return cfg, nil
 }
 
-// SaveConfigWithBackup persists configuration using the configured backup policy.
-func SaveConfigWithBackup(cfg *sdk.GlobalConfig) error {
-	return types.SaveGlobalConfigWithBackup(GetConfigPath(), cfg, GetBackupKeep())
+// MutateLoadedConfig reloads the current configuration, applies fn, and persists it.
+func MutateLoadedConfig(fn func(*sdk.GlobalConfig) error) error {
+	return config.MutateLoadedConfig(fn)
 }
 
 // OptimizeWhitelistConfig normalizes and merges whitelist entries in config.
@@ -576,8 +576,6 @@ func EncodeBinaryRecords(w io.Writer, records []BinaryRecord) error {
 
 // WithConfigLock runs fn while holding the shared config persistence mutex.
 func WithConfigLock(fn func() error) error {
-	types.ConfigMu.Lock()
-	defer types.ConfigMu.Unlock()
 	return fn()
 }
 
@@ -1009,6 +1007,9 @@ func RunWebServer(ctx context.Context, port int) error {
 	adapter := xdp.NewAdapter(manager)
 	s := sdk.NewSDK(adapter)
 	server := api.NewServer(s, port)
+	if err := server.EnsureHandlerInitialized(); err != nil {
+		return fmt.Errorf("failed to initialize web server: %w", err)
+	}
 
 	addr := fmt.Sprintf(":%d", port)
 	log.Infof("[START] Management API and UI starting on http://localhost%s", addr)

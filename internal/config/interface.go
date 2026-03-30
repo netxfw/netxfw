@@ -11,8 +11,11 @@ import (
 type Configurable interface {
 	LoadConfig() error
 	SaveConfig() error
+	ReloadConfig() (*types.GlobalConfig, error)
 	GetConfig() *types.GlobalConfig
 	UpdateConfig(*types.GlobalConfig)
+	MutateConfig(func(*types.GlobalConfig) error) error
+	MutateLoadedConfig(func(*types.GlobalConfig) error) error
 
 	// Getters for specific configuration sections
 	GetBaseConfig() *types.BaseConfig

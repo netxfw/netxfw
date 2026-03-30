@@ -62,17 +62,20 @@ var configCacheOnce sync.Once
 func GetConfigCache() *ConfigCache {
 	configCacheOnce.Do(func() {
 		configCacheInstance = &ConfigCache{
-			saveDelay:  500 * time.Millisecond,
-			configPath: config.GetConfigPath(),
-			dirty:      false,
-			stopCh:     make(chan struct{}),
+			saveDelay: 500 * time.Millisecond,
+			dirty:     false,
+			stopCh:    make(chan struct{}),
 		}
 	})
 	return configCacheInstance
 }
 
-// LoadConfig loads the configuration from cache or file.
-// LoadConfig 从缓存或文件加载配置。
+func (c *ConfigCache) getConfigPath() string {
+	path := config.GetConfigPath()
+	c.configPath = path
+	return path
+}
+
 func (c *ConfigCache) LoadConfig() (*types.GlobalConfig, error) {
 	c.mu.RLock()
 	if c.cachedConfig != nil && !c.dirty {
@@ -89,7 +92,8 @@ func (c *ConfigCache) LoadConfig() (*types.GlobalConfig, error) {
 		return c.cachedConfig, nil
 	}
 
-	cfg, err := types.LoadGlobalConfig(c.configPath)
+	path := c.getConfigPath()
+	cfg, err := types.LoadGlobalConfig(path)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +111,8 @@ func (c *ConfigCache) LoadConfigForce() (*types.GlobalConfig, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	cfg, err := types.LoadGlobalConfig(c.configPath)
+	path := c.getConfigPath()
+	cfg, err := types.LoadGlobalConfig(path)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +131,8 @@ func (c *ConfigCache) UpdateConfig(updater func(*types.GlobalConfig)) error {
 	defer c.mu.Unlock()
 
 	if c.cachedConfig == nil {
-		cfg, err := types.LoadGlobalConfig(c.configPath)
+		path := c.getConfigPath()
+		cfg, err := types.LoadGlobalConfig(path)
 		if err != nil {
 			return err
 		}
@@ -153,7 +159,8 @@ func (c *ConfigCache) SaveConfig() error {
 		return nil
 	}
 
-	err := types.SaveGlobalConfigWithBackup(c.configPath, c.cachedConfig, config.GetBackupKeep())
+	path := c.getConfigPath()
+	err := types.SaveGlobalConfigWithBackup(path, c.cachedConfig, config.GetBackupKeep())
 	if err != nil {
 		return err
 	}
@@ -197,7 +204,8 @@ func (c *ConfigCache) SaveConfigImmediate() error {
 		return nil
 	}
 
-	err := types.SaveGlobalConfigWithBackup(c.configPath, c.cachedConfig, config.GetBackupKeep())
+	path := c.getConfigPath()
+	err := types.SaveGlobalConfigWithBackup(path, c.cachedConfig, config.GetBackupKeep())
 	if err != nil {
 		return err
 	}
@@ -254,7 +262,8 @@ func (c *ConfigCache) Stop() error {
 	close(c.stopCh)
 
 	if c.cachedConfig != nil && c.dirty {
-		return types.SaveGlobalConfigWithBackup(c.configPath, c.cachedConfig, config.GetBackupKeep())
+		path := c.getConfigPath()
+		return types.SaveGlobalConfigWithBackup(path, c.cachedConfig, config.GetBackupKeep())
 	}
 
 	return nil
@@ -272,11 +281,9 @@ func syncBoolSettingWithConfig(ctx context.Context, xdpMgr XDPManager, enable bo
 
 	cache := GetConfigCache()
 
-	types.ConfigMu.Lock()
 	err := cache.UpdateConfig(func(cfg *types.GlobalConfig) {
 		configSetter(cfg, enable)
 	})
-	types.ConfigMu.Unlock()
 
 	if err != nil {
 		log.Warnf("[WARN]  Failed to update config cache: %v", err)

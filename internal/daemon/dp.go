@@ -6,7 +6,6 @@ import (
 
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/core/engine"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
@@ -26,14 +25,11 @@ func runDataPlane(ctx context.Context) {
 	}
 	defer removePidFile(pidPath)
 
-	// Use the config manager to load the configuration
-	cfgManager := config.GetConfigManager()
-	if err := cfgManager.LoadConfig(); err != nil {
+	globalCfg, err := config.ReloadCurrentConfig()
+	if err != nil {
 		log.Errorf("[ERROR] Failed to load global config from %s: %v", configPath, err)
 		return
 	}
-
-	globalCfg := cfgManager.GetConfig()
 	if globalCfg == nil {
 		log.Errorf("[ERROR] Config is nil after loading from %s", configPath)
 		return
@@ -112,16 +108,10 @@ func runDataPlane(ctx context.Context) {
 	log.Info("[SHIELD] Data Plane is running.")
 
 	reloadFunc := func() error {
-		types.ConfigMu.RLock()
-		// Use the config manager to reload the configuration
-		err := cfgManager.LoadConfig()
+		newCfg, err := config.ReloadCurrentConfig()
 		if err != nil {
-			types.ConfigMu.RUnlock()
 			return err
 		}
-
-		newCfg := cfgManager.GetConfig()
-		types.ConfigMu.RUnlock()
 		if newCfg == nil {
 			return fmt.Errorf("config is nil after reloading")
 		}

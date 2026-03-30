@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/version"
 	"github.com/netxfw/netxfw/pkg/sdk"
@@ -322,44 +321,21 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use the config manager to load the configuration
-	cfgManager := config.GetConfigManager()
-	err := cfgManager.LoadConfig()
+	cfg, err := config.ReloadCurrentConfig()
 	if err != nil {
 		http.Error(w, "Failed to load config: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	cfg := cfgManager.GetConfig()
 	if cfg == nil {
-		http.Error(w, "Failed to get config from manager", http.StatusInternalServerError)
+		http.Error(w, "Failed to get config snapshot", http.StatusInternalServerError)
 		return
 	}
 
 	if req.Direction == "map2file" {
-		types.ConfigMu.Lock()
-		// Reload config using the config manager inside lock to ensure freshness before writing back
-		// 在锁内使用配置管理器重新加载配置，以确保在写回之前的新鲜度
-		err = cfgManager.LoadConfig()
-		if err != nil {
-			types.ConfigMu.Unlock()
-			http.Error(w, "Failed to reload config: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		cfg = cfgManager.GetConfig()
-		if cfg == nil {
-			types.ConfigMu.Unlock()
-			http.Error(w, "Failed to get config from manager", http.StatusInternalServerError)
-			return
-		}
-
-		err = s.sdk.Sync.ToConfig(cfg)
-		if err == nil {
-			// Update config in manager and save using the manager
-			cfgManager.UpdateConfig(cfg)
-			err = cfgManager.SaveConfig()
-		}
-		types.ConfigMu.Unlock()
+		err = config.MutateLoadedConfig(func(cfg *sdk.GlobalConfig) error {
+			// Sync runtime state into this config snapshot, then persist.
+			return s.sdk.Sync.ToConfig(cfg)
+		})
 	} else {
 		// For file2map, we just loaded the config (snapshot).
 		// Even if file changes now, we apply this snapshot.

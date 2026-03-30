@@ -241,21 +241,17 @@ func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
 	log := logger.Get(ctx)
 
 	// Get stats interval from config / 从配置获取统计间隔
-	cfgManager := config.GetConfigManager()
 	statsInterval := 1 * time.Second
 	avgPacketSize := 500
 
-	if err := cfgManager.LoadConfig(); err == nil {
-		cfg := cfgManager.GetConfig()
-		if cfg != nil {
-			if cfg.Metrics.StatsInterval != "" {
-				if duration, err := time.ParseDuration(cfg.Metrics.StatsInterval); err == nil && duration > 0 {
-					statsInterval = duration
-				}
+	if cfg, err := config.ReloadCurrentConfig(); err == nil && cfg != nil {
+		if cfg.Metrics.StatsInterval != "" {
+			if duration, err := time.ParseDuration(cfg.Metrics.StatsInterval); err == nil && duration > 0 {
+				statsInterval = duration
 			}
-			if cfg.Metrics.AvgPacketSize > 0 {
-				avgPacketSize = cfg.Metrics.AvgPacketSize
-			}
+		}
+		if cfg.Metrics.AvgPacketSize > 0 {
+			avgPacketSize = cfg.Metrics.AvgPacketSize
 		}
 	}
 

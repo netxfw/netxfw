@@ -42,12 +42,7 @@ func persistWhitelistEntryToConfig(ip string, port uint16) error {
 		return nil
 	}
 
-	return app.WithConfigLock(func() error {
-		globalCfg, err := app.LoadConfig()
-		if err != nil {
-			return err
-		}
-
+	return app.MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
 		normalizedCIDR := app.NormalizeCIDR(ip)
 		entry := normalizedCIDR
 		if port > 0 {
@@ -71,7 +66,7 @@ func persistWhitelistEntryToConfig(ip string, port uint16) error {
 
 		globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
 		app.OptimizeWhitelistConfig(globalCfg)
-		return app.SaveConfigWithBackup(globalCfg)
+		return nil
 	})
 }
 
@@ -80,12 +75,7 @@ func persistIPPortRuleToConfig(ip string, port uint16, action uint8) error {
 		return nil
 	}
 
-	return app.WithConfigLock(func() error {
-		globalCfg, err := app.LoadConfig()
-		if err != nil {
-			return err
-		}
-
+	return app.MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
 		normalizedCIDR := app.NormalizeCIDR(ip)
 		updated := false
 
@@ -107,7 +97,7 @@ func persistIPPortRuleToConfig(ip string, port uint16, action uint8) error {
 		}
 
 		app.OptimizeIPPortRulesConfig(globalCfg)
-		return app.SaveConfigWithBackup(globalCfg)
+		return nil
 	})
 }
 

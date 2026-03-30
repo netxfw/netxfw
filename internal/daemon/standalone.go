@@ -26,7 +26,7 @@ func runUnified(ctx context.Context) {
 	}
 	defer removePidFile(pidPath)
 
-	globalCfg, err := types.LoadGlobalConfig(configPath)
+	globalCfg, err := config.ReloadCurrentConfig()
 	if err != nil {
 		log.Errorf("[ERROR] Failed to load global config: %v", err)
 		return
@@ -149,11 +149,9 @@ func startPlugins(pluginCtx *sdk.PluginContext, log *zap.SugaredLogger) {
 
 // createReloadFunc creates a reload function for configuration changes.
 // createReloadFunc 创建配置变更的重载函数。
-func createReloadFunc(configPath string, coreModules []engine.CoreModule, pluginCtx *sdk.PluginContext, log *zap.SugaredLogger) func() error {
+func createReloadFunc(_ string, coreModules []engine.CoreModule, pluginCtx *sdk.PluginContext, log *zap.SugaredLogger) func() error {
 	return func() error {
-		types.ConfigMu.RLock()
-		newCfg, err := types.LoadGlobalConfig(configPath)
-		types.ConfigMu.RUnlock()
+		newCfg, err := config.ReloadCurrentConfig()
 		if err != nil {
 			return err
 		}

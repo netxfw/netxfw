@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/xdp"
 )
@@ -117,7 +118,8 @@ func TestEndToEnd_ConfigPersistence(t *testing.T) {
 
 	// Load config
 	// 加载配置
-	loadedCfg, err := types.LoadGlobalConfig(configPath)
+	config.SetConfigPath(configPath)
+	loadedCfg, err := config.ReloadCurrentConfig()
 	require.NoError(t, err)
 	require.NotNil(t, loadedCfg)
 
@@ -253,7 +255,8 @@ func TestEndToEnd_ConfigReload(t *testing.T) {
 
 	// Load and verify
 	// 加载并验证
-	loaded1, err := types.LoadGlobalConfig(configPath)
+	config.SetConfigPath(configPath)
+	loaded1, err := config.ReloadCurrentConfig()
 	require.NoError(t, err)
 	assert.False(t, loaded1.Base.DefaultDeny)
 
@@ -272,7 +275,8 @@ func TestEndToEnd_ConfigReload(t *testing.T) {
 
 	// Reload and verify changes
 	// 重载并验证更改
-	loaded2, err := types.LoadGlobalConfig(configPath)
+	config.SetConfigPath(configPath)
+	loaded2, err := config.ReloadCurrentConfig()
 	require.NoError(t, err)
 	assert.True(t, loaded2.Base.DefaultDeny)
 	assert.True(t, loaded2.Base.AllowReturnTraffic)

@@ -84,15 +84,11 @@ func verifyToken(tokenString string, secret string) (*TokenClaims, error) {
 // withAuth 是用于基于令牌认证的中间件（支持 Bearer Token 和旧查询参数）
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Use the config manager to load the configuration
-		cfgManager := config.GetConfigManager()
-		err := cfgManager.LoadConfig()
+		cfg, err := config.ReloadCurrentConfig()
 		if err != nil {
 			http.Error(w, "Config Error", http.StatusInternalServerError)
 			return
 		}
-
-		cfg := cfgManager.GetConfig()
 		if cfg == nil {
 			http.Error(w, "Config is nil", http.StatusInternalServerError)
 			return
@@ -142,15 +138,11 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use the config manager to load the configuration
-	cfgManager := config.GetConfigManager()
-	err := cfgManager.LoadConfig()
+	cfg, err := config.ReloadCurrentConfig()
 	if err != nil {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
-
-	cfg := cfgManager.GetConfig()
 	if cfg == nil {
 		http.Error(w, "Config is nil", http.StatusInternalServerError)
 		return

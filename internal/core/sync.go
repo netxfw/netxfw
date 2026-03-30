@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
@@ -17,32 +17,14 @@ func SyncToConfig(ctx context.Context, mgr XDPManager) error {
 	log := logger.Get(ctx)
 	log.Info("[RELOAD] Syncing BPF Maps to Configuration Files...")
 
-	types.ConfigMu.Lock()
-	defer types.ConfigMu.Unlock()
-
-	// Use the config manager to load the configuration
-	cfgManager := config.GetConfigManager()
-	err := cfgManager.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %v", err)
-	}
-
-	globalCfg := cfgManager.GetConfig()
-	if globalCfg == nil {
-		return fmt.Errorf("config is nil after loading")
-	}
-
-	// Use XDP Manager's SyncToFiles implementation to ensure consistency
-	// 使用 XDP 管理器的 SyncToFiles 实现以确保一致性
-	if err := mgr.SyncToFiles(globalCfg); err != nil {
+	if err := config.MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
+		// Use XDP Manager's SyncToFiles implementation to ensure consistency
+		// 使用 XDP 管理器的 SyncToFiles 实现以确保一致性
+		return mgr.SyncToFiles(globalCfg)
+	}); err != nil {
 		return fmt.Errorf("failed to sync maps to files: %v", err)
 	}
 
-	// Update config in manager and save using the manager
-	cfgManager.UpdateConfig(globalCfg)
-	if err := cfgManager.SaveConfig(); err != nil {
-		return fmt.Errorf("failed to save config: %v", err)
-	}
 	log.Info("[OK] Configuration files updated successfully.")
 	return nil
 }
@@ -55,17 +37,10 @@ func SyncToMap(ctx context.Context, mgr XDPManager) error {
 	log := logger.Get(ctx)
 	log.Info("[RELOAD] Syncing Configuration Files to BPF Maps...")
 
-	types.ConfigMu.Lock()
-	// Use the config manager to load the configuration
-	cfgManager := config.GetConfigManager()
-	err := cfgManager.LoadConfig()
-	types.ConfigMu.Unlock() // Unlock after reading, SyncFromFiles might take time but maps are safe
-
+	globalCfg, err := config.ReloadCurrentConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
-
-	globalCfg := cfgManager.GetConfig()
 	if globalCfg == nil {
 		return fmt.Errorf("config is nil after loading")
 	}

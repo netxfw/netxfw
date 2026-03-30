@@ -41,7 +41,7 @@ func InitConfiguration(ctx context.Context) {
 
 	// Initialize LockListFile if configured in the newly created or existing config
 	// 如果在新建或现有的配置中配置了 LockListFile，则初始化它
-	globalCfg, err := types.LoadGlobalConfig(configPath)
+	globalCfg, err := config.ReloadCurrentConfig()
 	if err == nil && globalCfg.Base.LockListFile != "" {
 		lockListFile := globalCfg.Base.LockListFile
 		if _, err := os.Stat(lockListFile); os.IsNotExist(err) {

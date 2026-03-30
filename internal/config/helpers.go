@@ -92,6 +92,24 @@ func GetCurrentConfig() *types.GlobalConfig {
 	return GetConfigManager().GetConfig()
 }
 
+// MutateConfig applies fn to the current in-memory config and persists it.
+// MutateConfig 对当前内存配置执行 fn 并持久化。
+func MutateConfig(fn func(*types.GlobalConfig) error) error {
+	return GetConfigManager().MutateConfig(fn)
+}
+
+// MutateLoadedConfig reloads config from disk, applies fn, and persists it.
+// MutateLoadedConfig 从磁盘重新加载配置，执行 fn 后持久化。
+func MutateLoadedConfig(fn func(*types.GlobalConfig) error) error {
+	return GetConfigManager().MutateLoadedConfig(fn)
+}
+
+// ReloadCurrentConfig reloads and returns the current config snapshot.
+// ReloadCurrentConfig 重新加载并返回当前配置快照。
+func ReloadCurrentConfig() (*types.GlobalConfig, error) {
+	return GetConfigManager().ReloadConfig()
+}
+
 // GetBackupKeep returns the number of backups to keep from config.
 // GetBackupKeep 从配置中获取保留的备份数量。
 func GetBackupKeep() int {

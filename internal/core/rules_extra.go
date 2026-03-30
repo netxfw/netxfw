@@ -39,28 +39,22 @@ func SyncIPPortRule(ctx context.Context, xdpMgr XDPManager, ipStr string, port u
 		}
 	}
 
-	// Update Config / 更新配置
-	types.ConfigMu.Lock()
-	configPath := config.GetConfigPath()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		newRules := []types.IPPortRule{}
-		modified := false
+	modified := false
+	if err := config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
+		newRules := make([]types.IPPortRule, 0, len(globalCfg.Port.IPPortRules))
 		targetCIDR := iputil.NormalizeCIDR(ipStr)
 
 		for _, r := range globalCfg.Port.IPPortRules {
-			// Normalize existing rule IP / 标准化现有规则 IP
 			ruleCIDR := iputil.NormalizeCIDR(r.IP)
 			if ruleCIDR == targetCIDR && r.Port == port {
 				if add {
-					// Update existing if action changed / 如果动作改变，则更新现有规则
 					if r.Action != action {
 						r.Action = action
 						modified = true
 					}
-					newRules = append(newRules, r) // Keep it (updated or same) / 保留它（已更新或未变）
+					newRules = append(newRules, r)
 				} else {
-					modified = true // Remove it (skip append) / 移除它（跳过追加）
+					modified = true
 				}
 			} else {
 				newRules = append(newRules, r)
@@ -68,7 +62,6 @@ func SyncIPPortRule(ctx context.Context, xdpMgr XDPManager, ipStr string, port u
 		}
 
 		if add && !modified {
-			// Check if we found it in the loop / 检查是否在循环中找到了它
 			found := false
 			for i, r := range newRules {
 				if iputil.NormalizeCIDR(r.IP) == targetCIDR && r.Port == port {
@@ -90,15 +83,16 @@ func SyncIPPortRule(ctx context.Context, xdpMgr XDPManager, ipStr string, port u
 			}
 		}
 
-		if modified {
-			globalCfg.Port.IPPortRules = newRules
-			optimizer.OptimizeIPPortRulesConfig(globalCfg)
-			if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
-				log.Warnf("[WARN]  Failed to save config: %v", saveErr)
-			}
+		if !modified {
+			return nil
 		}
+
+		globalCfg.Port.IPPortRules = newRules
+		optimizer.OptimizeIPPortRulesConfig(globalCfg)
+		return nil
+	}); err != nil {
+		log.Warnf("[WARN]  Failed to save config: %v", err)
 	}
-	types.ConfigMu.Unlock()
 	return nil
 }
 
@@ -120,19 +114,15 @@ func SyncAllowedPort(ctx context.Context, xdpMgr XDPManager, port uint16, add bo
 		}
 	}
 
-	// Update Config / 更新配置
-	types.ConfigMu.Lock()
-	configPath := config.GetConfigPath()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		newPorts := []uint16{}
-		modified := false
+	modified := false
+	if err := config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
+		newPorts := make([]uint16, 0, len(globalCfg.Port.AllowedPorts))
 		found := false
 		for _, p := range globalCfg.Port.AllowedPorts {
 			if p == port {
 				found = true
 				if !add {
-					modified = true // Remove / 移除
+					modified = true
 					continue
 				}
 			}
@@ -144,14 +134,15 @@ func SyncAllowedPort(ctx context.Context, xdpMgr XDPManager, port uint16, add bo
 			modified = true
 		}
 
-		if modified {
-			globalCfg.Port.AllowedPorts = newPorts
-			if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
-				log.Warnf("[WARN]  Failed to save config: %v", saveErr)
-			}
+		if !modified {
+			return nil
 		}
+
+		globalCfg.Port.AllowedPorts = newPorts
+		return nil
+	}); err != nil {
+		log.Warnf("[WARN]  Failed to save config: %v", err)
 	}
-	types.ConfigMu.Unlock()
 	return nil
 }
 
@@ -174,19 +165,14 @@ func SyncRateLimitRule(ctx context.Context, xdpMgr XDPManager, ip string, rate u
 		}
 	}
 
-	// Update Config / 更新配置
-	types.ConfigMu.Lock()
-	configPath := config.GetConfigPath()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil {
-		newRules := []types.RateLimitRule{}
-		modified := false
+	modified := false
+	if err := config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
+		newRules := make([]types.RateLimitRule, 0, len(globalCfg.RateLimit.Rules))
 		targetCIDR := iputil.NormalizeCIDR(ip)
 
 		for _, r := range globalCfg.RateLimit.Rules {
 			if iputil.NormalizeCIDR(r.IP) == targetCIDR {
 				if add {
-					// Update / 更新
 					if r.Rate != rate || r.Burst != burst {
 						r.Rate = rate
 						r.Burst = burst
@@ -194,7 +180,7 @@ func SyncRateLimitRule(ctx context.Context, xdpMgr XDPManager, ip string, rate u
 					}
 					newRules = append(newRules, r)
 				} else {
-					modified = true // Remove / 移除
+					modified = true
 				}
 			} else {
 				newRules = append(newRules, r)
@@ -219,14 +205,15 @@ func SyncRateLimitRule(ctx context.Context, xdpMgr XDPManager, ip string, rate u
 			}
 		}
 
-		if modified {
-			globalCfg.RateLimit.Rules = newRules
-			if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
-				log.Warnf("[WARN]  Failed to save config: %v", saveErr)
-			}
+		if !modified {
+			return nil
 		}
+
+		globalCfg.RateLimit.Rules = newRules
+		return nil
+	}); err != nil {
+		log.Warnf("[WARN]  Failed to save config: %v", err)
 	}
-	types.ConfigMu.Unlock()
 	return nil
 }
 
@@ -235,22 +222,15 @@ func SyncRateLimitRule(ctx context.Context, xdpMgr XDPManager, ip string, rate u
 func SyncAutoBlock(ctx context.Context, mgr XDPManager, enable bool) error {
 	log := logger.Get(ctx)
 
-	// Update Runtime / 更新运行时
 	if err := mgr.SetAutoBlock(enable); err != nil {
 		return fmt.Errorf("failed to update auto-block in BPF: %v", err)
 	}
 
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	defer types.ConfigMu.Unlock()
-
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err != nil {
+	if err := config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
+		globalCfg.RateLimit.AutoBlock = enable
+		return nil
+	}); err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
-	}
-	globalCfg.RateLimit.AutoBlock = enable
-	if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
-		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
 	}
 	log.Infof("[SHIELD] Auto Block set to: %v", enable)
 	return nil
@@ -261,24 +241,17 @@ func SyncAutoBlock(ctx context.Context, mgr XDPManager, enable bool) error {
 func SyncAutoBlockExpiry(ctx context.Context, mgr XDPManager, seconds uint32) error {
 	log := logger.Get(ctx)
 
-	// Update Runtime / 更新运行时
 	if err := mgr.SetAutoBlockExpiry(time.Duration(seconds) * time.Second); err != nil {
 		return fmt.Errorf("failed to update auto-block expiry in BPF: %v", err)
 	}
 
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err != nil {
-		types.ConfigMu.Unlock()
+	if err := config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
+		globalCfg.RateLimit.AutoBlockExpiry = fmt.Sprintf("%ds", seconds)
+		return nil
+	}); err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
-	globalCfg.RateLimit.AutoBlockExpiry = fmt.Sprintf("%ds", seconds)
-	if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
-		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
-	}
 	log.Infof("[SHIELD] Auto Block Expiry set to: %d seconds", seconds)
-	types.ConfigMu.Unlock()
 	return nil
 }
 
@@ -288,25 +261,20 @@ func ClearBlacklist(ctx context.Context, xdpMgr XDPManager) error {
 	log := logger.Get(ctx)
 	log.Info("[CLEAN] Clearing blacklist...")
 
-	// Clear Unified Map / 清除统一 Map
 	if err := xdpMgr.ClearBlacklist(); err != nil {
 		log.Warnf("[WARN]  Failed to clear blacklist: %v", err)
 		return err
 	}
 	log.Info("[OK] IPv4 Blacklist cleared.")
 
-	// Clear persistence file / 清除持久化文件
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err == nil && globalCfg.Base.LockListFile != "" {
+	globalCfg, err := config.ReloadCurrentConfig()
+	if err == nil && globalCfg != nil && globalCfg.Base.LockListFile != "" {
 		if err := fileutil.AtomicWriteFile(globalCfg.Base.LockListFile, []byte(""), 0644); err == nil {
 			log.Infof("[FILE] Cleared persistence file: %s", globalCfg.Base.LockListFile)
 		} else {
 			log.Warnf("[WARN]  Failed to clear persistence file: %v", err)
 		}
 	}
-	types.ConfigMu.Unlock()
 	return nil
 }
 
@@ -351,11 +319,7 @@ func readCIDRsFromFile(file *os.File) []string {
 // importCIDRsToBlacklist 将 CIDR 导入黑名单并持久化。
 func importCIDRsToBlacklist(ctx context.Context, xdpMgr XDPManager, cidrs []string) int {
 	log := logger.Get(ctx)
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	defer types.ConfigMu.Unlock()
-
-	globalCfg, loadErr := types.LoadGlobalConfig(configPath)
+	globalCfg, loadErr := config.ReloadCurrentConfig()
 	if loadErr != nil {
 		globalCfg = nil
 	}
@@ -448,98 +412,84 @@ type ipPortImportEntry struct {
 }
 
 func persistImportedWhitelist(ctx context.Context, xdpMgr XDPManager, entries []whitelistImportEntry) error {
-	log := logger.Get(ctx)
-	configPath := config.GetConfigPath()
-
-	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err != nil {
-		types.ConfigMu.Unlock()
-		return err
-	}
-
-	oldWhitelist := append([]string(nil), globalCfg.Base.Whitelist...)
-	existing := make(map[string]bool, len(globalCfg.Base.Whitelist))
-	for _, entry := range globalCfg.Base.Whitelist {
-		existing[entry] = true
-	}
-
+	var oldWhitelist []string
+	var newWhitelist []string
 	modified := false
-	for _, item := range entries {
-		entry := item.cidr
-		if item.port > 0 {
-			entry = fmt.Sprintf("%s:%d", item.cidr, item.port)
+	if err := config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
+		oldWhitelist = append([]string(nil), globalCfg.Base.Whitelist...)
+		existing := make(map[string]bool, len(globalCfg.Base.Whitelist))
+		for _, entry := range globalCfg.Base.Whitelist {
+			existing[entry] = true
 		}
-		if existing[entry] {
-			continue
-		}
-		globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
-		existing[entry] = true
-		modified = true
-	}
 
-	newWhitelist := append([]string(nil), globalCfg.Base.Whitelist...)
-	if modified {
-		optimizer.OptimizeWhitelistConfig(globalCfg)
-		newWhitelist = append([]string(nil), globalCfg.Base.Whitelist...)
-		if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
-			log.Warnf("[WARN]  Failed to save config: %v", saveErr)
-		}
-	}
-	types.ConfigMu.Unlock()
-
-	if modified {
-		cleanupMergedWhitelistRules(ctx, xdpMgr, oldWhitelist, newWhitelist, "")
-		ensureWhitelistRulesInBPF(ctx, xdpMgr, newWhitelist)
-	}
-	return nil
-}
-
-func persistImportedIPPortRules(ctx context.Context, entries []ipPortImportEntry) error {
-	log := logger.Get(ctx)
-	configPath := config.GetConfigPath()
-
-	types.ConfigMu.Lock()
-	defer types.ConfigMu.Unlock()
-
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err != nil {
-		return err
-	}
-
-	modified := false
-	for _, item := range entries {
-		targetCIDR := iputil.NormalizeCIDR(item.cidr)
-		found := false
-		for i, rule := range globalCfg.Port.IPPortRules {
-			if iputil.NormalizeCIDR(rule.IP) != targetCIDR || rule.Port != item.port {
+		for _, item := range entries {
+			entry := item.cidr
+			if item.port > 0 {
+				entry = fmt.Sprintf("%s:%d", item.cidr, item.port)
+			}
+			if existing[entry] {
 				continue
 			}
-			found = true
-			if rule.Action != item.action {
-				globalCfg.Port.IPPortRules[i].Action = item.action
-				modified = true
-			}
-			break
-		}
-
-		if !found {
-			globalCfg.Port.IPPortRules = append(globalCfg.Port.IPPortRules, types.IPPortRule{
-				IP:     item.cidr,
-				Port:   item.port,
-				Action: item.action,
-			})
+			globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
+			existing[entry] = true
 			modified = true
 		}
-	}
 
+		if !modified {
+			return nil
+		}
+
+		optimizer.OptimizeWhitelistConfig(globalCfg)
+		newWhitelist = append([]string(nil), globalCfg.Base.Whitelist...)
+		return nil
+	}); err != nil {
+		return err
+	}
 	if !modified {
 		return nil
 	}
 
-	optimizer.OptimizeIPPortRulesConfig(globalCfg)
-	if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
-		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
+	cleanupMergedWhitelistRules(ctx, xdpMgr, oldWhitelist, newWhitelist, "")
+	ensureWhitelistRulesInBPF(ctx, xdpMgr, newWhitelist)
+	return nil
+}
+
+func persistImportedIPPortRules(ctx context.Context, entries []ipPortImportEntry) error {
+	if err := config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
+		modified := false
+		for _, item := range entries {
+			targetCIDR := iputil.NormalizeCIDR(item.cidr)
+			found := false
+			for i, rule := range globalCfg.Port.IPPortRules {
+				if iputil.NormalizeCIDR(rule.IP) != targetCIDR || rule.Port != item.port {
+					continue
+				}
+				found = true
+				if rule.Action != item.action {
+					globalCfg.Port.IPPortRules[i].Action = item.action
+					modified = true
+				}
+				break
+			}
+
+			if !found {
+				globalCfg.Port.IPPortRules = append(globalCfg.Port.IPPortRules, types.IPPortRule{
+					IP:     item.cidr,
+					Port:   item.port,
+					Action: item.action,
+				})
+				modified = true
+			}
+		}
+
+		if !modified {
+			return nil
+		}
+
+		optimizer.OptimizeIPPortRulesConfig(globalCfg)
+		return nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }

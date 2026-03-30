@@ -65,6 +65,9 @@ func (p *WebPlugin) Validate(cfg *types.GlobalConfig) error {
 func (p *WebPlugin) Init(ctx *sdk.PluginContext) error {
 	p.config = &ctx.Config.Web
 	p.api = api.NewServer(ctx.SDK, p.config.Port)
+	if err := p.api.EnsureHandlerInitialized(); err != nil {
+		return err
+	}
 	return nil
 }
 

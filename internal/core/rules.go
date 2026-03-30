@@ -34,25 +34,29 @@ func handleLockWhitelistConflict(ctx context.Context, xdpMgr XDPManager, cidrStr
 // removeFromWhitelistConfig removes an IP from whitelist in config.
 // removeFromWhitelistConfig 从配置的白名单中移除 IP。
 func removeFromWhitelistConfig(cidrStr string) error {
-	globalCfg, err := types.LoadGlobalConfig(config.GetConfigPath())
-	if err != nil {
-		return err
-	}
+	return config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
+		newWhitelist := make([]string, 0, len(globalCfg.Base.Whitelist))
+		removed := false
+		for _, entry := range globalCfg.Base.Whitelist {
+			normalizedEntry := entry
+			if host, _, parseErr := iputil.ParseIPPort(entry); parseErr == nil {
+				normalizedEntry = host
+			}
+			normalizedEntry = iputil.NormalizeCIDR(normalizedEntry)
 
-	newWhitelist := []string{}
-	for _, entry := range globalCfg.Base.Whitelist {
-		normalizedEntry := entry
-		if host, _, parseErr := iputil.ParseIPPort(entry); parseErr == nil {
-			normalizedEntry = host
-		}
-		normalizedEntry = iputil.NormalizeCIDR(normalizedEntry)
-
-		if normalizedEntry != cidrStr {
+			if normalizedEntry == cidrStr {
+				removed = true
+				continue
+			}
 			newWhitelist = append(newWhitelist, entry)
 		}
-	}
-	globalCfg.Base.Whitelist = newWhitelist
-	return types.SaveGlobalConfigWithBackup(config.GetConfigPath(), globalCfg, config.GetBackupKeep())
+		if !removed {
+			return nil
+		}
+
+		globalCfg.Base.Whitelist = newWhitelist
+		return nil
+	})
 }
 
 // removeWhitelistAndLog removes IP from whitelist and logs the action.
@@ -71,8 +75,8 @@ func removeWhitelistAndLog(ctx context.Context, xdpMgr XDPManager, cidrStr strin
 // persistLockToFile 将锁定的 IP 持久化到锁定列表文件。
 func persistLockToFile(ctx context.Context, cidrStr string) error {
 	log := logger.Get(ctx)
-	globalCfg, err := types.LoadGlobalConfig(config.GetConfigPath())
-	if err != nil || !globalCfg.Base.PersistRules || globalCfg.Base.LockListFile == "" {
+	globalCfg, err := config.ReloadCurrentConfig()
+	if err != nil || globalCfg == nil || !globalCfg.Base.PersistRules || globalCfg.Base.LockListFile == "" {
 		return nil
 	}
 
@@ -108,8 +112,8 @@ func persistLockToFile(ctx context.Context, cidrStr string) error {
 // removeFromLockFile removes an IP from the lock list file.
 // removeFromLockFile 从锁定列表文件中移除 IP。
 func removeFromLockFile(cidrStr string) error {
-	globalCfg, err := types.LoadGlobalConfig(config.GetConfigPath())
-	if err != nil || globalCfg.Base.LockListFile == "" {
+	globalCfg, err := config.ReloadCurrentConfig()
+	if err != nil || globalCfg == nil || globalCfg.Base.LockListFile == "" {
 		return nil
 	}
 
@@ -137,12 +141,9 @@ func lockIP(ctx context.Context, xdpMgr XDPManager, cidrStr string, force bool) 
 		return nil
 	}
 
-	removedFromWhitelist := false
 	if conflict, _ := xdpMgr.IsIPInWhitelist(cidrStr); conflict {
 		if err := removeWhitelistAndLog(ctx, xdpMgr, cidrStr); err != nil {
 			log.Warnf("[WARN]  Failed to remove from whitelist: %v", err)
-		} else {
-			removedFromWhitelist = true
 		}
 	}
 
@@ -151,13 +152,6 @@ func lockIP(ctx context.Context, xdpMgr XDPManager, cidrStr string, force bool) 
 	}
 	log.Infof("[SHIELD] Locked: %s", cidrStr)
 
-	types.ConfigMu.Lock()
-	defer types.ConfigMu.Unlock()
-	if removedFromWhitelist {
-		if err := removeFromWhitelistConfig(cidrStr); err != nil {
-			log.Warnf("[WARN]  Failed to update whitelist config: %v", err)
-		}
-	}
 	return persistLockToFile(ctx, cidrStr)
 }
 
@@ -170,8 +164,6 @@ func unlockIP(ctx context.Context, xdpMgr XDPManager, cidrStr string) error {
 	}
 	log.Infof("[UNLOCK] Unlocked: %s", cidrStr)
 
-	types.ConfigMu.Lock()
-	defer types.ConfigMu.Unlock()
 	return removeFromLockFile(cidrStr)
 }
 
@@ -217,37 +209,33 @@ func removeBlacklistAndLog(ctx context.Context, xdpMgr XDPManager, cidrStr strin
 // updateWhitelistInConfig updates whitelist in config file.
 // updateWhitelistInConfig 更新配置文件中的白名单。
 func updateWhitelistInConfig(ctx context.Context, xdpMgr XDPManager, cidrStr string, port uint16) error {
-	log := logger.Get(ctx)
-	configPath := config.GetConfigPath()
-	types.ConfigMu.Lock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err != nil {
-		types.ConfigMu.Unlock()
-		return err
-	}
-
 	entry := cidrStr
 	if port > 0 {
 		entry = fmt.Sprintf("%s:%d", cidrStr, port)
 	}
 
-	for _, ip := range globalCfg.Base.Whitelist {
-		if ip == entry {
-			types.ConfigMu.Unlock()
-			return nil
+	var oldWhitelist []string
+	var newWhitelist []string
+	modified := false
+	if err := config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
+		for _, ip := range globalCfg.Base.Whitelist {
+			if ip == entry {
+				return nil
+			}
 		}
-	}
 
-	oldWhitelist := make([]string, len(globalCfg.Base.Whitelist))
-	copy(oldWhitelist, globalCfg.Base.Whitelist)
-
-	globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
-	optimizer.OptimizeWhitelistConfig(globalCfg)
-	if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
-		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
+		oldWhitelist = append([]string(nil), globalCfg.Base.Whitelist...)
+		globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
+		optimizer.OptimizeWhitelistConfig(globalCfg)
+		newWhitelist = append([]string(nil), globalCfg.Base.Whitelist...)
+		modified = true
+		return nil
+	}); err != nil {
+		return err
 	}
-	newWhitelist := append([]string(nil), globalCfg.Base.Whitelist...)
-	types.ConfigMu.Unlock()
+	if !modified {
+		return nil
+	}
 
 	cleanupMergedWhitelistRules(ctx, xdpMgr, oldWhitelist, newWhitelist, entry)
 	ensureWhitelistRulesInBPF(ctx, xdpMgr, newWhitelist)
@@ -346,41 +334,35 @@ func allowIP(ctx context.Context, xdpMgr XDPManager, cidrStr string, port uint16
 // disallowIP 从白名单移除 IP。
 func disallowIP(ctx context.Context, xdpMgr XDPManager, cidrStr string, port uint16) error {
 	log := logger.Get(ctx)
-	configPath := config.GetConfigPath()
 	if err := xdpMgr.RemoveWhitelistIP(cidrStr); err != nil {
 		return fmt.Errorf("failed to remove %s from whitelist: %v", cidrStr, err)
 	}
 	log.Infof("[UNLOCK] Removed from whitelist: %s", cidrStr)
 
-	types.ConfigMu.Lock()
-	defer types.ConfigMu.Unlock()
-	globalCfg, err := types.LoadGlobalConfig(configPath)
-	if err != nil {
-		return nil
-	}
-
-	newWhitelist := []string{}
 	targetCIDR := iputil.NormalizeCIDR(cidrStr)
-	for _, ip := range globalCfg.Base.Whitelist {
-		host, p, err := iputil.ParseIPPort(ip)
-		var entryCIDR string
-		var entryPort uint16
-		if err != nil {
-			entryCIDR = iputil.NormalizeCIDR(ip)
-			entryPort = 0
-		} else {
-			entryCIDR = iputil.NormalizeCIDR(host)
-			entryPort = p
-		}
+	if err := config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
+		newWhitelist := make([]string, 0, len(globalCfg.Base.Whitelist))
+		for _, ip := range globalCfg.Base.Whitelist {
+			host, p, err := iputil.ParseIPPort(ip)
+			var entryCIDR string
+			var entryPort uint16
+			if err != nil {
+				entryCIDR = iputil.NormalizeCIDR(ip)
+				entryPort = 0
+			} else {
+				entryCIDR = iputil.NormalizeCIDR(host)
+				entryPort = p
+			}
 
-		if entryCIDR == targetCIDR && (port == 0 || entryPort == port) {
-			continue
+			if entryCIDR == targetCIDR && (port == 0 || entryPort == port) {
+				continue
+			}
+			newWhitelist = append(newWhitelist, ip)
 		}
-		newWhitelist = append(newWhitelist, ip)
-	}
-	globalCfg.Base.Whitelist = newWhitelist
-	if saveErr := types.SaveGlobalConfigWithBackup(configPath, globalCfg, config.GetBackupKeep()); saveErr != nil {
-		log.Warnf("[WARN]  Failed to save config: %v", saveErr)
+		globalCfg.Base.Whitelist = newWhitelist
+		return nil
+	}); err != nil {
+		return nil
 	}
 	return nil
 }

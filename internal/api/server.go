@@ -3,9 +3,9 @@ package api
 import (
 	"net/http"
 	"net/http/pprof"
+	"sync"
 
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -13,9 +13,13 @@ import (
 // Server represents the API and UI server instance.
 // Server 表示 API 和 UI 服务器实例。
 type Server struct {
-	sdk        *sdk.SDK
-	port       int
-	configPath string
+	sdk  *sdk.SDK
+	port int
+
+	// EnsureHandlerInitialized makes Handler() side-effect free for callers.
+	// It lazily ensures config-dependent defaults (e.g., Web token) are in place.
+	initOnce sync.Once
+	initErr  error
 }
 
 // Sdk returns the SDK instance associated with this server.
@@ -34,59 +38,48 @@ func (s *Server) Port() int {
 // NewServer 创建一个新的 API 和 UI 服务器实例。
 func NewServer(s *sdk.SDK, port int) *Server {
 	return &Server{
-		sdk:        s,
-		port:       port,
-		configPath: config.GetConfigPath(),
+		sdk:  s,
+		port: port,
 	}
+}
+
+func (s *Server) EnsureHandlerInitialized() error {
+	s.initOnce.Do(func() {
+		log := logger.Get(nil)
+		s.initErr = config.MutateLoadedConfig(func(cfg *sdk.GlobalConfig) error {
+			if cfg.Web.Token != "" {
+				log.Infof("[KEY] Using configured Web Token for authentication")
+				return nil
+			}
+
+			token := generateRandomToken(16)
+			cfg.Web.Token = token
+			cfg.Web.Enabled = true
+			cfg.Web.Port = s.port
+
+			log.Infof("[KEY] No Web Token configured. Automatically generated and saved a new token")
+			log.Infof("[LOG] Token has been saved to %s", config.GetConfigPath())
+			return nil
+		})
+	})
+
+	return s.initErr
 }
 
 // Handler returns the http.Handler for the API and UI.
 // Handler 返回 API 和 UI 的 http.Handler。
 func (s *Server) Handler() http.Handler {
 	log := logger.Get(nil)
-	// Auto-generate token if not configured
-	// 如果未配置 Token，则自动生成
-	types.ConfigMu.Lock()
-
-	// Load config using the new config manager
-	cfgManager := config.GetConfigManager()
-	err := cfgManager.LoadConfig()
-	if err != nil {
-		log.Errorf("Failed to load config: %v", err)
-		types.ConfigMu.Unlock()
+	if err := s.EnsureHandlerInitialized(); err != nil {
+		log.Errorf("Failed to initialize API handler: %v", err)
 		return nil
 	}
 
-	cfg := cfgManager.GetConfig()
+	cfg := config.GetCurrentConfig()
 	if cfg == nil {
-		log.Error("Config is nil after loading")
-		types.ConfigMu.Unlock()
+		log.Error("Config is nil after initialization")
 		return nil
 	}
-
-	if cfg.Web.Token == "" {
-		token := generateRandomToken(16)
-		cfg.Web.Token = token
-		cfg.Web.Enabled = true
-		cfg.Web.Port = s.port
-
-		// Update config in the manager
-		cfgManager.UpdateConfig(cfg)
-
-		// Save config using the new config manager
-		if err := cfgManager.SaveConfig(); err != nil {
-			log.Errorf("Failed to save config: %v", err)
-			types.ConfigMu.Unlock()
-			return nil
-		}
-
-		log.Infof("[KEY] No Web Token configured. Automatically generated and saved a new token")
-		log.Infof("[LOG] Token has been saved to %s", s.configPath)
-	} else {
-		log.Infof("[KEY] Using configured Web Token for authentication")
-	}
-
-	types.ConfigMu.Unlock()
 
 	mux := http.NewServeMux()
 
