@@ -8,18 +8,19 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/internal/api"
-	"github.com/netxfw/netxfw/internal/metrics"
+	"github.com/netxfw/netxfw/internal/metrics/exporter"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type WebPlugin struct {
-	config  *types.WebConfig
-	server  *http.Server
-	running bool
-	mu      sync.RWMutex // Protects running field from concurrent access / 保护 running 字段免受并发访问
-	api     *api.Server
+	config    *types.WebConfig
+	server    *http.Server
+	running   bool
+	mu        sync.RWMutex // Protects running field from concurrent access / 保护 running 字段免受并发访问
+	api       *api.Server
+	collector *exporter.Collector
 }
 
 // isRunning returns whether the plugin is running (thread-safe).
@@ -65,6 +66,7 @@ func (p *WebPlugin) Validate(cfg *types.GlobalConfig) error {
 func (p *WebPlugin) Init(ctx *sdk.PluginContext) error {
 	p.config = &ctx.Config.Web
 	p.api = api.NewServer(ctx.SDK, p.config.Port)
+	p.collector = exporter.NewCollector(ctx.SDK)
 	if err := p.api.EnsureHandlerInitialized(); err != nil {
 		return err
 	}
@@ -139,46 +141,20 @@ func (p *WebPlugin) Reload(ctx *sdk.PluginContext) error {
 }
 
 func (p *WebPlugin) collectStats(ctx *sdk.PluginContext) {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for p.isRunning() {
-		<-ticker.C
-		if p.api != nil && p.api.Sdk() != nil {
-			stats := p.api.Sdk().Stats
-			if stats != nil {
-				// Update locked IPs count
-				locked, err := stats.GetLockedIPCount()
-				if err == nil {
-					metrics.WhitelistCount.Set(float64(locked))
-				}
-
-				// Update drop details
-				drops, err := stats.GetDropDetails()
-				if err == nil {
-					for _, d := range drops {
-						reasonStr := fmt.Sprintf("%d", d.Reason)
-						metrics.XdpDropTotal.WithLabelValues(reasonStr).Set(float64(d.Count))
-					}
-				}
-
-				// Update pass details
-				passes, err := stats.GetPassDetails()
-				if err == nil {
-					for _, d := range passes {
-						reasonStr := fmt.Sprintf("%d", d.Reason)
-						metrics.XdpPassTotal.WithLabelValues(reasonStr).Set(float64(d.Count))
-					}
-				}
-
-				// Update global stats
-				globalStats, err := stats.GetGlobalStats()
-				if err == nil {
-					// Use specific label for default deny drop
-					// 使用特定标签记录默认拒绝丢弃
-					metrics.XdpDropTotal.WithLabelValues("default_deny").Set(float64(globalStats.DropDefaultDeny))
-				}
-			}
+	if p.collector == nil {
+		var pluginSDK *sdk.SDK
+		if ctx != nil {
+			pluginSDK = ctx.SDK
+		} else if p.api != nil {
+			pluginSDK = p.api.Sdk()
 		}
+		p.collector = exporter.NewCollector(pluginSDK)
 	}
+
+	var runCtx context.Context
+	if ctx != nil {
+		runCtx = ctx.Context
+	}
+
+	p.collector.Run(runCtx, p.isRunning)
 }

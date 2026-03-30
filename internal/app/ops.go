@@ -22,10 +22,8 @@ import (
 	"github.com/netxfw/netxfw/internal/binary"
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/core"
-	"github.com/netxfw/netxfw/internal/core/engine"
 	"github.com/netxfw/netxfw/internal/daemon"
 	"github.com/netxfw/netxfw/internal/optimizer"
-	"github.com/netxfw/netxfw/internal/plugins"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
@@ -114,29 +112,18 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		return fmt.Errorf("config is nil after loading")
 	}
 
-	// 2. 解析网络接口 / Resolve network interfaces
-	interfaces, err := resolveInterfaces(cliInterfaces, globalCfg, log)
+	interfaces, err := daemon.ResolveRuntimeInterfaces(cliInterfaces, globalCfg, log)
 	if err != nil {
 		return err
 	}
 
-	// 3. 创建 XDP 管理器 / Create XDP manager
-	// 检查是否已有固定的 maps，如果有则加载现有的管理器
-	// Check if maps are already pinned, if so load existing manager
-	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
+	manager, err := daemon.LoadOrCreateManager(log, GetPinPath(), globalCfg)
 	if err != nil {
-		// No pinned maps found, create new manager
-		// 未找到固定的 maps，创建新的管理器
-		manager, err = xdp.NewManager(globalCfg.Capacity, log)
-		if err != nil {
-			return fmt.Errorf("failed to create XDP manager: %v", err)
-		}
-	} else {
-		log.Infof("[INFO]  Loaded existing manager from pinned maps")
+		return err
 	}
 
 	// 4. 固定 BPF maps 到文件系统 / Pin BPF maps to filesystem
-	if err := manager.Pin(GetPinPath()); err != nil {
+	if err := daemon.PinManager(manager, GetPinPath()); err != nil {
 		return fmt.Errorf("failed to pin maps: %v", err)
 	}
 
@@ -146,12 +133,9 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		log.Warnf("[WARN]  Failed to sync config and load rules: %v (continuing anyway)", err)
 	}
 
-	// 6. 挂载 XDP 程序到网络接口 / Attach XDP program to network interfaces
-	if err := manager.Attach(interfaces); err != nil {
+	if err := daemon.ReconcileInterfaces(manager, GetPinPath(), interfaces, log, daemon.DetachAfterAttach); err != nil {
 		return fmt.Errorf("failed to attach XDP: %v", err)
 	}
-	// 分离孤立接口 / Detach orphaned interfaces
-	detachOrphanedInterfaces(manager, interfaces, log)
 
 	// 加载 BPF 插件 / Load BPF plugins
 	if err := loadBPFPlugins(manager, globalCfg, log); err != nil {
@@ -160,99 +144,14 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 
 	// 7. 初始化 SDK 和插件上下文 / Initialize SDK and plugin context
 	s := sdk.NewSDK(xdp.NewAdapter(manager))
-	pluginCtx := &sdk.PluginContext{
-		Context: ctx,
-		Manager: s.GetManager(),
-		Config:  globalCfg,
-		Logger:  log,
-		SDK:     s,
+	_, err = daemon.StartDefaultRuntimeCore(globalCfg, s, log)
+	if err != nil {
+		return fmt.Errorf("[ERROR] %v", err)
 	}
-
-	// 8. 初始化并启动核心模块 / Initialize and start core modules
-	coreModules := []engine.CoreModule{
-		&engine.BaseModule{},      // 基础模块：默认策略、ICMP 速率限制 / Base module: default policy, ICMP rate limit
-		&engine.ConntrackModule{}, // 连接跟踪模块 / Connection tracking module
-		&engine.PortModule{},      // 端口管理模块 / Port management module
-		&engine.RateLimitModule{}, // 速率限制模块 / Rate limit module
-	}
-
-	for _, mod := range coreModules {
-		if err := mod.Init(globalCfg, s, log); err != nil {
-			return fmt.Errorf("[ERROR] Failed to init core module %s: %v", mod.Name(), err)
-		}
-		if err := mod.Start(); err != nil {
-			return fmt.Errorf("[ERROR] Failed to start core module %s: %v", mod.Name(), err)
-		}
-	}
-
-	// 9. 初始化并启动插件 / Initialize and start plugins
-	for _, p := range plugins.GetPlugins() {
-		if err := p.Init(pluginCtx); err != nil {
-			log.Errorf("[WARN]  Failed to init plugin %s: %v", p.Name(), err)
-			continue
-		}
-
-		if err := p.Start(pluginCtx); err != nil {
-			log.Errorf("[WARN]  Failed to start plugin %s: %v", p.Name(), err)
-		}
-	}
+	_, _ = daemon.StartRuntimePlugins(ctx, nil, s.GetManager(), globalCfg, log, s)
 
 	log.Infof("[START] XDP program installed successfully and pinned to %s", GetPinPath())
 	return nil
-}
-
-// resolveInterfaces resolves the interfaces to use for XDP.
-// resolveInterfaces 解析用于 XDP 的接口。
-func resolveInterfaces(cliInterfaces []string, globalCfg *types.GlobalConfig, log *zap.SugaredLogger) ([]string, error) {
-	if len(cliInterfaces) > 0 {
-		log.Infof("[INFO]  Using CLI provided interfaces: %v", cliInterfaces)
-		return cliInterfaces, nil
-	}
-
-	if len(globalCfg.Base.Interfaces) > 0 {
-		log.Infof("[INFO]  Using configured interfaces: %v", globalCfg.Base.Interfaces)
-		return globalCfg.Base.Interfaces, nil
-	}
-
-	interfaces, err := xdp.GetPhysicalInterfaces()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get interfaces: %v", err)
-	}
-	if len(interfaces) == 0 {
-		return nil, fmt.Errorf("no physical interfaces found")
-	}
-	log.Infof("[INFO]  Auto-detected interfaces: %v", interfaces)
-	return interfaces, nil
-}
-
-// detachOrphanedInterfaces detaches XDP from interfaces not in the current configuration.
-// detachOrphanedInterfaces 从不在当前配置中的接口分离 XDP。
-func detachOrphanedInterfaces(manager *xdp.Manager, interfaces []string, log *zap.SugaredLogger) {
-	attachedIfaces, err := xdp.GetAttachedInterfaces(GetPinPath())
-	if err != nil {
-		return
-	}
-
-	var toDetach []string
-	for _, attached := range attachedIfaces {
-		found := false
-		for _, configured := range interfaces {
-			if attached == configured {
-				found = true
-				break
-			}
-		}
-		if !found {
-			toDetach = append(toDetach, attached)
-		}
-	}
-
-	if len(toDetach) > 0 {
-		log.Infof("[INFO]  Detaching from removed interfaces: %v", toDetach)
-		if err := manager.Detach(toDetach); err != nil {
-			log.Warnf("[WARN]  Failed to detach from removed interfaces: %v", err)
-		}
-	}
 }
 
 // GetAttachedInterfaceInfos returns detailed XDP attachment information.
@@ -800,7 +699,7 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 		return fmt.Errorf("config is nil after loading")
 	}
 
-	interfaces, err := resolveInterfaces(cliInterfaces, globalCfg, log)
+	interfaces, err := daemon.ResolveRuntimeInterfaces(cliInterfaces, globalCfg, log)
 	if err != nil {
 		return err
 	}
@@ -856,7 +755,7 @@ func performIncrementalReload(oldManager *xdp.Manager, globalCfg *types.GlobalCo
 		}
 	}
 
-	reloadPlugins(pluginCtx, log)
+	daemon.ReloadPlugins(pluginCtx, log)
 
 	if err := oldManager.Attach(interfaces); err != nil {
 		log.Warnf("[WARN]  Failed to update XDP program: %v", err)
@@ -889,31 +788,12 @@ func performFullMigration(ctx context.Context, oldManager *xdp.Manager, globalCf
 	}
 
 	newAdapter := xdp.NewAdapter(newManager)
-	newCtx := &sdk.PluginContext{
-		Context: ctx,
-		Manager: newAdapter,
-		Config:  globalCfg,
-		Logger:  log,
-	}
+	newCtx := daemon.BuildPluginContext(ctx, nil, newAdapter, globalCfg, log, nil)
 
-	reloadPlugins(newCtx, log)
+	daemon.ReloadPlugins(newCtx, log)
 
 	log.Info("[START] Full hot-reload with state migration completed successfully.")
 	return nil
-}
-
-// reloadPlugins reloads all plugins.
-// reloadPlugins 重载所有插件。
-func reloadPlugins(pluginCtx *sdk.PluginContext, log *zap.SugaredLogger) {
-	for _, p := range plugins.GetPlugins() {
-		if err := p.Init(pluginCtx); err != nil {
-			log.Warnf("[WARN]  Failed to init plugin %s: %v", p.Name(), err)
-			continue
-		}
-		if err := p.Reload(pluginCtx); err != nil {
-			log.Warnf("[WARN]  Failed to reload plugin %s: %v", p.Name(), err)
-		}
-	}
 }
 
 /**

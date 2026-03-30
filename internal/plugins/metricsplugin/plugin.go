@@ -3,14 +3,14 @@ package metrics
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/internal/api"
+	"github.com/netxfw/netxfw/internal/metrics/exporter"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type MetricsPlugin struct {
 	config  *types.MetricsConfig
-	server  *api.MetricsServer
+	server  *exporter.Server
 	running bool
 }
 
@@ -41,7 +41,7 @@ func (p *MetricsPlugin) Validate(cfg *types.GlobalConfig) error {
 
 func (p *MetricsPlugin) Init(ctx *sdk.PluginContext) error {
 	p.config = &ctx.Config.Metrics
-	p.server = api.NewMetricsServer(ctx.SDK, p.config)
+	p.server = exporter.NewServer(ctx.SDK, p.config)
 	return nil
 }
 

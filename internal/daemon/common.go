@@ -130,36 +130,9 @@ func startPprof(port int) {
 	}()
 }
 
-// cleanupOrphanedInterfaces detaches XDP programs from interfaces no longer in config.
-// cleanupOrphanedInterfaces 从不再配置中的接口分离 XDP 程序。
-func cleanupOrphanedInterfaces(manager *xdp.Manager, configuredInterfaces []string) {
-	if attachedIfaces, err := xdp.GetAttachedInterfaces(config.GetPinPath()); err == nil {
-		var toDetach []string
-		for _, attached := range attachedIfaces {
-			found := false
-			for _, configured := range configuredInterfaces {
-				if attached == configured {
-					found = true
-					break
-				}
-			}
-			if !found {
-				toDetach = append(toDetach, attached)
-			}
-		}
-		if len(toDetach) > 0 {
-			log := logger.Get(context.Background())
-			log.Infof("[INFO]  Detaching from removed interfaces: %v", toDetach)
-			if err := manager.Detach(toDetach); err != nil {
-				log.Warnf("[WARN]  Failed to detach from removed interfaces: %v", err)
-			}
-		}
-	}
-}
-
 // waitForSignal blocks until a termination signal is received.
 // waitForSignal 阻塞直到接收到终止信号。
-func waitForSignal(ctx context.Context, configPath string, s *sdk.SDK, reloadFunc func() error, stopFunc func()) {
+func waitForSignal(ctx context.Context, _ string, _ *sdk.SDK, reloadFunc func() error, stopFunc func()) {
 
 	log := logger.Get(ctx)
 	sig := make(chan os.Signal, 1)

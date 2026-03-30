@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
@@ -31,22 +30,14 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	}
 	defer removePidFileWithInterfaces(pidPath, interfaces)
 
-	globalCfg, err := config.ReloadCurrentConfig()
+	globalCfg, err := LoadRuntimeConfigSnapshot()
 	if err != nil {
 		log.Errorf("[ERROR] Failed to load global config from %s: %v", configPath, err)
 		return
 	}
-	if globalCfg == nil {
-		log.Errorf("[ERROR] Config is nil after loading from %s", configPath)
-		return
-	}
 
 	// Initialize Logging / 初始化日志
-	logger.Init(globalCfg.Logging)
-
-	if globalCfg.Base.EnablePprof {
-		startPprof(globalCfg.Base.PprofPort)
-	}
+	InitRuntimeLogging(globalCfg)
 
 	// 1. Initialize Manager
 	var manager xdp.ManagerInterface
@@ -54,26 +45,19 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 		log.Info("Using injected Manager (e.g. for testing)")
 		manager = opts.Manager
 	} else {
-		// In Agent mode, we expect maps to be already pinned by the Daemon.
-		// 在 Agent 模式下，我们期望 Map 已经被 Daemon 固定。
 		pinPath := config.GetPinPath()
-		realMgr, err := xdp.NewManagerFromPins(pinPath, log)
+		adapter, realMgr, err := RequirePinnedManager(pinPath, log)
 		if err != nil {
 			log.Errorf("[ERROR] Agent requires netxfw daemon to be running and maps pinned at %s: %v", pinPath, err)
 			return
 		}
 		defer realMgr.Close()
-		// Wrap manager with Adapter for interface compliance
-		manager = xdp.NewAdapter(realMgr)
+		manager = adapter
 	}
 
 	// Consistency Check at startup (Ensure BPF maps match Config)
 	// 启动时的一致性检查（确保 BPF Map 与配置匹配）
-	if err := manager.VerifyAndRepair(globalCfg); err != nil {
-		log.Warnf("[WARN]  Startup consistency check failed: %v", err)
-	} else {
-		log.Info("[OK] Startup consistency check passed (Config synced to BPF).")
-	}
+	VerifyRuntimeConfigAndMaps(manager, globalCfg, log)
 
 	// 2. Load ALL Plugins (Agent manages everything) / 加载所有插件（Agent 管理一切）
 	var fw sdk.Firewall
@@ -82,34 +66,9 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	}
 
 	s := sdk.NewSDK(manager)
-	pluginCtx := &sdk.PluginContext{
-		Context:  ctx,
-		Firewall: fw,
-		Manager:  manager,
-		Config:   globalCfg,
-		Logger:   log,
-		SDK:      s,
-	}
-
-	allPlugins := plugins.GetPlugins()
-	startedPlugins := make([]sdk.Plugin, 0, len(allPlugins))
-	for _, p := range allPlugins {
-		if err := p.Init(pluginCtx); err != nil {
-			log.Warnf("[WARN]  Failed to init plugin %s: %v", p.Name(), err)
-			continue
-		}
-		if err := p.Start(pluginCtx); err != nil {
-			log.Warnf("[WARN]  Failed to start plugin %s: %v", p.Name(), err)
-			continue
-		}
-		startedPlugins = append(startedPlugins, p)
-	}
-
-	defer func() {
-		for _, p := range startedPlugins {
-			_ = p.Stop()
-		}
-	}()
+	pluginCtx := BuildPluginContext(ctx, fw, manager, globalCfg, log, s)
+	startedPlugins := StartPlugins(pluginCtx, log)
+	defer StopPlugins(startedPlugins)
 
 	// 4. Start Cleanup Loop / 启动清理循环
 	ctxCleanup, cancel := context.WithCancel(ctx)
