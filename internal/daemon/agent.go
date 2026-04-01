@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 
+	"github.com/netxfw/netxfw/internal/api"
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/internal/xdp"
@@ -66,7 +67,8 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	}
 
 	s := sdk.NewSDK(manager)
-	pluginCtx := BuildPluginContext(ctx, fw, manager, globalCfg, log, s)
+	webHost := api.NewServer(s, globalCfg.Web.Port)
+	pluginCtx := BuildPluginContext(ctx, fw, manager, globalCfg, log, s, webHost)
 	startedPlugins := StartPlugins(pluginCtx, log)
 	defer StopPlugins(startedPlugins)
 

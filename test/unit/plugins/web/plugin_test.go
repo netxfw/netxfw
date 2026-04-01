@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/plugins/types"
@@ -8,6 +9,12 @@ import (
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
+
+type stubWebHost struct{}
+
+func (s *stubWebHost) EnsureHandlerInitialized() error { return nil }
+func (s *stubWebHost) APIHandler() http.Handler        { return http.NewServeMux() }
+func (s *stubWebHost) UIHandler() http.Handler         { return http.NewServeMux() }
 
 // TestWebPlugin_DefaultConfig tests the default config
 // TestWebPlugin_DefaultConfig 测试默认配置
@@ -96,6 +103,7 @@ func TestWebPlugin_Init(t *testing.T) {
 			},
 		},
 		SDK: &sdk.SDK{}, // Mock SDK if needed
+		Web: &stubWebHost{},
 	}
 
 	err := p.Init(ctx)

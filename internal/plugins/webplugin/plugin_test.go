@@ -1,13 +1,40 @@
 package web
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
+
+type stubWebHost struct{}
+
+func (s *stubWebHost) EnsureHandlerInitialized() error { return nil }
+func (s *stubWebHost) APIHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+	return mux
+}
+func (s *stubWebHost) UIHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	return mux
+}
 
 // TestWebPlugin_DefaultConfig tests the default config
 // TestWebPlugin_DefaultConfig 测试默认配置
@@ -96,6 +123,7 @@ func TestWebPlugin_Init(t *testing.T) {
 			},
 		},
 		SDK: &sdk.SDK{}, // Mock SDK if needed
+		Web: &stubWebHost{},
 	}
 
 	err := p.Init(ctx)
@@ -141,6 +169,7 @@ func TestWebPlugin_Stop_WithServer(t *testing.T) {
 			},
 		},
 		SDK: &sdk.SDK{},
+		Web: &stubWebHost{},
 	}
 
 	p.Init(ctx)
@@ -160,6 +189,7 @@ func TestWebPlugin_Reload(t *testing.T) {
 			},
 		},
 		SDK: &sdk.SDK{},
+		Web: &stubWebHost{},
 	}
 
 	err := p.Reload(ctx)
@@ -183,6 +213,7 @@ func TestWebPlugin_Start_Disabled(t *testing.T) {
 			},
 		},
 		SDK:    &sdk.SDK{},
+		Web:    &stubWebHost{},
 		Logger: &MockLogger{},
 	}
 
@@ -211,6 +242,7 @@ func TestWebPlugin_CollectStats(t *testing.T) {
 			},
 		},
 		SDK:    &sdk.SDK{},
+		Web:    &stubWebHost{},
 		Logger: &MockLogger{},
 	}
 
@@ -221,6 +253,82 @@ func TestWebPlugin_CollectStats(t *testing.T) {
 	}()
 
 	p.collectStats(ctx)
+}
+
+func TestWebPlugin_RouteMounts_WithSharedMetrics(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	pluginSDK := sdk.NewSDK(mockMgr)
+	p := &WebPlugin{}
+	ctx := &sdk.PluginContext{
+		Config: &types.GlobalConfig{
+			Web: types.WebConfig{
+				Enabled: true,
+				Port:    11823,
+			},
+			Metrics: types.MetricsConfig{
+				Enabled:       true,
+				ServerEnabled: false,
+			},
+		},
+		SDK:    pluginSDK,
+		Web:    &stubWebHost{},
+		Logger: &MockLogger{},
+	}
+
+	assert.NoError(t, p.Init(ctx))
+	assert.NoError(t, p.Start(ctx))
+	defer func() { _ = p.Stop() }()
+
+	tests := []struct {
+		name string
+		path string
+		code int
+	}{
+		{name: "ui root", path: "/", code: http.StatusOK},
+		{name: "healthz", path: "/healthz", code: http.StatusOK},
+		{name: "version", path: "/version", code: http.StatusOK},
+		{name: "api stats requires auth", path: "/api/stats", code: http.StatusUnauthorized},
+		{name: "metrics served on web", path: "/metrics", code: http.StatusOK},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.path, http.NoBody)
+			rec := httptest.NewRecorder()
+			p.server.Handler.ServeHTTP(rec, req)
+			assert.Equal(t, tt.code, rec.Code)
+		})
+	}
+}
+
+func TestWebPlugin_RouteMounts_WithDedicatedMetricsServer(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	pluginSDK := sdk.NewSDK(mockMgr)
+	p := &WebPlugin{}
+	ctx := &sdk.PluginContext{
+		Config: &types.GlobalConfig{
+			Web: types.WebConfig{
+				Enabled: true,
+				Port:    11824,
+			},
+			Metrics: types.MetricsConfig{
+				Enabled:       true,
+				ServerEnabled: true,
+			},
+		},
+		SDK:    pluginSDK,
+		Web:    &stubWebHost{},
+		Logger: &MockLogger{},
+	}
+
+	assert.NoError(t, p.Init(ctx))
+	assert.NoError(t, p.Start(ctx))
+	defer func() { _ = p.Stop() }()
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody)
+	rec := httptest.NewRecorder()
+	p.server.Handler.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
 // MockLogger is a mock implementation of sdk.Logger

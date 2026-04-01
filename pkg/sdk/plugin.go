@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"context"
+	"net/http"
 )
 
 // PluginContext provides the environment for a plugin to operate in.
@@ -27,6 +28,17 @@ type PluginContext struct {
 	// SDK provides structured high-level APIs (Blacklist, Whitelist, Rule, etc.).
 	// SDK 提供结构化的高级 API（黑名单、白名单、规则等）。
 	SDK *SDK
+	// Web provides API/UI handler hosting for web-facing plugins.
+	// Web 为面向 Web 的插件提供 API/UI handler 承载能力。
+	Web WebHost
+}
+
+// WebHost defines the minimal API/UI hosting surface needed by plugins.
+// WebHost 定义插件所需的最小 API/UI 承载接口。
+type WebHost interface {
+	EnsureHandlerInitialized() error
+	APIHandler() http.Handler
+	UIHandler() http.Handler
 }
 
 // Logger defines the logging interface for plugins.

@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 
+	"github.com/netxfw/netxfw/internal/api"
 	"go.uber.org/zap"
 
 	"github.com/netxfw/netxfw/internal/config"
@@ -46,7 +47,8 @@ func runUnified(ctx context.Context) {
 	}
 	if len(interfaces) > 0 {
 		if err := ReconcileInterfaces(manager, config.GetPinPath(), interfaces, log, DetachBeforeAttach); err != nil {
-			log.Fatalf("[ERROR] Failed to attach XDP: %v", err)
+			log.Errorf("[ERROR] Failed to attach XDP: %v", err)
+			return
 		}
 	}
 
@@ -55,11 +57,13 @@ func runUnified(ctx context.Context) {
 	coreModules := DefaultCoreModules()
 	adapter := xdp.NewAdapter(manager)
 	s := sdk.NewSDK(adapter)
+	webHost := api.NewServer(s, globalCfg.Web.Port)
 	if err := StartCoreModules(coreModules, globalCfg, s, log); err != nil {
-		log.Fatalf("[ERROR] %v", err)
+		log.Errorf("[ERROR] %v", err)
+		return
 	}
 
-	pluginCtx := BuildPluginContext(ctx, adapter, adapter, globalCfg, log, s)
+	pluginCtx := BuildPluginContext(ctx, adapter, adapter, globalCfg, log, s, webHost)
 	StartPlugins(pluginCtx, log)
 
 	ctxCleanup, cancel := context.WithCancel(ctx)

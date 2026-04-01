@@ -9,7 +9,7 @@ import (
 )
 
 // BuildPluginContext constructs a plugin context with the provided runtime dependencies.
-func BuildPluginContext(ctx context.Context, fw sdk.Firewall, manager sdk.ManagerInterface, cfg *sdk.GlobalConfig, log *zap.SugaredLogger, s *sdk.SDK) *sdk.PluginContext {
+func BuildPluginContext(ctx context.Context, fw sdk.Firewall, manager sdk.ManagerInterface, cfg *sdk.GlobalConfig, log *zap.SugaredLogger, s *sdk.SDK, web sdk.WebHost) *sdk.PluginContext {
 	return &sdk.PluginContext{
 		Context:  ctx,
 		Firewall: fw,
@@ -17,6 +17,7 @@ func BuildPluginContext(ctx context.Context, fw sdk.Firewall, manager sdk.Manage
 		Config:   cfg,
 		Logger:   log,
 		SDK:      s,
+		Web:      web,
 	}
 }
 
@@ -52,8 +53,8 @@ func ReloadPlugins(pluginCtx *sdk.PluginContext, log *zap.SugaredLogger) {
 }
 
 // StartRuntimePlugins is a small convenience wrapper around context build + start.
-func StartRuntimePlugins(ctx context.Context, fw sdk.Firewall, manager sdk.ManagerInterface, cfg *sdk.GlobalConfig, log *zap.SugaredLogger, s *sdk.SDK) (*sdk.PluginContext, []sdk.Plugin) {
-	pluginCtx := BuildPluginContext(ctx, fw, manager, cfg, log, s)
+func StartRuntimePlugins(ctx context.Context, fw sdk.Firewall, manager sdk.ManagerInterface, cfg *sdk.GlobalConfig, log *zap.SugaredLogger, s *sdk.SDK, web sdk.WebHost) (*sdk.PluginContext, []sdk.Plugin) {
+	pluginCtx := BuildPluginContext(ctx, fw, manager, cfg, log, s, web)
 	started := StartPlugins(pluginCtx, log)
 	return pluginCtx, started
 }

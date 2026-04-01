@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/api"
+	"github.com/netxfw/netxfw/internal/metrics/exporter"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -32,7 +33,7 @@ func TestMetricsServerCreation(t *testing.T) {
 		Port:          11812,
 	}
 
-	metricsServer := api.NewMetricsServer(nil, cfg)
+	metricsServer := exporter.NewServer(nil, cfg)
 
 	// Verify server was created correctly
 	// 验证服务器创建正确
@@ -50,7 +51,7 @@ func TestMetricsServerWithDisabledConfig(t *testing.T) {
 		Port:          11812,
 	}
 
-	metricsServer := api.NewMetricsServer(nil, cfg)
+	metricsServer := exporter.NewServer(nil, cfg)
 
 	// Verify server was created correctly even with disabled config
 	// 验证即使配置禁用，服务器也能正确创建
@@ -68,7 +69,7 @@ func TestMetricsServerWithServerDisabled(t *testing.T) {
 		Port:          11812,
 	}
 
-	metricsServer := api.NewMetricsServer(nil, cfg)
+	metricsServer := exporter.NewServer(nil, cfg)
 
 	// Verify server was created correctly
 	// 验证服务器创建正确

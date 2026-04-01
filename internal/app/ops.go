@@ -123,32 +123,37 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 	}
 
 	// 4. 固定 BPF maps 到文件系统 / Pin BPF maps to filesystem
-	if err := daemon.PinManager(manager, GetPinPath()); err != nil {
+	err = daemon.PinManager(manager, GetPinPath())
+	if err != nil {
 		return fmt.Errorf("failed to pin maps: %v", err)
 	}
 
 	// 5. 同步配置和规则到 BPF maps / Sync configuration and rules to BPF maps
 	log.Infof("[SYNC] Syncing global config and loading persisted rules...")
-	if err := manager.SyncFromFiles(globalCfg, false); err != nil {
+	err = manager.SyncFromFiles(globalCfg, false)
+	if err != nil {
 		log.Warnf("[WARN]  Failed to sync config and load rules: %v (continuing anyway)", err)
 	}
 
-	if err := daemon.ReconcileInterfaces(manager, GetPinPath(), interfaces, log, daemon.DetachAfterAttach); err != nil {
+	err = daemon.ReconcileInterfaces(manager, GetPinPath(), interfaces, log, daemon.DetachAfterAttach)
+	if err != nil {
 		return fmt.Errorf("failed to attach XDP: %v", err)
 	}
 
 	// 加载 BPF 插件 / Load BPF plugins
-	if err := loadBPFPlugins(manager, globalCfg, log); err != nil {
+	err = loadBPFPlugins(manager, globalCfg, log)
+	if err != nil {
 		log.Warnf("[WARN]  Failed to load BPF plugins: %v (continuing anyway)", err)
 	}
 
 	// 7. 初始化 SDK 和插件上下文 / Initialize SDK and plugin context
 	s := sdk.NewSDK(xdp.NewAdapter(manager))
+	webHost := api.NewServer(s, globalCfg.Web.Port)
 	_, err = daemon.StartDefaultRuntimeCore(globalCfg, s, log)
 	if err != nil {
 		return fmt.Errorf("[ERROR] %v", err)
 	}
-	_, _ = daemon.StartRuntimePlugins(ctx, nil, s.GetManager(), globalCfg, log, s)
+	_, _ = daemon.StartRuntimePlugins(ctx, nil, s.GetManager(), globalCfg, log, s, webHost)
 
 	log.Infof("[START] XDP program installed successfully and pinned to %s", GetPinPath())
 	return nil
@@ -238,11 +243,6 @@ func GetDefaultConfigPath() string {
 
 // InitRootCommandContext initializes logging for CLI root commands and injects logger into context.
 func InitRootCommandContext(ctx context.Context) context.Context {
-	cfgPath := runtime.ConfigPath
-	if cfgPath == "" {
-		cfgPath = GetDefaultConfigPath()
-	}
-
 	cfg, err := config.ReloadCurrentConfig()
 	if err != nil {
 		logger.Init(logger.LoggingConfig{Enabled: true, Level: "info"})
@@ -788,7 +788,9 @@ func performFullMigration(ctx context.Context, oldManager *xdp.Manager, globalCf
 	}
 
 	newAdapter := xdp.NewAdapter(newManager)
-	newCtx := daemon.BuildPluginContext(ctx, nil, newAdapter, globalCfg, log, nil)
+	newSDK := sdk.NewSDK(newAdapter)
+	webHost := api.NewServer(newSDK, globalCfg.Web.Port)
+	newCtx := daemon.BuildPluginContext(ctx, nil, newAdapter, globalCfg, log, newSDK, webHost)
 
 	daemon.ReloadPlugins(newCtx, log)
 

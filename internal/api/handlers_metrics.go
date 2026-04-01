@@ -26,7 +26,10 @@ func NewMetricsHandler(s *sdk.SDK) *MetricsHandler {
 // RegisterMetricsRoutes registers metrics API routes to the server's mux.
 // RegisterMetricsRoutes 注册指标 API 路由到服务器的 mux。
 func RegisterMetricsRoutes(mux *http.ServeMux, s *sdk.SDK, middleware func(http.Handler) http.Handler) {
-	handler := NewMetricsHandler(s)
+	registerMetricsRoutes(mux, NewMetricsHandler(s), middleware)
+}
+
+func registerMetricsRoutes(mux *http.ServeMux, handler *MetricsHandler, middleware func(http.Handler) http.Handler) {
 	register := func(path string, fn http.HandlerFunc) {
 		h := http.Handler(http.HandlerFunc(fn))
 		if middleware != nil {

@@ -455,7 +455,7 @@ func persistImportedWhitelist(ctx context.Context, xdpMgr XDPManager, entries []
 }
 
 func persistImportedIPPortRules(ctx context.Context, entries []ipPortImportEntry) error {
-	if err := config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
+	return config.MutateLoadedConfig(func(globalCfg *types.GlobalConfig) error {
 		modified := false
 		for _, item := range entries {
 			targetCIDR := iputil.NormalizeCIDR(item.cidr)
@@ -488,10 +488,7 @@ func persistImportedIPPortRules(ctx context.Context, entries []ipPortImportEntry
 
 		optimizer.OptimizeIPPortRulesConfig(globalCfg)
 		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 // ImportWhitelistFromFile imports IPs from a file to the whitelist.

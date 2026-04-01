@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/api"
 	"github.com/netxfw/netxfw/internal/metrics/exporter"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/pkg/sdk"
@@ -19,7 +18,7 @@ type WebPlugin struct {
 	server    *http.Server
 	running   bool
 	mu        sync.RWMutex // Protects running field from concurrent access / 保护 running 字段免受并发访问
-	api       *api.Server
+	web       sdk.WebHost
 	collector *exporter.Collector
 }
 
@@ -65,12 +64,12 @@ func (p *WebPlugin) Validate(cfg *types.GlobalConfig) error {
 
 func (p *WebPlugin) Init(ctx *sdk.PluginContext) error {
 	p.config = &ctx.Config.Web
-	p.api = api.NewServer(ctx.SDK, p.config.Port)
+	p.web = ctx.Web
 	p.collector = exporter.NewCollector(ctx.SDK)
-	if err := p.api.EnsureHandlerInitialized(); err != nil {
-		return err
+	if p.web == nil {
+		return fmt.Errorf("web host not available")
 	}
-	return nil
+	return p.web.EnsureHandlerInitialized()
 }
 
 func (p *WebPlugin) Start(ctx *sdk.PluginContext) error {
@@ -86,16 +85,31 @@ func (p *WebPlugin) Start(ctx *sdk.PluginContext) error {
 	// If metrics server is disabled, serve metrics on the same server
 	if !ctx.Config.Metrics.Enabled || !ctx.Config.Metrics.ServerEnabled {
 		mux.Handle("/metrics", promhttp.Handler())
+	} else {
+		mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+			http.NotFound(w, r)
+		})
 	}
 
-	// 2. Get API handler (handles both API and UI routes)
-	apiHandler := p.api.Handler()
+	// 2. Get handlers from injected web host
+	apiHandler := p.web.APIHandler()
+	uiHandler := p.web.UIHandler()
 
-	// 3. Register API routes (under /api/)
-	mux.Handle("/api/", http.StripPrefix("/api", apiHandler))
+	// 3. Register API routes and operational endpoints
+	mux.Handle("/api/", apiHandler)
+	mux.Handle("/healthz", apiHandler)
+	mux.Handle("/health", apiHandler)
+	mux.Handle("/health/maps", apiHandler)
+	mux.Handle("/health/map", apiHandler)
+	mux.Handle("/version", apiHandler)
+	mux.Handle("/debug/pprof/", apiHandler)
+	mux.Handle("/debug/pprof/cmdline", apiHandler)
+	mux.Handle("/debug/pprof/profile", apiHandler)
+	mux.Handle("/debug/pprof/symbol", apiHandler)
+	mux.Handle("/debug/pprof/trace", apiHandler)
 
-	// 4. Register UI route (for root and other non-API/non-metrics paths)
-	mux.Handle("/", apiHandler)
+	// 4. Register UI route
+	mux.Handle("/", uiHandler)
 
 	p.server = &http.Server{
 		Addr:              fmt.Sprintf(":%d", p.config.Port),
@@ -145,8 +159,6 @@ func (p *WebPlugin) collectStats(ctx *sdk.PluginContext) {
 		var pluginSDK *sdk.SDK
 		if ctx != nil {
 			pluginSDK = ctx.SDK
-		} else if p.api != nil {
-			pluginSDK = p.api.Sdk()
 		}
 		p.collector = exporter.NewCollector(pluginSDK)
 	}

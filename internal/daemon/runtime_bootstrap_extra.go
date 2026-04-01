@@ -31,7 +31,9 @@ func InitRuntimeLogging(globalCfg *types.GlobalConfig) {
 }
 
 // VerifyRuntimeConfigAndMaps preserves the current startup verify-and-repair behavior.
-func VerifyRuntimeConfigAndMaps(manager interface{ VerifyAndRepair(*types.GlobalConfig) error }, globalCfg *types.GlobalConfig, log *zap.SugaredLogger) {
+func VerifyRuntimeConfigAndMaps(manager interface {
+	VerifyAndRepair(*types.GlobalConfig) error
+}, globalCfg *types.GlobalConfig, log *zap.SugaredLogger) {
 	if err := manager.VerifyAndRepair(globalCfg); err != nil {
 		log.Warnf("[WARN]  Startup consistency check failed: %v", err)
 	} else {

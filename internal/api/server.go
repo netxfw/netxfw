@@ -66,9 +66,8 @@ func (s *Server) EnsureHandlerInitialized() error {
 	return s.initErr
 }
 
-// Handler returns the http.Handler for the API and UI.
-// Handler 返回 API 和 UI 的 http.Handler。
-func (s *Server) Handler() http.Handler {
+// APIHandler returns the http.Handler for API and operational endpoints.
+func (s *Server) APIHandler() http.Handler {
 	log := logger.Get(nil)
 	if err := s.EnsureHandlerInitialized(); err != nil {
 		log.Errorf("Failed to initialize API handler: %v", err)
@@ -83,44 +82,24 @@ func (s *Server) Handler() http.Handler {
 
 	mux := http.NewServeMux()
 
-	// Health check endpoint
-	// 健康检查端点
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/health/maps", s.handleHealthMaps)
 	mux.HandleFunc("/health/map", s.handleHealthMap)
-
-	// Version endpoint
-	// 版本端点
 	mux.HandleFunc("/version", s.handleVersion)
-
-	// API Routes
-	// API 路由
 	mux.HandleFunc("/api/login", s.handleLogin)
 	mux.Handle("/api/stats", s.withAuth(http.HandlerFunc(s.handleStats)))
 	mux.Handle("/api/rules", s.withAuth(http.HandlerFunc(s.handleRules)))
 	mux.Handle("/api/config", s.withAuth(http.HandlerFunc(s.handleConfig)))
 	mux.Handle("/api/sync", s.withAuth(http.HandlerFunc(s.handleSync)))
 	mux.Handle("/api/conntrack", s.withAuth(http.HandlerFunc(s.handleConntrack)))
-
-	// Performance monitoring API routes
-	// 性能监控 API 路由
 	mux.Handle("/api/perf", s.withAuth(http.HandlerFunc(s.handlePerfStats)))
 	mux.Handle("/api/perf/latency", s.withAuth(http.HandlerFunc(s.handlePerfLatency)))
 	mux.Handle("/api/perf/cache", s.withAuth(http.HandlerFunc(s.handlePerfCache)))
 	mux.Handle("/api/perf/traffic", s.withAuth(http.HandlerFunc(s.handlePerfTraffic)))
 	mux.Handle("/api/perf/reset", s.withAuth(http.HandlerFunc(s.handlePerfReset)))
+	registerMetricsRoutes(mux, NewMetricsHandler(s.sdk), s.withAuth)
 
-	// Metrics API routes (v1)
-	// 指标 API 路由 (v1)
-	RegisterMetricsRoutes(mux, s.sdk, s.withAuth)
-
-	// UI Route
-	// UI 路由
-	mux.HandleFunc("/", s.handleUI)
-
-	// Pprof routes for debugging (only if enabled in config)
-	// 调试用 Pprof 路由（仅在配置中启用时）
 	if cfg.Base.EnablePprof {
 		mux.Handle("/debug/pprof/", s.withAuth(http.HandlerFunc(pprof.Index)))
 		mux.Handle("/debug/pprof/cmdline", s.withAuth(http.HandlerFunc(pprof.Cmdline)))
@@ -129,5 +108,45 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle("/debug/pprof/trace", s.withAuth(http.HandlerFunc(pprof.Trace)))
 	}
 
+	return mux
+}
+
+// UIHandler returns the http.Handler for the embedded UI only.
+func (s *Server) UIHandler() http.Handler {
+	if err := s.EnsureHandlerInitialized(); err != nil {
+		logger.Get(nil).Errorf("Failed to initialize UI handler: %v", err)
+		return nil
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", s.handleUI)
+	return mux
+}
+
+// Handler returns the combined http.Handler for backward compatibility.
+// Handler 返回 API 和 UI 的 http.Handler。
+func (s *Server) Handler() http.Handler {
+	apiHandler := s.APIHandler()
+	if apiHandler == nil {
+		return nil
+	}
+	uiHandler := s.UIHandler()
+	if uiHandler == nil {
+		return nil
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/", uiHandler)
+	mux.Handle("/healthz", apiHandler)
+	mux.Handle("/health", apiHandler)
+	mux.Handle("/health/maps", apiHandler)
+	mux.Handle("/health/map", apiHandler)
+	mux.Handle("/version", apiHandler)
+	mux.Handle("/api/", apiHandler)
+	mux.Handle("/debug/pprof/", apiHandler)
+	mux.Handle("/debug/pprof/cmdline", apiHandler)
+	mux.Handle("/debug/pprof/profile", apiHandler)
+	mux.Handle("/debug/pprof/symbol", apiHandler)
+	mux.Handle("/debug/pprof/trace", apiHandler)
 	return mux
 }

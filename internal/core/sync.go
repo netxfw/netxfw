@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // SyncToConfig dumps current BPF map states to configuration files.

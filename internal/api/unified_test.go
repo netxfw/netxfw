@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/netxfw/netxfw/internal/metrics/exporter"
 	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
@@ -271,6 +272,33 @@ func TestHandleUI(t *testing.T) {
 	assert.Contains(t, rec.Header().Get("Content-Type"), "text/html")
 }
 
+func TestServer_APIHandler_DoesNotServeUIRoot(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	handler := server.APIHandler()
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestServer_UIHandler_ServesUIRoot(t *testing.T) {
+	mockMgr := xdp.NewMockManager()
+	s := sdk.NewSDK(mockMgr)
+	server := NewServer(s, 8080)
+
+	handler := server.UIHandler()
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Header().Get("Content-Type"), "text/html")
+}
+
 // TestMetricsServerStart tests starting the metrics server
 // TestMetricsServerStart 测试启动 metrics 服务器
 func TestMetricsServerStart(t *testing.T) {
@@ -280,7 +308,7 @@ func TestMetricsServerStart(t *testing.T) {
 		Port:          11813, // Use different port to avoid conflicts
 	}
 
-	metricsServer := NewMetricsServer(nil, cfg)
+	metricsServer := exporter.NewServer(nil, cfg)
 	assert.NotNil(t, metricsServer)
 
 	// Start the server
@@ -308,7 +336,7 @@ func TestMetricsServerDisabled(t *testing.T) {
 		Port:          11812,
 	}
 
-	metricsServer := NewMetricsServer(nil, cfg)
+	metricsServer := exporter.NewServer(nil, cfg)
 	ctx := context.Background()
 	err := metricsServer.Start(ctx)
 	assert.NoError(t, err)
@@ -323,7 +351,7 @@ func TestMetricsServerStop(t *testing.T) {
 		Port:          11814,
 	}
 
-	metricsServer := NewMetricsServer(nil, cfg)
+	metricsServer := exporter.NewServer(nil, cfg)
 	ctx := context.Background()
 	metricsServer.Start(ctx)
 	time.Sleep(100 * time.Millisecond)
@@ -1166,7 +1194,7 @@ func TestMetricsServer_CollectStats(t *testing.T) {
 		Port:          11815,
 	}
 
-	metricsServer := NewMetricsServer(s, cfg)
+	metricsServer := exporter.NewServer(s, cfg)
 	assert.NotNil(t, metricsServer)
 
 	ctx := context.Background()
