@@ -142,8 +142,8 @@ This is faster than full reload and maintains existing connections.`,
 		configFile, _ := cmd.Flags().GetString("config")
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		executor.ExecuteWithSDKAndConfig(func(cfg *sdk.GlobalConfig, s *sdk.SDK) error {
-			if err := s.Sync.ToMap(cfg, false); err != nil {
+		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
+			if err := app.LoadAndSyncConfigToRuntime(s); err != nil {
 				return fmt.Errorf("[ERROR] Failed to sync configuration to BPF maps: %v", err)
 			}
 			executor.PrintSuccess("Configuration reloaded and synced to BPF maps successfully")
@@ -162,8 +162,7 @@ var SimpleUpdateCmd = &cobra.Command{
 
 		executor.Do(func() error {
 			fmt.Println("[START] Checking for updates...")
-			execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
-			if err := app.RunShellPipeline(execCmd); err != nil {
+			if err := app.RunDeployUpdate(); err != nil {
 				return fmt.Errorf("[ERROR] Update failed: %v", err)
 			}
 			return nil

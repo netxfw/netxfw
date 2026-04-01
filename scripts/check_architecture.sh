@@ -128,16 +128,16 @@ check_forbidden_imports() {
   fi
   echo ""
 
-  # internal -> cmd（严格禁止）
-  echo "6. internal -> cmd reverse deps (error)"
-  local internal_cmd
-  internal_cmd=$(grep -R -E '"github.com/netxfw/netxfw/cmd/' internal --include="*.go" 2>/dev/null || true)
-  if [ -n "$internal_cmd" ]; then
-    print_err "发现 internal 层反向依赖 cmd（不允许）"
-    echo "$internal_cmd"
+  # plugins -> api（当前已完成收口，重新引入应直接报错）
+  echo "7. plugins -> api reverse deps (error)"
+  local plugins_api
+  plugins_api=$(grep -R -E '"github.com/netxfw/netxfw/internal/api"' internal/plugins --include="*.go" 2>/dev/null || true)
+  if [ -n "$plugins_api" ]; then
+    print_err "发现 plugins 层直接依赖 internal/api（不允许）"
+    echo "$plugins_api"
     inc_error
   else
-    print_ok "internal -> cmd 检查通过"
+    print_ok "plugins -> api 检查通过"
   fi
   echo ""
 }

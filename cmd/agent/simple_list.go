@@ -601,7 +601,7 @@ func runAllowCommand(cmd *cobra.Command, input string) {
 		if err := s.Whitelist.Add(ip, port); err != nil {
 			return fmt.Errorf("[ERROR] Failed to allow IP: %v", err)
 		}
-		if err := persistWhitelistEntryToConfig(ip, port); err != nil {
+		if err := app.PersistWhitelistEntry(ip, port); err != nil {
 			return fmt.Errorf("[ERROR] Failed to persist whitelist entry: %v", err)
 		}
 		if port > 0 {
@@ -634,7 +634,7 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 			if err := s.Rule.AddIPPortRule(ip, port, 0); err != nil {
 				return fmt.Errorf("[ERROR] Failed to add IP+Port deny rule: %v", err)
 			}
-			if err := persistIPPortRuleToConfig(ip, port, 0); err != nil {
+			if err := app.PersistIPPortRule(ip, port, 0); err != nil {
 				return fmt.Errorf("[ERROR] Failed to persist IP+Port deny rule: %v", err)
 			}
 			executor.PrintSuccess(fmt.Sprintf("[BLOCK] IP+Port deny rule added: %s:%d", ip, port))

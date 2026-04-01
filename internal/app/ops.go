@@ -463,6 +463,97 @@ func OptimizeIPPortRulesConfig(cfg *sdk.GlobalConfig) {
 	optimizer.OptimizeIPPortRulesConfig(cfg)
 }
 
+// ValidateAndAttachXDP validates the requested attach mode and attaches XDP.
+func ValidateAndAttachXDP(ctx context.Context, interfaces []string, mode string) ([]string, error) {
+	switch mode {
+	case "offload", "drv", "skb":
+		return AttachXDPWithMode(ctx, interfaces, mode)
+	default:
+		return nil, fmt.Errorf("invalid mode. must be one of: offload, drv, skb")
+	}
+}
+
+// RunDeployUpdate executes the trusted deployment update pipeline.
+func RunDeployUpdate() error {
+	execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
+	return RunShellPipeline(execCmd)
+}
+
+// PersistWhitelistEntry records a whitelist entry in config if needed.
+func PersistWhitelistEntry(ip string, port uint16) error {
+	if IsTestMode() {
+		return nil
+	}
+
+	return MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
+		normalizedCIDR := NormalizeCIDR(ip)
+		entry := normalizedCIDR
+		if port > 0 {
+			entry = fmt.Sprintf("%s:%d", normalizedCIDR, port)
+		}
+
+		for _, existing := range globalCfg.Base.Whitelist {
+			host, existingPort, parseErr := ParseIPPort(existing)
+			existingCIDR := ""
+			if parseErr == nil {
+				existingCIDR = NormalizeCIDR(host)
+			} else {
+				existingCIDR = NormalizeCIDR(existing)
+				existingPort = 0
+			}
+
+			if existingCIDR == normalizedCIDR && existingPort == port {
+				return nil
+			}
+		}
+
+		globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
+		OptimizeWhitelistConfig(globalCfg)
+		return nil
+	})
+}
+
+// PersistIPPortRule records an IP+Port rule in config if needed.
+func PersistIPPortRule(ip string, port uint16, action uint8) error {
+	if IsTestMode() {
+		return nil
+	}
+
+	return MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
+		normalizedCIDR := NormalizeCIDR(ip)
+		updated := false
+
+		for i := range globalCfg.Port.IPPortRules {
+			ruleCIDR := NormalizeCIDR(globalCfg.Port.IPPortRules[i].IP)
+			if ruleCIDR == normalizedCIDR && globalCfg.Port.IPPortRules[i].Port == port {
+				globalCfg.Port.IPPortRules[i].Action = action
+				updated = true
+				break
+			}
+		}
+
+		if !updated {
+			globalCfg.Port.IPPortRules = append(globalCfg.Port.IPPortRules, sdk.IPPortRule{
+				IP:     normalizedCIDR,
+				Port:   port,
+				Action: action,
+			})
+		}
+
+		OptimizeIPPortRulesConfig(globalCfg)
+		return nil
+	})
+}
+
+// LoadAndSyncConfigToRuntime reloads config and syncs it to runtime maps without overwrite.
+func LoadAndSyncConfigToRuntime(s *sdk.SDK) error {
+	cfg, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+	return s.Sync.ToMap(cfg, false)
+}
+
 // DecodeBinaryRecords decodes binary rule records from a reader.
 func DecodeBinaryRecords(r io.Reader) ([]BinaryRecord, error) {
 	return binary.Decode(r)

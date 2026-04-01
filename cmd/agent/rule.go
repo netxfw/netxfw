@@ -37,70 +37,6 @@ const (
 	ruleTypeRules  = "rules"
 )
 
-func persistWhitelistEntryToConfig(ip string, port uint16) error {
-	if app.IsTestMode() {
-		return nil
-	}
-
-	return app.MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
-		normalizedCIDR := app.NormalizeCIDR(ip)
-		entry := normalizedCIDR
-		if port > 0 {
-			entry = fmt.Sprintf("%s:%d", normalizedCIDR, port)
-		}
-
-		for _, existing := range globalCfg.Base.Whitelist {
-			host, existingPort, parseErr := app.ParseIPPort(existing)
-			existingCIDR := ""
-			if parseErr == nil {
-				existingCIDR = app.NormalizeCIDR(host)
-			} else {
-				existingCIDR = app.NormalizeCIDR(existing)
-				existingPort = 0
-			}
-
-			if existingCIDR == normalizedCIDR && existingPort == port {
-				return nil
-			}
-		}
-
-		globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
-		app.OptimizeWhitelistConfig(globalCfg)
-		return nil
-	})
-}
-
-func persistIPPortRuleToConfig(ip string, port uint16, action uint8) error {
-	if app.IsTestMode() {
-		return nil
-	}
-
-	return app.MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
-		normalizedCIDR := app.NormalizeCIDR(ip)
-		updated := false
-
-		for i := range globalCfg.Port.IPPortRules {
-			ruleCIDR := app.NormalizeCIDR(globalCfg.Port.IPPortRules[i].IP)
-			if ruleCIDR == normalizedCIDR && globalCfg.Port.IPPortRules[i].Port == port {
-				globalCfg.Port.IPPortRules[i].Action = action
-				updated = true
-				break
-			}
-		}
-
-		if !updated {
-			globalCfg.Port.IPPortRules = append(globalCfg.Port.IPPortRules, sdk.IPPortRule{
-				IP:     normalizedCIDR,
-				Port:   port,
-				Action: action,
-			})
-		}
-
-		app.OptimizeIPPortRulesConfig(globalCfg)
-		return nil
-	})
-}
-
 var RuleCmd = &cobra.Command{
 	Use:   "rule",
 	Short: "Manage firewall rules",
@@ -208,7 +144,7 @@ Examples:
 				if err := s.Rule.AddIPPortRule(ip, uint16(port), act); err != nil {
 					return err
 				}
-				if err := persistIPPortRuleToConfig(ip, uint16(port), act); err != nil {
+				if err := app.PersistIPPortRule(ip, uint16(port), act); err != nil {
 					return fmt.Errorf("[ERROR] failed to persist IP+Port rule: %v", err)
 				}
 				cmd.Printf("[OK] Rule added: %s:%d (Action: %d)\n", ip, port, act)
@@ -217,7 +153,7 @@ Examples:
 					if err := s.Whitelist.Add(ip, 0); err != nil {
 						return err
 					}
-					if err := persistWhitelistEntryToConfig(ip, 0); err != nil {
+					if err := app.PersistWhitelistEntry(ip, 0); err != nil {
 						return fmt.Errorf("[ERROR] failed to persist whitelist entry: %v", err)
 					}
 					s.Blacklist.Remove(ip)

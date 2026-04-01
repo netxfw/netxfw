@@ -196,11 +196,13 @@ var systemLoadCmd = &cobra.Command{
 	Short: "Load XDP driver",
 	Long:  `Load XDP driver`,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
+		configFile, _ := cmd.Flags().GetString("config")
+		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		if err := app.InstallXDP(cmd.Context(), interfaces); err != nil {
+		if err := executor.EnsureMode().ApplyFlags().Do(func() error {
+			return app.InstallXDP(cmd.Context(), interfaces)
+		}); err != nil {
 			reportCommandError(cmd, err)
-			return
 		}
 	},
 }
@@ -234,30 +236,25 @@ Examples:
   netxfw system attach eth0 --mode skb        # 使用通用模式挂载
   netxfw system attach eth0 eth1 --mode drv   # 挂载多个接口`,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
+		configFile, _ := cmd.Flags().GetString("config")
+		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		validModes := map[string]bool{
-			"offload": true,
-			"drv":     true,
-			"skb":     true,
-		}
-		if !validModes[xdpMode] {
-			reportCommandError(cmd, fmt.Errorf("[ERROR] Invalid mode. Must be one of: offload, drv, skb"))
-			return
-		}
+		if err := executor.EnsureMode().ApplyFlags().Do(func() error {
+			ifaceList := interfaces
+			if len(args) > 0 {
+				ifaceList = args
+			}
 
-		ifaceList := interfaces
-		if len(args) > 0 {
-			ifaceList = args
-		}
+			attached, err := app.ValidateAndAttachXDP(cmd.Context(), ifaceList, xdpMode)
+			if err != nil {
+				return fmt.Errorf("[ERROR] Failed to attach XDP: %w", err)
+			}
 
-		attached, err := app.AttachXDPWithMode(cmd.Context(), ifaceList, xdpMode)
-		if err != nil {
-			reportCommandError(cmd, fmt.Errorf("[ERROR] Failed to attach XDP: %w", err))
-			return
+			fmt.Printf("[OK] XDP attached successfully on %v with mode: %s\n", attached, xdpMode)
+			return nil
+		}); err != nil {
+			reportCommandError(cmd, err)
 		}
-
-		fmt.Printf("[OK] XDP attached successfully on %v with mode: %s\n", attached, xdpMode)
 	},
 }
 
@@ -266,11 +263,13 @@ var systemUnloadCmd = &cobra.Command{
 	Short: "Unload XDP driver",
 	Long:  `Unload XDP driver`,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
+		configFile, _ := cmd.Flags().GetString("config")
+		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		if err := app.RemoveXDP(cmd.Context(), interfaces); err != nil {
+		if err := executor.EnsureMode().ApplyFlags().Do(func() error {
+			return app.RemoveXDP(cmd.Context(), interfaces)
+		}); err != nil {
 			reportCommandError(cmd, err)
-			return
 		}
 	},
 }
@@ -281,14 +280,19 @@ var systemReloadCmd = &cobra.Command{
 	Long: `Reload configuration and sync to BPF maps: reads configuration from files and updates BPF maps without reloading XDP program.
 This is faster than full reload and maintains existing connections.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
+		configFile, _ := cmd.Flags().GetString("config")
+		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		if err := app.ReloadPinnedMaps(cmd.Context()); err != nil {
-			reportCommandError(cmd, fmt.Errorf("[ERROR] Failed to reload configuration: %w", err))
-			return
+		if err := executor.EnsureMode().ApplyFlags().Do(func() error {
+			if err := app.ReloadPinnedMaps(cmd.Context()); err != nil {
+				return fmt.Errorf("[ERROR] Failed to reload configuration: %w", err)
+			}
+
+			fmt.Println("[OK] Configuration reloaded and synced to BPF maps successfully")
+			return nil
+		}); err != nil {
+			reportCommandError(cmd, err)
 		}
-
-		fmt.Println("[OK] Configuration reloaded and synced to BPF maps successfully")
 	},
 }
 
@@ -302,16 +306,17 @@ Examples:
   netxfw system on eth0
   netxfw system on eth0 eth1`,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
+		configFile, _ := cmd.Flags().GetString("config")
+		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		ifaceList := interfaces
-		if len(args) > 0 {
-			ifaceList = args
-		}
-
-		if err := app.InstallXDP(cmd.Context(), ifaceList); err != nil {
+		if err := executor.EnsureMode().ApplyFlags().Do(func() error {
+			ifaceList := interfaces
+			if len(args) > 0 {
+				ifaceList = args
+			}
+			return app.InstallXDP(cmd.Context(), ifaceList)
+		}); err != nil {
 			reportCommandError(cmd, err)
-			return
 		}
 	},
 }
@@ -326,16 +331,17 @@ Examples:
   netxfw system off eth0
   netxfw system off eth0 eth1`,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.EnsureStandaloneMode()
+		configFile, _ := cmd.Flags().GetString("config")
+		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
-		ifaceList := interfaces
-		if len(args) > 0 {
-			ifaceList = args
-		}
-
-		if err := app.RemoveXDP(cmd.Context(), ifaceList); err != nil {
+		if err := executor.EnsureMode().ApplyFlags().Do(func() error {
+			ifaceList := interfaces
+			if len(args) > 0 {
+				ifaceList = args
+			}
+			return app.RemoveXDP(cmd.Context(), ifaceList)
+		}); err != nil {
 			reportCommandError(cmd, err)
-			return
 		}
 	},
 }
