@@ -2,8 +2,6 @@ package core
 
 import (
 	"bufio"
-	"fmt"
-	"os"
 	"strings"
 )
 
@@ -15,17 +13,15 @@ func SetConfirmationReader(r *bufio.Reader) {
 	askConfirmationReader = r
 }
 
-// AskConfirmation prompts the user for a yes/no answer.
-// AskConfirmation 提示用户输入是/否。
-func AskConfirmation(prompt string) bool {
-	fmt.Printf("%s [y/N]: ", prompt)
-
-	reader := askConfirmationReader
-	if reader == nil {
-		reader = bufio.NewReader(os.Stdin)
+// AskConfirmation parses a yes/no answer from the configured reader.
+// AskConfirmation 从配置的读取器解析是/否答案。
+// Terminal prompting belongs to the caller layer; this function only parses input.
+func AskConfirmation(_ string) bool {
+	if askConfirmationReader == nil {
+		return false
 	}
 
-	response, err := reader.ReadString('\n')
+	response, err := askConfirmationReader.ReadString('\n')
 	if err != nil {
 		return false
 	}

@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"sort"
 	"sync"
 	"time"
 
@@ -108,6 +109,15 @@ func (m *MockManager) SyncFromFiles(cfg *GlobalConfig, overwrite bool) error {
 	for _, ip := range cfg.Base.Whitelist {
 		m.whitelist[ip] = 0
 	}
+	for _, rule := range cfg.Port.IPPortRules {
+		m.ipPortRules[makeIPPortRuleKey(rule.IP, rule.Port)] = rule
+	}
+	for _, port := range cfg.Port.AllowedPorts {
+		m.allowedPorts[port] = true
+	}
+	for _, rule := range cfg.RateLimit.Rules {
+		m.rateLimitRules[rule.IP] = RateLimitConf{Rate: rule.Rate, Burst: rule.Burst}
+	}
 
 	return nil
 }
@@ -117,10 +127,41 @@ func (m *MockManager) SyncToFiles(cfg *GlobalConfig) error {
 	defer m.mu.RUnlock()
 
 	wl := make([]string, 0, len(m.whitelist))
-	for ip := range m.whitelist {
-		wl = append(wl, ip)
+	for ip, port := range m.whitelist {
+		if port > 0 {
+			wl = append(wl, makeIPPortRuleKey(ip, port))
+		} else {
+			wl = append(wl, ip)
+		}
 	}
+	sort.Strings(wl)
 	cfg.Base.Whitelist = wl
+
+	ports := make([]uint16, 0, len(m.allowedPorts))
+	for port := range m.allowedPorts {
+		ports = append(ports, port)
+	}
+	sort.Slice(ports, func(i, j int) bool { return ports[i] < ports[j] })
+	cfg.Port.AllowedPorts = cloneAllowedPorts(ports)
+
+	rules := make([]IPPortRule, 0, len(m.ipPortRules))
+	for _, rule := range m.ipPortRules {
+		rules = append(rules, rule)
+	}
+	sort.Slice(rules, func(i, j int) bool {
+		if rules[i].IP == rules[j].IP {
+			return rules[i].Port < rules[j].Port
+		}
+		return rules[i].IP < rules[j].IP
+	})
+	cfg.Port.IPPortRules = cloneIPPortRules(rules)
+
+	rateRules := make([]RateLimitRule, 0, len(m.rateLimitRules))
+	for ip, conf := range m.rateLimitRules {
+		rateRules = append(rateRules, RateLimitRule{IP: ip, Rate: conf.Rate, Burst: conf.Burst})
+	}
+	sort.Slice(rateRules, func(i, j int) bool { return rateRules[i].IP < rateRules[j].IP })
+	cfg.RateLimit.Rules = append([]RateLimitRule(nil), rateRules...)
 
 	return nil
 }
@@ -309,34 +350,32 @@ func (m *MockManager) ListBlacklistIPs(limit int, search string) ([]BlockedIP, i
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []BlockedIP
+	result := make([]BlockedIP, 0, len(m.blacklist))
 	for ip, entry := range m.blacklist {
-		if !entry.IsDynamic {
-			result = append(result, BlockedIP{
-				IP:        ip,
-				Counter:   entry.Counter,
-				ExpiresAt: entry.ExpiresAt,
-			})
+		if entry.IsDynamic || !matchSearch(ip, search) {
+			continue
 		}
+		result = append(result, BlockedIP{IP: ip, Counter: entry.Counter, ExpiresAt: entry.ExpiresAt})
 	}
-	return result, len(result), nil
+	sort.Slice(result, func(i, j int) bool { return result[i].IP < result[j].IP })
+	total := len(result)
+	return cloneBlockedIPs(applyLimit(result, limit)), total, nil
 }
 
 func (m *MockManager) ListDynamicBlacklistIPs(limit int, search string) ([]BlockedIP, int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []BlockedIP
+	result := make([]BlockedIP, 0, len(m.blacklist))
 	for ip, entry := range m.blacklist {
-		if entry.IsDynamic {
-			result = append(result, BlockedIP{
-				IP:        ip,
-				Counter:   entry.Counter,
-				ExpiresAt: entry.ExpiresAt,
-			})
+		if !entry.IsDynamic || !matchSearch(ip, search) {
+			continue
 		}
+		result = append(result, BlockedIP{IP: ip, Counter: entry.Counter, ExpiresAt: entry.ExpiresAt})
 	}
-	return result, len(result), nil
+	sort.Slice(result, func(i, j int) bool { return result[i].IP < result[j].IP })
+	total := len(result)
+	return cloneBlockedIPs(applyLimit(result, limit)), total, nil
 }
 
 // Whitelist Operations
@@ -375,10 +414,18 @@ func (m *MockManager) ListWhitelistIPs(limit int, search string) ([]string, int,
 	defer m.mu.RUnlock()
 
 	result := make([]string, 0, len(m.whitelist))
-	for ip := range m.whitelist {
-		result = append(result, ip)
+	for ip, port := range m.whitelist {
+		entry := ip
+		if port > 0 {
+			entry = makeIPPortRuleKey(ip, port)
+		}
+		if matchSearch(entry, search) {
+			result = append(result, entry)
+		}
 	}
-	return result, len(result), nil
+	sort.Strings(result)
+	total := len(result)
+	return cloneWhitelistEntries(applyLimit(result, limit)), total, nil
 }
 
 // IP Port Rules Operations
@@ -387,7 +434,7 @@ func (m *MockManager) ListWhitelistIPs(limit int, search string) ([]string, int,
 func (m *MockManager) AddIPPortRule(cidr string, port uint16, action uint8) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	key := cidr + ":" + string(rune(port))
+	key := makeIPPortRuleKey(cidr, port)
 	m.ipPortRules[key] = IPPortRule{IP: cidr, Port: port, Action: action}
 	return nil
 }
@@ -395,7 +442,7 @@ func (m *MockManager) AddIPPortRule(cidr string, port uint16, action uint8) erro
 func (m *MockManager) RemoveIPPortRule(cidr string, port uint16) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	key := cidr + ":" + string(rune(port))
+	key := makeIPPortRuleKey(cidr, port)
 	delete(m.ipPortRules, key)
 	return nil
 }
@@ -413,9 +460,19 @@ func (m *MockManager) ListIPPortRules(isIPv6 bool, limit int, search string) ([]
 
 	result := make([]IPPortRule, 0, len(m.ipPortRules))
 	for _, rule := range m.ipPortRules {
+		if !matchSearch(makeIPPortRuleKey(rule.IP, rule.Port), search) {
+			continue
+		}
 		result = append(result, rule)
 	}
-	return result, len(result), nil
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].IP == result[j].IP {
+			return result[i].Port < result[j].Port
+		}
+		return result[i].IP < result[j].IP
+	})
+	total := len(result)
+	return cloneIPPortRules(applyLimit(result, limit)), total, nil
 }
 
 // Allowed Ports Operations
@@ -450,7 +507,8 @@ func (m *MockManager) ListAllowedPorts() ([]uint16, error) {
 	for port := range m.allowedPorts {
 		result = append(result, port)
 	}
-	return result, nil
+	sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
+	return cloneAllowedPorts(result), nil
 }
 
 // Rate Limit Operations
@@ -480,7 +538,20 @@ func (m *MockManager) ClearRateLimitRules() error {
 func (m *MockManager) ListRateLimitRules(limit int, search string) (map[string]RateLimitConf, int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.rateLimitRules, len(m.rateLimitRules), nil
+
+	filtered := make(map[string]RateLimitConf)
+	keys := make([]string, 0, len(m.rateLimitRules))
+	for ip := range m.rateLimitRules {
+		if matchSearch(ip, search) {
+			keys = append(keys, ip)
+		}
+	}
+	sort.Strings(keys)
+	total := len(keys)
+	for _, ip := range applyLimit(keys, limit) {
+		filtered[ip] = m.rateLimitRules[ip]
+	}
+	return cloneRateLimitRules(filtered), total, nil
 }
 
 // Conntrack Operations
@@ -489,7 +560,7 @@ func (m *MockManager) ListRateLimitRules(limit int, search string) (map[string]R
 func (m *MockManager) ListAllConntrackEntries() ([]ConntrackEntry, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.conntrackEntries, nil
+	return cloneConntrackEntries(m.conntrackEntries), nil
 }
 
 // Stats Operations

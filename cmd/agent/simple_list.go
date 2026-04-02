@@ -394,38 +394,13 @@ var SimpleDeleteCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
-			removed := false
-
-			if port > 0 {
-				if err := s.Rule.RemoveIPPortRule(ip, port); err == nil {
-					cmd.Printf("[OK] Removed IP+Port rule: %s:%d\n", ip, port)
-					removed = true
-				} else {
-					cmd.Printf("[WARN]  IP+Port rule not found: %s:%d\n", ip, port)
-				}
-				if !removed {
-					cmd.PrintErrln("[WARN]  Rule not found")
-				}
+			messages := app.DeleteFromAllRuleStores(s, ip, port)
+			if len(messages) == 0 {
+				cmd.PrintErrln("[WARN]  Rule not found")
 				return nil
 			}
-
-			if err := s.Blacklist.Remove(ip); err == nil {
-				cmd.Printf("[OK] Removed %s from static blacklist\n", ip)
-				removed = true
-			}
-
-			if err := s.Blacklist.RemoveDynamic(ip); err == nil {
-				cmd.Printf("[OK] Removed %s from dynamic blacklist\n", ip)
-				removed = true
-			}
-
-			if err := s.Whitelist.Remove(ip); err == nil {
-				cmd.Printf("[OK] Removed %s from whitelist\n", ip)
-				removed = true
-			}
-
-			if !removed {
-				cmd.PrintErrln("[WARN]  IP not found in any list")
+			for _, msg := range messages {
+				cmd.Printf("[OK] %s\n", msg)
 			}
 			return nil
 		})
@@ -598,11 +573,8 @@ func runAllowCommand(cmd *cobra.Command, input string) {
 	executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 	executor.ExecuteWithSDK(func(s *sdk.SDK) error {
-		if err := s.Whitelist.Add(ip, port); err != nil {
+		if err := app.AddRule(s, ip, port, app.RuleActionAllow); err != nil {
 			return fmt.Errorf("[ERROR] Failed to allow IP: %v", err)
-		}
-		if err := app.PersistWhitelistEntry(ip, port); err != nil {
-			return fmt.Errorf("[ERROR] Failed to persist whitelist entry: %v", err)
 		}
 		if port > 0 {
 			executor.PrintSuccess(fmt.Sprintf("[OK] IP allowed at XDP layer: %s:%d", ip, port))
@@ -631,11 +603,8 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 				cmd.PrintErrln("[WARN]  WARNING: TTL parameter is ignored for IP+Port rules")
 				cmd.PrintErrln("[WARN]  警告：TTL 参数对 IP+Port 规则无效")
 			}
-			if err := s.Rule.AddIPPortRule(ip, port, 0); err != nil {
+			if err := app.AddRule(s, ip, port, app.RuleActionDeny); err != nil {
 				return fmt.Errorf("[ERROR] Failed to add IP+Port deny rule: %v", err)
-			}
-			if err := app.PersistIPPortRule(ip, port, 0); err != nil {
-				return fmt.Errorf("[ERROR] Failed to persist IP+Port deny rule: %v", err)
 			}
 			executor.PrintSuccess(fmt.Sprintf("[BLOCK] IP+Port deny rule added: %s:%d", ip, port))
 			return nil

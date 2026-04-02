@@ -2,9 +2,7 @@ package agent
 
 import (
 	"fmt"
-	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/netxfw/netxfw/cmd/common"
@@ -222,7 +220,7 @@ Plugin ELF files must contain a valid XDP program.`,
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			if err := app.HandlePluginCommand(cmd.Context(), []string{"load", path, strconv.Itoa(index)}); err != nil {
+			if err := app.LoadPlugin(cmd.Context(), path, index); err != nil {
 				return fmt.Errorf("[ERROR] Failed to load plugin: %v", err)
 			}
 			executor.PrintSuccess(fmt.Sprintf("Plugin loaded: %s at index %d", path, index))
@@ -247,7 +245,7 @@ var pluginRemoveCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			if err := app.HandlePluginCommand(cmd.Context(), []string{"remove", strconv.Itoa(index)}); err != nil {
+			if err := app.RemovePlugin(cmd.Context(), index); err != nil {
 				return fmt.Errorf("[ERROR] Failed to remove plugin: %v", err)
 			}
 			executor.PrintSuccess(fmt.Sprintf("Plugin removed from index %d", index))
@@ -418,90 +416,17 @@ var UfwResetCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
+			result := app.ResetFirewall(s)
 			fmt.Println("[RESET] Clearing all firewall rules...")
-
-			if err := s.Blacklist.Clear(); err != nil {
-				cmd.PrintErrln("[WARN] Failed to clear static blacklist:", err)
-			} else {
-				fmt.Println("[OK] Static blacklist cleared")
+			for _, warning := range result.Warnings {
+				cmd.PrintErrln("[WARN]", warning)
 			}
-
-			dynamicEntries, _, listErr := s.GetManager().ListDynamicBlacklistIPs(0, "")
-			if listErr != nil {
-				cmd.PrintErrln("[WARN] Failed to list dynamic blacklist:", listErr)
-			} else {
-				clearErr := false
-				for _, entry := range dynamicEntries {
-					removeErr := s.Blacklist.RemoveDynamic(entry.IP)
-					if removeErr != nil {
-						cmd.PrintErrln("[WARN] Failed to remove dynamic blacklist entry:", removeErr)
-						clearErr = true
-					}
-				}
-				if !clearErr {
-					fmt.Println("[OK] Dynamic blacklist cleared")
-				}
-			}
-
-			clearWhitelistErr := s.Whitelist.Clear()
-			if clearWhitelistErr != nil {
-				cmd.PrintErrln("[WARN] Failed to clear whitelist:", clearWhitelistErr)
-			} else {
-				fmt.Println("[OK] Whitelist cleared")
-			}
-
-			rules, _, err := s.Rule.ListIPPortRules(0, "")
-			if err == nil {
-				for _, rule := range rules {
-					if err := s.Rule.RemoveIPPortRule(rule.IP, rule.Port); err != nil {
-						cmd.PrintErrln("[WARN] Failed to remove IP+Port rule:", err)
-					}
-				}
-				fmt.Println("[OK] IP+Port rules cleared")
-			}
-
-			sshPort := detectSSHPort()
-			if err := s.Whitelist.Add("0.0.0.0/0", sshPort); err != nil {
-				cmd.PrintErrln("[WARN] Failed to preserve SSH port:", err)
-			} else {
-				fmt.Printf("[OK] SSH port %d preserved in whitelist\n", sshPort)
-			}
-
+			fmt.Printf("[OK] SSH port %d preserved in whitelist\n", result.SSHPort)
 			fmt.Println()
 			fmt.Println("[OK] Firewall has been reset successfully")
 			return nil
 		})
 	},
-}
-
-func detectSSHPort() uint16 {
-	sshConfigPath := "/etc/ssh/sshd_config"
-
-	data, err := os.ReadFile(sshConfigPath)
-	if err != nil {
-		return 22
-	}
-
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "#") || line == "" {
-			continue
-		}
-
-		if strings.HasPrefix(line, "Port ") || strings.HasPrefix(line, "Port\t") {
-			fields := strings.Fields(line)
-			if len(fields) >= 2 {
-				portStr := fields[1]
-				port, err := strconv.Atoi(portStr)
-				if err == nil && port > 0 && port <= 65535 {
-					return uint16(port)
-				}
-			}
-		}
-	}
-
-	return 22
 }
 
 func init() {

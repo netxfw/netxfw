@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,14 +13,12 @@ import (
 	// Import pprof for HTTP endpoint profiling / 导入 pprof 用于 HTTP 端点性能分析
 	// #nosec G108 // pprof is intentionally exposed for debugging in development
 	_ "net/http/pprof"
-	"strconv"
 
 	"github.com/cilium/ebpf/link"
 
 	"github.com/netxfw/netxfw/internal/api"
 	"github.com/netxfw/netxfw/internal/binary"
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/core"
 	"github.com/netxfw/netxfw/internal/daemon"
 	"github.com/netxfw/netxfw/internal/optimizer"
 	"github.com/netxfw/netxfw/internal/plugins/types"
@@ -373,39 +370,6 @@ func IsTestMode() bool {
 	return runtime.Mode == "test"
 }
 
-// InitConfiguration initializes the default configuration file if needed.
-func InitConfiguration(ctx context.Context) {
-	core.InitConfiguration(ctx)
-}
-
-// TestConfiguration validates the current configuration.
-func TestConfiguration(ctx context.Context) {
-	daemon.TestConfiguration(ctx)
-}
-
-/**
- * RunDaemon starts the background process for metrics and rule synchronization.
- * RunDaemon 启动用于指标和规则同步的后台进程。
- */
-func RunDaemon(ctx context.Context) {
-	InitConfiguration(ctx)
-	TestConfiguration(ctx)
-	daemon.Run(ctx, runtime.Mode, nil)
-}
-
-/**
- * RunDaemonWithInterfaces starts the background process for metrics and rule synchronization with specific interfaces.
- * RunDaemonWithInterfaces 启动用于指标和规则同步的后台进程，支持指定接口。
- */
-func RunDaemonWithInterfaces(ctx context.Context, interfaces []string) {
-	InitConfiguration(ctx)
-	TestConfiguration(ctx)
-	opts := &daemon.DaemonOptions{
-		Interfaces: interfaces,
-	}
-	daemon.Run(ctx, runtime.Mode, opts)
-}
-
 // GetPinPath returns the active BPF pin path.
 func GetPinPath() string {
 	return config.GetPinPath()
@@ -545,15 +509,6 @@ func PersistIPPortRule(ip string, port uint16, action uint8) error {
 	})
 }
 
-// LoadAndSyncConfigToRuntime reloads config and syncs it to runtime maps without overwrite.
-func LoadAndSyncConfigToRuntime(s *sdk.SDK) error {
-	cfg, err := LoadConfig()
-	if err != nil {
-		return err
-	}
-	return s.Sync.ToMap(cfg, false)
-}
-
 // DecodeBinaryRecords decodes binary rule records from a reader.
 func DecodeBinaryRecords(r io.Reader) ([]BinaryRecord, error) {
 	return binary.Decode(r)
@@ -567,82 +522,6 @@ func EncodeBinaryRecords(w io.Writer, records []BinaryRecord) error {
 // WithConfigLock runs fn while holding the shared config persistence mutex.
 func WithConfigLock(fn func() error) error {
 	return fn()
-}
-
-// SyncRuntimeToConfig dumps runtime BPF state into configuration files.
-func SyncRuntimeToConfig(s *sdk.SDK) error {
-	cfg, err := LoadConfig()
-	if err != nil {
-		return err
-	}
-	return s.Sync.ToConfig(cfg)
-}
-
-// SyncConfigToRuntime applies configuration files to runtime BPF maps.
-func SyncConfigToRuntime(s *sdk.SDK, overwrite bool) error {
-	cfg, err := LoadConfig()
-	if err != nil {
-		return err
-	}
-	return s.Sync.ToMap(cfg, overwrite)
-}
-
-// SyncConfigToRuntimeOverwrite applies configuration files to runtime BPF maps with overwrite enabled.
-func SyncConfigToRuntimeOverwrite(s *sdk.SDK) error {
-	return SyncConfigToRuntime(s, true)
-}
-
-/**
- * HandlePluginCommand processes plugin-related CLI commands.
- * HandlePluginCommand 处理与插件相关的 CLI 命令。
- */
-func HandlePluginCommand(ctx context.Context, args []string) error {
-	log := logger.Get(ctx)
-	if len(args) < 1 {
-		return fmt.Errorf("usage: netxfw plugin <load|remove|list>")
-	}
-
-	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
-	if err != nil {
-		return fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
-	}
-	defer manager.Close()
-
-	switch args[0] {
-	case "load":
-		// Load a plugin ELF file into a specific slot in the prog_array
-		// 将插件 ELF 文件加载到 prog_array 中的特定插槽
-		if len(args) < 3 {
-			return fmt.Errorf("Usage: netxfw plugin load <path_to_elf> <index (2-15)>")
-		}
-		path := args[1]
-		idx, err := strconv.Atoi(args[2])
-		if err != nil {
-			return fmt.Errorf("invalid index: %v", err)
-		}
-		if err := manager.LoadPlugin(path, idx); err != nil {
-			return fmt.Errorf("failed to load plugin: %v", err)
-		}
-	case "remove":
-		// Remove a plugin from a specific slot
-		// 从特定插槽中移除插件
-		if len(args) < 2 {
-			return fmt.Errorf("Usage: netxfw plugin remove <index (2-15)>")
-		}
-		idx, err := strconv.Atoi(args[1])
-		if err != nil {
-			return fmt.Errorf("invalid index: %v", err)
-		}
-		if err := manager.RemovePlugin(idx); err != nil {
-			return fmt.Errorf("failed to remove plugin: %v", err)
-		}
-	case "list":
-		return nil
-	default:
-		return fmt.Errorf("unknown plugin command: %s", args[0])
-	}
-	log.Infof("[OK] Plugin command %s executed successfully", args[0])
-	return nil
 }
 
 /**
@@ -723,38 +602,6 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 // ReloadXDP performs a hot-reload of the XDP program.
 // It loads new objects, migrates state from old pinned maps, and swaps the program.
 // ReloadXDP 执行 XDP 程序的平滑重载：加载新对象，从旧的固定 Map 迁移状态，并切换程序。
-func ListLoadedPlugins(ctx context.Context) ([]PluginSlot, error) {
-	log := logger.Get(ctx)
-	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
-	}
-	defer manager.Close()
-
-	var slots []PluginSlot
-	for i := xdp.ProgIdxPluginStart; i <= xdp.ProgIdxPluginEnd; i++ {
-		var progID uint32
-		if err := manager.JmpTable().Lookup(uint32(i), &progID); err == nil {
-			slots = append(slots, PluginSlot{Index: i, Program: progID})
-		}
-	}
-	return slots, nil
-}
-
-func ClearBlacklist(ctx context.Context, dynamic bool) error {
-	log := logger.Get(ctx)
-	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
-	if err != nil {
-		return fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
-	}
-	defer manager.Close()
-
-	if dynamic {
-		return xdp.ClearBlacklistMap(manager.DynLockList())
-	}
-	return xdp.ClearBlacklistMap(manager.LockList())
-}
-
 func ReloadPinnedMaps(ctx context.Context) error {
 	globalCfg, err := LoadConfig()
 	if err != nil {
@@ -964,43 +811,6 @@ func AttachXDPWithMode(ctx context.Context, interfaces []string, mode string) ([
 	}
 
 	return attached, nil
-}
-
-func RunWebServer(ctx context.Context, port int) error {
-	log := logger.Get(ctx)
-	// 1. Try to load manager from pins / 尝试从固定点加载管理器
-	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
-	if err != nil {
-		log.Warnf("[WARN]  Could not load pinned maps (is XDP loaded?): %v", err)
-		return fmt.Errorf("web server requires netxfw XDP to be loaded. Run 'netxfw system load' first")
-	}
-	defer manager.Close()
-
-	// 2. Start API server / 启动 API 服务器
-	adapter := xdp.NewAdapter(manager)
-	s := sdk.NewSDK(adapter)
-	server := api.NewServer(s, port)
-	if err := server.EnsureHandlerInitialized(); err != nil {
-		return fmt.Errorf("failed to initialize web server: %w", err)
-	}
-
-	addr := fmt.Sprintf(":%d", port)
-	log.Infof("[START] Management API and UI starting on http://localhost%s", addr)
-
-	// Create HTTP server with timeouts for security
-	// 创建带有超时的 HTTP 服务器以提高安全性
-	httpServer := &http.Server{
-		Addr:         addr,
-		Handler:      server.Handler(),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
-	}
-
-	if err := httpServer.ListenAndServe(); err != nil {
-		return fmt.Errorf("failed to start web server: %v", err)
-	}
-	return nil
 }
 
 /**

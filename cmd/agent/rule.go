@@ -113,58 +113,34 @@ Examples:
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
 			input := args[0]
-
-			// 使用公共函数解析并验证 IP 输入
-			// Use common function to parse and validate IP input
 			ip, portVal, err := parseAndValidateIPInput(input)
 			if err != nil {
 				return fmt.Errorf("[ERROR] %s", err.Error())
 			}
-			port := int(portVal)
 
-			// 2. Get action from args[1]
 			actionStr := args[1]
-
-			// 3. Normalize Action
-			isAllow := false
-			if actionStr == actionAllow {
-				isAllow = true
-			} else if actionStr == actionDeny {
-				isAllow = false
-			} else {
+			var action app.RuleAction
+			switch actionStr {
+			case actionAllow:
+				action = app.RuleActionAllow
+			case actionDeny:
+				action = app.RuleActionDeny
+			default:
 				return fmt.Errorf("[ERROR] invalid action %q, use 'allow' or 'deny'", actionStr)
 			}
 
-			// 4. Execute
-			if port > 0 {
-				var act uint8 = 0
-				if isAllow {
-					act = 1
-				}
-				if err := s.Rule.AddIPPortRule(ip, uint16(port), act); err != nil {
-					return err
-				}
-				if err := app.PersistIPPortRule(ip, uint16(port), act); err != nil {
-					return fmt.Errorf("[ERROR] failed to persist IP+Port rule: %v", err)
-				}
-				cmd.Printf("[OK] Rule added: %s:%d (Action: %d)\n", ip, port, act)
+			if err := app.AddRule(s, ip, portVal, action); err != nil {
+				return err
+			}
+
+			if portVal > 0 {
+				cmd.Printf("[OK] Rule added: %s:%d (Action: %d)\n", ip, portVal, uint8(action))
+				return nil
+			}
+			if action == app.RuleActionAllow {
+				cmd.Printf("[OK] Added %s to Whitelist\n", ip)
 			} else {
-				if isAllow {
-					if err := s.Whitelist.Add(ip, 0); err != nil {
-						return err
-					}
-					if err := app.PersistWhitelistEntry(ip, 0); err != nil {
-						return fmt.Errorf("[ERROR] failed to persist whitelist entry: %v", err)
-					}
-					s.Blacklist.Remove(ip)
-					cmd.Printf("[OK] Added %s to Whitelist\n", ip)
-				} else {
-					if err := s.Blacklist.Add(ip); err != nil {
-						return err
-					}
-					s.Whitelist.Remove(ip)
-					cmd.Printf("[BLOCK] Added %s to Blacklist\n", ip)
-				}
+				cmd.Printf("[BLOCK] Added %s to Blacklist\n", ip)
 			}
 			return nil
 		})
@@ -194,43 +170,32 @@ Aliases: delete, remove
 			if err != nil {
 				return fmt.Errorf("[ERROR] %s", err.Error())
 			}
-			port := int(portVal)
+			port := portVal
 
 			if len(args) > 1 && port == 0 {
 				if p, parseErr := strconv.Atoi(args[1]); parseErr == nil {
 					if p < 0 || p > 65535 {
 						return fmt.Errorf("[ERROR] Port must be between 0-65535, got %d", p)
 					}
-					port = p
+					port = uint16(p)
 				}
 			}
 
-			if err := common.ValidatePort(port); err != nil {
+			if err := common.ValidatePort(int(port)); err != nil {
 				return err
 			}
 
+			removed, err := app.DeleteRule(cfg, s, ip, port)
+			if err != nil {
+				return fmt.Errorf("[ERROR] %v", err)
+			}
+			if !removed {
+				return fmt.Errorf("[ERROR] IP not found in any list: %s", ip)
+			}
 			if port > 0 {
-				if err := s.Rule.RemoveIPPortRule(ip, uint16(port)); err != nil {
-					return fmt.Errorf("[ERROR] Failed to delete IP+Port rule: %v", err)
-				}
 				cmd.Printf("[OK] Deleted rule: %s:%d\n", ip, port)
 			} else {
-				removed := false
-				normalizedIP := app.NormalizeCIDR(ip)
-				if err := s.Blacklist.Remove(ip); err == nil {
-					if cfg.Base.PersistRules && cfg.Base.LockListFile != "" {
-						_ = app.RemoveLineFromFile(cfg.Base.LockListFile, normalizedIP)
-					}
-					cmd.Printf("[OK] Removed %s from static blacklist\n", ip)
-					removed = true
-				}
-				if err := s.Whitelist.Remove(ip); err == nil {
-					cmd.Printf("[OK] Removed %s from whitelist\n", ip)
-					removed = true
-				}
-				if !removed {
-					return fmt.Errorf("[ERROR] IP not found in any list: %s", ip)
-				}
+				cmd.Printf("[OK] Removed %s from configured rule sets\n", ip)
 			}
 			return nil
 		})

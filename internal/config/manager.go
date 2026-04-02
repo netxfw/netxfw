@@ -79,6 +79,10 @@ func (cm *ConfigManager) MutateConfig(fn func(*types.GlobalConfig) error) error 
 	return cm.SaveConfig()
 }
 
+func cloneConfig(cfg *types.GlobalConfig) *types.GlobalConfig {
+	return types.CloneGlobalConfig(cfg)
+}
+
 // MutateLoadedConfig reloads config, applies fn, then persists.
 // MutateLoadedConfig 重新加载配置，执行 fn 后再持久化。
 func (cm *ConfigManager) MutateLoadedConfig(fn func(*types.GlobalConfig) error) error {
@@ -112,7 +116,7 @@ func (cm *ConfigManager) LoadConfig() error {
 	defer cm.mutex.Unlock()
 
 	cm.configPath = path
-	cm.config = config
+	cm.config = cloneConfig(config)
 
 	// Update backupKeep from config if set / 如果配置中设置了则更新 backupKeep
 	if config.Base.BackupKeep > 0 {
@@ -142,195 +146,165 @@ func (cm *ConfigManager) SaveConfig() error {
 	return types.SaveGlobalConfigWithBackup(path, cfg, backupKeep)
 }
 
-// GetConfig returns a copy of the current configuration
-// GetConfig 返回当前配置的副本
+// GetConfig returns a deep copy of the current configuration.
+// GetConfig 返回当前配置的深拷贝。
 func (cm *ConfigManager) GetConfig() *types.GlobalConfig {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 
-	if cm.config == nil {
-		return nil
-	}
-
-	// Return a copy to prevent external modifications
-	cfgCopy := *cm.config
-	return &cfgCopy
+	return cloneConfig(cm.config)
 }
 
-// UpdateConfig updates the current configuration
-// UpdateConfig 更新当前配置
+// UpdateConfig replaces the current configuration with a deep-copied snapshot.
+// UpdateConfig 使用深拷贝快照替换当前配置。
 func (cm *ConfigManager) UpdateConfig(newConfig *types.GlobalConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
-	cm.config = newConfig
+	cm.config = cloneConfig(newConfig)
 }
 
 // GetBaseConfig returns the base configuration
 // GetBaseConfig 返回基础配置
 func (cm *ConfigManager) GetBaseConfig() *types.BaseConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	baseCfg := cm.config.Base
+	baseCfg := cfg.Base
 	return &baseCfg
 }
 
 // GetWebConfig returns the web configuration
 // GetWebConfig 返回Web配置
 func (cm *ConfigManager) GetWebConfig() *types.WebConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	webCfg := cm.config.Web
+	webCfg := cfg.Web
 	return &webCfg
 }
 
 // GetMetricsConfig returns the metrics configuration
 // GetMetricsConfig 返回指标配置
 func (cm *ConfigManager) GetMetricsConfig() *types.MetricsConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	metricsCfg := cm.config.Metrics
+	metricsCfg := cfg.Metrics
 	return &metricsCfg
 }
 
 // GetLoggingConfig returns the logging configuration
 // GetLoggingConfig 返回日志配置
 func (cm *ConfigManager) GetLoggingConfig() *logger.LoggingConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	loggingCfg := cm.config.Logging
+	loggingCfg := cfg.Logging
 	return &loggingCfg
 }
 
 // GetConntrackConfig returns the connection tracking configuration
 // GetConntrackConfig 返回连接跟踪配置
 func (cm *ConfigManager) GetConntrackConfig() *types.ConntrackConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	conntrackCfg := cm.config.Conntrack
+	conntrackCfg := cfg.Conntrack
 	return &conntrackCfg
 }
 
 // GetRateLimitConfig returns the rate limiting configuration
 // GetRateLimitConfig 返回速率限制配置
 func (cm *ConfigManager) GetRateLimitConfig() *types.RateLimitConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	rateLimitCfg := cm.config.RateLimit
+	rateLimitCfg := cfg.RateLimit
 	return &rateLimitCfg
 }
 
 // GetPortConfig returns the port configuration
 // GetPortConfig 返回端口配置
 func (cm *ConfigManager) GetPortConfig() *types.PortConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	portCfg := cm.config.Port
+	portCfg := cfg.Port
 	return &portCfg
 }
 
 // GetCapacityConfig returns the capacity configuration
 // GetCapacityConfig 返回容量配置
 func (cm *ConfigManager) GetCapacityConfig() *types.CapacityConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	capacityCfg := cm.config.Capacity
+	capacityCfg := cfg.Capacity
 	return &capacityCfg
 }
 
 // GetLogEngineConfig returns the log engine configuration
 // GetLogEngineConfig 返回日志引擎配置
 func (cm *ConfigManager) GetLogEngineConfig() *types.LogEngineConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	logEngineCfg := cm.config.LogEngine
+	logEngineCfg := cfg.LogEngine
 	return &logEngineCfg
 }
 
 // GetAIConfig returns the AI configuration
 // GetAIConfig 返回AI配置
 func (cm *ConfigManager) GetAIConfig() *types.AIConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	aiCfg := cm.config.AI
+	aiCfg := cfg.AI
 	return &aiCfg
 }
 
 // GetMCPConfig returns the MCP configuration
 // GetMCPConfig 返回MCP配置
 func (cm *ConfigManager) GetMCPConfig() *types.MCPConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	mcpCfg := cm.config.MCP
+	mcpCfg := cfg.MCP
 	return &mcpCfg
 }
 
 // GetClusterConfig returns the cluster configuration
 // GetClusterConfig 返回集群配置
 func (cm *ConfigManager) GetClusterConfig() *types.ClusterConfig {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if cm.config == nil {
+	cfg := cm.GetConfig()
+	if cfg == nil {
 		return nil
 	}
 
-	clusterCfg := cm.config.Cluster
+	clusterCfg := cfg.Cluster
 	return &clusterCfg
 }
 
