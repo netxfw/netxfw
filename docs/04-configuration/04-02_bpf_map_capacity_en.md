@@ -39,7 +39,7 @@ NetXFW uses multiple BPF Maps to store firewall rules, connection tracking, and 
 
 ## Configuration File Mapping
 
-In `config.yaml`, configure through `capacity` and `conntrack` sections:
+In `config.toml`, configure through `capacity` and `conntrack` sections:
 
 ```yaml
 conntrack:

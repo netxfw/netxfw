@@ -39,7 +39,7 @@ NetXFW 使用多个 BPF Map 存储防火墙规则、连接跟踪和统计数据�
 
 ## 配置文件映射
 
-在 `config.yaml` 中，通过 `capacity` 和 `conntrack` 部分配置：
+在 `config.toml` 中，通过 `capacity` 和 `conntrack` 部分配置：
 
 ```yaml
 conntrack:

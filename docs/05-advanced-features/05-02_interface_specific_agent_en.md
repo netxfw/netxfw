@@ -32,23 +32,23 @@ netxfw supports universal interface (`-i`) and config file (`-c`) parameters for
 ### Command-Line Usage
 
 ```bash
-# Start Agent using interfaces specified in the configuration file
-sudo netxfw system agent
+# Start daemon using interfaces specified in the configuration file
+sudo netxfw system daemon
 
-# Start Agent on specific interface
-sudo netxfw system agent -i eth0
+# Start daemon on specific interface
+sudo netxfw system daemon -i eth0
 
-# Start Agent on multiple interfaces
-sudo netxfw system agent -i eth0,eth1
+# Start daemon on multiple interfaces
+sudo netxfw system daemon -i eth0,eth1
 
 # Use command-line parameters to override interface settings in config file
-sudo netxfw system agent -i eth2 eth3
+sudo netxfw system daemon -i eth2 eth3
 
-# Start Agent using a specific configuration file
-sudo netxfw system agent -c /path/to/config.yaml
+# Start daemon using a specific configuration file
+sudo netxfw system daemon -c /path/to/config.toml
 
-# Start Agent using a specific configuration file and specific interface
-sudo netxfw system agent -c /path/to/config.yaml -i eth0
+# Start daemon using a specific configuration file and specific interface
+sudo netxfw system daemon -c /path/to/config.toml -i eth0
 
 # Start daemon using interfaces specified in the configuration file
 sudo netxfw system daemon
@@ -60,10 +60,10 @@ sudo netxfw system daemon -i eth0
 sudo netxfw system daemon -i eth0,eth1
 
 # Start daemon using a specific configuration file
-sudo netxfw system daemon -c /path/to/config.yaml
+sudo netxfw system daemon -c /path/to/config.toml
 
 # Start daemon using a specific configuration file and specific interface
-sudo netxfw system daemon -c /path/to/config.yaml -i eth0
+sudo netxfw system daemon -c /path/to/config.toml -i eth0
 
 # Check system status
 sudo netxfw system status
@@ -72,15 +72,15 @@ sudo netxfw system status
 sudo netxfw system status -i eth0
 
 # Check status using a specific configuration file
-sudo netxfw system status -c /path/to/config.yaml
+sudo netxfw system status -c /path/to/config.toml
 
 # Check status using a specific configuration file and specific interfaces
-sudo netxfw system status -c /path/to/config.yaml -i eth0,eth1
+sudo netxfw system status -c /path/to/config.toml -i eth0,eth1
 ```
 
 ### Configuration File Settings
 
-In `/etc/netxfw/config.yaml`:
+In `/etc/netxfw/config.toml`:
 
 ```yaml
 base:
@@ -111,7 +111,7 @@ sudo netxfw system status
 ### Status Check with Specific Configuration File
 ```bash
 # Check status using a specific configuration file
-sudo netxfw system status -c /path/to/custom/config.yaml
+sudo netxfw system status -c /path/to/custom/config.toml
 ```
 
 ## Best Practices

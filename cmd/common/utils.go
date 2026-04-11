@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/netxfw/netxfw/internal/app"
+	"github.com/netxfw/netxfw/internal/application/services"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -25,6 +25,8 @@ var (
 	// realSDK 缓存真实 SDK 实例以避免重复创建
 	realSDK    *sdk.SDK
 	realSDKMux sync.Mutex
+
+	runtimeService = services.NewSDKRuntimeService()
 )
 
 // GetSDK returns an initialized SDK connected to the pinned maps.
@@ -50,7 +52,7 @@ func GetSDK() (*sdk.SDK, error) {
 		return realSDK, nil
 	}
 
-	realSDK, err := app.NewPinnedSDK()
+	realSDK, err := runtimeService.NewPinnedSDK()
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +101,7 @@ func ImportLockListFromFile(s *sdk.SDK, path string) error {
 		return err
 	}
 
-	cfg, cfgErr := app.LoadConfig()
+	cfg, cfgErr := runtimeService.LoadConfig()
 	persistFile := ""
 	if cfgErr == nil {
 		persistFile = cfg.Base.LockListFile

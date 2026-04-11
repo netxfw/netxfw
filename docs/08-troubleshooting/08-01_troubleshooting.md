@@ -118,7 +118,7 @@ Error: toml: unmarshal errors
 python3 -c "import tomllib; tomllib.load(open('/etc/netxfw/config.toml', 'rb'))"
 
 # 或使用 netxfw 验证
-sudo netxfw validate --config /etc/netxfw/config.toml
+sudo netxfw test --config /etc/netxfw/config.toml
 ```
 
 ---
@@ -390,7 +390,7 @@ sudo netstat -tlnp | grep 11811
 |------|----------|
 | PID 文件存在 | `sudo rm /var/run/netxfw.pid` |
 | 端口被占用 | `sudo lsof -i :11811` 然后 kill |
-| 配置错误 | `sudo netxfw validate` |
+| 配置错误 | `sudo netxfw test` |
 | 权限问题 | `sudo chown -R root:root /etc/netxfw` |
 
 ### 守护进程崩溃

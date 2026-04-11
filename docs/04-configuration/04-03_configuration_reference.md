@@ -569,10 +569,10 @@ cp /etc/netxfw/config.toml.bak.20240101-120000 /etc/netxfw/config.toml
 
 ```bash
 # 验证配置文件语法
-netxfw validate /etc/netxfw/config.toml
+netxfw test --config /etc/netxfw/config.toml
 
 # 查看当前配置
-netxfw config show
+cat /etc/netxfw/config.toml
 ```
 
 ---

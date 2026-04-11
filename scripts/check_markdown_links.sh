@@ -41,11 +41,19 @@ check_file_links() {
 
 main() {
   local failed=0
+  local files=(
+    "$ROOT_DIR/README.md"
+    "$ROOT_DIR/README_en.md"
+  )
+
+  if [ -f "$ROOT_DIR/ARCHITECTURE.md" ]; then
+    files+=("$ROOT_DIR/ARCHITECTURE.md")
+  fi
 
   echo "=== Checking repository markdown links ==="
   "$DOCS_CHECKER" -d "$ROOT_DIR/docs"
 
-  for file in "$ROOT_DIR/README.md" "$ROOT_DIR/README_en.md" "$ROOT_DIR/ARCHITECTURE.md"; do
+  for file in "${files[@]}"; do
     echo "Checking $file"
     if ! check_file_links "$file"; then
       failed=1

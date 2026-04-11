@@ -65,23 +65,23 @@ netxfw 支持为多个命令提供通用的接口 (`-i`) 和配置文件 (`-c`) 
 ### 命令行使用
 
 ```bash
-# 使用配置文件中指定的接口启动 Agent
-sudo netxfw system agent
+# 使用配置文件中指定的接口启动守护进程
+sudo netxfw system daemon
 
-# 指定特定接口启动 Agent
-sudo netxfw system agent -i eth0
+# 指定特定接口启动守护进程
+sudo netxfw system daemon -i eth0
 
-# 指定多个接口启动 Agent
-sudo netxfw system agent -i eth0,eth1
+# 指定多个接口启动守护进程
+sudo netxfw system daemon -i eth0,eth1
 
 # 使用命令行参数覆盖配置文件中的接口设置
-sudo netxfw system agent -i eth2 eth3
+sudo netxfw system daemon -i eth2 eth3
 
-# 使用指定配置文件启动 Agent
-sudo netxfw system agent -c /path/to/config.yaml
+# 使用指定配置文件启动守护进程
+sudo netxfw system daemon -c /path/to/config.toml
 
-# 使用指定配置文件和特定接口启动 Agent
-sudo netxfw system agent -c /path/to/config.yaml -i eth0
+# 使用指定配置文件和特定接口启动守护进程
+sudo netxfw system daemon -c /path/to/config.toml -i eth0
 
 # 使用配置文件中指定的接口启动守护进程
 sudo netxfw system daemon
@@ -93,10 +93,10 @@ sudo netxfw system daemon -i eth0
 sudo netxfw system daemon -i eth0,eth1
 
 # 使用指定配置文件启动守护进程
-sudo netxfw system daemon -c /path/to/config.yaml
+sudo netxfw system daemon -c /path/to/config.toml
 
 # 使用指定配置文件和特定接口启动守护进程
-sudo netxfw system daemon -c /path/to/config.yaml -i eth0
+sudo netxfw system daemon -c /path/to/config.toml -i eth0
 
 # 查看系统状态
 sudo netxfw system status
@@ -105,27 +105,27 @@ sudo netxfw system status
 sudo netxfw system status -i eth0
 
 # 使用指定配置文件查看状态
-sudo netxfw system status -c /path/to/config.yaml
+sudo netxfw system status -c /path/to/config.toml
 
 # 使用指定配置文件查看特定接口的状态
-sudo netxfw system status -c /path/to/config.yaml -i eth0,eth1
+sudo netxfw system status -c /path/to/config.toml -i eth0,eth1
 
 # 查看性能统计
 sudo netxfw perf show
-sudo netxfw perf show -c /path/to/config.yaml
+sudo netxfw perf show -c /path/to/config.toml
 
 # 查看规则列表
 sudo netxfw rule list
-sudo netxfw rule list -c /path/to/config.yaml
+sudo netxfw rule list -c /path/to/config.toml
 
 # 添加限速规则
 sudo netxfw limit add 192.168.1.100 1000 2000
-sudo netxfw limit add 192.168.1.100 1000 2000 -c /path/to/config.yaml
+sudo netxfw limit add 192.168.1.100 1000 2000 -c /path/to/config.toml
 ```
 
 ### 配置文件设置
 
-在 `/etc/netxfw/config.yaml` 中：
+在 `/etc/netxfw/config.toml` 中：
 
 ```yaml
 base:
@@ -156,7 +156,7 @@ sudo netxfw system status
 ### 指定配置文件的状态检查
 ```bash
 # 使用指定配置文件检查状态
-sudo netxfw system status -c /path/to/custom/config.yaml
+sudo netxfw system status -c /path/to/custom/config.toml
 ```
 
 ## 最佳实践

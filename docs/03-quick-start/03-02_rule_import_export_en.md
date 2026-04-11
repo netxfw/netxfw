@@ -5,7 +5,7 @@
 `netxfw` provides powerful rule import/export functionality supporting multiple formats for different use cases:
 
 - **Text Format**: Simple and easy to use, suitable for manual editing
-- **JSON/YAML Format**: Structured data, suitable for backup and version control
+- **JSON/TOML Format**: Structured data, suitable for backup and version control
 - **CSV Format**: Tabular format, suitable for data analysis
 - **Binary (.bin.zst) Format**: High-performance binary format, suitable for large-scale rule storage
 
@@ -47,7 +47,7 @@ netxfw rule import <type> <file>
 2001:db8::1:8080:deny
 ```
 
-#### 2. JSON/YAML Format
+#### 2. JSON/TOML Format
 
 ```json
 {
@@ -96,7 +96,7 @@ netxfw rule export <file> [--format <format>]
 | Format | Description | Usage |
 |--------|-------------|-------|
 | `json` | JSON format | `--format json` or file extension `.json` |
-| `yaml` | YAML format | `--format yaml` or file extension `.yaml`/`.yml` |
+| `toml` | TOML format | `--format toml` or file extension `.toml` |
 | `csv` | CSV format | `--format csv` or file extension `.csv` |
 | `binary` | Binary format | `--format binary` or file extension `.bin.zst` |
 
@@ -106,8 +106,8 @@ netxfw rule export <file> [--format <format>]
 # Export as JSON format
 netxfw rule export rules.json
 
-# Export as YAML format
-netxfw rule export rules.yaml --format yaml
+# Export as TOML format
+netxfw rule export rules.toml --format toml
 
 # Export as CSV format
 netxfw rule export rules.csv --format csv
@@ -117,7 +117,7 @@ netxfw rule export rules.deny.bin.zst --format binary
 
 # Auto-detect format (based on file extension)
 netxfw rule export rules.json
-netxfw rule export rules.yaml
+netxfw rule export rules.toml
 netxfw rule export rules.csv
 netxfw rule export rules.deny.bin.zst
 ```
@@ -127,7 +127,7 @@ netxfw rule export rules.deny.bin.zst
 | Format | Pros | Cons | Use Cases |
 |--------|------|------|-----------|
 | **Text** | Simple, human-readable, easy to edit | Limited functionality, single rule type only | Quick addition of few IPs |
-| **JSON/YAML** | Structured, includes all rule types, readable | Larger file size, slower parsing | Config backup, version control |
+| **JSON/TOML** | Structured, includes all rule types, readable | Larger file size, slower parsing | Config backup, version control |
 | **CSV** | Tabular format, easy to edit in Excel | Large file size, no complex structure support | Data exchange, reporting |
 | **Binary** | High performance, high compression ratio, fast parsing | Not human-readable, blacklist only | Large-scale rule storage, fast migration |
 
@@ -135,7 +135,7 @@ netxfw rule export rules.deny.bin.zst
 
 ### 1. Daily Backup
 
-Use JSON or YAML format for regular backups:
+Use JSON or TOML format for regular backups:
 
 ```bash
 # Regular backup of rules
@@ -179,7 +179,7 @@ netxfw rule export rules.csv --format csv
 1. **File Format Errors**:
    - Ensure file extension is correct
    - Check file encoding is UTF-8
-   - Verify JSON/YAML format is valid
+   - Verify JSON/TOML format is valid
 
 2. **Permission Issues**:
    - Ensure read/write permissions on target file

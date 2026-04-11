@@ -116,7 +116,7 @@
 *   **主要职责**:
     *   **加载/卸载**: 使用 `cilium/ebpf` 库加载 XDP 程序并将 Map 固定 (Pin) 到 `/sys/fs/bpf/netxfw_v2`。
     *   **Map 管理**: 对 BPF Map 进行增删改查操作 (添加/移除规则)。
-    *   **持久化**: 将内存中的 BPF Map 状态同步到 `rules.deny.txt` 和 `config.toml`。
+    *   **持久化**: 将运行时 BPF Map 状态同步到配置与规则持久化文件（以 `config.toml` 为核心入口）。
     *   **CLI**: 提供用户友好的命令行接口 (`netxfw rule add`, `netxfw system status`)。
 
 ## 目录结构
@@ -137,7 +137,7 @@ netxfw/
 │   │       └── common/           # 共享代码
 │   ├── netxfw-agent/             # Agent 进程入口
 │   ├── netxfw-dp/                # 数据平面进程入口
-│   └── netxfw-controller/        # 控制器入口
+│   └── netxfwagent/              # Agent 进程入口（兼容入口）
 │
 ├── pkg/                          # 公共包
 │   ├── sdk/                      # SDK 接口 (统一 API)
@@ -152,8 +152,8 @@ netxfw/
 │   │   ├── adapter.go            # SDK 适配器
 │   │   ├── xdp_rules.go          # IP+端口规则
 │   │   ├── xdp_stats.go          # 统计信息
-│   │   ├── incremental_update.go # 增量更新
-│   │   ├── metrics_collector.go  # 指标收集
+│   │   ├── sync_incremental_update.go # 增量更新
+│   │   ├── stats_collector.go    # 指标收集
 │   │   └── health_check.go       # 健康检查
 │   │
 │   ├── api/                      # HTTP API
@@ -279,7 +279,7 @@ netxfw/
 
 ## 持久化模型
 *   **运行时**: `/sys/fs/bpf/netxfw_v2/*` (固定的 BPF Maps)
-*   **存储**: `rules.deny.txt` (纯文本列表) & `config.toml`
+*   **存储**: `config.toml` 与规则持久化文件（路径由配置项定义）
 *   **同步**: `netxfw system sync` 命令负责运行时状态与存储之间的双向同步
 
 ## 运行模式

@@ -328,7 +328,7 @@ EOF
    sudo netxfw deny add <attacker_ip> --ttl 1h
 
    # 启用速率限制
-   sudo netxfw limit add 0.0.0.0/0 --rate 1000 --burst 2000
+   sudo netxfw limit add 0.0.0.0/0 1000 2000
    ```
 
 2. **误封合法 IP**

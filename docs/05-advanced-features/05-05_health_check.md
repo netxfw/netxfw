@@ -296,7 +296,7 @@ healthChecker.SetThresholds(
 ### 配置文件
 
 ```yaml
-# config.yaml
+# config.toml
 health:
   check_interval: "30s"
   warning_threshold: 80

@@ -117,17 +117,17 @@ sudo netxfw dyn del 192.168.1.100                # 删除动态黑名单（使�
 sudo netxfw dynamic list                         # 列出动态黑名单
 
 # 规则管理
-sudo netxfw rule add 192.168.1.0/24 --action deny  # 添加规则
+sudo netxfw rule add 192.168.1.0/24 deny           # 添加规则
 sudo netxfw rule list                              # 列出规则
 sudo netxfw rule del 192.168.1.0/24                # 删除规则（支持 delete/remove 别名）
-sudo netxfw rule export rules.yaml                 # 导出规则
-sudo netxfw rule import rules.yaml                 # 导入规则
+sudo netxfw rule export rules.toml                 # 导出规则
+sudo netxfw rule import all rules.toml             # 导入规则
 
 # 端口规则管理（IP+Port 级别控制）
 sudo netxfw allow 192.168.1.100:8080     # 允许特定 IP+端口
 sudo netxfw deny 10.0.0.1:443            # 拒绝特定 IP+端口
-sudo netxfw rule add 192.168.1.100:8080 --action allow   # 添加 IP+Port 允许规则
-sudo netxfw rule add 10.0.0.1:443 --action deny          # 添加 IP+Port 拒绝规则
+sudo netxfw rule add 192.168.1.100:8080 allow            # 添加 IP+Port 允许规则
+sudo netxfw rule add 10.0.0.1:443 deny                   # 添加 IP+Port 拒绝规则
 sudo netxfw rule del 192.168.1.100:8080                  # 删除 IP+Port 规则
 
 # 开放端口管理（全局端口白名单）
@@ -137,7 +137,7 @@ sudo netxfw port add 8080-8090           # 开放端口范围
 sudo netxfw port del 8080                # 移除端口（支持 delete/remove 别名）
 
 # 限速管理
-sudo netxfw limit add 0.0.0.0/0 --rate 1000 --burst 2000  # 添加限速规则
+sudo netxfw limit add 0.0.0.0/0 1000 2000                 # 添加限速规则
 sudo netxfw limit list                                     # 列出限速规则
 ```
 
@@ -197,7 +197,7 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
 - 🏗️ **模块化设计**：BPF 代码采用模块化结构（Filter、Ratelimit、Conntrack、Protocols），逻辑清晰，易于维护。
 - 🛠️ **命令行控制**：极简 CLI 操作，支持动态加载规则和插件，无需重启服务。
 - 🔄 **手动更新**：支持通过 `netxfw system update` 一键检测并升级二进制文件。
-- 💾 **规则导入导出**：支持多种格式（JSON、YAML、CSV、Binary）的规则导入导出，便于备份和迁移。
+- 💾 **规则导入导出**：支持多种格式（JSON、TOML、CSV、Binary）的规则导入导出，便于备份和迁移。
 
 ---
 
@@ -205,7 +205,7 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
 
 ### 自动拦截配置
 
-在配置文件（默认为 `/etc/netxfw/config.yaml`）中启用自动拦截功能：
+在配置文件（默认为 `/etc/netxfw/config.toml`）中启用自动拦截功能：
 
 ```yaml
 rate_limit:
@@ -300,7 +300,7 @@ log_engine:
 - **Web / CLI / API**：提供用户交互接口。
 - **Metrics**：暴露 Prometheus 监控指标。
 
-更完整的现状、目标分层与迁移说明，请参考 [ARCHITECTURE.md](ARCHITECTURE.md) 与 [附录架构文档](docs/10-appendix/10-01_architecture.md)。
+更完整的现状、目标分层与迁移说明，请参考 [附录架构文档](docs/10-appendix/10-01_architecture.md)。
 
 ---
 

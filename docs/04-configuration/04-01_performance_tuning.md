@@ -154,7 +154,7 @@ sudo sysctl -p /etc/sysctl.d/99-netxfw.conf
 ### Map 大小配置
 
 ```yaml
-# /etc/netxfw/config.yaml
+# /etc/netxfw/config.toml
 capacity:
   # 连接跟踪 - 根据并发连接数调整
   conntrack: 100000

@@ -10,7 +10,7 @@ NetXFW supports runtime dynamic adjustment of XDP module execution order without
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Configuration (config.yaml)               │
+│                    Configuration (config.toml)               │
 │  modules:                                                    │
 │    - name: "sanity"        priority: 0                       │
 │    - name: "critical_blacklist" priority: 10                 │
@@ -119,7 +119,7 @@ func (m *Manager) SyncModules(configs []types.ModuleConfig) error {
 ### Default Configuration
 
 ```yaml
-# config.yaml
+# config.toml
 modules:
   - name: "sanity"
     enabled: true

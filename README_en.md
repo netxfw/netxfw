@@ -117,17 +117,17 @@ sudo netxfw dyn del 192.168.1.100                # Delete dynamic entry (using a
 sudo netxfw dynamic list                         # List dynamic blacklist
 
 # Rule Management
-sudo netxfw rule add 192.168.1.0/24 --action deny  # Add rule
+sudo netxfw rule add 192.168.1.0/24 deny           # Add rule
 sudo netxfw rule list                              # List rules
 sudo netxfw rule del 192.168.1.0/24                # Delete rule (supports delete/remove aliases)
-sudo netxfw rule export rules.yaml                 # Export rules
-sudo netxfw rule import rules.yaml                 # Import rules
+sudo netxfw rule export rules.toml                 # Export rules
+sudo netxfw rule import all rules.toml             # Import rules
 
 # Port Rule Management (IP+Port level control)
 sudo netxfw allow 192.168.1.100:8080     # Allow specific IP+Port
 sudo netxfw deny 10.0.0.1:443            # Deny specific IP+Port
-sudo netxfw rule add 192.168.1.100:8080 --action allow   # Add IP+Port allow rule
-sudo netxfw rule add 10.0.0.1:443 --action deny          # Add IP+Port deny rule
+sudo netxfw rule add 192.168.1.100:8080 allow            # Add IP+Port allow rule
+sudo netxfw rule add 10.0.0.1:443 deny                   # Add IP+Port deny rule
 sudo netxfw rule del 192.168.1.100:8080                  # Delete IP+Port rule
 
 # Open Port Management (Global port whitelist)
@@ -137,7 +137,7 @@ sudo netxfw port add 8080-8090           # Open port range
 sudo netxfw port del 8080                # Remove port (supports delete/remove aliases)
 
 # Rate Limiting
-sudo netxfw limit add 0.0.0.0/0 --rate 1000 --burst 2000  # Add rate limit rule
+sudo netxfw limit add 0.0.0.0/0 1000 2000                 # Add rate limit rule
 sudo netxfw limit list                                     # List rate limit rules
 ```
 
@@ -197,7 +197,7 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
 - 🏗️ **Modular Design**: Structured BPF code (Filter, Ratelimit, Conntrack, Protocols) for clarity and maintainability.
 - 🛠️ **CLI-Driven Control**: Minimalist CLI for dynamic rule and plugin management without service restarts.
 - 🔄 **Manual Update**: Supports one-click binary upgrades via `netxfw system update`.
-- 💾 **Rule Import/Export**: Supports multiple formats (JSON, YAML, CSV, Binary) for rule backup and migration.
+- 💾 **Rule Import/Export**: Supports multiple formats (JSON, TOML, CSV, Binary) for rule backup and migration.
 
 ---
 
@@ -205,7 +205,7 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
 
 ### Auto-Blocking Configuration
 
-Enable Auto-Blocking in your configuration file (default: `/etc/netxfw/config.yaml`):
+Enable Auto-Blocking in your configuration file (default: `/etc/netxfw/config.toml`):
 
 ```yaml
 rate_limit:
@@ -300,7 +300,7 @@ For more configuration options, see [Log Engine Documentation](docs/05-advanced-
 - **Web / CLI / API**: User interaction interfaces.
 - **Metrics**: Exposes Prometheus metrics.
 
-For a clearer view of the current layout, target layering, and migration state, see [ARCHITECTURE.md](ARCHITECTURE.md) and the [appendix architecture document](docs/10-appendix/10-01_architecture_en.md).
+For a clearer view of the current layout, target layering, and migration state, see the [appendix architecture document](docs/10-appendix/10-01_architecture_en.md).
 
 ---
 

@@ -325,7 +325,7 @@ EOF
    sudo netxfw deny add <attacker_ip> --ttl 1h
 
    # Enable rate limiting
-   sudo netxfw limit add 0.0.0.0/0 --rate 1000 --burst 2000
+   sudo netxfw limit add 0.0.0.0/0 1000 2000
    ```
 
 2. **False Positive Blocking of Legitimate IP**

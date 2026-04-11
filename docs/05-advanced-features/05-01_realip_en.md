@@ -44,7 +44,7 @@ In cloud provider load balancer (LB) environments, NetXFW receives connections w
 
 ### Configuration File
 
-Add cloud environment configuration to `/etc/netxfw/config.yaml`:
+Add cloud environment configuration to `/etc/netxfw/config.toml`:
 
 ```yaml
 # ═══════════════════════════════════════════════════════════════
@@ -117,7 +117,7 @@ cloud:
 
 ```bash
 # Edit configuration file
-sudo vim /etc/netxfw/config.yaml
+sudo vim /etc/netxfw/config.toml
 
 # Hot reload configuration
 sudo netxfw system reload

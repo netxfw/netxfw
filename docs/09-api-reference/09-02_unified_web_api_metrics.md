@@ -22,7 +22,7 @@ GET    /metrics            -> Prometheus 指标
 
 ### 配置选项
 
-在 `config.yaml` 中，可以通过以下配置控制服务行为：
+在 `config.toml` 中，可以通过以下配置控制服务行为：
 
 ```yaml
 web:

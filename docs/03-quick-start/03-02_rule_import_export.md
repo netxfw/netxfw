@@ -5,7 +5,7 @@
 `netxfw` 提供强大的规则导入导出功能，支持多种格式以满足不同的使用场景：
 
 - **文本格式**：简单易用，适合手动编辑
-- **JSON/YAML 格式**：结构化数据，适合备份和版本控制
+- **JSON/TOML 格式**：结构化数据，适合备份和版本控制
 - **CSV 格式**：表格格式，适合数据分析
 - **Binary (.bin.zst) 格式**：高性能二进制格式，适合大规模规则存储
 
@@ -47,7 +47,7 @@ netxfw rule import <type> <file>
 2001:db8::1:8080:deny
 ```
 
-#### 2. JSON/YAML 格式
+#### 2. JSON/TOML 格式
 
 ```json
 {
@@ -96,7 +96,7 @@ netxfw rule export <file> [--format <format>]
 | 格式 (Format) | 说明 (Description) | 使用方法 (Usage) |
 |---------------|-------------------|------------------|
 | `json` | JSON 格式 | `--format json` 或文件扩展名 `.json` |
-| `yaml` | YAML 格式 | `--format yaml` 或文件扩展名 `.yaml`/`.yml` |
+| `toml` | TOML 格式 | `--format toml` 或文件扩展名 `.toml` |
 | `csv` | CSV 格式 | `--format csv` 或文件扩展名 `.csv` |
 | `binary` | 二进制格式 | `--format binary` 或文件扩展名 `.bin.zst` |
 
@@ -106,8 +106,8 @@ netxfw rule export <file> [--format <format>]
 # 导出为 JSON 格式
 netxfw rule export rules.json
 
-# 导出为 YAML 格式
-netxfw rule export rules.yaml --format yaml
+# 导出为 TOML 格式
+netxfw rule export rules.toml --format toml
 
 # 导出为 CSV 格式
 netxfw rule export rules.csv --format csv
@@ -117,7 +117,7 @@ netxfw rule export rules.deny.bin.zst --format binary
 
 # 自动检测格式（根据文件扩展名）
 netxfw rule export rules.json
-netxfw rule export rules.yaml
+netxfw rule export rules.toml
 netxfw rule export rules.csv
 netxfw rule export rules.deny.bin.zst
 ```
@@ -127,7 +127,7 @@ netxfw rule export rules.deny.bin.zst
 | 格式 (Format) | 优点 (Pros) | 缺点 (Cons) | 适用场景 (Use Cases) |
 |---------------|-------------|-------------|---------------------|
 | **文本** | 简单易读，手动编辑方便 | 功能有限，仅支持单一规则类型 | 快速添加少量 IP |
-| **JSON/YAML** | 结构化，包含所有规则类型，易读 | 文件较大，解析较慢 | 配置备份、版本控制 |
+| **JSON/TOML** | 结构化，包含所有规则类型，易读 | 文件较大，解析较慢 | 配置备份、版本控制 |
 | **CSV** | 表格格式，便于 Excel 编辑 | 文件较大，不支持复杂结构 | 数据交换、报表 |
 | **Binary** | 高性能，压缩率高，解析快 | 不可读，仅支持黑名单 | 大规模规则存储、快速迁移 |
 
@@ -135,7 +135,7 @@ netxfw rule export rules.deny.bin.zst
 
 ### 1. 日常备份 (Daily Backup)
 
-使用 JSON 或 YAML 格式进行定期备份：
+使用 JSON 或 TOML 格式进行定期备份：
 
 ```bash
 # 定期备份规则
@@ -179,7 +179,7 @@ netxfw rule export rules.csv --format csv
 1. **文件格式错误**：
    - 确保文件扩展名正确
    - 检查文件编码是否为 UTF-8
-   - 验证 JSON/YAML 格式是否正确
+   - 验证 JSON/TOML 格式是否正确
 
 2. **权限问题**：
    - 确保对目标文件具有读写权限

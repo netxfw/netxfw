@@ -19,8 +19,8 @@ The control plane is written in Go and runs in user space. It manages the lifecy
 *   **Responsibilities**:
     *   **Load/Unload**: Loads XDP programs using `cilium/ebpf` and pins Maps to `/sys/fs/bpf/netxfw_v2`.
     *   **Map Management**: CRUD operations on BPF Maps (add/remove rules).
-    *   **Persistence**: Syncs in-memory BPF Map state to `rules.deny.txt` and `config.toml`.
-    *   **CLI**: User-friendly command-line interface (`netxfw rule add`, `netxfw system top`).
+    *   **Persistence**: Syncs runtime BPF Map state to configuration/rule persistence files, with `config.toml` as the primary entry.
+    *   **CLI**: User-friendly command-line interface (`netxfw rule add`, `netxfw system status`).
 
 ## Unified Dual-Stack Architecture
 To simplify maintenance and reduce memory usage, `netxfw` uses a unified Map strategy:
@@ -53,5 +53,5 @@ To simplify maintenance and reduce memory usage, `netxfw` uses a unified Map str
 
 ## Persistence Model
 *   **Runtime**: `/sys/fs/bpf/netxfw_v2/*` (Pinned BPF Maps).
-*   **Storage**: `rules.deny.txt` (Plain text list) & `config.toml`.
+*   **Storage**: `config.toml` and rule persistence files (paths are defined by configuration).
 *   **Sync**: `netxfw system sync` command handles bidirectional sync between runtime state and storage.

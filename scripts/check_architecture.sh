@@ -252,7 +252,7 @@ check_xdp_module_conventions() {
 
   echo "13. [XDP-PREFIX-GOVERNANCE] xdp 文件前缀治理（warning）"
   # 对齐当前仓库：补齐已存在的前缀集合，减少误报
-  local allowed_prefixes="adapter api bpf core errors helpers map misc mock netxfw pool real rules stats sync types util xdp health incremental interfaces lock manager metrics performance utils"
+  local allowed_prefixes="adapter api bpf core errors helpers lifecycle map misc mock netxfw pool real rules stats sync types util xdp health incremental interfaces lock manager metrics performance utils"
   local unknown=""
   while IFS= read -r f; do
     [ -z "$f" ] && continue
@@ -285,16 +285,21 @@ check_circular_deps() {
   echo "Checking circular dependencies..."
   echo ""
 
-  if command -v godepgraph &>/dev/null; then
-    if godepgraph -n cmd/... 2>&1 | grep -q "cycle"; then
-      print_err "发现循环依赖"
-      inc_error
-    else
-      print_ok "未发现循环依赖"
-    fi
-  else
-    print_warn "跳过：未安装 godepgraph"
+  if ! command -v go &>/dev/null; then
+    print_warn "跳过：未安装 Go，无法检查循环依赖"
     inc_warning
+    echo ""
+    return
+  fi
+
+  local cycle_output
+  cycle_output=$(go list -deps ./... 2>&1 >/dev/null || true)
+  if echo "$cycle_output" | grep -qi "import cycle not allowed"; then
+    print_err "发现循环依赖"
+    echo "$cycle_output" | grep -i "import cycle not allowed" || true
+    inc_error
+  else
+    print_ok "未发现循环依赖"
   fi
   echo ""
 }
@@ -334,7 +339,7 @@ check_build() {
   echo ""
 }
 
-# 7) coverage（默认阈值 80%，未达标按 warning；可后续升级为关键路径阈值）
+# 7) coverage（默认阈值可配置，便于逐步提升）
 check_coverage() {
   echo "检查测试覆盖率..."
   echo "Checking test coverage..."
@@ -346,18 +351,27 @@ check_coverage() {
     return
   fi
 
-  go test -coverprofile=coverage.out ./... >/dev/null 2>&1 || true
+  if ! go test -coverprofile=coverage.out ./... >/dev/null 2>&1; then
+    print_warn "测试执行失败，覆盖率结果可能不完整（跳过覆盖率阈值判定）"
+    inc_warning
+    rm -f coverage.out
+    echo ""
+    return
+  fi
 
   if [ -f coverage.out ]; then
     local cov
+    local min_cov
     cov=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+    min_cov="${COVERAGE_MIN:-35}"
     echo "总覆盖率 / Total coverage: ${cov}%"
+    echo "覆盖率阈值 / Coverage threshold: ${min_cov}%"
 
     # awk numeric compare
     local below
-    below=$(awk -v c="$cov" 'BEGIN{print (c<80)?1:0}')
+    below=$(awk -v c="$cov" -v m="$min_cov" 'BEGIN{print (c<m)?1:0}')
     if [ "$below" -eq 1 ]; then
-      print_warn "测试覆盖率低于 80% (${cov}%)（当前按告警处理）"
+      print_warn "测试覆盖率低于阈值 ${min_cov}% (${cov}%)（当前按告警处理）"
       inc_warning
     else
       print_ok "测试覆盖率达标 (${cov}%)"

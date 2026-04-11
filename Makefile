@@ -1,4 +1,4 @@
-.PHONY: build build-compressed generate clean build-zig-amd64 build-zig-arm64 test lint check bench
+.PHONY: build build-compressed generate clean build-zig-amd64 build-zig-arm64 test lint check bench docs-check
 
 BPF_CFLAGS :=
 # Zig compiler configuration
@@ -22,6 +22,7 @@ help:
 	@echo "  make generate         - Generate BPF code"
 	@echo "  make test             - Run fast test suite"
 	@echo "  make lint             - Run static checks"
+	@echo "  make docs-check       - Run docs link + CLI call-graph checks"
 	@echo "  make check            - Run architecture, lint, build and test checks"
 	@echo "  make bench            - Run benchmark tests"
 	@echo "  make install          - Install binary and config"
@@ -74,10 +75,15 @@ lint:
 
 check:
 	bash ./scripts/check_markdown_links.sh
+	bash ./scripts/check_cli_callgraphs.sh
 	bash ./scripts/check_architecture.sh
 	$(MAKE) lint
 	go build -trimpath ./cmd/netxfw
 	$(MAKE) test
+
+docs-check:
+	bash ./docs/check_links.sh
+	bash ./scripts/check_cli_callgraphs.sh
 
 bench:
 	go test -bench=. ./test/performance/...

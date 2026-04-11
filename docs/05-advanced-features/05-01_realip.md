@@ -44,7 +44,7 @@
 
 ### 配置文件
 
-在 `/etc/netxfw/config.yaml` 中添加云环境配置：
+在 `/etc/netxfw/config.toml` 中添加云环境配置：
 
 ```yaml
 # ═══════════════════════════════════════════════════════════════
@@ -120,7 +120,7 @@ cloud:
 
 ```bash
 # 编辑配置文件
-sudo vim /etc/netxfw/config.yaml
+sudo vim /etc/netxfw/config.toml
 
 # 热重载配置
 sudo netxfw system reload

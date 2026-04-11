@@ -10,7 +10,7 @@ NetXFW 支持运行时动态调整 XDP 模块的执行顺序，无需重新编�
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    配置文件 (config.yaml)                     │
+│                    配置文件 (config.toml)                     │
 │  modules:                                                    │
 │    - name: "sanity"        priority: 0                       │
 │    - name: "critical_blacklist" priority: 10                 │
@@ -119,7 +119,7 @@ func (m *Manager) SyncModules(configs []types.ModuleConfig) error {
 ### 默认配置
 
 ```yaml
-# config.yaml
+# config.toml
 modules:
   - name: "sanity"
     enabled: true

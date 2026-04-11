@@ -82,11 +82,11 @@ The following flags are available on most subcommands:
 
 | Command | Arguments | Description |
 |---|---|---|
-| `rule add <ip> [port] <allow\|deny>` | IP, port, action | Add IP or IP+Port rule |
+| `rule add <ip>[:port] <allow\|deny>` | IP, port, action | Add IP or IP+Port rule |
 | `rule del <ip>` | IP/CIDR | Remove a rule (`delete`/`remove` alias) |
 | `rule list` | optional filters | List all rules |
-| `rule import <type> <file>` | type, file | Bulk import rules (TXT/JSON/YAML) |
-| `rule export <file> [--format]` | file, format | Export rules (JSON/YAML/CSV) |
+| `rule import <type> <file>` | type, file | Bulk import rules (TXT/JSON/TOML) |
+| `rule export <file> [--format]` | file, format | Export rules (JSON/TOML/CSV) |
 | `rule clear` | None | Clear the blacklist |
 
 ### limit — Rate Limiting
@@ -174,7 +174,7 @@ Displays runtime status, statistics, and resource utilization.
 sudo netxfw system status
 
 # Use a custom config file
-sudo netxfw system status -c /etc/netxfw/config.yaml
+sudo netxfw system status -c /etc/netxfw/config.toml
 
 # Show stats for a specific interface
 sudo netxfw system status -i eth0
@@ -327,9 +327,9 @@ sudo netxfw rule import deny blacklist.txt
 # Import whitelist
 sudo netxfw rule import allow whitelist.txt
 
-# Import all rules from JSON/YAML
+# Import all rules from JSON/TOML
 sudo netxfw rule import all rules.json
-sudo netxfw rule import all rules.yaml
+sudo netxfw rule import all rules.toml
 
 # Import blacklist from bin.zst file (binary compressed format)
 sudo netxfw rule import binary rules.deny.bin.zst
@@ -358,8 +358,8 @@ sudo netxfw rule import binary rules.deny.bin.zst
 # Export as JSON (default)
 sudo netxfw rule export rules.json
 
-# Export as YAML
-sudo netxfw rule export rules.yaml --format yaml
+# Export as TOML
+sudo netxfw rule export rules.toml --format toml
 
 # Export as CSV
 sudo netxfw rule export rules.csv --format csv
@@ -369,7 +369,7 @@ sudo netxfw rule export rules.deny.bin.zst --format binary
 
 # Auto-detect format (based on file extension)
 sudo netxfw rule export rules.json
-sudo netxfw rule export rules.yaml
+sudo netxfw rule export rules.toml
 sudo netxfw rule export rules.csv
 sudo netxfw rule export rules.deny.bin.zst
 ```
@@ -379,7 +379,7 @@ sudo netxfw rule export rules.deny.bin.zst
 | Format | Pros | Cons | Use Cases |
 |--------|------|------|-----------|
 | **Text** | Simple, human-readable, easy to edit | Limited functionality, single rule type only | Quick addition of few IPs |
-| **JSON/YAML** | Structured, includes all rule types, readable | Larger file size, slower parsing | Config backup, version control |
+| **JSON/TOML** | Structured, includes all rule types, readable | Larger file size, slower parsing | Config backup, version control |
 | **CSV** | Tabular format, easy to edit in Excel | Large file size, no complex structure support | Data exchange, reporting |
 | **Binary** | High performance, high compression ratio, fast parsing | Not human-readable, blacklist only | Large-scale rule storage, fast migration |
 
@@ -442,7 +442,7 @@ sudo netxfw port remove 8080
 
 ### 10. Configuration Sync (system sync)
 
-Bidirectional synchronization between BPF maps (runtime) and `config.yaml` (disk).
+Bidirectional synchronization between BPF maps (runtime) and `config.toml` (disk).
 
 ```bash
 # Persist runtime state to config file (Memory → Disk)
@@ -472,7 +472,7 @@ sudo netxfw system daemon
 sudo netxfw system daemon -i eth0
 
 # Start with a custom config and interface
-sudo netxfw system daemon -c /etc/netxfw/config.yaml -i eth0
+sudo netxfw system daemon -c /etc/netxfw/config.toml -i eth0
 ```
 
 > **PID File Behavior**:
@@ -498,3 +498,214 @@ sudo netxfw system test
 # Check for and install the latest update
 sudo netxfw system update
 ```
+
+## Call Graphs
+
+This section documents the real command call paths using a 3-layer model:
+`command -> cmd implementation -> application/service or SDK`.
+
+### 1) Root Registration Overview
+
+```mermaid
+flowchart TD
+  A["netxfw"] --> B["allow/deny/list/del/clear"]
+  A --> C["rule"]
+  A --> D["system"]
+  A --> E["dynamic|dyn"]
+  A --> F["limit"]
+  A --> G["security"]
+  A --> H["perf"]
+  A --> I["conntrack"]
+  A --> J["status/start/stop/reload/version/init/test/reset/enable/disable/web"]
+  A --> K["port"]
+```
+
+Source anchors: `cmd/netxfw/root.go`; command handlers in `cmd/agent/*.go` and `cmd/dp/conntrack.go`; execution framework `cmd/agent/executor.go`; service entrypoints `internal/application/services/*`.
+
+### 2) allow/deny/list/del (including port list)
+
+```mermaid
+flowchart TD
+  A["allow [ip][:port]"] --> A1["runAllowCommand()"]
+  A2["allow add"] --> A1
+  A3["allow list"] --> A4["s.Whitelist.List()"]
+  A5["allow port list"] --> A6["listIPPortRulesByAction(action=allow)"]
+
+  B["deny [ip][:port] --ttl"] --> B1["runDenyCommand()"]
+  B2["deny add"] --> B1
+  B3["deny list"] --> B4["ListBlacklistIPs/ListDynamicBlacklistIPs"]
+  B5["deny port list"] --> B6["listIPPortRulesByAction(action=deny)"]
+
+  C["list"] --> C1["SimpleListCmd.Run"]
+  D["del|delete"] --> D1["SimpleDeleteCmd.Run"]
+
+  A1 --> S["ruleCommandService.AddAllowRule()"]
+  B1 --> T["ruleCommandService.AddDenyRule() / SDK.Blacklist.*"]
+  D1 --> U["ruleCommandService.DeleteFromAllRuleStores()"]
+  S --> APP["internal/app"]
+  T --> APP
+  U --> APP
+```
+
+Source anchors: `cmd/agent/simple_list.go`; execution framework `cmd/agent/executor.go`; service entrypoint `internal/application/services/rule_command_service.go`.
+
+### 3) rule (add/del/list/import/export/clear)
+
+```mermaid
+flowchart TD
+  A["rule add <ip>[:port] <allow|deny>"] --> A1["ruleCommandService.AddRule()"]
+  B["rule del|delete|remove"] --> B1["ruleCommandService.DeleteRule()"]
+  C["rule list"] --> C1["SDK Rule/Blacklist/Whitelist queries"]
+  D["rule import"] --> D1["RuleService.ImportStructured/ImportBinary"]
+  E["rule export"] --> E1["RuleService.ExportStructured/ExportCSV/ExportBinary"]
+  F["rule clear"] --> F1["s.Blacklist.Clear()"]
+
+  A1 --> APP["internal/app"]
+  B1 --> APP
+  D1 --> APP
+  E1 --> APP
+```
+
+Source anchors: `cmd/agent/rule.go`; execution framework `cmd/agent/executor.go`; service entrypoints `internal/application/services/rule_command_service.go`, `internal/application/services/rule_service.go`.
+
+### 4) system (attach/load/unload/on/off/reload/status/sync/test/init/daemon/update)
+
+```mermaid
+flowchart TD
+  A["system load|on"] --> A1["systemService.InstallXDP()"]
+  B["system unload|off"] --> B1["systemService.RemoveXDP()"]
+  C["system attach"] --> C1["systemService.AttachXDPWithMode()"]
+  D["system reload"] --> D1["systemService.ReloadPinnedMaps()"]
+  E["system status"] --> E1["showStatus() + systemQueryService.*"]
+  F["system init"] --> F1["systemService.InitConfiguration()"]
+  G["system test"] --> G1["systemService.TestConfiguration()"]
+  H["system daemon"] --> H1["systemService.RunDaemon()"]
+  I["system update"] --> I1["systemService.RunShellPipeline()"]
+  J["system sync"] --> J1["to-config / to-map"]
+  J1 --> J2["systemService.SyncRuntimeToConfig()"]
+  J1 --> J3["systemService.SyncConfigToRuntimeOverwrite()"]
+```
+
+Source anchors: `cmd/agent/system.go`, `cmd/agent/system_display.go`, `cmd/agent/system_stats.go`; execution framework `cmd/agent/executor.go`; service entrypoints `internal/application/services/system_service.go`, `internal/application/services/system_query_service.go`.
+
+### 5) dynamic (add/del/list, alias dyn)
+
+```mermaid
+flowchart TD
+  A["dynamic|dyn add <ip> --ttl"] --> A1["SDK.Blacklist.AddWithDuration()"]
+  B["dynamic|dyn del <ip>"] --> B1["SDK.Blacklist.RemoveDynamic()"]
+  C["dynamic|dyn list"] --> C1["Manager.ListDynamicBlacklistIPs()"]
+  A --> EX["Execute() -> CommandExecutor"]
+  B --> EX
+  C --> EX
+```
+
+Source anchors: `cmd/agent/dynamic.go`; execution framework `cmd/agent/executor.go`.
+
+### 6) limit (add/remove/list)
+
+```mermaid
+flowchart TD
+  A["limit add <ip> <rate> <burst>"] --> A1["SDK.Rule.AddRateLimitRule()"]
+  B["limit remove|del|delete <ip>"] --> B1["SDK.Rule.RemoveRateLimitRule()"]
+  C["limit list"] --> C1["SDK.Rule.ListRateLimitRules()"]
+  A --> EX["ExecuteWithArgs()"]
+  B --> EX
+  C --> EX2["Execute()"]
+```
+
+Source anchors: `cmd/agent/limit.go`; execution framework `cmd/agent/executor.go`.
+
+### 7) security (6 subcommands)
+
+```mermaid
+flowchart TD
+  A["security fragments"] --> A1["SDK.Security.SetDropFragments()"]
+  B["security strict-tcp"] --> B1["SDK.Security.SetStrictTCP()"]
+  C["security syn-limit"] --> C1["SDK.Security.SetSYNLimit()"]
+  D["security bogon"] --> D1["SDK.Security.SetBogonFilter()"]
+  E["security auto-block"] --> E1["SDK.Security.SetAutoBlock()"]
+  F["security auto-block-expiry"] --> F1["SDK.Security.SetAutoBlockExpiry()"]
+  A --> EX["runSecurityBoolCommand() -> Execute()"]
+  B --> EX
+  C --> EX
+  D --> EX
+  E --> EX
+  F --> EX2["Execute()"]
+```
+
+Source anchors: `cmd/agent/security.go`; execution framework `cmd/agent/executor.go`.
+
+### 8) perf (show/latency/cache/traffic/reset)
+
+```mermaid
+flowchart TD
+  A["perf show"] --> A1["showPerformanceStats()"]
+  B["perf latency"] --> B1["showMapLatency()"]
+  C["perf cache"] --> C1["showCacheHitRates()"]
+  D["perf traffic"] --> D1["showTrafficStats()"]
+  E["perf reset"] --> E1["getPerfStats().Reset()"]
+  A1 --> Q["perfQueryService.LoadPerformanceStats()"]
+  B1 --> Q
+  C1 --> Q
+  D1 --> Q
+  Q --> APP["internal/app.LoadPerformanceStats()"]
+```
+
+Source anchors: `cmd/agent/perf.go`; execution framework `cmd/agent/executor.go`; service entrypoint `internal/application/services/performance_query_service.go`.
+
+### 9) conntrack
+
+```mermaid
+flowchart TD
+  A["conntrack"] --> B["common.GetSDK()"]
+  B --> C["common.ShowConntrack()"]
+```
+
+Source anchors: `cmd/dp/conntrack.go`, `cmd/common/utils.go`, `cmd/common/display.go`.
+
+### 10) Simplified commands (status/start/stop/reload/version/init/test/reset/enable/disable/web)
+
+```mermaid
+flowchart TD
+  A["status"] --> A1["showStatus() + commandRuntimeService.LoadTrafficStats()"]
+  B["start|enable"] --> B1["systemService.InstallXDP()"]
+  C["stop|disable"] --> C1["systemService.RemoveXDP()"]
+  D["reload"] --> D1["commandRuntimeService.LoadAndSyncConfigToRuntime()"]
+  E["version"] --> E1["commandRuntimeService.Version()"]
+  F["init"] --> F1["systemService.InitConfiguration()"]
+  G["test"] --> G1["systemService.TestConfiguration()"]
+  H["reset"] --> H1["commandRuntimeService.ResetFirewall()"]
+  I["web"] --> I1["Print web information"]
+```
+
+Source anchors: `cmd/agent/simple.go`; execution framework `cmd/agent/executor.go`; service entrypoints `internal/application/services/command_runtime_service.go`, `internal/application/services/system_service.go`.
+
+## Maintenance Rules
+
+1. When any CLI command/subcommand is added or removed, update the corresponding Mermaid graph in this section.
+2. Alias changes (such as `del|delete`, `dynamic|dyn`, `on|load`, `off|unload`) must be explicitly reflected in graphs.
+3. If call paths move between `SDK` and `application/services`, update both the graph and source-anchor line.
+4. Before merge, run at least: `./netxfw --help` and `./netxfw <group> --help` for `rule/system/allow/deny/dynamic/limit/security/perf`.
+
+## Sampled Call-Path Verification (2026-04-11)
+
+1. `rule export <file>`  
+Path: `netxfw` -> `rule` -> `export` -> `ruleExportCmd.Run` -> `Execute(...)` -> `RuleService.ExportStructured/ExportCSV/ExportBinary`.  
+Anchors: `cmd/netxfw/root.go:72`, `cmd/agent/rule.go:438`, `cmd/agent/rule.go:450`, `cmd/agent/executor.go:165`, `internal/application/services/rule_service.go:28`.
+
+2. `system sync to-map`  
+Path: `netxfw` -> `system` -> `sync` -> `to-map` -> `syncToMapCmd.Run` -> `Execute(...)` -> `SystemService.SyncConfigToRuntimeOverwrite`.  
+Anchors: `cmd/netxfw/root.go:92`, `cmd/agent/system.go:383`, `cmd/agent/system.go:388`, `cmd/agent/executor.go:165`, `internal/application/services/system_service.go:41`.
+
+3. `deny port list`  
+Path: `netxfw` -> `deny` -> `port` -> `list` -> `denyPortListCmd.Run` -> `CommandExecutor.ExecuteWithSDK(...)` -> `listIPPortRulesByAction(...)` -> `s.GetManager().ListIPPortRules(...)`.  
+Anchors: `cmd/netxfw/root.go:58`, `cmd/agent/simple_list.go:359`, `cmd/agent/simple_list.go:365`, `cmd/agent/executor.go:94`, `cmd/agent/simple_list.go:539`.
+
+4. `dynamic add <ip> --ttl <duration>`  
+Path: `netxfw` -> `dynamic|dyn` -> `add` -> `dynamicAddCmd.Run` -> `Execute(...)` -> `s.Blacklist.AddWithDuration(...)`.  
+Anchors: `cmd/netxfw/root.go:76`, `cmd/agent/dynamic.go:34`, `cmd/agent/dynamic.go:49`, `cmd/agent/executor.go:165`, `cmd/agent/dynamic.go:69`.
+
+5. `perf show`  
+Path: `netxfw` -> `perf` -> `show` -> `perfShowCmd.Run` -> `Execute(...)` -> `showPerformanceStats(...)` -> `perfQueryService.LoadPerformanceStats(...)`.  
+Anchors: `cmd/netxfw/root.go:83`, `cmd/agent/perf.go:27`, `cmd/agent/perf.go:33`, `cmd/agent/perf.go:130`, `internal/application/services/performance_query_service.go:21`.

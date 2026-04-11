@@ -153,7 +153,7 @@ netxfw reload
 | `netxfw rule import lock <file>` | 导入黑名单规则（文本格式） |
 | `netxfw rule import allow <file>` | 导入白名单规则（文本格式） |
 | `netxfw rule import rules <file>` | 导入 IP+Port 规则（文本格式） |
-| `netxfw rule import all <file>` | 导入所有规则（JSON/YAML 格式） |
+| `netxfw rule import all <file>` | 导入所有规则（JSON/TOML 格式） |
 | `netxfw rule import binary <file>` | 导入黑名单（Binary.bin.zst 格式） |
 
 ### 导出规则
@@ -162,7 +162,7 @@ netxfw reload
 |------|------|
 | `netxfw rule export <file>` | 导出所有规则（自动检测格式） |
 | `netxfw rule export <file> --format json` | 导出为 JSON 格式 |
-| `netxfw rule export <file> --format yaml` | 导出为 YAML 格式 |
+| `netxfw rule export <file> --format toml` | 导出为 TOML 格式 |
 | `netxfw rule export <file> --format csv` | 导出为 CSV 格式 |
 | `netxfw rule export <file> --format binary` | 导出为 Binary.bin.zst 格式 |
 
@@ -181,7 +181,7 @@ netxfw reload
   10.0.0.1:443:allow
   ```
 
-#### 2. JSON/YAML 格式
+#### 2. JSON/TOML 格式
 结构化数据，包含所有规则类型：
 ```json
 {
@@ -228,8 +228,8 @@ netxfw rule import rules ipport.txt
 # 从 JSON 文件导入所有规则
 netxfw rule import all rules.json
 
-# 从 YAML 文件导入所有规则
-netxfw rule import all rules.yaml
+# 从 TOML 文件导入所有规则
+netxfw rule import all rules.toml
 
 # 从 bin.zst 文件导入黑名单
 netxfw rule import binary rules.deny.bin.zst
@@ -240,8 +240,8 @@ netxfw rule import binary rules.deny.bin.zst
 # 导出为 JSON 格式
 netxfw rule export rules.json
 
-# 导出为 YAML 格式
-netxfw rule export rules.yaml --format yaml
+# 导出为 TOML 格式
+netxfw rule export rules.toml --format toml
 
 # 导出为 CSV 格式
 netxfw rule export rules.csv --format csv
@@ -251,7 +251,7 @@ netxfw rule export rules.deny.bin.zst --format binary
 
 # 自动检测格式（根据文件扩展名）
 netxfw rule export rules.json
-netxfw rule export rules.yaml
+netxfw rule export rules.toml
 netxfw rule export rules.csv
 netxfw rule export rules.deny.bin.zst
 ```
@@ -261,7 +261,7 @@ netxfw rule export rules.deny.bin.zst
 | 格式 | 优点 | 缺点 | 适用场景 |
 |------|------|------|----------|
 | **文本** | 简单易读，手动编辑方便 | 功能有限，仅支持单一规则类型 | 快速添加少量 IP |
-| **JSON/YAML** | 结构化，包含所有规则类型，易读 | 文件较大，解析较慢 | 配置备份、版本控制 |
+| **JSON/TOML** | 结构化，包含所有规则类型，易读 | 文件较大，解析较慢 | 配置备份、版本控制 |
 | **CSV** | 表格格式，便于 Excel 编辑 | 文件较大，不支持复杂结构 | 数据交换、报表 |
 | **Binary** | 高性能，压缩率高，解析快 | 不可读，仅支持黑名单 | 大规模规则存储、快速迁移 |
 

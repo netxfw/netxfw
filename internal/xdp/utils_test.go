@@ -16,6 +16,12 @@ import (
 // TestGetPhysicalInterfaces 测试 GetPhysicalInterfaces 函数
 func TestGetPhysicalInterfaces(t *testing.T) {
 	interfaces, err := GetPhysicalInterfaces()
+	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "operation not permitted") || strings.Contains(errMsg, "permission denied") {
+			t.Skipf("skip in unprivileged environment: %v", err)
+		}
+	}
 	require.NoError(t, err)
 
 	// Verify all returned interfaces are valid

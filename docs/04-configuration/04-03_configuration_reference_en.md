@@ -522,10 +522,10 @@ cp /etc/netxfw/config.toml.bak.20240101-120000 /etc/netxfw/config.toml
 
 ```bash
 # Validate configuration file syntax
-netxfw validate /etc/netxfw/config.toml
+netxfw test --config /etc/netxfw/config.toml
 
 # Show current configuration
-netxfw config show
+cat /etc/netxfw/config.toml
 ```
 
 ---

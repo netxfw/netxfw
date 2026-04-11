@@ -118,7 +118,7 @@ Error: toml: unmarshal errors
 python3 -c "import tomllib; tomllib.load(open('/etc/netxfw/config.toml', 'rb'))"
 
 # Or use netxfw validation
-sudo netxfw validate --config /etc/netxfw/config.toml
+sudo netxfw test --config /etc/netxfw/config.toml
 ```
 
 ---
@@ -390,7 +390,7 @@ sudo netstat -tlnp | grep 11811
 |---------|----------|
 | PID file exists | `sudo rm /var/run/netxfw.pid` |
 | Port in use | `sudo lsof -i :11811` then kill |
-| Configuration error | `sudo netxfw validate` |
+| Configuration error | `sudo netxfw test` |
 | Permission issue | `sudo chown -R root:root /etc/netxfw` |
 
 ### Daemon Crashes

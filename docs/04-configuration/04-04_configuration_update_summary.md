@@ -114,10 +114,10 @@ lock_list_v6_mask = 64       # /64 = Standard subnet
 
 ```bash
 # 验证配置文件语法
-netxfw validate /etc/netxfw/config-agent.toml
+netxfw test --config /etc/netxfw/config-agent.toml
 
 # 查看当前配置
-netxfw config show
+cat /etc/netxfw/config-agent.toml
 
 # 测试 IPv6 连接
 ping6 -c 4 ipv6.google.com
