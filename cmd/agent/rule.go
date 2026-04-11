@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/internal/application/services"
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/pkg/sdk"
@@ -60,7 +59,7 @@ var portAddCmd = &cobra.Command{
 			if err := s.Rule.AllowPort(uint16(port)); err != nil {
 				return err
 			}
-			app.LogInfo(cmd.Context(), "[OK] Port %d added to allowed list", port)
+			printInfof(cmd, "[OK] Port %d added to allowed list", port)
 			return nil
 		})
 	},
@@ -84,7 +83,7 @@ var portRemoveCmd = &cobra.Command{
 			if err := s.Rule.RemoveAllowedPort(uint16(port)); err != nil {
 				return err
 			}
-			app.LogInfo(cmd.Context(), "[OK] Port %d removed from allowed list", port)
+			printInfof(cmd, "[OK] Port %d removed from allowed list", port)
 			return nil
 		})
 	},
@@ -113,17 +112,17 @@ Examples:
 			}
 
 			actionStr := args[1]
-			var action app.RuleAction
+			var action services.RuleAction
 			switch actionStr {
 			case actionAllow:
-				action = app.RuleActionAllow
+				action = services.RuleActionAllow
 			case actionDeny:
-				action = app.RuleActionDeny
+				action = services.RuleActionDeny
 			default:
 				return fmt.Errorf("[ERROR] invalid action %q, use 'allow' or 'deny'", actionStr)
 			}
 
-			if err := app.AddRule(s, ip, portVal, action); err != nil {
+			if err := ruleCommandService.AddRule(s, ip, portVal, action); err != nil {
 				return err
 			}
 
@@ -131,7 +130,7 @@ Examples:
 				cmd.Printf("[OK] Rule added: %s:%d (Action: %d)\n", ip, portVal, uint8(action))
 				return nil
 			}
-			if action == app.RuleActionAllow {
+			if action == services.RuleActionAllow {
 				cmd.Printf("[OK] Added %s to Whitelist\n", ip)
 			} else {
 				cmd.Printf("[BLOCK] Added %s to Blacklist\n", ip)
@@ -179,7 +178,7 @@ Aliases: delete, remove
 				return validateErr
 			}
 
-			removed, err := app.DeleteRule(cfg, s, ip, port)
+			removed, err := ruleCommandService.DeleteRule(cfg, s, ip, port)
 			if err != nil {
 				return fmt.Errorf("[ERROR] %v", err)
 			}
@@ -430,7 +429,7 @@ var ruleClearCmd = &cobra.Command{
 			if err := s.Blacklist.Clear(); err != nil {
 				return err
 			}
-			app.LogInfo(cmd.Context(), "[OK] Blacklist cleared")
+			printInfof(cmd, "[OK] Blacklist cleared")
 			return nil
 		})
 	},

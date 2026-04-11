@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -58,7 +57,7 @@ var limitAddCmd = &cobra.Command{
 			if err := s.Rule.AddRateLimitRule(ip, rate, burst); err != nil {
 				return err
 			}
-			app.LogInfo(cmd.Context(), "[OK] Rate limit rule added for %s: %d/s (burst %d)", ip, rate, burst)
+			printInfof(cmd, "[OK] Rate limit rule added for %s: %d/s (burst %d)", ip, rate, burst)
 			return nil
 		})
 	},
@@ -81,7 +80,7 @@ var limitRemoveCmd = &cobra.Command{
 			if err := s.Rule.RemoveRateLimitRule(ip); err != nil {
 				return err
 			}
-			app.LogInfo(cmd.Context(), "[OK] Rate limit rule removed for %s", ip)
+			printInfof(cmd, "[OK] Rate limit rule removed for %s", ip)
 			return nil
 		})
 	},

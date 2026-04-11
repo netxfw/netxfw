@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -71,7 +70,7 @@ Examples:
 				return fmt.Errorf("[ERROR] Failed to add to dynamic blacklist: %v", err)
 			}
 
-			app.LogInfo(cmd.Context(), "[BLOCK] Added %s to dynamic blacklist for %v", ip, ttl)
+			printInfof(cmd, "[BLOCK] Added %s to dynamic blacklist for %v", ip, ttl)
 			return nil
 		})
 	},
@@ -111,7 +110,7 @@ Examples:
 				return fmt.Errorf("[ERROR] Failed to delete from dynamic blacklist: %v", err)
 			}
 
-			app.LogInfo(cmd.Context(), "[OK] Deleted %s from dynamic blacklist", ip)
+			printInfof(cmd, "[OK] Deleted %s from dynamic blacklist", ip)
 			return nil
 		})
 	},

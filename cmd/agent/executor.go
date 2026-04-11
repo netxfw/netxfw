@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/app"
+	"github.com/netxfw/netxfw/internal/application/services"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
 var lastCommandErr error
+var commandRuntimeService = services.NewCommandRuntimeService()
 
 func setLastCommandError(err error) {
 	lastCommandErr = err
@@ -64,7 +65,7 @@ func (e *CommandExecutor) WithInterface(name string) *CommandExecutor {
 // ApplyFlags applies command flags to config
 func (e *CommandExecutor) ApplyFlags() *CommandExecutor {
 	if e.config != "" {
-		app.SetConfigPath(e.config)
+		commandRuntimeService.SetConfigPath(e.config)
 	}
 	return e
 }
@@ -85,14 +86,14 @@ func (e *CommandExecutor) GetSDK() (*sdk.SDK, error) {
 // LoadConfig 加载配置
 // LoadConfig loads the configuration
 func (e *CommandExecutor) LoadConfig() (*sdk.GlobalConfig, error) {
-	return app.LoadConfig()
+	return commandRuntimeService.LoadConfig()
 }
 
 // ExecuteWithSDK 使用SDK执行命令
 // ExecuteWithSDK executes command with SDK
 func (e *CommandExecutor) ExecuteWithSDK(execFunc func(*sdk.SDK) error) {
 	if err := e.EnsureMode().ApplyFlags().Do(func() error {
-		if !app.IsTestMode() && !app.IsXDPLoaded() {
+		if !commandRuntimeService.IsTestMode() && !commandRuntimeService.IsXDPLoaded() {
 			e.PrintWarning("XDP is not attached to any interface. Please run 'netxfw system on' or 'netxfw system load' first.")
 			e.PrintWarning("XDP 未挂载到任何接口。请先运行 'netxfw system on' 或 'netxfw system load'。")
 			return nil
@@ -116,7 +117,7 @@ func (e *CommandExecutor) ExecuteWithSDKAndConfig(execFunc func(*sdk.GlobalConfi
 			return fmt.Errorf("[ERROR] Failed to load configuration: %v", err)
 		}
 
-		if !app.IsTestMode() && !app.IsXDPLoaded() {
+		if !commandRuntimeService.IsTestMode() && !commandRuntimeService.IsXDPLoaded() {
 			e.PrintWarning("XDP is not attached to any interface. Please run 'netxfw system on' or 'netxfw system load' first.")
 			e.PrintWarning("XDP 未挂载到任何接口。请先运行 'netxfw system on' 或 'netxfw system load'。")
 			return nil

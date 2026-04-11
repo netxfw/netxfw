@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/internal/application/services"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -145,7 +144,7 @@ var systemQueryService = services.NewSystemQueryService()
 func initCommand(cmd *cobra.Command) {
 	configFile, _ := cmd.Flags().GetString("config")
 	if configFile != "" {
-		app.SetConfigPath(configFile)
+		commandRuntimeService.SetConfigPath(configFile)
 	}
 	common.EnsureStandaloneMode()
 }

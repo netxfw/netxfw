@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/app"
+	"github.com/netxfw/netxfw/internal/application/services"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -13,6 +13,7 @@ import (
 var simpleListLimit int
 var allowListLimit int
 var denyListLimit int
+var ruleCommandService = services.NewRuleCommandService()
 
 var SimpleListCmd = &cobra.Command{
 	Use:   "list",
@@ -394,7 +395,7 @@ var SimpleDeleteCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
-			messages := app.DeleteFromAllRuleStores(s, ip, port)
+			messages := ruleCommandService.DeleteFromAllRuleStores(s, ip, port)
 			if len(messages) == 0 {
 				cmd.PrintErrln("[WARN]  Rule not found")
 				return nil
@@ -573,7 +574,7 @@ func runAllowCommand(cmd *cobra.Command, input string) {
 	executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 	executor.ExecuteWithSDK(func(s *sdk.SDK) error {
-		if err := app.AddRule(s, ip, port, app.RuleActionAllow); err != nil {
+		if err := ruleCommandService.AddAllowRule(s, ip, port); err != nil {
 			return fmt.Errorf("[ERROR] Failed to allow IP: %v", err)
 		}
 		if port > 0 {
@@ -603,7 +604,7 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 				cmd.PrintErrln("[WARN]  WARNING: TTL parameter is ignored for IP+Port rules")
 				cmd.PrintErrln("[WARN]  警告：TTL 参数对 IP+Port 规则无效")
 			}
-			if err := app.AddRule(s, ip, port, app.RuleActionDeny); err != nil {
+			if err := ruleCommandService.AddDenyRule(s, ip, port); err != nil {
 				return fmt.Errorf("[ERROR] Failed to add IP+Port deny rule: %v", err)
 			}
 			executor.PrintSuccess(fmt.Sprintf("[BLOCK] IP+Port deny rule added: %s:%d", ip, port))
@@ -634,9 +635,9 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 }
 
 func parseIPInput(input string) (ip string, port uint16, err error) {
-	host, pVal, parseErr := app.ParseIPPort(input)
+	host, pVal, parseErr := ruleCommandService.ParseIPPort(input)
 	if parseErr != nil {
-		if app.IsValidCIDR(input) {
+		if ruleCommandService.IsValidCIDR(input) {
 			return input, 0, nil
 		}
 		if strings.Contains(input, ":") && !strings.HasPrefix(input, "[") {

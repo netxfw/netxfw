@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -18,9 +17,6 @@ var SimpleStatusCmd = &cobra.Command{
 Use -v for verbose output with detailed statistics`,
 	Run: func(cmd *cobra.Command, args []string) {
 		configFile, _ := cmd.Flags().GetString("config")
-		if configFile != "" {
-			app.SetConfigPath(configFile)
-		}
 
 		verbose, _ := cmd.Flags().GetBool("verbose")
 
@@ -44,13 +40,13 @@ Use -v for verbose output with detailed statistics`,
 			totalPackets := pass + drops
 			passPercent := float64(pass) / float64(totalPackets) * 100
 			fmt.Fprintf(w, "[Stats] Traffic: %s packets (Pass: %.1f%%, Drop: %.1f%%)\n",
-				app.FormatNumberWithComma(totalPackets), passPercent, 100-passPercent)
+				commandRuntimeService.FormatNumberWithComma(totalPackets), passPercent, 100-passPercent)
 
-			trafficStats, err := app.LoadTrafficStats()
+			trafficStats, err := commandRuntimeService.LoadTrafficStats()
 			if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
 				fmt.Fprintf(w, "[Rate] Current: %s pps (%s)\n",
-					app.FormatNumberWithComma(trafficStats.CurrentPPS),
-					app.FormatBPS(trafficStats.CurrentBPS))
+					commandRuntimeService.FormatNumberWithComma(trafficStats.CurrentPPS),
+					commandRuntimeService.FormatBPS(trafficStats.CurrentBPS))
 			}
 
 			blacklistCount, _ := s.GetManager().GetLockedIPCount()
@@ -58,19 +54,19 @@ Use -v for verbose output with detailed statistics`,
 			totalBlocked := uint64(blacklistCount) + uint64(dynBlacklistCount)
 			if totalBlocked > 0 {
 				fmt.Fprintf(w, "[Block] Banned IPs: %s (Static: %s, Dynamic: %s)\n",
-					app.FormatNumberWithComma(totalBlocked),
-					app.FormatNumberWithComma(uint64(blacklistCount)),
-					app.FormatNumberWithComma(uint64(dynBlacklistCount)))
+					commandRuntimeService.FormatNumberWithComma(totalBlocked),
+					commandRuntimeService.FormatNumberWithComma(uint64(blacklistCount)),
+					commandRuntimeService.FormatNumberWithComma(uint64(dynBlacklistCount)))
 			} else {
 				fmt.Fprintln(w, "[Block] Banned IPs: 0")
 			}
 
 			connCount, _ := s.GetManager().GetConntrackCount()
-			fmt.Fprintf(w, "[Conn] Active connections: %s\n", app.FormatNumberWithComma(uint64(connCount)))
+			fmt.Fprintf(w, "[Conn] Active connections: %s\n", commandRuntimeService.FormatNumberWithComma(uint64(connCount)))
 
 			whitelistCount, _ := s.GetManager().GetWhitelistCount()
 			if whitelistCount > 0 {
-				fmt.Fprintf(w, "[Allow] Whitelisted IPs: %s\n", app.FormatNumberWithComma(uint64(whitelistCount)))
+				fmt.Fprintf(w, "[Allow] Whitelisted IPs: %s\n", commandRuntimeService.FormatNumberWithComma(uint64(whitelistCount)))
 			}
 
 			showCompactMapStatistics(w, s.GetManager())
@@ -93,11 +89,11 @@ var SimpleStartCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			if err := app.InstallXDP(cmd.Context(), nil); err != nil {
+			if err := systemService.InstallXDP(cmd.Context(), nil); err != nil {
 				return fmt.Errorf("[ERROR] Failed to start XDP program: %w", err)
 			}
 
-			if app.GetRuntimeMode() == "agent" || app.GetRuntimeMode() == "" {
+			if commandRuntimeService.GetRuntimeMode() == "agent" || commandRuntimeService.GetRuntimeMode() == "" {
 				fmt.Println("[RELOAD] Starting agent...")
 			}
 
@@ -117,11 +113,11 @@ var SimpleStopCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			if app.GetRuntimeMode() == "agent" || app.GetRuntimeMode() == "" {
+			if commandRuntimeService.GetRuntimeMode() == "agent" || commandRuntimeService.GetRuntimeMode() == "" {
 				fmt.Println("[RELOAD] Stopping agent...")
 			}
 
-			if err := app.RemoveXDP(cmd.Context(), nil); err != nil {
+			if err := systemService.RemoveXDP(cmd.Context(), nil); err != nil {
 				return fmt.Errorf("[ERROR] Failed to stop XDP program: %w", err)
 			}
 
@@ -141,7 +137,7 @@ This is faster than full reload and maintains existing connections.`,
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
-			if err := app.LoadAndSyncConfigToRuntime(s); err != nil {
+			if err := commandRuntimeService.LoadAndSyncConfigToRuntime(s); err != nil {
 				return fmt.Errorf("[ERROR] Failed to sync configuration to BPF maps: %v", err)
 			}
 			executor.PrintSuccess("Configuration reloaded and synced to BPF maps successfully")
@@ -160,7 +156,7 @@ var SimpleUpdateCmd = &cobra.Command{
 
 		executor.Do(func() error {
 			fmt.Println("[START] Checking for updates...")
-			if err := app.RunDeployUpdate(); err != nil {
+			if err := commandRuntimeService.RunDeployUpdate(); err != nil {
 				return fmt.Errorf("[ERROR] Update failed: %v", err)
 			}
 			return nil
@@ -173,7 +169,7 @@ var SimpleVersionCmd = &cobra.Command{
 	Short: "Show version information",
 	Long:  `Show version information`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("netxfw version %s\n", app.Version())
+		fmt.Printf("netxfw version %s\n", commandRuntimeService.Version())
 	},
 }
 
@@ -220,7 +216,7 @@ Plugin ELF files must contain a valid XDP program.`,
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			if err := app.LoadPlugin(cmd.Context(), path, index); err != nil {
+			if err := commandRuntimeService.LoadPlugin(cmd.Context(), path, index); err != nil {
 				return fmt.Errorf("[ERROR] Failed to load plugin: %v", err)
 			}
 			executor.PrintSuccess(fmt.Sprintf("Plugin loaded: %s at index %d", path, index))
@@ -245,7 +241,7 @@ var pluginRemoveCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			if err := app.RemovePlugin(cmd.Context(), index); err != nil {
+			if err := commandRuntimeService.RemovePlugin(cmd.Context(), index); err != nil {
 				return fmt.Errorf("[ERROR] Failed to remove plugin: %v", err)
 			}
 			executor.PrintSuccess(fmt.Sprintf("Plugin removed from index %d", index))
@@ -268,7 +264,7 @@ var pluginListCmd = &cobra.Command{
 			fmt.Println("Index Range: 2-14")
 			fmt.Println()
 
-			slots, err := app.ListLoadedPlugins(cmd.Context())
+			slots, err := commandRuntimeService.ListLoadedPlugins(cmd.Context())
 			if err != nil {
 				return fmt.Errorf("[ERROR] Failed to list plugins: %v", err)
 			}
@@ -308,7 +304,7 @@ var SimpleInitCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			app.InitConfiguration(cmd.Context())
+			systemService.InitConfiguration(cmd.Context())
 			executor.PrintSuccess("Configuration initialized")
 			return nil
 		})
@@ -324,7 +320,7 @@ var SimpleTestCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			app.TestConfiguration(cmd.Context())
+			systemService.TestConfiguration(cmd.Context())
 			executor.PrintSuccess("Configuration test passed")
 			return nil
 		})
@@ -365,7 +361,7 @@ Examples:
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			if err := app.ClearBlacklist(cmd.Context(), clearDynamic); err != nil {
+			if err := commandRuntimeService.ClearBlacklist(cmd.Context(), clearDynamic); err != nil {
 				if clearDynamic {
 					return fmt.Errorf("[ERROR] Failed to clear dynamic blacklist: %v", err)
 				}
@@ -416,7 +412,7 @@ var UfwResetCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
-			result := app.ResetFirewall(s)
+			result := commandRuntimeService.ResetFirewall(s)
 			fmt.Println("[RESET] Clearing all firewall rules...")
 			for _, warning := range result.Warnings {
 				cmd.PrintErrln("[WARN]", warning)

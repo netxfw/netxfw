@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/app"
+	"github.com/netxfw/netxfw/internal/application/services"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
+
+var perfQueryService = services.NewPerformanceQueryService()
 
 // PerfCmd represents the performance monitoring command
 // PerfCmd 表示性能监控命令
@@ -119,8 +121,8 @@ func init() {
 
 // getPerfStats retrieves the performance stats from the manager
 // getPerfStats 从 manager 获取性能统计
-func getPerfStats(s *sdk.SDK) (*app.PerformanceStats, error) {
-	return app.LoadPerformanceStats(s.GetManager())
+func getPerfStats(s *sdk.SDK) (*services.PerformanceStats, error) {
+	return perfQueryService.LoadPerformanceStats(s.GetManager())
 }
 
 // showPerformanceStats displays all performance statistics
@@ -146,9 +148,9 @@ func showPerformanceStats(s *sdk.SDK) error {
 	fmt.Printf("   Total Operations: %d\n", stats.MapLatency.TotalOperations)
 	fmt.Printf("   Total Errors:     %d\n", stats.MapLatency.TotalErrors)
 	if stats.MapLatency.AvgLatencyNs > 0 {
-		fmt.Printf("   Average Latency:  %s\n", app.FormatLatency(stats.MapLatency.AvgLatencyNs))
-		fmt.Printf("   Min Latency:      %s\n", app.FormatLatency(stats.MapLatency.MinLatencyNs))
-		fmt.Printf("   Max Latency:      %s\n", app.FormatLatency(stats.MapLatency.MaxLatencyNs))
+		fmt.Printf("   Average Latency:  %s\n", perfQueryService.FormatLatency(stats.MapLatency.AvgLatencyNs))
+		fmt.Printf("   Min Latency:      %s\n", perfQueryService.FormatLatency(stats.MapLatency.MinLatencyNs))
+		fmt.Printf("   Max Latency:      %s\n", perfQueryService.FormatLatency(stats.MapLatency.MaxLatencyNs))
 	}
 
 	// Cache Hit Rate Summary / 缓存命中率摘要
@@ -164,13 +166,13 @@ func showPerformanceStats(s *sdk.SDK) error {
 
 	// Traffic Summary / 流量摘要
 	fmt.Println("\n[TRAFFIC] Traffic Statistics:")
-	fmt.Printf("   Current PPS:      %s\n", app.FormatNumber(stats.Traffic.CurrentPPS))
-	fmt.Printf("   Peak PPS:         %s\n", app.FormatNumber(stats.Traffic.PeakPPS))
-	fmt.Printf("   Average PPS:      %s\n", app.FormatNumber(stats.Traffic.AveragePPS))
-	fmt.Printf("   Current BPS:      %s/s\n", app.FormatBytes(stats.Traffic.CurrentBPS))
-	fmt.Printf("   Peak BPS:         %s/s\n", app.FormatBytes(stats.Traffic.PeakBPS))
-	fmt.Printf("   Current Drop PPS: %s\n", app.FormatNumber(stats.Traffic.CurrentDropPPS))
-	fmt.Printf("   Current Pass PPS: %s\n", app.FormatNumber(stats.Traffic.CurrentPassPPS))
+	fmt.Printf("   Current PPS:      %s\n", perfQueryService.FormatNumber(stats.Traffic.CurrentPPS))
+	fmt.Printf("   Peak PPS:         %s\n", perfQueryService.FormatNumber(stats.Traffic.PeakPPS))
+	fmt.Printf("   Average PPS:      %s\n", perfQueryService.FormatNumber(stats.Traffic.AveragePPS))
+	fmt.Printf("   Current BPS:      %s/s\n", perfQueryService.FormatBytes(stats.Traffic.CurrentBPS))
+	fmt.Printf("   Peak BPS:         %s/s\n", perfQueryService.FormatBytes(stats.Traffic.PeakBPS))
+	fmt.Printf("   Current Drop PPS: %s\n", perfQueryService.FormatNumber(stats.Traffic.CurrentDropPPS))
+	fmt.Printf("   Current Pass PPS: %s\n", perfQueryService.FormatNumber(stats.Traffic.CurrentPassPPS))
 
 	return nil
 }
@@ -281,28 +283,28 @@ func showTrafficStats(s *sdk.SDK) error {
 
 	// Packet rates / 数据包速率
 	fmt.Println("\n[DATA] Packet Rates:")
-	fmt.Printf("   Current PPS:      %s pps\n", app.FormatNumber(stats.Traffic.CurrentPPS))
-	fmt.Printf("   Peak PPS:         %s pps\n", app.FormatNumber(stats.Traffic.PeakPPS))
-	fmt.Printf("   Average PPS:      %s pps\n", app.FormatNumber(stats.Traffic.AveragePPS))
+	fmt.Printf("   Current PPS:      %s pps\n", perfQueryService.FormatNumber(stats.Traffic.CurrentPPS))
+	fmt.Printf("   Peak PPS:         %s pps\n", perfQueryService.FormatNumber(stats.Traffic.PeakPPS))
+	fmt.Printf("   Average PPS:      %s pps\n", perfQueryService.FormatNumber(stats.Traffic.AveragePPS))
 
 	// Byte rates / 字节速率
 	fmt.Println("\n[STATS] Bandwidth:")
-	fmt.Printf("   Current BPS:      %s/s\n", app.FormatBytes(stats.Traffic.CurrentBPS))
-	fmt.Printf("   Peak BPS:         %s/s\n", app.FormatBytes(stats.Traffic.PeakBPS))
-	fmt.Printf("   Average BPS:      %s/s\n", app.FormatBytes(stats.Traffic.AverageBPS))
+	fmt.Printf("   Current BPS:      %s/s\n", perfQueryService.FormatBytes(stats.Traffic.CurrentBPS))
+	fmt.Printf("   Peak BPS:         %s/s\n", perfQueryService.FormatBytes(stats.Traffic.PeakBPS))
+	fmt.Printf("   Average BPS:      %s/s\n", perfQueryService.FormatBytes(stats.Traffic.AverageBPS))
 
 	// Drop/Pass rates / 丢弃/通过速率
 	fmt.Println("\n[TRAFFIC] Decision Rates:")
-	fmt.Printf("   Current Drop PPS: %s pps\n", app.FormatNumber(stats.Traffic.CurrentDropPPS))
-	fmt.Printf("   Peak Drop PPS:    %s pps\n", app.FormatNumber(stats.Traffic.PeakDropPPS))
-	fmt.Printf("   Current Pass PPS: %s pps\n", app.FormatNumber(stats.Traffic.CurrentPassPPS))
-	fmt.Printf("   Peak Pass PPS:    %s pps\n", app.FormatNumber(stats.Traffic.PeakPassPPS))
+	fmt.Printf("   Current Drop PPS: %s pps\n", perfQueryService.FormatNumber(stats.Traffic.CurrentDropPPS))
+	fmt.Printf("   Peak Drop PPS:    %s pps\n", perfQueryService.FormatNumber(stats.Traffic.PeakDropPPS))
+	fmt.Printf("   Current Pass PPS: %s pps\n", perfQueryService.FormatNumber(stats.Traffic.CurrentPassPPS))
+	fmt.Printf("   Peak Pass PPS:    %s pps\n", perfQueryService.FormatNumber(stats.Traffic.PeakPassPPS))
 
 	// Totals / 总计
 	fmt.Println("\n[RATE] Totals:")
-	fmt.Printf("   Total Packets:    %s\n", app.FormatNumber(totalPackets))
-	fmt.Printf("   Total Drops:      %s\n", app.FormatNumber(drops))
-	fmt.Printf("   Total Passes:     %s\n", app.FormatNumber(pass))
+	fmt.Printf("   Total Packets:    %s\n", perfQueryService.FormatNumber(totalPackets))
+	fmt.Printf("   Total Drops:      %s\n", perfQueryService.FormatNumber(drops))
+	fmt.Printf("   Total Passes:     %s\n", perfQueryService.FormatNumber(pass))
 	if totalPackets > 0 {
 		fmt.Printf("   Drop Rate:        %.2f%%\n", float64(drops)/float64(totalPackets)*100)
 	}
@@ -312,14 +314,14 @@ func showTrafficStats(s *sdk.SDK) error {
 
 // printOpStats prints operation statistics
 // printOpStats 打印操作统计
-func printOpStats(name string, stats app.OperationStats) {
+func printOpStats(name string, stats services.OperationStats) {
 	if stats.Count == 0 {
 		return
 	}
 	fmt.Printf("   %-12s: %d ops, avg %s, errors %d\n",
 		name,
 		stats.Count,
-		app.FormatLatency(stats.AvgLatency),
+		perfQueryService.FormatLatency(stats.AvgLatency),
 		stats.Errors)
 }
 
