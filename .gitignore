@@ -19,6 +19,8 @@
 /.trae/
 /.old/
 /.claude/
+/.kilocode/
+/plans
 
 # BPF objects
 internal/xdp/netxfw_bpfel.o

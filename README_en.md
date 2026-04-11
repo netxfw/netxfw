@@ -51,7 +51,7 @@ sudo mv netxfw /usr/local/bin/
 
 **Requirements**:
 - Linux Kernel >= 6.x
-- Go >= 1.22
+- Go >= 1.24 (the repository currently declares `go 1.24.0` and `toolchain go1.24.12`)
 
 **Install Build Tools**:
 ```bash
@@ -139,8 +139,6 @@ sudo netxfw port del 8080                # Remove port (supports delete/remove a
 # Rate Limiting
 sudo netxfw limit add 0.0.0.0/0 --rate 1000 --burst 2000  # Add rate limit rule
 sudo netxfw limit list                                     # List rate limit rules
-
-
 ```
 
 ### Shell Auto-Completion
@@ -169,7 +167,7 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
 
 ### Security
 - 🛡️ **Fine-grained Rules**: Supports IP+Port level Allow/Deny rules for complex business requirements.
-- 🤖 **Auto-Blocking**: **A powerful tool against DDoS**. When an IP triggers rate limit thresholds, the system automatically adds it to the dynamic block list for millisecond-level kernel-space blocking. Supports configurable expiry and automatic eviction using LRU.
+- 🤖 **Auto-Blocking**: When an IP triggers rate limit thresholds, the system automatically adds it to the dynamic block list for millisecond-level kernel-space blocking. Supports configurable expiry and automatic eviction using LRU.
 - 🛡️ **Security Hardening**:
   - **Bogon Filtering**: Automatically identifies and drops traffic from reserved or private IP ranges.
   - **Strict TCP Validation**: Validates TCP flag combinations to defend against Null/Xmas scans.
@@ -189,13 +187,13 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
 - 🧩 **Plugin Architecture (SDK)**:
   - **Plugin SDK**: Standardized Go interface (`sdk.Plugin`) for easy firewall extension.
   - **CEL Rule Engine**: Integrated Google CEL for complex JSON/KV parsing and regex matching (`JSON()`, `KV()`, `Match()`).
-  - **Dynamic Loading**: Support for dynamic loading of third-party plugins via eBPF Tail Calls. See [Plugin Development Guide](docs/plugins/04-01_plugins.md).
+  - **Dynamic Loading**: Support for dynamic loading of third-party plugins via eBPF Tail Calls. See [Plugin Development Guide](docs/06-plugin-development/06-01_plugins_en.md).
   - **Inter-Plugin Communication (IPC)**:
-    - **EventBus**: Pub/Sub event bus for decoupled communication (e.g., Log Engine -> AI Analysis).
-    - **KV Store**: Shared in-memory key-value store (`sdk.Store`) for sharing runtime context (e.g., Threat Intel, Trust Scores).
+    - **EventBus**: Pub/Sub event bus for decoupled communication (e.g. Log Engine -> AI Analysis).
+    - **KV Store**: Shared in-memory key-value store (`sdk.Store`) for sharing runtime context (e.g. Threat Intel, Trust Scores).
 
 ### Management & Monitoring
-- 📊 **Observability**: Built-in Web UI (default port 11811) and Prometheus Exporter for real-time monitoring of drop rates and active connections.
+- 📊 **Observability**: Built-in Web UI and Prometheus exporter for real-time monitoring of drop rates and active connections.
 - 🏗️ **Modular Design**: Structured BPF code (Filter, Ratelimit, Conntrack, Protocols) for clarity and maintainability.
 - 🛠️ **CLI-Driven Control**: Minimalist CLI for dynamic rule and plugin management without service restarts.
 - 🔄 **Manual Update**: Supports one-click binary upgrades via `netxfw system update`.
@@ -278,12 +276,12 @@ log_engine:
 |--------------|-------------|-------------|
 | `0` | `log` | Log alert only, no blocking |
 | `1` | `dynblack` | Dynamic block (default expiry) |
-| `1` | `dynblack:1h` | Dynamic block with specified duration (e.g., 10m, 1h, 30s) |
+| `1` | `dynblack:1h` | Dynamic block with specified duration (e.g. 10m, 1h, 30s) |
 | `2` | `lock` / `deny` | Permanent block (requires manual removal) |
 
-> **Note**: Actions support both numeric form (0/1/2) and string form, both are equivalent.
+> **Note**: Actions support both numeric form (`0/1/2`) and string form; both are equivalent.
 
-For more configuration options, see [Log Engine Documentation](docs/log-engine/07-03_log_engine_en.md).
+For more configuration options, see [Log Engine Documentation](docs/05-advanced-features/05-03_log_engine_en.md).
 
 ---
 
@@ -292,16 +290,17 @@ For more configuration options, see [Log Engine Documentation](docs/log-engine/0
 `netxfw` separates the control plane and data plane:
 
 ### Data Plane (eBPF/XDP/TC)
-- **XDP**: High-speed packet filtering (Unified IPv4/IPv6 LPM matching, Conntrack checks) at the driver layer.
+- **XDP**: High-speed packet filtering (unified IPv4/IPv6 LPM matching, conntrack checks) at the driver layer.
 - **TC (Egress)**: Updates connection tracking state for outbound traffic.
-- **Optimization**: Uses `Per-CPU Maps` for statistics to eliminate multi-core contention.
+- **Optimization**: Uses `Per-CPU Maps` for statistics to reduce multi-core contention.
 
 ### Control Plane (Go)
 - **Manager**: Handles BPF program loading, pinning, and lifecycle management.
 - **State Migrator**: Seamlessly migrates BPF Map data during hot reloads.
-- **Web UI**: Minimalist visualization for real-time stats and active connections.
-- **CLI/API**: User interaction interfaces.
+- **Web / CLI / API**: User interaction interfaces.
 - **Metrics**: Exposes Prometheus metrics.
+
+For a clearer view of the current layout, target layering, and migration state, see [ARCHITECTURE.md](ARCHITECTURE.md) and the [appendix architecture document](docs/10-appendix/10-01_architecture_en.md).
 
 ---
 
@@ -331,33 +330,41 @@ sudo netxfw system unload
 ## 📚 Documentation
 
 ### Core Documentation
-- [Architecture Design](docs/02-02_architecture_en.md) - Detailed system architecture design
-- [CLI Manual](docs/cli/03-02_cli_en.md) - Complete CLI command reference
-- [Plugin Development Guide](docs/plugins/04-02_plugins_en.md) - Plugin development guide
+- [Documentation Index](docs/index.md)
+- [Documentation Structure](docs/document-structure_en.md)
+- [Architecture Appendix](docs/10-appendix/10-01_architecture_en.md)
+- [CLI Manual](docs/03-quick-start/03-01_cli_en.md)
+- [Rule Import/Export](docs/03-quick-start/03-02_rule_import_export_en.md)
+- [Plugin Development Guide](docs/06-plugin-development/06-01_plugins_en.md)
 
 ### Configuration & Optimization
-- [BPF Map Capacity Configuration](docs/06-04_bpf_map_capacity_en.md) - Memory optimization and capacity configuration
-- [Performance Tuning Guide](docs/10-02_performance_tuning_en.md) - Performance optimization guide
-- [Troubleshooting Guide](docs/09-02_troubleshooting_en.md) - Common issue diagnosis and solutions
-- [Security Best Practices](docs/11-02_security_best_practices_en.md) - Production security configuration guide
+- [Configuration Reference](docs/04-configuration/04-03_configuration_reference_en.md)
+- [BPF Map Capacity Configuration](docs/04-configuration/04-02_bpf_map_capacity_en.md)
+- [Performance Tuning Guide](docs/04-configuration/04-01_performance_tuning_en.md)
+- [Security Best Practices](docs/02-installation/02-01_security_best_practices_en.md)
+- [Troubleshooting Guide](docs/08-troubleshooting/08-01_troubleshooting_en.md)
 
-### Feature Documentation
-- [Interface-Specific Agent Mode](docs/features/05-04_interface_specific_agent_en.md) - Interface-specific agent configuration
-- [Standalone Architecture](docs/standalone/) - Standalone version configuration and usage
-- [Rule Import/Export](docs/03-04_rule_import_export_en.md) - Rule import/export functionality
+### Advanced Features
+- [Real IP / Cloud Support](docs/05-advanced-features/05-01_realip_en.md)
+- [Interface-Specific Agent Mode](docs/05-advanced-features/05-02_interface_specific_agent_en.md)
+- [Log Engine](docs/05-advanced-features/05-03_log_engine_en.md)
+- [Dynamic Modules](docs/05-advanced-features/05-04_dynamic_modules_en.md)
+- [Health Check](docs/05-advanced-features/05-05_health_check_en.md)
+- [Performance Monitoring](docs/05-advanced-features/05-06_performance_monitoring_en.md)
 
 ### Development & Testing
-- [Contributing Guide](CONTRIBUTING.md) - How to contribute
-- [Security Policy](SECURITY.md) - Security vulnerability reporting
-- [Code of Conduct](CODE_OF_CONDUCT.md) - Community code of conduct
-- [Changelog](CHANGELOG.md) - Detailed version history
+- [Contributing Guide](CONTRIBUTING_en.md)
+- [Testing Appendix](docs/10-appendix/10-05_testing_en.md)
+- [Evaluation Appendix](docs/10-appendix/10-06_evaluation_en.md)
+- [Changelog](CHANGELOG_en.md)
 
-### Other Resources
-- [API Reference](docs/api/04-06_api_reference_en.md) - API interface documentation
-- [OpenAPI Specification](docs/api/openapi.yaml) - OpenAPI 3.0 specification
-- [Performance Benchmarks](docs/performance/06-02_benchmarks_en.md) - Performance test results
-- [Cloud Environment Support](docs/cloud/05-02_realip_en.md) - Cloud environment configuration
-- [Full Documentation Index](docs/INDEX.md) - Complete documentation directory
+### API & Appendices
+- [API Reference](docs/09-api-reference/09-03_api_reference_en.md)
+- [OpenAPI Specification](docs/09-api-reference/openapi.yaml)
+- [Performance Benchmarks](docs/07-performance-tuning/07-01_benchmarks_en.md)
+- [Architecture Diagrams](docs/10-appendix/10-02_architecture_diagrams_en.md)
+- [Packet Filter Flow](docs/10-appendix/10-03_packet_filter_flow_en.md)
+- [Full Documentation Map](docs/01-getting-started/01-01_document_index_en.md)
 
 ---
 
@@ -366,6 +373,6 @@ sudo netxfw system unload
 This project uses a dual-license structure:
 
 - **Go User-Space Code**: [Apache-2.0](LICENSE)
-- **BPF Kernel Code**: [Dual BSD/GPL](bpf/LICENSE) (BSD-2-Clause OR GPL-2.0-only)
+- **BPF Kernel Code**: [Dual BSD/GPL](bpf/LICENSE) (`BSD-2-Clause OR GPL-2.0-only`)
 
 See [NOTICE](NOTICE) for details on the license structure.

@@ -20,7 +20,7 @@
 - [✨ 核心特性](#-核心特性)
 - [⚙️ 核心配置](#️-核心配置)
 - [🏗️ 架构概览](#️-架构概览)
-- [ 系统维护与更新](#-系统维护与更新)
+- [🔧 系统维护与更新](#-系统维护与更新)
 - [📚 相关文档](#-相关文档)
 
 ---
@@ -51,7 +51,7 @@ sudo mv netxfw /usr/local/bin/
 
 **使用的开发环境**：
 - Linux Kernel >= 6.x
-- Go >= 1.22
+- Go >= 1.24（仓库当前 `go.mod` 为 `go 1.24.0`，并声明 `toolchain go1.24.12`）
 
 **安装编译工具**：
 ```bash
@@ -139,8 +139,6 @@ sudo netxfw port del 8080                # 移除端口（支持 delete/remove �
 # 限速管理
 sudo netxfw limit add 0.0.0.0/0 --rate 1000 --burst 2000  # 添加限速规则
 sudo netxfw limit list                                     # 列出限速规则
-
-
 ```
 
 ### Shell 自动补全
@@ -168,8 +166,8 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
 - 💾 **内存优化**：使用 sync.Pool 对象池技术，减少高频操作的 GC 压力，提升性能 30-50%。
 
 ### 安全防护
-- 🛡️ **细粒度规则**：支持 IP+端口 级别的 Allow/Deny 规则，满足复杂业务需求。
-- 🤖 **自动拦截 (Auto-Blocking)**：**防御 DDoS 的利器**。当 IP 触发限速阈值时，系统可自动将其加入动态黑名单，实现内核级的毫秒级封禁。支持配置拦截时长，利用 LRU 特性自动淘汰。
+- 🛡️ **细粒度规则**：支持 IP+端口级别的 Allow/Deny 规则，满足复杂业务需求。
+- 🤖 **自动拦截 (Auto-Blocking)**：当 IP 触发限速阈值时，系统可自动将其加入动态黑名单，实现内核级的毫秒级封禁。支持配置拦截时长，利用 LRU 特性自动淘汰。
 - 🛡️ **安全加固**：
   - **Bogon 过滤**：自动识别并丢弃来自保留/私有 IP 地址段的恶意流量。
   - **严格 TCP 校验**：校验 TCP 标志位组合，有效防御 Null Scan、Xmas Scan 等探测攻击。
@@ -182,22 +180,22 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
   - **全量迁移 (Full Migration)**: 当容量变更时，自动迁移旧 Map 数据到新 Map，确保连接跟踪和规则不丢失。
 
 ### 流量控制
-- 🌊 **流量整形**：内置基于令牌桶算法的 IP 级别限速与 ICMP 限速。引入 **O(1) 配置缓存** 机制，避免了每个数据包的复杂查找。
+- 🌊 **流量整形**：内置基于令牌桶算法的 IP 级别限速与 ICMP 限速，引入 **O(1) 配置缓存** 机制，避免每个数据包的复杂查找。
 - 🧠 **有状态检测 (Conntrack)**：内置高效的连接追踪引擎，自动放行已建立连接的回包。
 
 ### 扩展性
 - 🧩 **插件化架构 (SDK)**：
-  - **Plugin SDK**: 提供标准化的 Go 接口 (`sdk.Plugin`)，允许开发者轻松扩展防火墙功能。
-  - **CEL 规则引擎**: 集成 Google CEL 表达式语言，支持对日志进行复杂的 JSON/KV 解析和正则匹配 (`JSON()`, `KV()`, `Match()`)。
-  - **动态加载**: 支持通过 eBPF Tail Call 动态加载第三方插件。详情请参考 [插件开发指南](docs/plugins/plugins.md)。
+  - **Plugin SDK**: 提供标准化的 Go 接口（`sdk.Plugin`），允许开发者轻松扩展防火墙功能。
+  - **CEL 规则引擎**: 集成 Google CEL 表达式语言，支持对日志进行复杂的 JSON/KV 解析和正则匹配（`JSON()`、`KV()`、`Match()`）。
+  - **动态加载**: 支持通过 eBPF Tail Call 动态加载第三方插件。详情请参考 [插件开发指南](docs/06-plugin-development/06-01_plugins.md)。
   - **插件间通信 (IPC)**:
     - **EventBus**: 基于发布/订阅模式的事件总线，实现插件解耦通信（如日志引擎 -> AI 分析）。
-    - **KV Store**: 共享的内存键值存储 (`sdk.Store`)，用于插件间共享运行时上下文（如威胁情报、信任分）。
+    - **KV Store**: 共享的内存键值存储（`sdk.Store`），用于插件间共享运行时上下文（如威胁情报、信任分）。
 
 ### 管理与监控
-- 📊 **可观测性**：内置 Web 管理界面（默认 11811 端口）与 Prometheus Exporter，实时监控丢包速率与活跃连接。
-- 🏗️ **模块化设计**：BPF 代码采用模块化结构（Filter, Ratelimit, Conntrack, Protocols），逻辑清晰，易于维护。
-- 🛠️ **命令行控制**：极简的 CLI 操作，支持动态加载规则和插件，无需重启服务。
+- 📊 **可观测性**：内置 Web 管理界面与 Prometheus Exporter，实时监控丢包速率与活跃连接。
+- 🏗️ **模块化设计**：BPF 代码采用模块化结构（Filter、Ratelimit、Conntrack、Protocols），逻辑清晰，易于维护。
+- 🛠️ **命令行控制**：极简 CLI 操作，支持动态加载规则和插件，无需重启服务。
 - 🔄 **手动更新**：支持通过 `netxfw system update` 一键检测并升级二进制文件。
 - 💾 **规则导入导出**：支持多种格式（JSON、YAML、CSV、Binary）的规则导入导出，便于备份和迁移。
 
@@ -283,7 +281,7 @@ log_engine:
 
 > **提示**: 动作支持数字形式（0/1/2）或字符串形式，两种写法等效。
 
-更多配置请参考 [日志引擎文档](docs/log-engine/07-03_log_engine.md)。
+更多配置请参考 [日志引擎文档](docs/05-advanced-features/05-03_log_engine.md)。
 
 ---
 
@@ -291,29 +289,30 @@ log_engine:
 
 `netxfw` 采用控制面与数据面分离的架构：
 
-### 数据面 (eBPF/XDP/TC)
+### 数据面（eBPF/XDP/TC）
 - **XDP**：在网络驱动层进行极速包过滤（统一 IPv4/IPv6 LPM 匹配、连接追踪状态检查）。
 - **TC (Egress)**：在流量出站时更新连接追踪状态。
-- **优化**：使用 `Per-CPU Map` 存储统计信息，消除多核竞争。
+- **优化**：使用 `Per-CPU Map` 存储统计信息，降低多核竞争。
 
-### 控制面 (Go)
+### 控制面（Go）
 - **Manager**：负责 BPF 程序的加载、固定（Pinning）及生命周期管理。
 - **State Migrator**：实现热重载期间的 BPF Map 数据无缝迁移。
-- **Web UI**：提供极简的可视化管理界面，查看实时统计与活跃连接。
-- **CLI/API**：提供用户交互接口。
+- **Web / CLI / API**：提供用户交互接口。
 - **Metrics**：暴露 Prometheus 监控指标。
+
+更完整的现状、目标分层与迁移说明，请参考 [ARCHITECTURE.md](ARCHITECTURE.md) 与 [附录架构文档](docs/10-appendix/10-01_architecture.md)。
 
 ---
 
 ## 🔧 系统维护与更新
 
-### 手动更新 (默认)
+### 手动更新（默认）
 为了系统稳定性，`netxfw` 默认不会自动更新。你可以通过以下命令随时检测并升级到最新版本：
 ```bash
 sudo netxfw system update
 ```
 
-### 开启自动更新 (可选)
+### 开启自动更新（可选）
 如果你作为实验性用途，希望系统每天自动检查并安装更新，可以使用安装脚本显式开启：
 ```bash
 curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | sudo bash -s -- --enable-auto-update
@@ -331,33 +330,41 @@ sudo netxfw system unload
 ## 📚 相关文档
 
 ### 核心文档
-- [架构设计](docs/02-01_architecture.md) - 详细的系统架构设计文档
-- [命令行手册](docs/cli/03-01_cli.md) - 完整的 CLI 命令参考
-- [插件开发指南](docs/plugins/04-01_plugins.md) - 插件开发详细指南
+- [文档总览](docs/index.md)
+- [文档结构说明](docs/document-structure.md)
+- [架构设计附录](docs/10-appendix/10-01_architecture.md)
+- [CLI 手册](docs/03-quick-start/03-01_cli.md)
+- [规则导入导出](docs/03-quick-start/03-02_rule_import_export.md)
+- [插件开发指南](docs/06-plugin-development/06-01_plugins.md)
 
 ### 配置与优化
-- [BPF Map 容量配置](docs/06-03_bpf_map_capacity.md) - 内存优化和容量配置指南
-- [性能调优指南](docs/10-01_performance_tuning.md) - 性能优化详细指南
-- [故障排查指南](docs/09-01_troubleshooting.md) - 常见问题诊断和解决方案
-- [安全最佳实践](docs/11-01_security_best_practices.md) - 生产环境安全配置指南
+- [配置参考](docs/04-configuration/04-03_configuration_reference.md)
+- [BPF Map 容量配置](docs/04-configuration/04-02_bpf_map_capacity.md)
+- [性能调优指南](docs/04-configuration/04-01_performance_tuning.md)
+- [安全最佳实践](docs/02-installation/02-01_security_best_practices.md)
+- [故障排查指南](docs/08-troubleshooting/08-01_troubleshooting.md)
 
-### 特性文档
-- [接口特定 Agent 模式](docs/features/05-03_interface_specific_agent.md) - 针对特定接口的 Agent 模式配置
-- [单机版架构](docs/standalone/) - 单机版详细配置和使用说明
-- [规则导入导出](docs/03-03_rule_import_export.md) - 规则导入导出功能详解
+### 进阶特性
+- [Real IP / 云环境支持](docs/05-advanced-features/05-01_realip.md)
+- [接口特定 Agent 模式](docs/05-advanced-features/05-02_interface_specific_agent.md)
+- [日志引擎](docs/05-advanced-features/05-03_log_engine.md)
+- [动态模块](docs/05-advanced-features/05-04_dynamic_modules.md)
+- [健康检查](docs/05-advanced-features/05-05_health_check.md)
+- [性能监控](docs/05-advanced-features/05-06_performance_monitoring.md)
 
 ### 开发与测试
-- [贡献指南](CONTRIBUTING.md) - 如何为项目做贡献
-- [安全策略](SECURITY.md) - 安全漏洞报告指南
-- [行为准则](CODE_OF_CONDUCT.md) - 社区行为准则
-- [变更日志](CHANGELOG.md) - 详细的版本变更记录
+- [贡献指南](CONTRIBUTING.md)
+- [测试附录](docs/10-appendix/10-05_testing.md)
+- [评估附录](docs/10-appendix/10-06_evaluation.md)
+- [变更日志](CHANGELOG.md)
 
-### 其他资源
-- [API 参考](docs/api/04-05_api_reference.md) - API 接口详细文档
-- [OpenAPI 规范](docs/api/openapi.yaml) - OpenAPI 3.0 规范文件
-- [性能基准测试](docs/performance/06-01_benchmarks.md) - 性能测试结果和基准
-- [云环境支持](docs/cloud/05-01_realip.md) - 云环境配置指南
-- [完整文档索引](docs/INDEX.md) - 完整的文档目录和导航
+### API 与附录
+- [API 参考](docs/09-api-reference/09-03_api_reference.md)
+- [OpenAPI 规范](docs/09-api-reference/openapi.yaml)
+- [性能基准](docs/07-performance-tuning/07-01_benchmarks.md)
+- [架构图](docs/10-appendix/10-02_architecture_diagrams.md)
+- [包过滤流程](docs/10-appendix/10-03_packet_filter_flow.md)
+- [完整文档索引](docs/01-getting-started/01-01_document_index.md)
 
 ---
 
@@ -366,6 +373,6 @@ sudo netxfw system unload
 本项目采用混合许可证：
 
 - **Go 用户空间代码**: [Apache-2.0](LICENSE)
-- **BPF 内核代码**: [Dual BSD/GPL](bpf/LICENSE) (BSD-2-Clause OR GPL-2.0-only)
+- **BPF 内核代码**: [Dual BSD/GPL](bpf/LICENSE) (`BSD-2-Clause OR GPL-2.0-only`)
 
 详见 [NOTICE](NOTICE) 文件了解许可证结构。
