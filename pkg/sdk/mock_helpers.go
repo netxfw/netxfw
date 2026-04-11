@@ -2,7 +2,7 @@ package sdk
 
 import (
 	"fmt"
-	"sort"
+
 	"strings"
 )
 
@@ -50,8 +50,4 @@ func cloneWhitelistEntries(src []string) []string {
 
 func cloneAllowedPorts(src []uint16) []uint16 {
 	return append([]uint16(nil), src...)
-}
-
-func sortStrings(values []string) {
-	sort.Strings(values)
 }

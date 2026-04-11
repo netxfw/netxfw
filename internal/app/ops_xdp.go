@@ -3,77 +3,25 @@ package app
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-
-	// Import pprof for HTTP endpoint profiling / 导入 pprof 用于 HTTP 端点性能分析
-	// #nosec G108 // pprof is intentionally exposed for debugging in development
-	_ "net/http/pprof"
 
 	"github.com/cilium/ebpf/link"
-
 	"github.com/netxfw/netxfw/internal/api"
-	"github.com/netxfw/netxfw/internal/binary"
-	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/daemon"
-	"github.com/netxfw/netxfw/internal/optimizer"
 	"github.com/netxfw/netxfw/internal/plugins/types"
-	"github.com/netxfw/netxfw/internal/runtime"
-	"github.com/netxfw/netxfw/internal/utils/fileutil"
-	"github.com/netxfw/netxfw/internal/utils/fmtutil"
-	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/version"
 	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
-// TrafficStats is the app-layer alias for shared runtime traffic statistics.
-type TrafficStats = xdp.TrafficStats
-
-// PerformanceStats is the app-layer alias for performance statistics.
-type PerformanceStats = xdp.PerformanceStats
-
-// OperationStats is the app-layer alias for per-operation stats.
-type OperationStats = xdp.OperationStats
-
-// BinaryRecord is the app-layer alias for binary import/export records.
-type BinaryRecord = binary.Record
-
-// PluginSlot describes a loaded BPF plugin slot.
-type PluginSlot struct {
-	Index   int
-	Program uint32
-}
-
 // IsXDPLoaded returns true if XDP is attached to any interface.
 func IsXDPLoaded() bool {
 	ifaces, err := xdp.GetAttachedInterfaces(GetPinPath())
 	return err == nil && len(ifaces) > 0
-}
-
-// LoadPerformanceStats returns performance statistics from the manager if available.
-func LoadPerformanceStats(mgr sdk.ManagerInterface) (*PerformanceStats, error) {
-	if mgr == nil {
-		return nil, fmt.Errorf("manager not available")
-	}
-
-	perfInterface := mgr.PerfStats()
-	if perfInterface == nil {
-		return nil, fmt.Errorf("performance statistics not available")
-	}
-
-	perfStats, ok := perfInterface.(*xdp.PerformanceStats)
-	if !ok {
-		return nil, fmt.Errorf("invalid performance statistics type")
-	}
-
-	return perfStats, nil
 }
 
 /**
@@ -100,7 +48,6 @@ func LoadPerformanceStats(mgr sdk.ManagerInterface) (*PerformanceStats, error) {
 func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 	log := logger.Get(ctx)
 
-	// 1. 加载全局配置 / Load global configuration
 	globalCfg, err := LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load global config: %v", err)
@@ -119,13 +66,11 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		return err
 	}
 
-	// 4. 固定 BPF maps 到文件系统 / Pin BPF maps to filesystem
 	err = daemon.PinManager(manager, GetPinPath())
 	if err != nil {
 		return fmt.Errorf("failed to pin maps: %v", err)
 	}
 
-	// 5. 同步配置和规则到 BPF maps / Sync configuration and rules to BPF maps
 	log.Infof("[SYNC] Syncing global config and loading persisted rules...")
 	err = manager.SyncFromFiles(globalCfg, false)
 	if err != nil {
@@ -137,13 +82,11 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		return fmt.Errorf("failed to attach XDP: %v", err)
 	}
 
-	// 加载 BPF 插件 / Load BPF plugins
 	err = loadBPFPlugins(manager, globalCfg, log)
 	if err != nil {
 		log.Warnf("[WARN]  Failed to load BPF plugins: %v (continuing anyway)", err)
 	}
 
-	// 7. 初始化 SDK 和插件上下文 / Initialize SDK and plugin context
 	s := sdk.NewSDK(xdp.NewAdapter(manager))
 	webHost := api.NewServer(s, globalCfg.Web.Port)
 	_, err = daemon.StartDefaultRuntimeCore(globalCfg, s, log)
@@ -156,29 +99,10 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 	return nil
 }
 
-// GetAttachedInterfaceInfos returns detailed XDP attachment information.
-func GetAttachedInterfaceInfos() ([]xdp.InterfaceXDPInfo, error) {
-	return xdp.GetAttachedInterfacesWithInfo(GetPinPath())
-}
-
-// LoadTrafficStats returns shared runtime traffic statistics.
-func LoadTrafficStats() (xdp.TrafficStats, error) {
-	return xdp.LoadTrafficStats()
-}
-
-// GetConntrackMax returns configured conntrack capacity with a default fallback.
-func GetConntrackMax() int {
-	cfg, err := LoadConfig()
-	if err == nil && cfg != nil && cfg.Capacity.Conntrack > 0 {
-		return cfg.Capacity.Conntrack
-	}
-	return 100000
-}
-
 // loadBPFPlugins loads BPF plugins configured in the global config.
 // loadBPFPlugins 加载全局配置中配置的 BPF 插件。
 func loadBPFPlugins(manager *xdp.Manager, globalCfg *types.GlobalConfig, log *zap.SugaredLogger) error {
-	// Check if BPF plugin loading is enabled / 检查是否启用 BPF 插件加载
+
 	if !globalCfg.BPFPlugin.Enabled {
 		log.Infof("[INFO]  BPF plugin auto-loading is disabled")
 		return nil
@@ -196,13 +120,12 @@ func loadBPFPlugins(manager *xdp.Manager, globalCfg *types.GlobalConfig, log *za
 	loadedCount := 0
 
 	for _, plugin := range plugins {
-		// Skip disabled plugins / 跳过已禁用的插件
+
 		if !plugin.Enabled {
 			log.Infof("[INFO]  Skipping disabled plugin: %s (index %d)", plugin.Path, plugin.Index)
 			continue
 		}
 
-		// Validate plugin index / 验证插件索引
 		if plugin.Index < xdp.ProgIdxPluginStart || plugin.Index > xdp.ProgIdxPluginEnd {
 			log.Warnf("[WARN]  Invalid plugin index %d for %s (must be %d-%d)",
 				plugin.Index, plugin.Path, xdp.ProgIdxPluginStart, xdp.ProgIdxPluginEnd)
@@ -210,7 +133,6 @@ func loadBPFPlugins(manager *xdp.Manager, globalCfg *types.GlobalConfig, log *za
 			continue
 		}
 
-		// Load the plugin / 加载插件
 		if err := manager.LoadPlugin(plugin.Path, plugin.Index); err != nil {
 			log.Warnf("[WARN]  Failed to load BPF plugin %s: %v", plugin.Path, err)
 			loadErrors = append(loadErrors, fmt.Sprintf("%s: %v", plugin.Path, err))
@@ -233,200 +155,6 @@ func loadBPFPlugins(manager *xdp.Manager, globalCfg *types.GlobalConfig, log *za
 	return nil
 }
 
-// GetDefaultConfigPath returns the preferred default configuration path.
-func GetDefaultConfigPath() string {
-	return config.GetDefaultConfigPath()
-}
-
-// InitRootCommandContext initializes logging for CLI root commands and injects logger into context.
-func InitRootCommandContext(ctx context.Context) context.Context {
-	cfg, err := config.ReloadCurrentConfig()
-	if err != nil {
-		logger.Init(logger.LoggingConfig{Enabled: true, Level: "info"})
-	} else {
-		logger.Init(cfg.Logging)
-	}
-
-	return logger.WithContext(ctx, logger.Get(nil))
-}
-
-// BootstrapDaemon initializes a default logger, sets runtime mode, and returns a context with logger.
-func BootstrapDaemon(mode string) context.Context {
-	logger.Init(logger.LoggingConfig{Enabled: true, Level: "info"})
-	SetRuntimeMode(mode)
-
-	ctx := context.Background()
-	ctx = logger.WithContext(ctx, logger.Get(nil))
-	logger.Get(ctx).Infof("Starting netxfw-%s %s...", mode, version.Version)
-	return ctx
-}
-
-// NewPinnedSDK returns an SDK connected to the currently pinned maps.
-func NewPinnedSDK() (*sdk.SDK, error) {
-	mgr, err := xdp.NewManagerFromPins(GetPinPath(), logger.Get(nil))
-	if err != nil {
-		return nil, fmt.Errorf("failed to load XDP manager from %s: %w", GetPinPath(), err)
-	}
-	return sdk.NewSDK(xdp.NewAdapter(mgr)), nil
-}
-
-// LogInfo writes an info log message using the logger stored in context.
-func LogInfo(ctx context.Context, format string, args ...any) {
-	logger.Get(ctx).Infof(format, args...)
-}
-
-// SyncLogger flushes any buffered logs.
-func SyncLogger() {
-	_ = logger.Sync()
-}
-
-// Version returns the current application version string.
-func Version() string {
-	return version.Version
-}
-
-// FormatNumber formats a number to a compact human readable string.
-func FormatNumber(n uint64) string {
-	return fmtutil.FormatNumber(n)
-}
-
-// FormatNumberWithComma formats a number with thousand separators.
-func FormatNumberWithComma(n uint64) string {
-	return fmtutil.FormatNumberWithComma(n)
-}
-
-// FormatBytes formats bytes to a human readable string.
-func FormatBytes(b uint64) string {
-	return fmtutil.FormatBytes(b)
-}
-
-// FormatBPS formats bytes per second to human readable format (in bits).
-func FormatBPS(bps uint64) string {
-	return fmtutil.FormatBPS(bps)
-}
-
-// FormatLatency formats latency in nanoseconds to a human readable string.
-func FormatLatency(ns uint64) string {
-	return fmtutil.FormatLatency(ns)
-}
-
-// FormatDuration formats a duration to human readable format.
-func FormatDuration(d time.Duration) string {
-	return fmtutil.FormatDuration(d)
-}
-
-// RunShellPipeline executes a trusted shell pipeline command.
-func RunShellPipeline(command string) error {
-	return fmtutil.RunShellPipeline(command)
-}
-
-// RemoveLineFromFile removes an exact line from a file.
-func RemoveLineFromFile(filePath, line string) error {
-	return fileutil.RemoveFromFile(filePath, line)
-}
-
-// ParseIPPort parses an input string like 1.2.3.4:80 or [::1]:80 into IP/CIDR and port.
-func ParseIPPort(input string) (string, uint16, error) {
-	return iputil.ParseIPPort(input)
-}
-
-// IsValidIP reports whether s is a valid IP address.
-func IsValidIP(s string) bool {
-	return iputil.IsValidIP(s)
-}
-
-// IsValidCIDR reports whether s is a valid IP or CIDR string.
-func IsValidCIDR(s string) bool {
-	return iputil.IsValidCIDR(s)
-}
-
-// NormalizeCIDR ensures the IP string is in canonical CIDR format when possible.
-func NormalizeCIDR(ipStr string) string {
-	return iputil.NormalizeCIDR(ipStr)
-}
-
-// GetRuntimeMode returns the active runtime mode.
-func GetRuntimeMode() string {
-	return runtime.Mode
-}
-
-// SetRuntimeMode sets the active runtime mode.
-func SetRuntimeMode(mode string) {
-	runtime.Mode = mode
-}
-
-// RuntimeModeVar returns a pointer to the runtime mode string for flag binding.
-func RuntimeModeVar() *string {
-	return &runtime.Mode
-}
-
-// RuntimeConfigPathVar returns a pointer to the runtime config path string for flag binding.
-func RuntimeConfigPathVar() *string {
-	return &runtime.ConfigPath
-}
-
-// IsTestMode reports whether the current runtime mode is test.
-func IsTestMode() bool {
-	return runtime.Mode == "test"
-}
-
-// GetPinPath returns the active BPF pin path.
-func GetPinPath() string {
-	return config.GetPinPath()
-}
-
-// SetConfigPath updates the active configuration path.
-func SetConfigPath(path string) {
-	config.SetConfigPath(path)
-}
-
-// ReinitLoggerFromConfig reloads config and re-initializes logging.
-func ReinitLoggerFromConfig(ctx context.Context) context.Context {
-	cfg, err := LoadConfig()
-	if err != nil || cfg == nil {
-		return ctx
-	}
-
-	logger.Init(cfg.Logging)
-	ctx = logger.WithContext(ctx, logger.Get(nil))
-	logger.Get(ctx).Infof("Logging re-initialized from config")
-	return ctx
-}
-
-// GetConfigPath returns the active configuration file path.
-func GetConfigPath() string {
-	return config.GetConfigPath()
-}
-
-// GetBackupKeep returns the active backup retention policy.
-func GetBackupKeep() int {
-	return config.GetBackupKeep()
-}
-
-// LoadConfig loads the current configuration using the configured path.
-func LoadConfig() (*sdk.GlobalConfig, error) {
-	cfg, err := config.ReloadCurrentConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load configuration: %w", err)
-	}
-	return cfg, nil
-}
-
-// MutateLoadedConfig reloads the current configuration, applies fn, and persists it.
-func MutateLoadedConfig(fn func(*sdk.GlobalConfig) error) error {
-	return config.MutateLoadedConfig(fn)
-}
-
-// OptimizeWhitelistConfig normalizes and merges whitelist entries in config.
-func OptimizeWhitelistConfig(cfg *sdk.GlobalConfig) {
-	optimizer.OptimizeWhitelistConfig(cfg)
-}
-
-// OptimizeIPPortRulesConfig normalizes and merges IP+Port rules in config.
-func OptimizeIPPortRulesConfig(cfg *sdk.GlobalConfig) {
-	optimizer.OptimizeIPPortRulesConfig(cfg)
-}
-
 // ValidateAndAttachXDP validates the requested attach mode and attaches XDP.
 func ValidateAndAttachXDP(ctx context.Context, interfaces []string, mode string) ([]string, error) {
 	switch mode {
@@ -435,93 +163,6 @@ func ValidateAndAttachXDP(ctx context.Context, interfaces []string, mode string)
 	default:
 		return nil, fmt.Errorf("invalid mode. must be one of: offload, drv, skb")
 	}
-}
-
-// RunDeployUpdate executes the trusted deployment update pipeline.
-func RunDeployUpdate() error {
-	execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
-	return RunShellPipeline(execCmd)
-}
-
-// PersistWhitelistEntry records a whitelist entry in config if needed.
-func PersistWhitelistEntry(ip string, port uint16) error {
-	if IsTestMode() {
-		return nil
-	}
-
-	return MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
-		normalizedCIDR := NormalizeCIDR(ip)
-		entry := normalizedCIDR
-		if port > 0 {
-			entry = fmt.Sprintf("%s:%d", normalizedCIDR, port)
-		}
-
-		for _, existing := range globalCfg.Base.Whitelist {
-			host, existingPort, parseErr := ParseIPPort(existing)
-			existingCIDR := ""
-			if parseErr == nil {
-				existingCIDR = NormalizeCIDR(host)
-			} else {
-				existingCIDR = NormalizeCIDR(existing)
-				existingPort = 0
-			}
-
-			if existingCIDR == normalizedCIDR && existingPort == port {
-				return nil
-			}
-		}
-
-		globalCfg.Base.Whitelist = append(globalCfg.Base.Whitelist, entry)
-		OptimizeWhitelistConfig(globalCfg)
-		return nil
-	})
-}
-
-// PersistIPPortRule records an IP+Port rule in config if needed.
-func PersistIPPortRule(ip string, port uint16, action uint8) error {
-	if IsTestMode() {
-		return nil
-	}
-
-	return MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
-		normalizedCIDR := NormalizeCIDR(ip)
-		updated := false
-
-		for i := range globalCfg.Port.IPPortRules {
-			ruleCIDR := NormalizeCIDR(globalCfg.Port.IPPortRules[i].IP)
-			if ruleCIDR == normalizedCIDR && globalCfg.Port.IPPortRules[i].Port == port {
-				globalCfg.Port.IPPortRules[i].Action = action
-				updated = true
-				break
-			}
-		}
-
-		if !updated {
-			globalCfg.Port.IPPortRules = append(globalCfg.Port.IPPortRules, sdk.IPPortRule{
-				IP:     normalizedCIDR,
-				Port:   port,
-				Action: action,
-			})
-		}
-
-		OptimizeIPPortRulesConfig(globalCfg)
-		return nil
-	})
-}
-
-// DecodeBinaryRecords decodes binary rule records from a reader.
-func DecodeBinaryRecords(r io.Reader) ([]BinaryRecord, error) {
-	return binary.Decode(r)
-}
-
-// EncodeBinaryRecords encodes binary rule records to a writer.
-func EncodeBinaryRecords(w io.Writer, records []BinaryRecord) error {
-	return binary.Encode(w, records)
-}
-
-// WithConfigLock runs fn while holding the shared config persistence mutex.
-func WithConfigLock(fn func() error) error {
-	return fn()
 }
 
 /**
@@ -547,11 +188,9 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 		log.Infof("[INFO]  Detaching from specific interfaces: %v", interfaces)
 	} else {
 		fullUnload = true
-		// Collect all potential interfaces to detach from
-		// 收集所有可能的分离接口
+
 		uniqueInterfaces := make(map[string]bool)
 
-		// 1. Get physical interfaces / 1. 获取物理接口
 		phyInterfaces, phyErr := xdp.GetPhysicalInterfaces()
 		if phyErr == nil {
 			for _, iface := range phyInterfaces {
@@ -559,12 +198,10 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 			}
 		}
 
-		// 2. Get interfaces from config / 2. 从配置获取接口
 		for _, iface := range globalCfg.Base.Interfaces {
 			uniqueInterfaces[iface] = true
 		}
 
-		// 3. Get currently attached interfaces from pins / 3. 从固定路径获取当前已附加的接口
 		attachedIfaces, attachErr := xdp.GetAttachedInterfaces(GetPinPath())
 		if attachErr == nil {
 			for _, iface := range attachedIfaces {
@@ -596,32 +233,6 @@ func RemoveXDP(ctx context.Context, cliInterfaces []string) error {
 	} else {
 		log.Infof("[OK] XDP driver detached from %v", interfaces)
 	}
-	return nil
-}
-
-// ReloadXDP performs a hot-reload of the XDP program.
-// It loads new objects, migrates state from old pinned maps, and swaps the program.
-// ReloadXDP 执行 XDP 程序的平滑重载：加载新对象，从旧的固定 Map 迁移状态，并切换程序。
-func ReloadPinnedMaps(ctx context.Context) error {
-	globalCfg, err := LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load global config: %v", err)
-	}
-	if globalCfg == nil {
-		return fmt.Errorf("config is nil after loading")
-	}
-
-	log := logger.Get(ctx)
-	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
-	if err != nil {
-		return fmt.Errorf("failed to load XDP manager: %v", err)
-	}
-	defer manager.Close()
-
-	if err := manager.SyncFromFiles(globalCfg, false); err != nil {
-		return fmt.Errorf("failed to sync configuration to BPF maps: %v", err)
-	}
-
 	return nil
 }
 
@@ -820,7 +431,6 @@ func AttachXDPWithMode(ctx context.Context, interfaces []string, mode string) ([
 func UnloadXDP() {
 	log := logger.Get(nil)
 	log.Infof("[BYE] Unloading XDP and cleaning up...")
-	// Cleanup is handled by the server process on exit.
-	// 卸载和清理通常在服务器进程退出时处理。
+
 	log.Infof("Please stop the running 'load xdp' server (e.g., Ctrl+C) to trigger cleanup.")
 }
