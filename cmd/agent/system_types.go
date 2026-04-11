@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -122,7 +121,7 @@ func showDetailStatistics[T DetailEntry](w io.Writer, details []T, cfg detailSta
 				d.GetSrcIP(),
 				d.GetDstPort(),
 				d.GetCount(),
-				app.FormatNumberWithComma(ratePerSec),
+				systemQueryService.FormatNumberWithComma(ratePerSec),
 				percent)
 		} else {
 			fmt.Fprintf(w, "   %-20s %-8s %-40s %-8d %-10d %.2f%%\n",
@@ -155,7 +154,7 @@ func showReasonSummary[T DetailEntry](w io.Writer, details []T, cfg detailStatsC
 			percent := calculatePercentGeneric(count, cfg.totalCount)
 			if cfg.showRate && cfg.currentPPS > 0 {
 				ratePerSec := calculateRateGeneric(cfg.currentPPS, percent)
-				fmt.Fprintf(w, "      %s: %d (%.2f%%) - %s/s\n", reason, count, percent, app.FormatNumberWithComma(ratePerSec))
+				fmt.Fprintf(w, "      %s: %d (%.2f%%) - %s/s\n", reason, count, percent, systemQueryService.FormatNumberWithComma(ratePerSec))
 			} else {
 				fmt.Fprintf(w, "      %s: %d (%.2f%%)\n", reason, count, percent)
 			}
@@ -166,7 +165,7 @@ func showReasonSummary[T DetailEntry](w io.Writer, details []T, cfg detailStatsC
 // getTopNFromConfig returns the top N value from config, defaulting to 10
 // getTopNFromConfig 从配置获取 Top N 值，默认为 10
 func getTopNFromConfig() int {
-	cfg, err := app.LoadConfig()
+	cfg, err := systemQueryService.LoadConfig()
 	if err == nil && cfg != nil && cfg.Metrics.TopN > 0 {
 		return cfg.Metrics.TopN
 	}
@@ -176,7 +175,7 @@ func getTopNFromConfig() int {
 // getThresholdsFromConfig returns usage thresholds from config
 // getThresholdsFromConfig 从配置获取使用率阈值
 func getThresholdsFromConfig() (critical, high, medium int) {
-	cfg, err := app.LoadConfig()
+	cfg, err := systemQueryService.LoadConfig()
 	if err == nil && cfg != nil {
 		if cfg.Metrics.ThresholdCritical > 0 {
 			critical = cfg.Metrics.ThresholdCritical

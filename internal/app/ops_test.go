@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/plugins/types"
@@ -26,6 +27,20 @@ func skipIfNotRoot(t *testing.T) {
 	if os.Getuid() != 0 {
 		t.Skip("Skipping test that requires root privileges")
 	}
+}
+
+// skipIfNoXDPPrivileges skips tests in restricted root environments (e.g. CI containers).
+func skipIfNoXDPPrivileges(t *testing.T) {
+	l, _ := zap.NewDevelopment()
+	m, err := xdp.NewManager(types.CapacityConfig{}, l.Sugar())
+	if err != nil {
+		msg := strings.ToLower(err.Error())
+		if strings.Contains(msg, "memlock") || strings.Contains(msg, "operation not permitted") {
+			t.Skipf("Skipping test due to missing XDP privileges: %v", err)
+		}
+		t.Skipf("Skipping test due to unavailable XDP runtime: %v", err)
+	}
+	m.Close()
 }
 
 // TestInstallXDP_NoConfig tests InstallXDP with missing config
@@ -138,6 +153,7 @@ func TestHandlePluginCommand_Remove_InvalidIndex(t *testing.T) {
 // TestRemoveXDP_NoConfig 测试 RemoveXDP 无配置情况
 func TestRemoveXDP_NoConfig(t *testing.T) {
 	skipIfNotRoot(t)
+	skipIfNoXDPPrivileges(t)
 	ctx := getTestContext()
 
 	// Test with empty interfaces
@@ -154,6 +170,7 @@ func TestRemoveXDP_NoConfig(t *testing.T) {
 // TestRemoveXDP_InvalidInterface 测试 RemoveXDP 无效接口
 func TestRemoveXDP_InvalidInterface(t *testing.T) {
 	skipIfNotRoot(t)
+	skipIfNoXDPPrivileges(t)
 	ctx := getTestContext()
 
 	err := RemoveXDP(ctx, []string{"nonexistent123"})

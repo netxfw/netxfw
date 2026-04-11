@@ -2,10 +2,10 @@ package app
 
 import (
 	"context"
-	netxfw_binary "github.com/netxfw/netxfw/internal/binary"
 	"fmt"
 	"io"
 
+	netxfw_binary "github.com/netxfw/netxfw/internal/binary"
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/optimizer"
 	"github.com/netxfw/netxfw/internal/runtime"

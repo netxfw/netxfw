@@ -5,6 +5,7 @@ import (
 
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/app"
+	"github.com/netxfw/netxfw/internal/application/services"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -138,6 +139,9 @@ var SystemCmd = &cobra.Command{
 	Long:  `System management commands for netxfw`,
 }
 
+var systemService = services.NewSystemService()
+var systemQueryService = services.NewSystemQueryService()
+
 func initCommand(cmd *cobra.Command) {
 	configFile, _ := cmd.Flags().GetString("config")
 	if configFile != "" {
@@ -152,7 +156,7 @@ var systemInitCmd = &cobra.Command{
 	Long:  `Initialize default configuration file in /root/netxfw/`,
 	Run: func(cmd *cobra.Command, args []string) {
 		initCommand(cmd)
-		app.InitConfiguration(cmd.Context())
+		systemService.InitConfiguration(cmd.Context())
 	},
 }
 
@@ -173,7 +177,7 @@ var systemTestCmd = &cobra.Command{
 	Long:  `Test configuration validity`,
 	Run: func(cmd *cobra.Command, args []string) {
 		initCommand(cmd)
-		app.TestConfiguration(cmd.Context())
+		systemService.TestConfiguration(cmd.Context())
 	},
 }
 
@@ -183,7 +187,7 @@ var systemDaemonCmd = &cobra.Command{
 	Long:  `Start background process`,
 	Run: func(cmd *cobra.Command, args []string) {
 		initCommand(cmd)
-		app.RunDaemon(cmd.Context())
+		systemService.RunDaemon(cmd.Context())
 	},
 }
 
@@ -200,7 +204,7 @@ var systemLoadCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		if err := executor.EnsureMode().ApplyFlags().Do(func() error {
-			return app.InstallXDP(cmd.Context(), interfaces)
+			return systemService.InstallXDP(cmd.Context(), interfaces)
 		}); err != nil {
 			reportCommandError(cmd, err)
 		}
@@ -245,7 +249,7 @@ Examples:
 				ifaceList = args
 			}
 
-			attached, err := app.ValidateAndAttachXDP(cmd.Context(), ifaceList, xdpMode)
+			attached, err := systemService.AttachXDPWithMode(cmd.Context(), ifaceList, xdpMode)
 			if err != nil {
 				return fmt.Errorf("[ERROR] Failed to attach XDP: %w", err)
 			}
@@ -267,7 +271,7 @@ var systemUnloadCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		if err := executor.EnsureMode().ApplyFlags().Do(func() error {
-			return app.RemoveXDP(cmd.Context(), interfaces)
+			return systemService.RemoveXDP(cmd.Context(), interfaces)
 		}); err != nil {
 			reportCommandError(cmd, err)
 		}
@@ -284,7 +288,7 @@ This is faster than full reload and maintains existing connections.`,
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		if err := executor.EnsureMode().ApplyFlags().Do(func() error {
-			if err := app.ReloadPinnedMaps(cmd.Context()); err != nil {
+			if err := systemService.ReloadPinnedMaps(cmd.Context()); err != nil {
 				return fmt.Errorf("[ERROR] Failed to reload configuration: %w", err)
 			}
 
@@ -314,7 +318,7 @@ Examples:
 			if len(args) > 0 {
 				ifaceList = args
 			}
-			return app.InstallXDP(cmd.Context(), ifaceList)
+			return systemService.InstallXDP(cmd.Context(), ifaceList)
 		}); err != nil {
 			reportCommandError(cmd, err)
 		}
@@ -339,7 +343,7 @@ Examples:
 			if len(args) > 0 {
 				ifaceList = args
 			}
-			return app.RemoveXDP(cmd.Context(), ifaceList)
+			return systemService.RemoveXDP(cmd.Context(), ifaceList)
 		}); err != nil {
 			reportCommandError(cmd, err)
 		}
@@ -354,7 +358,7 @@ This will restart the netxfw service if an update is performed.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("[START] Checking for updates...")
 		execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
-		if err := app.RunShellPipeline(execCmd); err != nil {
+		if err := systemService.RunShellPipeline(execCmd); err != nil {
 			reportCommandError(cmd, fmt.Errorf("[ERROR] Update failed: %w", err))
 		}
 	},
@@ -371,7 +375,9 @@ var syncToConfigCmd = &cobra.Command{
 	Short: "Dump runtime BPF maps to configuration files",
 	Long:  `Dump runtime BPF maps to configuration files (config.yaml and rules.deny.txt).`,
 	Run: func(cmd *cobra.Command, args []string) {
-		Execute(cmd, args, app.SyncRuntimeToConfig)
+		Execute(cmd, args, func(s *sdk.SDK) error {
+			return systemService.SyncRuntimeToConfig(s)
+		})
 	},
 }
 
@@ -381,7 +387,9 @@ var syncToMapCmd = &cobra.Command{
 	Long: `Apply configuration files (config.yaml and rules.deny.txt) to runtime BPF maps.
 This will overwrite the runtime state with what is defined in the configuration files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		Execute(cmd, args, app.SyncConfigToRuntimeOverwrite)
+		Execute(cmd, args, func(s *sdk.SDK) error {
+			return systemService.SyncConfigToRuntimeOverwrite(s)
+		})
 	},
 }
 

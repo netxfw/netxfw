@@ -143,7 +143,7 @@ func (cm *ConfigManager) SaveConfig() error {
 	types.ConfigMu.Lock()
 	defer types.ConfigMu.Unlock()
 
-	return types.SaveGlobalConfigWithBackup(path, cfg, backupKeep)
+	return DefaultWriteGateway().SaveGlobalConfig(path, cfg, backupKeep, "config.manager.SaveConfig")
 }
 
 // GetConfig returns a deep copy of the current configuration.

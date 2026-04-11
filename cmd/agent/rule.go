@@ -1,20 +1,14 @@
 package agent
 
 import (
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net"
-	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 
-	"github.com/BurntSushi/toml"
-	"github.com/klauspost/compress/zstd"
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/app"
+	"github.com/netxfw/netxfw/internal/application/services"
+	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -181,8 +175,8 @@ Aliases: delete, remove
 				}
 			}
 
-			if err := common.ValidatePort(int(port)); err != nil {
-				return err
+			if validateErr := common.ValidatePort(int(port)); validateErr != nil {
+				return validateErr
 			}
 
 			removed, err := app.DeleteRule(cfg, s, ip, port)
@@ -384,6 +378,7 @@ Examples:
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
+			ruleService := services.NewRuleService(config.DefaultWriteGateway())
 			ruleType := args[0]
 			filePath := args[1]
 
@@ -399,14 +394,14 @@ Examples:
 				if ruleType != "all" {
 					return fmt.Errorf("[ERROR] For JSON/TOML imports, use: netxfw rule import all <file>")
 				}
-				return importFromStructuredFile(w, s, filePath, isJSON)
+				return ruleService.ImportStructured(w, s, filePath, isJSON)
 			}
 
 			if isBinary {
 				if ruleType != ruleTypeBinary {
 					return fmt.Errorf("[ERROR] For binary imports, use: netxfw rule import binary <file>")
 				}
-				return importFromBinaryFile(w, s, filePath)
+				return ruleService.ImportBinary(w, s, filePath)
 			}
 
 			// Text format import
@@ -422,210 +417,6 @@ Examples:
 			}
 		})
 	},
-}
-
-// importResult tracks import statistics for a single category.
-// importResult 跟踪单个类别的导入统计。
-type importResult struct {
-	added  int
-	failed int
-}
-
-// parseImportFile parses JSON or TOML file into ExportData.
-// parseImportFile 将 JSON 或 TOML 文件解析为 ExportData。
-func parseImportFile(filePath string, isJSON bool) (*ExportData, error) {
-	safePath, err := common.ValidateImportFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := os.ReadFile(safePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
-	}
-
-	var importData ExportData
-	if isJSON {
-		if err := json.Unmarshal(data, &importData); err != nil {
-			return nil, fmt.Errorf("failed to parse JSON: %w", err)
-		}
-	} else {
-		if err := toml.Unmarshal(data, &importData); err != nil {
-			return nil, fmt.Errorf("failed to parse TOML: %w", err)
-		}
-	}
-
-	return &importData, nil
-}
-
-// importBlacklistRules imports blacklist rules from import data.
-// importBlacklistRules 从导入数据导入黑名单规则。
-func importBlacklistRules(w io.Writer, s *sdk.SDK, rules []ExportRule) importResult {
-	var result importResult
-	for _, rule := range rules {
-		if rule.IP == "" {
-			continue
-		}
-		if err := common.ValidateIP(rule.IP); err != nil {
-			fmt.Fprintf(w, "[WARN]  Invalid IP in blacklist: %s: %v\n", rule.IP, err)
-			result.failed++
-			continue
-		}
-		if err := s.Blacklist.Add(rule.IP); err != nil {
-			fmt.Fprintf(w, "[WARN]  Failed to add blacklist %s: %v\n", rule.IP, err)
-			result.failed++
-		} else {
-			result.added++
-		}
-	}
-	return result
-}
-
-// importWhitelistRules imports whitelist rules from import data.
-// importWhitelistRules 从导入数据导入白名单规则。
-func importWhitelistRules(w io.Writer, s *sdk.SDK, rules []ExportRule) importResult {
-	var result importResult
-	for _, rule := range rules {
-		if rule.IP == "" {
-			continue
-		}
-		if err := common.ValidateIP(rule.IP); err != nil {
-			fmt.Fprintf(w, "[WARN]  Invalid IP in whitelist: %s: %v\n", rule.IP, err)
-			result.failed++
-			continue
-		}
-		if rule.Port < 0 || rule.Port > 65535 {
-			fmt.Fprintf(w, "[WARN]  Invalid port in whitelist: %s:%d (must be 0-65535)\n", rule.IP, rule.Port)
-			result.failed++
-			continue
-		}
-		var port uint16
-		if rule.Port > 0 {
-			port = uint16(rule.Port) // #nosec G115 // port is always 0-65535
-		}
-		if err := s.Whitelist.Add(rule.IP, port); err != nil {
-			fmt.Fprintf(w, "[WARN]  Failed to add whitelist %s: %v\n", rule.IP, err)
-			result.failed++
-		} else {
-			result.added++
-		}
-	}
-	return result
-}
-
-// importIPPortRules imports IP+Port rules from import data.
-// importIPPortRules 从导入数据导入 IP+端口规则。
-func importIPPortRules(w io.Writer, s *sdk.SDK, rules []ExportRule) importResult {
-	var result importResult
-	for _, rule := range rules {
-		if rule.IP == "" || rule.Port == 0 {
-			continue
-		}
-		if err := common.ValidateIP(rule.IP); err != nil {
-			fmt.Fprintf(w, "[WARN]  Invalid IP in IP+Port rule: %s: %v\n", rule.IP, err)
-			result.failed++
-			continue
-		}
-		if rule.Port < 1 || rule.Port > 65535 {
-			fmt.Fprintf(w, "[WARN]  Invalid port in IP+Port rule: %s:%d (must be 1-65535)\n", rule.IP, rule.Port)
-			result.failed++
-			continue
-		}
-		action := uint8(0)
-		if rule.Action == actionAllow {
-			action = 1
-		}
-		if err := s.Rule.AddIPPortRule(rule.IP, uint16(rule.Port), action); err != nil { // #nosec G115 // port is always 0-65535
-			fmt.Fprintf(w, "[WARN]  Failed to add IP+Port rule %s:%d: %v\n", rule.IP, rule.Port, err)
-			result.failed++
-		} else {
-			result.added++
-		}
-	}
-	return result
-}
-
-// printImportSummary prints the import summary.
-// printImportSummary 打印导入摘要。
-func printImportSummary(w io.Writer, blResult, wlResult, ippResult importResult) {
-	fmt.Fprintln(w, "[OK] Import completed:")
-	fmt.Fprintf(w, "   Blacklist: %d added, %d failed\n", blResult.added, blResult.failed)
-	fmt.Fprintf(w, "   Whitelist: %d added, %d failed\n", wlResult.added, wlResult.failed)
-	fmt.Fprintf(w, "   IP+Port:   %d added, %d failed\n", ippResult.added, ippResult.failed)
-}
-
-// importFromStructuredFile imports rules from JSON or TOML file.
-// importFromStructuredFile 从 JSON 或 TOML 文件导入规则。
-func importFromStructuredFile(w io.Writer, s *sdk.SDK, filePath string, isJSON bool) error {
-	importData, err := parseImportFile(filePath, isJSON)
-	if err != nil {
-		return err
-	}
-
-	blResult := importBlacklistRules(w, s, importData.Blacklist)
-	wlResult := importWhitelistRules(w, s, importData.Whitelist)
-	ippResult := importIPPortRules(w, s, importData.IPPort)
-
-	printImportSummary(w, blResult, wlResult, ippResult)
-
-	return nil
-}
-
-// importFromBinaryFile imports blacklist entries from a binary file.
-// importFromBinaryFile 从二进制文件导入黑名单条目。
-func importFromBinaryFile(w io.Writer, s *sdk.SDK, filePath string) error {
-	// 验证文件路径和大小
-	// Validate file path and size
-	safePath, err := common.ValidateImportFile(filePath)
-	if err != nil {
-		return err
-	}
-
-	file, err := os.Open(safePath)
-	if err != nil {
-		return fmt.Errorf("failed to open binary file: %v", err)
-	}
-	defer file.Close()
-
-	// Create zstd decoder
-	// 创建 zstd 解码器
-	decoder, err := zstd.NewReader(file)
-	if err != nil {
-		return fmt.Errorf("failed to create zstd decoder: %v", err)
-	}
-	defer decoder.Close()
-
-	// Decode binary records
-	// 解码二进制记录
-	records, err := app.DecodeBinaryRecords(decoder)
-	if err != nil {
-		return fmt.Errorf("failed to decode binary file: %v", err)
-	}
-
-	var added, failed int
-
-	// Import each record
-	// 导入每条记录
-	for _, record := range records {
-		// Construct CIDR notation using IP and PrefixLen
-		// 使用 IP 和 PrefixLen 构建 CIDR 表示法
-		ipStr := fmt.Sprintf("%s/%d", record.IP.String(), record.PrefixLen)
-
-		if err := s.Blacklist.Add(ipStr); err != nil {
-			fmt.Fprintf(w, "[WARN]  Failed to add %s: %v\n", ipStr, err)
-			failed++
-		} else {
-			fmt.Fprintf(w, "[OK] Added %s to blacklist\n", ipStr)
-			added++
-		}
-	}
-
-	// Print summary
-	// 打印摘要
-	fmt.Fprintln(w, "[OK] Binary import completed:")
-	fmt.Fprintf(w, "   Blacklist: %d added, %d failed\n", added, failed)
-
-	return nil
 }
 
 var ruleClearCmd = &cobra.Command{
@@ -645,73 +436,6 @@ var ruleClearCmd = &cobra.Command{
 	},
 }
 
-// ExportRule represents a single rule for export
-// ExportRule 表示导出的单条规则
-type ExportRule struct {
-	Type   string `json:"type" toml:"type"`                         // "blacklist", "whitelist", "ipport"
-	IP     string `json:"ip" toml:"ip"`                             // IP address or CIDR
-	Port   int    `json:"port,omitempty" toml:"port,omitempty"`     // Port number (for ipport rules)
-	Action string `json:"action,omitempty" toml:"action,omitempty"` // "allow" or "deny" (for ipport rules)
-}
-
-// ExportData represents the complete export structure
-// ExportData 表示完整的导出结构
-type ExportData struct {
-	Blacklist []ExportRule `json:"blacklist" toml:"blacklist"`
-	Whitelist []ExportRule `json:"whitelist" toml:"whitelist"`
-	IPPort    []ExportRule `json:"ipport_rules" toml:"ipport_rules"`
-}
-
-// collectExportData 收集所有规则用于导出
-// collectExportData collects all rules for export
-func collectExportData(s *sdk.SDK) (ExportData, error) {
-	exportData := ExportData{}
-
-	// Get blacklist / 获取黑名单
-	blacklist, _, err := s.Blacklist.List(100000, "")
-	if err != nil {
-		return exportData, fmt.Errorf("failed to get blacklist: %w", err)
-	}
-	for _, entry := range blacklist {
-		exportData.Blacklist = append(exportData.Blacklist, ExportRule{
-			Type: "blacklist",
-			IP:   entry.IP,
-		})
-	}
-
-	// Get whitelist / 获取白名单
-	whitelist, _, err := s.Whitelist.List(100000, "")
-	if err != nil {
-		return exportData, fmt.Errorf("failed to get whitelist: %w", err)
-	}
-	for _, ip := range whitelist {
-		exportData.Whitelist = append(exportData.Whitelist, ExportRule{
-			Type: "whitelist",
-			IP:   ip,
-		})
-	}
-
-	// Get IP+Port rules / 获取 IP+端口规则
-	ipportRules, _, err := s.Rule.ListIPPortRules(100000, "")
-	if err != nil {
-		return exportData, fmt.Errorf("failed to get IP+Port rules: %w", err)
-	}
-	for _, rule := range ipportRules {
-		action := actionDeny
-		if rule.Action == 1 {
-			action = actionAllow
-		}
-		exportData.IPPort = append(exportData.IPPort, ExportRule{
-			Type:   "ipport",
-			IP:     rule.IP,
-			Port:   int(rule.Port),
-			Action: action,
-		})
-	}
-
-	return exportData, nil
-}
-
 var ruleExportCmd = &cobra.Command{
 	Use:   "export <file> [--format json|toml|csv|binary]",
 	Short: "Export rules to file",
@@ -726,6 +450,7 @@ Examples:
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
+			ruleService := services.NewRuleService(config.DefaultWriteGateway())
 			filePath := args[0]
 			format, _ := cmd.Flags().GetString("format")
 			w := cmd.OutOrStdout()
@@ -748,226 +473,16 @@ Examples:
 			// Export based on format
 			switch format {
 			case ruleTypeBinary:
-				return exportToBinaryFile(w, s, filePath)
+				return ruleService.ExportBinary(w, s, filePath)
 			case ruleTypeTOML:
-				return exportToStructuredFile(w, s, filePath, "toml")
+				return ruleService.ExportStructured(w, s, filePath, "toml")
 			case ruleTypeCSV:
-				return exportToCSVFile(w, s, filePath)
+				return ruleService.ExportCSV(w, s, filePath)
 			default: // json
-				return exportToStructuredFile(w, s, filePath, "json")
+				return ruleService.ExportStructured(w, s, filePath, "json")
 			}
 		})
 	},
-}
-
-// exportToCSV exports rules to CSV format
-// exportToCSV 将规则导出为 CSV 格式
-func exportToCSV(data ExportData) ([]byte, error) {
-	var buf strings.Builder
-	writer := csv.NewWriter(&buf)
-
-	// Write header
-	// 写入表头
-	if err := writer.Write([]string{"type", "ip", "port", "action"}); err != nil {
-		return nil, err
-	}
-
-	// Write blacklist
-	// 写入黑名单
-	for _, rule := range data.Blacklist {
-		if err := writer.Write([]string{rule.Type, rule.IP, "", ""}); err != nil {
-			return nil, err
-		}
-	}
-
-	// Write whitelist
-	// 写入白名单
-	for _, rule := range data.Whitelist {
-		if err := writer.Write([]string{rule.Type, rule.IP, "", ""}); err != nil {
-			return nil, err
-		}
-	}
-
-	// Write IP+Port rules
-	// 写入 IP+端口规则
-	for _, rule := range data.IPPort {
-		if err := writer.Write([]string{rule.Type, rule.IP, strconv.Itoa(rule.Port), rule.Action}); err != nil {
-			return nil, err
-		}
-	}
-
-	writer.Flush()
-	return []byte(buf.String()), writer.Error()
-}
-
-// exportToStructuredFile exports rules to structured format (JSON or TOML).
-// exportToStructuredFile 将规则导出为结构化格式（JSON 或 TOML）。
-func exportToStructuredFile(w io.Writer, s *sdk.SDK, filePath, format string) error {
-	// Collect all rules using common function
-	// 使用公共函数收集所有规则
-	exportData, err := collectExportData(s)
-	if err != nil {
-		return err
-	}
-
-	// Export based on format
-	var data []byte
-	var errMarshal error
-	switch format {
-	case ruleTypeTOML:
-		data, errMarshal = toml.Marshal(exportData)
-	default: // json
-		data, errMarshal = json.MarshalIndent(exportData, "", "  ")
-	}
-	if errMarshal != nil {
-		return fmt.Errorf("failed to marshal export data: %w", errMarshal)
-	}
-
-	// Write to file
-	if err := os.WriteFile(filePath, data, 0600); err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
-	}
-
-	totalRules := len(exportData.Blacklist) + len(exportData.Whitelist) + len(exportData.IPPort)
-	fmt.Fprintf(w, "[OK] Exported %d rules to %s (format: %s)\n", totalRules, filePath, format)
-	fmt.Fprintf(w, "   Blacklist: %d entries\n", len(exportData.Blacklist))
-	fmt.Fprintf(w, "   Whitelist: %d entries\n", len(exportData.Whitelist))
-	fmt.Fprintf(w, "   IP+Port:   %d entries\n", len(exportData.IPPort))
-	return nil
-}
-
-// exportToCSVFile exports rules to CSV format.
-// exportToCSVFile 将规则导出为 CSV 格式。
-func exportToCSVFile(w io.Writer, s *sdk.SDK, filePath string) error {
-	// Collect all rules using common function
-	// 使用公共函数收集所有规则
-	exportData, err := collectExportData(s)
-	if err != nil {
-		return err
-	}
-
-	data, err := exportToCSV(exportData)
-	if err != nil {
-		return fmt.Errorf("failed to generate CSV: %w", err)
-	}
-
-	// Write to file
-	if err := os.WriteFile(filePath, data, 0600); err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
-	}
-
-	totalRules := len(exportData.Blacklist) + len(exportData.Whitelist) + len(exportData.IPPort)
-	fmt.Fprintf(w, "[OK] Exported %d rules to %s (format: csv)\n", totalRules, filePath)
-	fmt.Fprintf(w, "   Blacklist: %d entries\n", len(exportData.Blacklist))
-	fmt.Fprintf(w, "   Whitelist: %d entries\n", len(exportData.Whitelist))
-	fmt.Fprintf(w, "   IP+Port:   %d entries\n", len(exportData.IPPort))
-	return nil
-}
-
-// exportToBinaryFile exports blacklist entries to a binary file.
-// exportToBinaryFile 将黑名单条目导出为二进制文件。
-func exportToBinaryFile(w io.Writer, s *sdk.SDK, filePath string) error {
-	// Get blacklist
-	// 获取黑名单
-	blacklist, _, err := s.Blacklist.List(100000, "")
-	if err != nil {
-		return fmt.Errorf("failed to get blacklist: %w", err)
-	}
-
-	// Convert to binary records
-	// 转换为二进制记录
-	records := make([]app.BinaryRecord, 0, len(blacklist))
-	for _, entry := range blacklist {
-		// Parse IP, handling CIDR notation (e.g., "10.0.0.0/24" or "10.0.0.0")
-		// 解析 IP，处理 CIDR 表示法（例如 "10.0.0.0/24" 或 "10.0.0.0"）
-		var ip net.IP
-		var prefixLen uint8
-
-		// Check if entry contains CIDR notation
-		// 检查条目是否包含 CIDR 表示法
-		if strings.Contains(entry.IP, "/") {
-			// Parse IP and CIDR separately
-			// 分别解析 IP 和 CIDR
-			ipStr, cidrNet, parseErr := net.ParseCIDR(entry.IP)
-			if parseErr != nil {
-				fmt.Fprintf(w, "[WARN]  Invalid CIDR: %s\n", entry.IP)
-				continue
-			}
-			ip = ipStr
-			// Get prefix length from CIDR mask
-			// 从 CIDR 掩码获取前缀长度
-			ones, _ := cidrNet.Mask.Size()
-			prefixLen = uint8(ones)
-		} else {
-			// Parse simple IP address
-			// 解析简单 IP 地址
-			ip = net.ParseIP(entry.IP)
-			if ip == nil {
-				fmt.Fprintf(w, "[WARN]  Invalid IP: %s\n", entry.IP)
-				continue
-			}
-			// Set default prefix length based on IP version
-			// 根据 IP 版本设置默认前缀长度
-			if ip.To4() != nil {
-				prefixLen = 32
-			} else {
-				prefixLen = 128
-			}
-		}
-
-		var isIPv6 bool
-		if ip.To4() != nil {
-			// IPv4
-			// IPv4
-			isIPv6 = false
-			if prefixLen == 0 {
-				prefixLen = 32
-			}
-		} else {
-			// IPv6
-			// IPv6
-			isIPv6 = true
-			if prefixLen == 0 {
-				prefixLen = 128
-			}
-		}
-
-		records = append(records, app.BinaryRecord{
-			IP:        ip,
-			PrefixLen: prefixLen,
-			IsIPv6:    isIPv6,
-		})
-	}
-
-	// Create output file
-	// 创建输出文件
-	tmpFile, err := os.CreateTemp("", "netxfw-binary-*.bin")
-	if err != nil {
-		return fmt.Errorf("failed to create temp file: %v", err)
-	}
-	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
-
-	// Encode to binary format
-	// 编码为二进制格式
-	if encodeErr := app.EncodeBinaryRecords(tmpFile, records); encodeErr != nil {
-		tmpFile.Close()
-		return fmt.Errorf("failed to encode binary data: %v", encodeErr)
-	}
-	tmpFile.Close()
-
-	// Compress with zstd
-	// 使用 zstd 压缩
-	zstdCmd := exec.Command("zstd", "-f", "-o", filePath, tmpPath) // #nosec G204 // filePath is validated
-	output, err := zstdCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to compress with zstd: %v\nOutput: %s", err, string(output))
-	}
-
-	totalRules := len(records)
-	fmt.Fprintf(w, "[OK] Exported %d blacklist entries to %s\n", totalRules, filePath)
-
-	return nil
 }
 
 func init() {

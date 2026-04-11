@@ -8,12 +8,13 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 	"github.com/klauspost/compress/zstd"
+	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -117,10 +118,10 @@ func ImportFromStructuredFile(w io.Writer, s *sdk.SDK, filePath string, isJSON b
 			continue
 		}
 		if err := validateIP(rule.IP); err != nil {
-			w.Write([]byte(fmt.Sprintf("[WARN]  Failed to add blacklist %s\n", rule.IP)))
+			_, _ = fmt.Fprintf(w, "[WARN]  Failed to add blacklist %s\n", rule.IP)
 			blResult.failed++
 		} else if err := s.Blacklist.Add(rule.IP); err != nil {
-			w.Write([]byte(fmt.Sprintf("[WARN]  Failed to add blacklist %s\n", rule.IP)))
+			_, _ = fmt.Fprintf(w, "[WARN]  Failed to add blacklist %s\n", rule.IP)
 			blResult.failed++
 		} else {
 			blResult.added++
@@ -136,10 +137,10 @@ func ImportFromStructuredFile(w io.Writer, s *sdk.SDK, filePath string, isJSON b
 			port = uint16(rule.Port)
 		}
 		if err := validateIP(rule.IP); err != nil {
-			w.Write([]byte(fmt.Sprintf("[WARN]  Failed to add whitelist %s\n", rule.IP)))
+			_, _ = fmt.Fprintf(w, "[WARN]  Failed to add whitelist %s\n", rule.IP)
 			wlResult.failed++
 		} else if err := s.Whitelist.Add(rule.IP, port); err != nil {
-			w.Write([]byte(fmt.Sprintf("[WARN]  Failed to add whitelist %s\n", rule.IP)))
+			_, _ = fmt.Fprintf(w, "[WARN]  Failed to add whitelist %s\n", rule.IP)
 			wlResult.failed++
 		} else {
 			wlResult.added++
@@ -155,18 +156,18 @@ func ImportFromStructuredFile(w io.Writer, s *sdk.SDK, filePath string, isJSON b
 			action = 1
 		}
 		if err := validateIP(rule.IP); err != nil {
-			w.Write([]byte(fmt.Sprintf("[WARN]  Failed to add IP+Port rule %s:%d\n", rule.IP, rule.Port)))
+			_, _ = fmt.Fprintf(w, "[WARN]  Failed to add IP+Port rule %s:%d\n", rule.IP, rule.Port)
 			ippResult.failed++
 		} else if err := s.Rule.AddIPPortRule(rule.IP, uint16(rule.Port), action); err != nil {
-			w.Write([]byte(fmt.Sprintf("[WARN]  Failed to add IP+Port rule %s:%d\n", rule.IP, rule.Port)))
+			_, _ = fmt.Fprintf(w, "[WARN]  Failed to add IP+Port rule %s:%d\n", rule.IP, rule.Port)
 			ippResult.failed++
 		} else {
 			ippResult.added++
 		}
 	}
 
-	w.Write([]byte(fmt.Sprintf("[OK] Import completed:\n   Blacklist: %d added, %d failed\n   Whitelist: %d added, %d failed\n   IP+Port:   %d added, %d failed\n",
-		blResult.added, blResult.failed, wlResult.added, wlResult.failed, ippResult.added, ippResult.failed)))
+	_, _ = fmt.Fprintf(w, "[OK] Import completed:\n   Blacklist: %d added, %d failed\n   Whitelist: %d added, %d failed\n   IP+Port:   %d added, %d failed\n",
+		blResult.added, blResult.failed, wlResult.added, wlResult.failed, ippResult.added, ippResult.failed)
 	return nil
 }
 
@@ -186,11 +187,11 @@ func ExportToStructuredFile(w io.Writer, s *sdk.SDK, filePath, format string) er
 		return err
 	}
 
-	if err := os.WriteFile(filePath, data, 0600); err != nil {
+	if err := config.DefaultWriteGateway().WriteFile(filePath, data, 0600, "app.rule_io.ExportToStructuredFile"); err != nil {
 		return err
 	}
 
-	w.Write([]byte(fmt.Sprintf("[OK] Exported %d rules to %s (format: %s)\n", len(exportData.Blacklist)+len(exportData.Whitelist)+len(exportData.IPPort), filePath, format)))
+	_, _ = fmt.Fprintf(w, "[OK] Exported %d rules to %s (format: %s)\n", len(exportData.Blacklist)+len(exportData.Whitelist)+len(exportData.IPPort), filePath, format)
 	return nil
 }
 
@@ -202,22 +203,33 @@ func ExportToCSVFile(w io.Writer, s *sdk.SDK, filePath string) error {
 
 	var buf strings.Builder
 	writer := csv.NewWriter(&buf)
-	writer.Write([]string{"type", "ip", "port", "action"})
-	for _, rule := range exportData.Blacklist {
-		writer.Write([]string{rule.Type, rule.IP, "", ""})
-	}
-	for _, rule := range exportData.Whitelist {
-		writer.Write([]string{rule.Type, rule.IP, "", ""})
-	}
-	for _, rule := range exportData.IPPort {
-		writer.Write([]string{rule.Type, rule.IP, strconv.Itoa(rule.Port), rule.Action})
-	}
-	writer.Flush()
-
-	if err := os.WriteFile(filePath, []byte(buf.String()), 0600); err != nil {
+	if err := writer.Write([]string{"type", "ip", "port", "action"}); err != nil {
 		return err
 	}
-	w.Write([]byte(fmt.Sprintf("[OK] Exported rules to %s (format: csv)\n", filePath)))
+	for _, rule := range exportData.Blacklist {
+		if err := writer.Write([]string{rule.Type, rule.IP, "", ""}); err != nil {
+			return err
+		}
+	}
+	for _, rule := range exportData.Whitelist {
+		if err := writer.Write([]string{rule.Type, rule.IP, "", ""}); err != nil {
+			return err
+		}
+	}
+	for _, rule := range exportData.IPPort {
+		if err := writer.Write([]string{rule.Type, rule.IP, strconv.Itoa(rule.Port), rule.Action}); err != nil {
+			return err
+		}
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return err
+	}
+
+	if err := config.DefaultWriteGateway().WriteFile(filePath, []byte(buf.String()), 0600, "app.rule_io.ExportToCSVFile"); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(w, "[OK] Exported rules to %s (format: csv)\n", filePath)
 	return nil
 }
 
@@ -253,7 +265,7 @@ func ImportFromBinaryFile(w io.Writer, s *sdk.SDK, filePath string) error {
 			added++
 		}
 	}
-	w.Write([]byte(fmt.Sprintf("[OK] Binary import completed:\n   Blacklist: %d added, %d failed\n", added, failed)))
+	_, _ = fmt.Fprintf(w, "[OK] Binary import completed:\n   Blacklist: %d added, %d failed\n", added, failed)
 	return nil
 }
 
@@ -300,6 +312,6 @@ func ExportToBinaryFile(w io.Writer, s *sdk.SDK, filePath string) error {
 	if _, err := zstdCmd.CombinedOutput(); err != nil {
 		return err
 	}
-	w.Write([]byte(fmt.Sprintf("[OK] Exported blacklist to %s\n", filePath)))
+	_, _ = fmt.Fprintf(w, "[OK] Exported blacklist to %s\n", filePath)
 	return nil
 }

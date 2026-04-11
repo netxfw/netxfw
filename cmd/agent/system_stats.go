@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/app"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -32,7 +31,7 @@ func getMapCapacity() mapCapacity {
 		RateLimits:   1000,
 	}
 
-	cfg, err := app.LoadConfig()
+	cfg, err := systemQueryService.LoadConfig()
 	if err == nil && cfg != nil {
 		if cfg.Capacity.LockList > 0 {
 			capacity.Blacklist = cfg.Capacity.LockList
@@ -55,7 +54,7 @@ func getMapCapacity() mapCapacity {
 
 // showDropStatistics 显示带百分比的丢弃统计
 func showDropStatistics(w io.Writer, s StatsAPI, drops, pass uint64) {
-	trafficStats, err := app.LoadTrafficStats()
+	trafficStats, err := systemQueryService.LoadTrafficStats()
 	var currentDropPPS uint64
 	if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
 		currentDropPPS = trafficStats.CurrentDropPPS
@@ -84,7 +83,7 @@ func showDropStatistics(w io.Writer, s StatsAPI, drops, pass uint64) {
 // showPassStatistics displays pass statistics with percentages
 // showPassStatistics 显示带百分比的通过统计
 func showPassStatistics(w io.Writer, s StatsAPI, pass, drops uint64) {
-	trafficStats, err := app.LoadTrafficStats()
+	trafficStats, err := systemQueryService.LoadTrafficStats()
 	var currentPassPPS uint64
 	if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
 		currentPassPPS = trafficStats.CurrentPassPPS
@@ -268,7 +267,7 @@ func showTopBlockedIPs(w io.Writer, s StatsAPI, drops uint64) {
 		for i := 0; i < maxShow; i++ {
 			percent := float64(sorted[i].count) / float64(drops) * 100
 			fmt.Fprintf(w, "   %d. %s - %s drops (%.1f%%)\n", i+1, sorted[i].ip,
-				app.FormatNumberWithComma(sorted[i].count), percent)
+				systemQueryService.FormatNumberWithComma(sorted[i].count), percent)
 		}
 	}
 }
