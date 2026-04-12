@@ -192,39 +192,39 @@ func (m *Manager) syncGlobalConfigToConfig(cfg *types.GlobalConfig) {
 	var val uint64
 	var key uint32
 
-	key = configDefaultDeny
+	key = ConfigIndexDefaultDeny
 	if err := m.globalConfig.Lookup(&key, &val); err == nil {
 		cfg.Base.DefaultDeny = (val == 1)
 	}
-	key = configAllowReturnTraffic
+	key = ConfigIndexAllowReturnTraffic
 	if err := m.globalConfig.Lookup(&key, &val); err == nil {
 		cfg.Base.AllowReturnTraffic = (val == 1)
 	}
-	key = configAllowICMP
+	key = ConfigIndexAllowICMP
 	if err := m.globalConfig.Lookup(&key, &val); err == nil {
 		cfg.Base.AllowICMP = (val == 1)
 	}
-	key = configEnableAFXDP
+	key = ConfigIndexEnableAFXDP
 	if err := m.globalConfig.Lookup(&key, &val); err == nil {
 		cfg.Base.EnableAFXDP = (val == 1)
 	}
-	key = configICMPRate
+	key = ConfigIndexICMPRate
 	if err := m.globalConfig.Lookup(&key, &val); err == nil {
 		cfg.Base.ICMPRate = val
 	}
-	key = configICMPBurst
+	key = ConfigIndexICMPBurst
 	if err := m.globalConfig.Lookup(&key, &val); err == nil {
 		cfg.Base.ICMPBurst = val
 	}
-	key = configEnableRateLimit
+	key = ConfigIndexEnableRateLimit
 	if err := m.globalConfig.Lookup(&key, &val); err == nil {
 		cfg.RateLimit.Enabled = (val == 1)
 	}
-	key = configEnableConntrack
+	key = ConfigIndexEnableConntrack
 	if err := m.globalConfig.Lookup(&key, &val); err == nil {
 		cfg.Conntrack.Enabled = (val == 1)
 	}
-	key = configConntrackTimeout
+	key = ConfigIndexConntrackTimeout
 	if err := m.globalConfig.Lookup(&key, &val); err == nil {
 		cfg.Conntrack.TCPTimeout = time.Duration(val).String()
 	}

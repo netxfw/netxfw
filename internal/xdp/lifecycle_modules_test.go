@@ -9,18 +9,18 @@ import (
 
 func TestModuleIDs(t *testing.T) {
 	ids := []uint32{
-		ModIDEntry,
-		ModIDSanity,
-		ModIDCritical,
-		ModIDWhitelist,
-		ModIDBlacklist,
-		ModIDDynamicBlacklist,
-		ModIDRateLimit,
-		ModIDConntrack,
-		ModIDRules,
-		ModIDICMP,
-		ModIDReturn,
-		ModIDPlugins,
+		ModuleIDEntry,
+		ModuleIDSanity,
+		ModuleIDCritical,
+		ModuleIDWhitelist,
+		ModuleIDBlacklist,
+		ModuleIDDynamicBlacklist,
+		ModuleIDRateLimit,
+		ModuleIDConntrack,
+		ModuleIDRules,
+		ModuleIDICMP,
+		ModuleIDReturn,
+		ModuleIDPlugins,
 	}
 
 	seen := make(map[uint32]bool)
@@ -32,11 +32,11 @@ func TestModuleIDs(t *testing.T) {
 
 func TestModuleDef(t *testing.T) {
 	def := ModuleDef{
-		ID:      ModIDSanity,
+		ID:      ModuleIDSanity,
 		Program: nil,
 	}
 
-	assert.Equal(t, uint32(ModIDSanity), def.ID)
+	assert.Equal(t, uint32(ModuleIDSanity), def.ID)
 	assert.Nil(t, def.Program)
 }
 
@@ -125,16 +125,16 @@ func TestModuleMapDefinition(t *testing.T) {
 	}
 
 	expectedIDs := []uint32{
-		ModIDSanity,
-		ModIDCritical,
-		ModIDWhitelist,
-		ModIDBlacklist,
-		ModIDDynamicBlacklist,
-		ModIDRateLimit,
-		ModIDConntrack,
-		ModIDRules,
-		ModIDICMP,
-		ModIDReturn,
+		ModuleIDSanity,
+		ModuleIDCritical,
+		ModuleIDWhitelist,
+		ModuleIDBlacklist,
+		ModuleIDDynamicBlacklist,
+		ModuleIDRateLimit,
+		ModuleIDConntrack,
+		ModuleIDRules,
+		ModuleIDICMP,
+		ModuleIDReturn,
 	}
 
 	for i, name := range moduleNames {
@@ -168,7 +168,7 @@ func TestModuleConfigValidation(t *testing.T) {
 }
 
 func TestChainTermination(t *testing.T) {
-	lastModID := uint32(ModIDReturn)
+	lastModID := uint32(ModuleIDReturn)
 
 	assert.Greater(t, lastModID, uint32(0))
 	assert.Less(t, lastModID, uint32(20))

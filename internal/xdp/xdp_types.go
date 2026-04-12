@@ -22,37 +22,6 @@ type Logger interface {
 // Generate Go bindings for the BPF program / 为 BPF 程序生成 Go 绑定
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang NetXfw ../../bpf/netxfw.bpf.c -- -I../../bpf
 
-// Global config indices / 全局配置索引
-const (
-	configDefaultDeny        = 0
-	configAllowReturnTraffic = 1
-	configAllowICMP          = 2
-	configEnableConntrack    = 3
-	configConntrackTimeout   = 4
-	configICMPRate           = 5
-	configICMPBurst          = 6
-	configEnableAFXDP        = 7
-	configVersion            = 8
-	configStrictProto        = 9
-	configEnableRateLimit    = 10
-	configDropFragments      = 11
-	configStrictTCP          = 12
-	configSYNLimit           = 13
-	configBogonFilter        = 14
-	configAutoBlock          = 15
-	configAutoBlockExpiry    = 16
-)
-
-// Program indices for jmp_table / jmp_table 的程序索引
-const (
-	ProgIdxIPv4        = 0 // Deprecated: used as placeholder for Main logic in objs
-	ProgIdxIPv6        = 1 // Deprecated: used as placeholder for Deny logic in objs
-	ProgIdxMain        = 1
-	ProgIdxPluginStart = 2
-	ProgIdxPluginEnd   = 14
-	ProgIdxDefaultDeny = 15
-)
-
 // Re-export SDK types for internal use if needed, or just use sdk.X
 // 如有需要，重新导出 SDK 类型供内部使用，或直接使用 sdk.X
 type RateLimitConf = sdk.RateLimitConf

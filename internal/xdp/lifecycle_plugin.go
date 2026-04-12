@@ -14,9 +14,9 @@ import (
  * LoadPlugin 从 ELF 文件加载 BPF 程序并将其插入跳转表。
  */
 func (m *Manager) LoadPlugin(elfPath string, index int) error {
-	if index < ProgIdxPluginStart || index > ProgIdxPluginEnd {
+	if index < ProgramIndexPluginStart || index > ProgramIndexPluginEnd {
 		return fmt.Errorf("invalid plugin index: %d (must be between %d and %d)",
-			index, ProgIdxPluginStart, ProgIdxPluginEnd)
+			index, ProgramIndexPluginStart, ProgramIndexPluginEnd)
 	}
 
 	spec, err := ebpf.LoadCollectionSpec(elfPath)
@@ -58,7 +58,7 @@ func (m *Manager) LoadPlugin(elfPath string, index int) error {
  * RemovePlugin 从跳转表中移除插件。
  */
 func (m *Manager) RemovePlugin(index int) error {
-	if index < ProgIdxPluginStart || index > ProgIdxPluginEnd {
+	if index < ProgramIndexPluginStart || index > ProgramIndexPluginEnd {
 		return fmt.Errorf("invalid plugin index: %d", index)
 	}
 

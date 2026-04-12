@@ -126,9 +126,9 @@ func loadBPFPlugins(manager *xdp.Manager, globalCfg *types.GlobalConfig, log *za
 			continue
 		}
 
-		if plugin.Index < xdp.ProgIdxPluginStart || plugin.Index > xdp.ProgIdxPluginEnd {
+		if plugin.Index < xdp.ProgramIndexPluginStart || plugin.Index > xdp.ProgramIndexPluginEnd {
 			log.Warnf("[WARN]  Invalid plugin index %d for %s (must be %d-%d)",
-				plugin.Index, plugin.Path, xdp.ProgIdxPluginStart, xdp.ProgIdxPluginEnd)
+				plugin.Index, plugin.Path, xdp.ProgramIndexPluginStart, xdp.ProgramIndexPluginEnd)
 			loadErrors = append(loadErrors, fmt.Sprintf("%s: invalid index %d", plugin.Path, plugin.Index))
 			continue
 		}

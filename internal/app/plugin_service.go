@@ -102,7 +102,7 @@ func ListLoadedPlugins(ctx context.Context) ([]PluginSlot, error) {
 	defer manager.Close()
 
 	var slots []PluginSlot
-	for i := xdp.ProgIdxPluginStart; i <= xdp.ProgIdxPluginEnd; i++ {
+	for i := xdp.ProgramIndexPluginStart; i <= xdp.ProgramIndexPluginEnd; i++ {
 		var progID uint32
 		if err := manager.JmpTable().Lookup(uint32(i), &progID); err == nil {
 			slots = append(slots, PluginSlot{Index: i, Program: progID})

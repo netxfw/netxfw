@@ -7,17 +7,6 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-// Health status constants.
-// 健康状态常量。
-const (
-	statusOK          = "ok"
-	statusWarning     = "warning"
-	statusCritical    = "critical"
-	statusUnavailable = "unavailable"
-	statusError       = "error"
-	statusHealthy     = "healthy"
-)
-
 // MapHealthStatus represents the health status of a single BPF map.
 // MapHealthStatus 表示单个 BPF Map 的健康状态。
 type MapHealthStatus struct {
@@ -91,7 +80,7 @@ func (h *HealthChecker) CheckHealth() *HealthStatus {
 	status := &HealthStatus{
 		Timestamp:     time.Now(),
 		BPFMaps:       make(map[string]MapHealthStatus),
-		OverallStatus: statusOK,
+		OverallStatus: StatusOK,
 		Errors:        []string{},
 	}
 
@@ -124,7 +113,7 @@ func (h *HealthChecker) checkMap(name string, mapObj *ebpf.Map, mapType string, 
 		status.BPFMaps[name] = MapHealthStatus{
 			Name:    name,
 			Type:    mapType,
-			Status:  statusCritical,
+			Status:  StatusCritical,
 			Message: "Map not initialized / Map 未初始化",
 		}
 		status.Errors = append(status.Errors, fmt.Sprintf("%s: map not initialized", name))
@@ -139,7 +128,7 @@ func (h *HealthChecker) checkMap(name string, mapObj *ebpf.Map, mapType string, 
 			Name:       name,
 			Type:       mapType,
 			MaxEntries: maxEntries,
-			Status:     statusWarning,
+			Status:     StatusWarning,
 			Message:    fmt.Sprintf("Failed to get entry count: %v / 获取条目数失败: %v", err, err),
 		}
 		status.Errors = append(status.Errors, fmt.Sprintf("%s: failed to get entries: %v", name, err))
@@ -153,14 +142,14 @@ func (h *HealthChecker) checkMap(name string, mapObj *ebpf.Map, mapType string, 
 	}
 
 	// Determine status based on thresholds / 根据阈值确定状态
-	mapStatus := statusOK
+	mapStatus := StatusOK
 	message := "Healthy / 健康"
 
 	if usagePct >= h.CriticalThreshold {
-		mapStatus = statusCritical
+		mapStatus = StatusCritical
 		message = fmt.Sprintf("Critical: %d%% capacity used / 严重: 已使用 %d%% 容量", usagePct, usagePct)
 	} else if usagePct >= h.WarningThreshold {
-		mapStatus = statusWarning
+		mapStatus = StatusWarning
 		message = fmt.Sprintf("Warning: %d%% capacity used / 警告: 已使用 %d%% 容量", usagePct, usagePct)
 	}
 
@@ -207,11 +196,11 @@ func (h *HealthChecker) calculateSummary(status *HealthStatus) {
 		status.TotalCapacity += mapStatus.MaxEntries
 
 		switch mapStatus.Status {
-		case statusOK:
+		case StatusOK:
 			status.HealthyMaps++
-		case statusWarning:
+		case StatusWarning:
 			status.WarningMaps++
-		case statusCritical:
+		case StatusCritical:
 			status.CriticalMaps++
 		}
 	}
@@ -221,11 +210,11 @@ func (h *HealthChecker) calculateSummary(status *HealthStatus) {
 // determineOverallStatus 确定整体健康状态。
 func (h *HealthChecker) determineOverallStatus(status *HealthStatus) {
 	if status.CriticalMaps > 0 {
-		status.OverallStatus = statusCritical
+		status.OverallStatus = StatusCritical
 	} else if status.WarningMaps > 0 {
-		status.OverallStatus = statusWarning
+		status.OverallStatus = StatusWarning
 	} else {
-		status.OverallStatus = statusOK
+		status.OverallStatus = StatusOK
 	}
 }
 
@@ -254,7 +243,7 @@ func (h *HealthChecker) GetMapUsage(mapName string) (int, error) {
 // IsHealthy 如果所有 Map 都健康则返回 true。
 func (h *HealthChecker) IsHealthy() bool {
 	status := h.CheckHealth()
-	return status.OverallStatus == statusOK
+	return status.OverallStatus == StatusOK
 }
 
 // HasWarnings returns true if there are any warnings.
@@ -270,7 +259,7 @@ func (h *HealthChecker) GetCriticalMaps() []string {
 	status := h.CheckHealth()
 	var critical []string
 	for name, mapStatus := range status.BPFMaps {
-		if mapStatus.Status == statusCritical {
+		if mapStatus.Status == StatusCritical {
 			critical = append(critical, name)
 		}
 	}
@@ -283,7 +272,7 @@ func (h *HealthChecker) GetWarningMaps() []string {
 	status := h.CheckHealth()
 	var warnings []string
 	for name, mapStatus := range status.BPFMaps {
-		if mapStatus.Status == statusWarning {
+		if mapStatus.Status == StatusWarning {
 			warnings = append(warnings, name)
 		}
 	}

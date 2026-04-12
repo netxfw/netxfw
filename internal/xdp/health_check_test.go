@@ -36,7 +36,7 @@ func TestMapHealthStatus(t *testing.T) {
 		Entries:    5000,
 		MaxEntries: 10000,
 		UsagePct:   50,
-		Status:     statusOK,
+		Status:     StatusOK,
 		Message:    "Healthy",
 	}
 
@@ -45,7 +45,7 @@ func TestMapHealthStatus(t *testing.T) {
 	assert.Equal(t, 5000, status.Entries)
 	assert.Equal(t, 10000, status.MaxEntries)
 	assert.Equal(t, 50, status.UsagePct)
-	assert.Equal(t, statusOK, status.Status)
+	assert.Equal(t, StatusOK, status.Status)
 }
 
 func TestHealthStatus(t *testing.T) {
@@ -53,13 +53,13 @@ func TestHealthStatus(t *testing.T) {
 		BPFMaps: map[string]MapHealthStatus{
 			"blacklist": {
 				Name:     "blacklist",
-				Status:   statusOK,
+				Status:   StatusOK,
 				Entries:  100,
 				UsagePct: 10,
 			},
 			"whitelist": {
 				Name:     "whitelist",
-				Status:   statusWarning,
+				Status:   StatusWarning,
 				Entries:  8500,
 				UsagePct: 85,
 			},
@@ -70,14 +70,14 @@ func TestHealthStatus(t *testing.T) {
 		CriticalMaps:  0,
 		TotalEntries:  8600,
 		TotalCapacity: 20000,
-		OverallStatus: statusWarning,
+		OverallStatus: StatusWarning,
 	}
 
 	assert.Equal(t, 2, status.TotalMaps)
 	assert.Equal(t, 1, status.HealthyMaps)
 	assert.Equal(t, 1, status.WarningMaps)
 	assert.Equal(t, 0, status.CriticalMaps)
-	assert.Equal(t, statusWarning, status.OverallStatus)
+	assert.Equal(t, StatusWarning, status.OverallStatus)
 }
 
 func TestDetermineOverallStatus(t *testing.T) {
@@ -89,10 +89,10 @@ func TestDetermineOverallStatus(t *testing.T) {
 		warningMaps  int
 		expected     string
 	}{
-		{"all healthy", 0, 0, statusOK},
-		{"has warnings", 0, 1, statusWarning},
-		{"has critical", 1, 0, statusCritical},
-		{"critical takes priority", 1, 2, statusCritical},
+		{"all healthy", 0, 0, StatusOK},
+		{"has warnings", 0, 1, StatusWarning},
+		{"has critical", 1, 0, StatusCritical},
+		{"critical takes priority", 1, 2, StatusCritical},
 	}
 
 	for _, tt := range tests {
@@ -112,9 +112,9 @@ func TestCalculateSummary(t *testing.T) {
 
 	status := &HealthStatus{
 		BPFMaps: map[string]MapHealthStatus{
-			"map1": {Status: statusOK, Entries: 100, MaxEntries: 1000},
-			"map2": {Status: statusWarning, Entries: 200, MaxEntries: 2000},
-			"map3": {Status: statusCritical, Entries: 300, MaxEntries: 3000},
+			"map1": {Status: StatusOK, Entries: 100, MaxEntries: 1000},
+			"map2": {Status: StatusWarning, Entries: 200, MaxEntries: 2000},
+			"map3": {Status: StatusCritical, Entries: 300, MaxEntries: 3000},
 		},
 	}
 
@@ -129,10 +129,10 @@ func TestCalculateSummary(t *testing.T) {
 }
 
 func TestStatusConstants(t *testing.T) {
-	assert.Equal(t, "ok", statusOK)
-	assert.Equal(t, "warning", statusWarning)
-	assert.Equal(t, "critical", statusCritical)
-	assert.Equal(t, "unavailable", statusUnavailable)
-	assert.Equal(t, "error", statusError)
-	assert.Equal(t, "healthy", statusHealthy)
+	assert.Equal(t, "ok", StatusOK)
+	assert.Equal(t, "warning", StatusWarning)
+	assert.Equal(t, "critical", StatusCritical)
+	assert.Equal(t, "unavailable", StatusUnavailable)
+	assert.Equal(t, "error", StatusError)
+	assert.Equal(t, "healthy", StatusHealthy)
 }

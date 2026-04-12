@@ -15,10 +15,8 @@ type LogEnginePlugin struct {
 	lockListFile string
 }
 
-// Name returns the name of the plugin.
-// Name 返回插件的名称。
-// Name returns the name of the plugin.
-// Name 返回插件的名称。
+// Name returns the plugin name.
+// Name 返回插件名称。
 func (p *LogEnginePlugin) Name() string {
 	return "log_engine"
 }

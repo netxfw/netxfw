@@ -318,7 +318,7 @@ func (mc *MetricsCollector) collectTrafficMetrics() {
 // collectConntrackHealth 收集连接跟踪健康指标。
 func (mc *MetricsCollector) collectConntrackHealth() {
 	if mc.manager == nil || mc.manager.conntrackMap == nil {
-		mc.ConntrackHealth.Status = statusUnavailable
+		mc.ConntrackHealth.Status = StatusUnavailable
 		mc.ConntrackHealth.Message = "Conntrack map not initialized / 连接跟踪 Map 未初始化"
 		return
 	}
@@ -326,7 +326,7 @@ func (mc *MetricsCollector) collectConntrackHealth() {
 	// Get conntrack count / 获取连接跟踪计数
 	count, err := mc.manager.GetConntrackCount()
 	if err != nil {
-		mc.ConntrackHealth.Status = statusError
+		mc.ConntrackHealth.Status = StatusError
 		mc.ConntrackHealth.Message = "Failed to get conntrack count / 获取连接跟踪计数失败"
 		return
 	}
@@ -343,13 +343,13 @@ func (mc *MetricsCollector) collectConntrackHealth() {
 
 	// Determine health status / 确定健康状态
 	if mc.ConntrackHealth.UsagePercent >= 95 {
-		mc.ConntrackHealth.Status = statusCritical
+		mc.ConntrackHealth.Status = StatusCritical
 		mc.ConntrackHealth.Message = "Conntrack table near capacity / 连接跟踪表接近容量"
 	} else if mc.ConntrackHealth.UsagePercent >= 80 {
-		mc.ConntrackHealth.Status = statusWarning
+		mc.ConntrackHealth.Status = StatusWarning
 		mc.ConntrackHealth.Message = "Conntrack table usage high / 连接跟踪表使用率较高"
 	} else {
-		mc.ConntrackHealth.Status = statusHealthy
+		mc.ConntrackHealth.Status = StatusHealthy
 		mc.ConntrackHealth.Message = "Conntrack table healthy / 连接跟踪表健康"
 	}
 
@@ -410,7 +410,7 @@ func (mc *MetricsCollector) checkMapUsage(name string, mapObj *ebpf.Map, mapType
 		mc.MapUsage.Maps[name] = MapUsageDetail{
 			Name:    name,
 			Type:    mapType,
-			Status:  statusUnavailable,
+			Status:  StatusUnavailable,
 			Message: "Map not initialized / Map 未初始化",
 		}
 		mc.MapUsage.CriticalMaps++

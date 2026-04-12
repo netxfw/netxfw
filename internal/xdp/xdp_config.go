@@ -19,7 +19,7 @@ func (m *Manager) updateConfig(key uint32, val uint64) error {
 	}
 
 	// Increment version to trigger BPF cache refresh
-	var verKey uint32 = configVersion
+	var verKey uint32 = ConfigIndexVersion
 	var currentVer uint64
 	_ = m.globalConfig.Lookup(&verKey, &currentVer)
 	currentVer++
@@ -35,7 +35,7 @@ func (m *Manager) SetDefaultDeny(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configDefaultDeny, val)
+	return m.updateConfig(ConfigIndexDefaultDeny, val)
 }
 
 /**
@@ -47,7 +47,7 @@ func (m *Manager) SetAllowReturnTraffic(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configAllowReturnTraffic, val)
+	return m.updateConfig(ConfigIndexAllowReturnTraffic, val)
 }
 
 /**
@@ -59,7 +59,7 @@ func (m *Manager) SetAllowICMP(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configAllowICMP, val)
+	return m.updateConfig(ConfigIndexAllowICMP, val)
 }
 
 /**
@@ -67,10 +67,10 @@ func (m *Manager) SetAllowICMP(enable bool) error {
  * SetICMPRateLimit 设置 ICMP 速率限制（每秒数据包数）和突发量。
  */
 func (m *Manager) SetICMPRateLimit(rate, burst uint64) error {
-	if err := m.updateConfig(configICMPRate, rate); err != nil {
+	if err := m.updateConfig(ConfigIndexICMPRate, rate); err != nil {
 		return err
 	}
-	return m.updateConfig(configICMPBurst, burst)
+	return m.updateConfig(ConfigIndexICMPBurst, burst)
 }
 
 /**
@@ -78,7 +78,7 @@ func (m *Manager) SetICMPRateLimit(rate, burst uint64) error {
  * SetConntrackTimeout 在 BPF 程序中设置连接跟踪超时。
  */
 func (m *Manager) SetConntrackTimeout(timeout time.Duration) error {
-	return m.updateConfig(configConntrackTimeout, uint64(timeout.Nanoseconds())) // #nosec G115 // timeout is always valid
+	return m.updateConfig(ConfigIndexConntrackTimeout, uint64(timeout.Nanoseconds())) // #nosec G115 // timeout is always valid
 }
 
 /**
@@ -90,7 +90,7 @@ func (m *Manager) SetConntrack(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configEnableConntrack, val)
+	return m.updateConfig(ConfigIndexEnableConntrack, val)
 }
 
 /**
@@ -102,7 +102,7 @@ func (m *Manager) SetStrictProto(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configStrictProto, val)
+	return m.updateConfig(ConfigIndexStrictProto, val)
 }
 
 /**
@@ -114,7 +114,7 @@ func (m *Manager) SetDropFragments(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configDropFragments, val)
+	return m.updateConfig(ConfigIndexDropFragments, val)
 }
 
 /**
@@ -126,7 +126,7 @@ func (m *Manager) SetStrictTCP(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configStrictTCP, val)
+	return m.updateConfig(ConfigIndexStrictTCP, val)
 }
 
 /**
@@ -138,7 +138,7 @@ func (m *Manager) SetSYNLimit(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configSYNLimit, val)
+	return m.updateConfig(ConfigIndexSYNLimit, val)
 }
 
 /**
@@ -150,7 +150,7 @@ func (m *Manager) SetEnableRateLimit(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configEnableRateLimit, val)
+	return m.updateConfig(ConfigIndexEnableRateLimit, val)
 }
 
 /**
@@ -162,7 +162,7 @@ func (m *Manager) SetEnableAFXDP(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configEnableAFXDP, val)
+	return m.updateConfig(ConfigIndexEnableAFXDP, val)
 }
 
 /**
@@ -174,7 +174,7 @@ func (m *Manager) SetStrictProtocol(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configStrictProto, val)
+	return m.updateConfig(ConfigIndexStrictProto, val)
 }
 
 /**
@@ -186,7 +186,7 @@ func (m *Manager) SetBogonFilter(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configBogonFilter, val)
+	return m.updateConfig(ConfigIndexBogonFilter, val)
 }
 
 /**
@@ -198,7 +198,7 @@ func (m *Manager) SetAutoBlock(enable bool) error {
 	if enable {
 		val = 1
 	}
-	return m.updateConfig(configAutoBlock, val)
+	return m.updateConfig(ConfigIndexAutoBlock, val)
 }
 
 /**
@@ -206,5 +206,5 @@ func (m *Manager) SetAutoBlock(enable bool) error {
  * SetAutoBlockExpiry 设置自动封禁的 IP 解封前的持续时间。
  */
 func (m *Manager) SetAutoBlockExpiry(expiry time.Duration) error {
-	return m.updateConfig(configAutoBlockExpiry, uint64(expiry.Nanoseconds())) // #nosec G115 // expiry is always valid
+	return m.updateConfig(ConfigIndexAutoBlockExpiry, uint64(expiry.Nanoseconds())) // #nosec G115 // expiry is always valid
 }

@@ -56,22 +56,22 @@ func NewManager(cfg types.CapacityConfig, logger Logger) (*Manager, error) {
 	// Note: Using new unified map names
 	// 注意：使用新的统一 Map 名称
 	if cfg.Conntrack > 0 {
-		if m, ok := spec.Maps["conntrack_map"]; ok {
+		if m, ok := spec.Maps[MapNameConntrack]; ok {
 			m.MaxEntries = uint32(cfg.Conntrack) // #nosec G115 // cfg values are always valid for uint32
 		}
 	}
 	if cfg.LockList > 0 {
-		if m, ok := spec.Maps["static_blacklist"]; ok {
+		if m, ok := spec.Maps[MapNameStaticBlacklist]; ok {
 			m.MaxEntries = uint32(cfg.LockList) // #nosec G115 // cfg values are always valid for uint32
 		}
 	}
 	if cfg.DynLockList > 0 {
-		if m, ok := spec.Maps["dynamic_blacklist"]; ok {
+		if m, ok := spec.Maps[MapNameDynamicBlacklist]; ok {
 			m.MaxEntries = uint32(cfg.DynLockList) // #nosec G115 // cfg values are always valid for uint32
 		}
 	}
 	if cfg.Whitelist > 0 {
-		if m, ok := spec.Maps["whitelist"]; ok {
+		if m, ok := spec.Maps[MapNameWhitelist]; ok {
 			m.MaxEntries = uint32(cfg.Whitelist) // #nosec G115 // cfg values are always valid for uint32
 		}
 	}
@@ -132,13 +132,13 @@ func (m *Manager) initMapReferences(objs *NetXfwObjects) {
 
 func (m *Manager) initCoreJumpTable() error {
 	if m.objs.XdpIpv4 != nil {
-		if err := m.objs.JmpTable.Update(uint32(ProgIdxMain), m.objs.XdpIpv4, ebpf.UpdateAny); err != nil {
-			return fmt.Errorf("failed to update jmp_table with main program (was xdp_ipv4): %w", err)
+		if err := m.objs.JmpTable.Update(uint32(ProgramIndexMain), m.objs.XdpIpv4, ebpf.UpdateAny); err != nil {
+			return fmt.Errorf("update jmp_table with main program: %w", err)
 		}
 	}
 	if m.objs.XdpIpv6 != nil {
-		if err := m.objs.JmpTable.Update(uint32(ProgIdxDefaultDeny), m.objs.XdpIpv6, ebpf.UpdateAny); err != nil {
-			return fmt.Errorf("failed to update jmp_table with default deny (was xdp_ipv6): %w", err)
+		if err := m.objs.JmpTable.Update(uint32(ProgramIndexDefaultDeny), m.objs.XdpIpv6, ebpf.UpdateAny); err != nil {
+			return fmt.Errorf("update jmp_table with default deny: %w", err)
 		}
 	}
 	return nil

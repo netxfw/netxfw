@@ -11,22 +11,6 @@ import (
 	"github.com/netxfw/netxfw/internal/plugins/types"
 )
 
-// Module IDs (must match BPF)
-const (
-	ModIDEntry            = 0
-	ModIDSanity           = 1
-	ModIDCritical         = 2
-	ModIDWhitelist        = 3
-	ModIDBlacklist        = 4
-	ModIDDynamicBlacklist = 5
-	ModIDRateLimit        = 6
-	ModIDConntrack        = 7
-	ModIDRules            = 8
-	ModIDICMP             = 9
-	ModIDReturn           = 10
-	ModIDPlugins          = 11
-)
-
 // Module definition
 type ModuleDef struct {
 	ID      uint32
@@ -59,20 +43,20 @@ func (m *Manager) SyncModules(configs []types.ModuleConfig) error {
 	// 2. 构建链
 	// We need to map Name -> Program & ID
 	modMap := map[string]ModuleDef{
-		"sanity":             {ModIDSanity, m.objs.XdpSanity},
-		"critical_blacklist": {ModIDCritical, m.objs.XdpCritical},
-		"whitelist":          {ModIDWhitelist, m.objs.XdpWhitelist},
-		"blacklist":          {ModIDBlacklist, m.objs.XdpBlacklist},
-		"dynamic_blacklist":  {ModIDDynamicBlacklist, m.objs.XdpDynamicBlacklist},
-		"ratelimit":          {ModIDRateLimit, m.objs.XdpRatelimit},
-		"conntrack":          {ModIDConntrack, m.objs.XdpConntrack},
-		"ip_port_rules":      {ModIDRules, m.objs.XdpRules},
-		"icmp":               {ModIDICMP, m.objs.XdpIcmp},
-		"return_traffic":     {ModIDReturn, m.objs.XdpReturn},
+		"sanity":             {ModuleIDSanity, m.objs.XdpSanity},
+		"critical_blacklist": {ModuleIDCritical, m.objs.XdpCritical},
+		"whitelist":          {ModuleIDWhitelist, m.objs.XdpWhitelist},
+		"blacklist":          {ModuleIDBlacklist, m.objs.XdpBlacklist},
+		"dynamic_blacklist":  {ModuleIDDynamicBlacklist, m.objs.XdpDynamicBlacklist},
+		"ratelimit":          {ModuleIDRateLimit, m.objs.XdpRatelimit},
+		"conntrack":          {ModuleIDConntrack, m.objs.XdpConntrack},
+		"ip_port_rules":      {ModuleIDRules, m.objs.XdpRules},
+		"icmp":               {ModuleIDICMP, m.objs.XdpIcmp},
+		"return_traffic":     {ModuleIDReturn, m.objs.XdpReturn},
 	}
 
 	// Current pointer in the chain
-	var previousModID uint32 = ModIDEntry
+	var previousModID uint32 = ModuleIDEntry
 
 	// We use a fixed offset for module programs in jmp_table to avoid collision with plugins (2-15)
 	// 使用固定偏移量以避免与插件冲突 (2-15)
