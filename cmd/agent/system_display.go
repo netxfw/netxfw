@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/application/services"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -35,6 +34,10 @@ func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
 	fmt.Fprintln(w, "[OK] XDP Program Status: Loaded and Running")
 
 	mgr := s.GetManager()
+	snapshot, snapshotErr := systemQueryService.LoadStatusSnapshot(mgr)
+	pluginSnapshot, pluginErr := loadPluginStatusSnapshot(ctx, snapshot, snapshotErr)
+	pluginHealth := systemQueryService.LoadPluginHealth(pluginSnapshot)
+	metrics, metricsErr := systemQueryService.LoadMetrics(mgr)
 	pass, drops, err := s.Stats.GetCounters()
 	if err != nil {
 		fmt.Fprintf(w, "[WARN]  Could not retrieve statistics: %v\n", err)
@@ -43,22 +46,42 @@ func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
 
 	showDropStatistics(w, s.Stats, drops, pass)
 	showPassStatistics(w, s.Stats, pass, drops)
-	showProtocolDistribution(w, s.Stats, pass, drops)
-	showConntrackHealth(w, mgr)
-	showPolicyConfiguration(w)
+	if !showProtocolDistributionFromMetrics(w, metrics, metricsErr, pass, drops) {
+		showProtocolDistribution(w, s.Stats, pass, drops)
+	}
+	if !showConntrackHealthFromMetrics(w, metrics, metricsErr) {
+		showConntrackHealth(w, mgr)
+	}
+	showPolicyConfiguration(w, snapshot, snapshotErr)
+	showPluginStatus(w, pluginSnapshot, pluginHealth, pluginErr)
 	showConclusionStatistics(w, mgr, s.Stats)
-	showMapStatistics(w, mgr)
+	if !showMapStatisticsFromMetrics(w, mgr, metrics, metricsErr) {
+		showMapStatistics(w, mgr)
+	}
 	showTrafficMetrics(w, pass, drops)
 	showAttachedInterfaces(w)
 
 	return nil
 }
 
-func showPolicyConfiguration(w io.Writer) {
-	cfg, err := systemQueryService.LoadConfig()
-	if err != nil || cfg == nil {
+func loadPluginStatusSnapshot(ctx context.Context, snapshot StatusSnapshot, snapshotErr error) (PluginStatusSnapshot, error) {
+	cfg := snapshot.Config
+	if cfg == nil || snapshotErr != nil {
+		var err error
+		cfg, err = systemQueryService.LoadConfig()
+		if err != nil {
+			return PluginStatusSnapshot{}, err
+		}
+	}
+	return systemQueryService.LoadPluginStatus(ctx, cfg)
+}
+
+func showPolicyConfiguration(w io.Writer, snapshot StatusSnapshot, snapshotErr error) {
+	if snapshotErr != nil || snapshot.Config == nil {
 		return
 	}
+	cfg := snapshot.Config
+	desired := snapshot.Desired
 
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[CONFIG]  Policy Configuration:")
@@ -68,12 +91,12 @@ func showPolicyConfiguration(w io.Writer) {
 		name  string
 		value string
 	}{
-		{"SHIELD", "Default Deny", boolStr(cfg.Base.DefaultDeny, "Enabled (Deny by default)", "Disabled (Allow by default)")},
-		{"RELOAD", "Allow Return Traffic", boolStr(cfg.Base.AllowReturnTraffic, "Enabled", "Disabled")},
-		{"PING", "Allow ICMP (Ping)", boolStr(cfg.Base.AllowICMP, "Enabled", "Disabled")},
-		{"LOCK", "Strict TCP", boolStr(cfg.Base.StrictTCP, "Enabled", "Disabled")},
-		{"PROTECT", "SYN Flood Protection", boolStr(cfg.Base.SYNLimit, "Enabled", "Disabled")},
-		{"WEB", "Bogon Filter", boolStr(cfg.Base.BogonFilter, "Enabled", "Disabled")},
+		{"SHIELD", "Default Deny", boolStr(desired.DefaultDeny, "Enabled (Deny by default)", "Disabled (Allow by default)")},
+		{"RELOAD", "Allow Return Traffic", boolStr(desired.AllowReturnTraffic, "Enabled", "Disabled")},
+		{"PING", "Allow ICMP (Ping)", boolStr(desired.AllowICMP, "Enabled", "Disabled")},
+		{"LOCK", "Strict TCP", boolStr(desired.StrictTCP, "Enabled", "Disabled")},
+		{"PROTECT", "SYN Flood Protection", boolStr(desired.SYNLimit, "Enabled", "Disabled")},
+		{"WEB", "Bogon Filter", boolStr(desired.BogonFilter, "Enabled", "Disabled")},
 	}
 
 	for i, item := range items {
@@ -100,6 +123,50 @@ func showAttachedInterfaces(w io.Writer) {
 			uptime = systemQueryService.FormatDuration(time.Since(info.LoadTime))
 		}
 		fmt.Fprintf(w, "  - %s (Mode: %s, ProgID: %d, Uptime: %s)\n", info.Name, info.Mode, info.ProgramID, uptime)
+	}
+}
+
+func showPluginStatus(w io.Writer, snapshot PluginStatusSnapshot, health PluginHealthSnapshot, snapshotErr error) {
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[PLUGIN] Plugin Status:")
+
+	if snapshotErr != nil && len(snapshot.Runtime) == 0 && len(snapshot.Datapath) == 0 {
+		fmt.Fprintf(w, "   └─ Status: Unavailable (%v)\n", snapshotErr)
+		return
+	}
+
+	fmt.Fprintf(w, "   ├─ Runtime: %s - %s\n", strings.ToUpper(string(health.Runtime.Status)), health.Runtime.Message)
+	if len(snapshot.Runtime) == 0 {
+		fmt.Fprintln(w, "   │  - none")
+	} else {
+		for _, item := range snapshot.Runtime {
+			state := "disabled"
+			if item.Enabled && item.Healthy {
+				state = "enabled"
+			} else if item.Enabled {
+				state = "unhealthy"
+			}
+			fmt.Fprintf(w, "   │  - %s [%s]: %s\n", item.Name, state, item.Message)
+		}
+	}
+
+	fmt.Fprintf(w, "   └─ Datapath: %s - %s\n", strings.ToUpper(string(health.Datapath.Status)), health.Datapath.Message)
+	if len(snapshot.Datapath) == 0 {
+		fmt.Fprintln(w, "      - none")
+		return
+	}
+	for _, item := range snapshot.Datapath {
+		path := item.Path
+		if path == "" {
+			path = "(unconfigured)"
+		}
+		state := "not loaded"
+		if item.Loaded && item.Healthy {
+			state = "loaded"
+		} else if item.Loaded {
+			state = "drift"
+		}
+		fmt.Fprintf(w, "      - slot %d [%s]: %s (%s)\n", item.Index, state, path, item.Message)
 	}
 }
 
@@ -186,7 +253,7 @@ func getConntrackProtocolStats(entries []sdk.ConntrackEntry) (tcp, udp, icmp, ot
 	return
 }
 
-func getConntrackHealthStatus(count, maxVal uint64, hasRate bool, stats services.TrafficStats) string {
+func getConntrackHealthStatus(count, maxVal uint64, hasRate bool, stats TrafficStats) string {
 	usage := calculatePercentGeneric(count, maxVal)
 	critical, high, _ := getThresholdsFromConfig()
 
@@ -253,6 +320,125 @@ func showProtocolDistribution(w io.Writer, s StatsAPI, pass, drops uint64) {
 	for _, s := range stats {
 		fmt.Fprintf(w, "   %-10s %-15d %-15d %.1f%%\n", protocolToString(s.proto), s.dropped, s.passed, calculatePercentGeneric(s.total, total))
 	}
+}
+
+func showProtocolDistributionFromMetrics(w io.Writer, metrics *MetricsData, metricsErr error, pass, drops uint64) bool {
+	if metricsErr != nil || metrics == nil {
+		return false
+	}
+
+	total := pass + drops
+	proto := metrics.ProtocolStats
+	if total == 0 && proto.TotalPackets == 0 {
+		return false
+	}
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[PROTO] Protocol Distribution:")
+	fmt.Fprintf(w, "   %-10s %-15s %-15s %-10s\n", "Protocol", "Dropped", "Passed", "Percent")
+	fmt.Fprintf(w, "   %s\n", strings.Repeat("-", 50))
+
+	rows := []struct {
+		name    string
+		dropped uint64
+		passed  uint64
+		total   uint64
+	}{
+		{"TCP", proto.TCP.Dropped, proto.TCP.Passed, proto.TCP.Packets},
+		{"UDP", proto.UDP.Dropped, proto.UDP.Passed, proto.UDP.Packets},
+		{"ICMP", proto.ICMP.Dropped, proto.ICMP.Passed, proto.ICMP.Packets},
+		{"Other", proto.Other.Dropped, proto.Other.Passed, proto.Other.Packets},
+	}
+
+	sort.Slice(rows, func(i, j int) bool { return rows[i].total > rows[j].total })
+
+	printed := false
+	for _, row := range rows {
+		if row.total == 0 {
+			continue
+		}
+		printed = true
+		fmt.Fprintf(w, "   %-10s %-15d %-15d %.1f%%\n", row.name, row.dropped, row.passed, calculatePercentGeneric(row.total, total))
+	}
+
+	if !printed {
+		fmt.Fprintln(w, "   └─ No protocol data available")
+	}
+
+	return true
+}
+
+func showConntrackHealthFromMetrics(w io.Writer, metrics *MetricsData, metricsErr error) bool {
+	if metricsErr != nil || metrics == nil {
+		return false
+	}
+
+	conntrack := metrics.ConntrackHealth
+	if conntrack.MaxEntries == 0 && conntrack.CurrentEntries == 0 && conntrack.Status == "" {
+		return false
+	}
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[TRACK]  Conntrack Health:")
+	fmt.Fprintf(w, "   ├─ Active Connections: %d / %d (%.1f%%)\n",
+		conntrack.CurrentEntries, conntrack.MaxEntries,
+		calculatePercentGeneric(uint64(conntrack.CurrentEntries), uint64(conntrack.MaxEntries)))
+	fmt.Fprintf(w, "   ├─ TCP: %d (%.1f%%)  UDP: %d (%.1f%%)  ICMP: %d (%.1f%%)  Other: %d\n",
+		conntrack.TCPConnections, calculatePercentGeneric(conntrack.TCPConnections, uint64(conntrack.CurrentEntries)),
+		conntrack.UDPConnections, calculatePercentGeneric(conntrack.UDPConnections, uint64(conntrack.CurrentEntries)),
+		conntrack.ICMPConnections, calculatePercentGeneric(conntrack.ICMPConnections, uint64(conntrack.CurrentEntries)),
+		conntrack.OtherConnections)
+
+	trafficStats, err := systemQueryService.LoadTrafficStats()
+	hasRate := err == nil && trafficStats.LastUpdateTime.After(time.Time{})
+	if hasRate {
+		fmt.Fprintf(w, "   ├─ New/s: %s  Evict/s: %s\n",
+			systemQueryService.FormatNumberWithComma(trafficStats.CurrentConntrackNew),
+			systemQueryService.FormatNumberWithComma(trafficStats.CurrentConntrackEvict))
+	}
+
+	fmt.Fprintf(w, "   └─ %s\n", getConntrackHealthStatus(uint64(conntrack.CurrentEntries), uint64(conntrack.MaxEntries), hasRate, trafficStats))
+	return true
+}
+
+func showMapStatisticsFromMetrics(w io.Writer, mgr sdk.ManagerInterface, metrics *MetricsData, metricsErr error) bool {
+	if metricsErr != nil || metrics == nil {
+		return false
+	}
+
+	blacklist, okBlacklist := metrics.MapUsage.Maps["static_blacklist"]
+	dynBlacklist, okDyn := metrics.MapUsage.Maps["dynamic_blacklist"]
+	whitelist, okWhitelist := metrics.MapUsage.Maps["whitelist"]
+	ruleMap, okRuleMap := metrics.MapUsage.Maps["rule_map"]
+	rateLimit, okRateLimit := metrics.MapUsage.Maps["ratelimit_map"]
+	if !okBlacklist || !okDyn || !okWhitelist || !okRuleMap || !okRateLimit {
+		return false
+	}
+
+	allowedPorts, _ := mgr.ListAllowedPorts()
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[DATA] Map Statistics:")
+	fmt.Fprintf(w, "   %-18s %12s / %-12s %s\n", "Map", "Used", "Max", "Usage")
+	fmt.Fprintf(w, "   %s\n", strings.Repeat("-", 70))
+	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
+		"[LOCK] Blacklist", blacklist.Entries, blacklist.MaxEntries,
+		renderUsageBar(blacklist.Entries, blacklist.MaxEntries, 20))
+	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
+		"[DYNDYNLOCK] Dyn Blacklist", dynBlacklist.Entries, dynBlacklist.MaxEntries,
+		renderUsageBar(dynBlacklist.Entries, dynBlacklist.MaxEntries, 20))
+	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
+		"[WHITE] Whitelist", whitelist.Entries, whitelist.MaxEntries,
+		renderUsageBar(whitelist.Entries, whitelist.MaxEntries, 20))
+	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
+		"[IPPort] IP+Port Rules", ruleMap.Entries, ruleMap.MaxEntries,
+		renderUsageBar(ruleMap.Entries, ruleMap.MaxEntries, 20))
+	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
+		"[Limit]  Rate Limits", rateLimit.Entries, rateLimit.MaxEntries,
+		renderUsageBar(rateLimit.Entries, rateLimit.MaxEntries, 20))
+	fmt.Fprintf(w, "   %-18s %12d\n", "[Allowport] Allowed Ports", len(allowedPorts))
+
+	return true
 }
 
 func boolStr(cond bool, trueVal, falseVal string) string {

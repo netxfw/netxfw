@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
@@ -416,7 +416,7 @@ func TestLogEnginePlugin_Start_Disabled(t *testing.T) {
 			Enabled: false,
 		},
 	}
-	ctx := &sdk.PluginContext{
+	ctx := &sdk.RuntimePluginContext{
 		Config: &types.GlobalConfig{
 			LogEngine: types.LogEngineConfig{
 				Enabled: false,
@@ -459,15 +459,15 @@ func TestParseActionType_Numeric(t *testing.T) {
 		// Empty defaults to log / 空值默认为 log
 		{"empty", "", ActionLog},
 
-		// Legacy forms (handled by parseLegacyActionType) / 旧版形式
-		{"legacy_dynblack", "dynblack", ActionDynamic},
-		{"legacy_block", "block", ActionDynamic},
-		{"legacy_black", "black", ActionDynamic},
-		{"legacy_block_with_duration", "block:10m", ActionDynamic},
-		{"legacy_black_with_duration", "black:1h", ActionDynamic},
-		{"legacy_lock", "lock", ActionStatic},
-		{"legacy_permanent", "permanent", ActionStatic},
-		{"legacy_blacklist", "blacklist", ActionStatic},
+		// Alias forms handled by parseAliasActionType / 别名形式由 parseAliasActionType 处理
+		{"alias_dynblack", "dynblack", ActionDynamic},
+		{"alias_block", "block", ActionDynamic},
+		{"alias_black", "black", ActionDynamic},
+		{"alias_block_with_duration", "block:10m", ActionDynamic},
+		{"alias_black_with_duration", "black:1h", ActionDynamic},
+		{"alias_lock", "lock", ActionStatic},
+		{"alias_permanent", "permanent", ActionStatic},
+		{"alias_blacklist", "blacklist", ActionStatic},
 	}
 
 	for _, tt := range tests {

@@ -1,0 +1,198 @@
+package agent
+
+import (
+	"context"
+	"time"
+
+	"github.com/netxfw/netxfw/internal/app"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	"github.com/netxfw/netxfw/pkg/sdk"
+)
+
+type commandRuntimeSupport struct{}
+type systemServiceSupport struct{}
+type systemQuerySupport struct{}
+type performanceQuerySupport struct{}
+
+type TrafficStats = app.TrafficStats
+type MetricsData = app.MetricsData
+type InterfaceXDPInfo = app.InterfaceXDPInfo
+type StatusSnapshot = appconfig.StatusSnapshot
+type PluginStatusSnapshot = app.PluginStatusSnapshot
+type PluginHealthSnapshot = app.PluginHealthSnapshot
+type PerformanceStats = app.PerformanceStats
+type OperationStats = app.OperationStats
+
+var commandRuntimeService = commandRuntimeSupport{}
+var systemService = systemServiceSupport{}
+var systemQueryService = systemQuerySupport{}
+var perfQueryService = performanceQuerySupport{}
+
+func (commandRuntimeSupport) SetConfigPath(path string) {
+	appconfig.SetConfigPath(path)
+}
+
+func (commandRuntimeSupport) LoadConfig() (*sdk.GlobalConfig, error) {
+	return appconfig.LoadConfig()
+}
+
+func (commandRuntimeSupport) IsTestMode() bool {
+	return app.IsTestMode()
+}
+
+func (commandRuntimeSupport) IsXDPLoaded() bool {
+	return app.IsXDPLoaded()
+}
+
+func (commandRuntimeSupport) GetRuntimeMode() string {
+	return app.GetRuntimeMode()
+}
+
+func (commandRuntimeSupport) LoadTrafficStats() (TrafficStats, error) {
+	return app.LoadTrafficStats()
+}
+
+func (commandRuntimeSupport) FormatNumberWithComma(n uint64) string {
+	return app.FormatNumberWithComma(n)
+}
+
+func (commandRuntimeSupport) FormatBPS(bps uint64) string {
+	return app.FormatBPS(bps)
+}
+
+func (commandRuntimeSupport) LoadAndSyncConfigToRuntime(fw *sdk.SDK) error {
+	return app.LoadAndSyncConfigToRuntime(fw)
+}
+
+func (commandRuntimeSupport) RunDeployUpdate() error {
+	return app.RunDeployUpdate()
+}
+
+func (commandRuntimeSupport) Version() string {
+	return app.Version()
+}
+
+func (commandRuntimeSupport) LoadPlugin(ctx context.Context, path string, index int) error {
+	return app.LoadPlugin(ctx, path, index)
+}
+
+func (commandRuntimeSupport) RemovePlugin(ctx context.Context, index int) error {
+	return app.RemovePlugin(ctx, index)
+}
+
+func (commandRuntimeSupport) ListLoadedPlugins(ctx context.Context) ([]app.PluginSlot, error) {
+	return app.ListLoadedPlugins(ctx)
+}
+
+func (commandRuntimeSupport) ClearBlacklist(ctx context.Context, dynamic bool) error {
+	return app.ClearBlacklist(ctx, dynamic)
+}
+
+func (commandRuntimeSupport) ResetFirewall(fw *sdk.SDK) app.ResetResult {
+	return app.ResetFirewall(fw)
+}
+
+func (systemServiceSupport) InstallXDP(ctx context.Context, interfaces []string) error {
+	return app.InstallXDP(ctx, interfaces)
+}
+
+func (systemServiceSupport) RemoveXDP(ctx context.Context, interfaces []string) error {
+	return app.RemoveXDP(ctx, interfaces)
+}
+
+func (systemServiceSupport) ReloadXDP(ctx context.Context, interfaces []string) error {
+	return app.ReloadXDP(ctx, interfaces)
+}
+
+func (systemServiceSupport) AttachXDPWithMode(ctx context.Context, interfaces []string, mode string) ([]string, error) {
+	return app.ValidateAndAttachXDP(ctx, interfaces, mode)
+}
+
+func (systemServiceSupport) ReloadPinnedMaps(ctx context.Context) error {
+	return app.ReloadPinnedMaps(ctx)
+}
+
+func (systemServiceSupport) SyncRuntimeToConfig(fw *sdk.SDK) error {
+	return app.SyncRuntimeToConfig(fw)
+}
+
+func (systemServiceSupport) SyncConfigToRuntimeOverwrite(fw *sdk.SDK) error {
+	return app.SyncConfigToRuntimeOverwrite(fw)
+}
+
+func (systemServiceSupport) InitConfiguration(ctx context.Context) {
+	app.InitConfiguration(ctx)
+}
+
+func (systemServiceSupport) TestConfiguration(ctx context.Context) {
+	app.TestConfiguration(ctx)
+}
+
+func (systemServiceSupport) RunDaemon(ctx context.Context) {
+	app.RunDaemon(ctx)
+}
+
+func (systemServiceSupport) RunShellPipeline(command string) error {
+	return app.RunShellPipeline(command)
+}
+
+func (systemQuerySupport) LoadConfig() (*sdk.GlobalConfig, error) {
+	return appconfig.LoadConfig()
+}
+
+func (systemQuerySupport) LoadStatusSnapshot(mgr sdk.ManagerInterface) (StatusSnapshot, error) {
+	return appconfig.LoadStatusSnapshot(mgr)
+}
+
+func (systemQuerySupport) LoadTrafficStats() (TrafficStats, error) {
+	return app.LoadTrafficStats()
+}
+
+func (systemQuerySupport) LoadMetrics(mgr sdk.ManagerInterface) (*MetricsData, error) {
+	return app.LoadMetrics(mgr)
+}
+
+func (systemQuerySupport) LoadPluginStatus(ctx context.Context, cfg *sdk.GlobalConfig) (PluginStatusSnapshot, error) {
+	runtimeStatuses := app.NewRuntimePluginStatuses(cfg)
+	return app.LoadPluginStatus(ctx, runtimeStatuses, cfg)
+}
+
+func (systemQuerySupport) LoadPluginHealth(snapshot PluginStatusSnapshot) PluginHealthSnapshot {
+	return app.LoadPluginHealth(snapshot)
+}
+
+func (systemQuerySupport) GetAttachedInterfaceInfos() ([]InterfaceXDPInfo, error) {
+	return app.GetAttachedInterfaceInfos()
+}
+
+func (systemQuerySupport) GetConntrackMax() int {
+	return appconfig.GetConntrackMax()
+}
+
+func (systemQuerySupport) FormatNumberWithComma(n uint64) string {
+	return app.FormatNumberWithComma(n)
+}
+
+func (systemQuerySupport) FormatBPS(bps uint64) string {
+	return app.FormatBPS(bps)
+}
+
+func (systemQuerySupport) FormatDuration(d time.Duration) string {
+	return app.FormatDuration(d)
+}
+
+func (performanceQuerySupport) LoadPerformanceStats(mgr sdk.ManagerInterface) (*PerformanceStats, error) {
+	return app.LoadPerformanceStats(mgr)
+}
+
+func (performanceQuerySupport) FormatLatency(ns uint64) string {
+	return app.FormatLatency(ns)
+}
+
+func (performanceQuerySupport) FormatNumber(n uint64) string {
+	return app.FormatNumber(n)
+}
+
+func (performanceQuerySupport) FormatBytes(b uint64) string {
+	return app.FormatBytes(b)
+}

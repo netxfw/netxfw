@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/application/services"
+	"github.com/netxfw/netxfw/internal/app"
+	apprule "github.com/netxfw/netxfw/internal/app/rule"
+	domainrule "github.com/netxfw/netxfw/internal/domain/rule"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -13,7 +15,6 @@ import (
 var simpleListLimit int
 var allowListLimit int
 var denyListLimit int
-var ruleCommandService = services.NewRuleCommandService()
 
 var SimpleListCmd = &cobra.Command{
 	Use:   "list",
@@ -111,7 +112,7 @@ var SimpleAllowCmd = &cobra.Command{
 支持 IPv6: [2001:db8::1]:8080
 
 Subcommands:
-  allow <ip>         # Add IP to whitelist (backward compatible)
+  allow <ip>         # Add IP to whitelist
   allow add <ip>     # Add IP to whitelist
   allow list         # List whitelist IPs
   allow port list    # List IP+Port allow rules`,
@@ -225,7 +226,7 @@ var SimpleDenyCmd = &cobra.Command{
 使用 --ttl 参数添加到动态黑名单（临时封禁，自动过期）。
 
 Subcommands:
-  deny <ip>          # Add IP to blacklist (backward compatible)
+  deny <ip>          # Add IP to blacklist
   deny add <ip>      # Add IP to blacklist
   deny list          # List blacklist IPs
   deny port list     # List IP+Port deny rules`,
@@ -395,7 +396,7 @@ var SimpleDeleteCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
-			messages := ruleCommandService.DeleteFromAllRuleStores(s, ip, port)
+			messages := apprule.RemoveFromAll(s, ip, port)
 			if len(messages) == 0 {
 				cmd.PrintErrln("[WARN]  Rule not found")
 				return nil
@@ -437,8 +438,8 @@ var SimpleUnallowCmd = &cobra.Command{
 
 var SimpleBlockCmd = &cobra.Command{
 	Use:   "block <ip>",
-	Short: "Block IP at XDP layer (legacy, use 'deny')",
-	Long: `Block IP at XDP layer (legacy command, use 'deny' instead).
+	Short: "Block IP at XDP layer (deprecated, use 'deny')",
+	Long: `Block IP at XDP layer (deprecated command, use 'deny' instead).
 在 XDP 层封禁 IP（旧命令，请使用 'deny'）。`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -484,8 +485,8 @@ var SimpleBlockCmd = &cobra.Command{
 
 var SimpleUnblockCmd = &cobra.Command{
 	Use:   "unblock <ip>",
-	Short: "Unblock IP at XDP layer (legacy, use 'delete')",
-	Long: `Unblock IP at XDP layer (legacy command, use 'delete' instead).
+	Short: "Unblock IP at XDP layer (deprecated, use 'delete')",
+	Long: `Unblock IP at XDP layer (deprecated command, use 'delete' instead).
 在 XDP 层解封 IP（旧命令，请使用 'delete'）。`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -574,7 +575,7 @@ func runAllowCommand(cmd *cobra.Command, input string) {
 	executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 	executor.ExecuteWithSDK(func(s *sdk.SDK) error {
-		if err := ruleCommandService.AddAllowRule(s, ip, port); err != nil {
+		if err := apprule.Add(s, ip, port, domainrule.ActionAllow); err != nil {
 			return fmt.Errorf("[ERROR] Failed to allow IP: %v", err)
 		}
 		if port > 0 {
@@ -604,7 +605,7 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 				cmd.PrintErrln("[WARN]  WARNING: TTL parameter is ignored for IP+Port rules")
 				cmd.PrintErrln("[WARN]  警告：TTL 参数对 IP+Port 规则无效")
 			}
-			if err := ruleCommandService.AddDenyRule(s, ip, port); err != nil {
+			if err := apprule.Add(s, ip, port, domainrule.ActionDeny); err != nil {
 				return fmt.Errorf("[ERROR] Failed to add IP+Port deny rule: %v", err)
 			}
 			executor.PrintSuccess(fmt.Sprintf("[BLOCK] IP+Port deny rule added: %s:%d", ip, port))
@@ -635,9 +636,9 @@ func runDenyCommand(cmd *cobra.Command, input string) {
 }
 
 func parseIPInput(input string) (ip string, port uint16, err error) {
-	host, pVal, parseErr := ruleCommandService.ParseIPPort(input)
+	host, pVal, parseErr := app.ParseIPPort(input)
 	if parseErr != nil {
-		if ruleCommandService.IsValidCIDR(input) {
+		if app.IsValidCIDR(input) {
 			return input, 0, nil
 		}
 		if strings.Contains(input, ":") && !strings.HasPrefix(input, "[") {

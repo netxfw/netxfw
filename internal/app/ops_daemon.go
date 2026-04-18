@@ -7,7 +7,7 @@ import (
 	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/internal/version"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 

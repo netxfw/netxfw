@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -60,7 +61,7 @@ func showDropStatistics(w io.Writer, s StatsAPI, drops, pass uint64) {
 		currentDropPPS = trafficStats.CurrentDropPPS
 	}
 
-	dropDetails, err := s.GetDropDetails()
+	dropDetails, err := datapathstats.LoadDropDetails(s)
 	if err != nil || len(dropDetails) == 0 {
 		return
 	}
@@ -89,7 +90,7 @@ func showPassStatistics(w io.Writer, s StatsAPI, pass, drops uint64) {
 		currentPassPPS = trafficStats.CurrentPassPPS
 	}
 
-	passDetails, err := s.GetPassDetails()
+	passDetails, err := datapathstats.LoadPassDetails(s)
 	if err != nil || len(passDetails) == 0 {
 		return
 	}
@@ -235,7 +236,7 @@ func showTopBlockedIPs(w io.Writer, s StatsAPI, drops uint64) {
 		return
 	}
 
-	dropDetails, err := s.GetDropDetails()
+	dropDetails, err := datapathstats.LoadDropDetails(s)
 	if err != nil || len(dropDetails) == 0 {
 		return
 	}

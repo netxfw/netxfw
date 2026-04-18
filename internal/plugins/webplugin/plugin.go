@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/internal/metrics/exporter"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type WebPlugin struct {
-	config    *types.WebConfig
+	config    *sdk.WebConfig
 	server    *http.Server
 	running   bool
 	mu        sync.RWMutex // Protects running field from concurrent access / 保护 running 字段免受并发访问
@@ -47,13 +46,13 @@ func (p *WebPlugin) Type() sdk.PluginType {
 }
 
 func (p *WebPlugin) DefaultConfig() any {
-	return types.WebConfig{
+	return sdk.WebConfig{
 		Enabled: true,
 		Port:    11811,
 	}
 }
 
-func (p *WebPlugin) Validate(cfg *types.GlobalConfig) error {
+func (p *WebPlugin) Validate(cfg *sdk.GlobalConfig) error {
 	if cfg.Web.Enabled {
 		if cfg.Web.Port <= 0 || cfg.Web.Port > 65535 {
 			return fmt.Errorf("invalid web port: %d", cfg.Web.Port)
@@ -62,7 +61,7 @@ func (p *WebPlugin) Validate(cfg *types.GlobalConfig) error {
 	return nil
 }
 
-func (p *WebPlugin) Init(ctx *sdk.PluginContext) error {
+func (p *WebPlugin) Init(ctx *sdk.RuntimePluginContext) error {
 	p.config = &ctx.Config.Web
 	p.web = ctx.Web
 	p.collector = exporter.NewCollector(ctx.SDK)
@@ -72,7 +71,7 @@ func (p *WebPlugin) Init(ctx *sdk.PluginContext) error {
 	return p.web.EnsureHandlerInitialized()
 }
 
-func (p *WebPlugin) Start(ctx *sdk.PluginContext) error {
+func (p *WebPlugin) Start(ctx *sdk.RuntimePluginContext) error {
 	if !p.config.Enabled {
 		ctx.Logger.Infof("[WEB] Web plugin is disabled via config.")
 		return nil
@@ -144,7 +143,7 @@ func (p *WebPlugin) Stop() error {
 	return nil
 }
 
-func (p *WebPlugin) Reload(ctx *sdk.PluginContext) error {
+func (p *WebPlugin) Reload(ctx *sdk.RuntimePluginContext) error {
 	// Update configuration
 	newConfig := ctx.Config.Web
 	p.config = &newConfig
@@ -154,7 +153,7 @@ func (p *WebPlugin) Reload(ctx *sdk.PluginContext) error {
 	return nil
 }
 
-func (p *WebPlugin) collectStats(ctx *sdk.PluginContext) {
+func (p *WebPlugin) collectStats(ctx *sdk.RuntimePluginContext) {
 	if p.collector == nil {
 		var pluginSDK *sdk.SDK
 		if ctx != nil {

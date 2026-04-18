@@ -3,7 +3,7 @@ package optimizer
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/ipmerge"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 )

@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/application/services"
+	apprule "github.com/netxfw/netxfw/internal/app/rule"
 	"github.com/netxfw/netxfw/internal/config"
+	domainrule "github.com/netxfw/netxfw/internal/domain/rule"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -112,17 +113,17 @@ Examples:
 			}
 
 			actionStr := args[1]
-			var action services.RuleAction
+			var action domainrule.Action
 			switch actionStr {
 			case actionAllow:
-				action = services.RuleActionAllow
+				action = domainrule.ActionAllow
 			case actionDeny:
-				action = services.RuleActionDeny
+				action = domainrule.ActionDeny
 			default:
 				return fmt.Errorf("[ERROR] invalid action %q, use 'allow' or 'deny'", actionStr)
 			}
 
-			if err := ruleCommandService.AddRule(s, ip, portVal, action); err != nil {
+			if err := apprule.Add(s, ip, portVal, action); err != nil {
 				return err
 			}
 
@@ -130,7 +131,7 @@ Examples:
 				cmd.Printf("[OK] Rule added: %s:%d (Action: %d)\n", ip, portVal, uint8(action))
 				return nil
 			}
-			if action == services.RuleActionAllow {
+			if action == domainrule.ActionAllow {
 				cmd.Printf("[OK] Added %s to Whitelist\n", ip)
 			} else {
 				cmd.Printf("[BLOCK] Added %s to Blacklist\n", ip)
@@ -178,7 +179,7 @@ Aliases: delete, remove
 				return validateErr
 			}
 
-			removed, err := ruleCommandService.DeleteRule(cfg, s, ip, port)
+			removed, err := apprule.Remove(cfg, s, ip, port)
 			if err != nil {
 				return fmt.Errorf("[ERROR] %v", err)
 			}
@@ -358,8 +359,8 @@ var ruleImportCmd = &cobra.Command{
 	// Short: 从文件导入规则
 	Long: `Import rules from a file. Supports multiple formats:
   - Text format (default): One IP per line for lock/allow, IP:Port:Action for rules
-  - JSON format: Auto-detected from .json extension, compatible with 'rule export' output
-  - TOML format: Auto-detected from .toml extension, compatible with 'rule export' output
+  - JSON format: Auto-detected from .json extension, accepted by 'rule export' output
+  - TOML format: Auto-detected from .toml extension, accepted by 'rule export' output
   - Binary format (.bin.zst): Compressed binary format for blacklist entries
 
 Examples:
@@ -377,7 +378,6 @@ Examples:
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
-			ruleService := services.NewRuleService(config.DefaultWriteGateway())
 			ruleType := args[0]
 			filePath := args[1]
 
@@ -393,27 +393,18 @@ Examples:
 				if ruleType != "all" {
 					return fmt.Errorf("[ERROR] For JSON/TOML imports, use: netxfw rule import all <file>")
 				}
-				return ruleService.ImportStructured(w, s, filePath, isJSON)
+				return apprule.ImportStructured(w, s, filePath, isJSON)
 			}
 
 			if isBinary {
 				if ruleType != ruleTypeBinary {
 					return fmt.Errorf("[ERROR] For binary imports, use: netxfw rule import binary <file>")
 				}
-				return ruleService.ImportBinary(w, s, filePath)
+				return apprule.ImportBinary(w, s, filePath)
 			}
 
 			// Text format import
-			switch ruleType {
-			case actionLock, actionDeny:
-				return common.ImportLockListFromFile(s, filePath)
-			case actionAllow:
-				return common.ImportWhitelistFromFile(s, filePath)
-			case ruleTypeRules:
-				return common.ImportIPPortRulesFromFile(s, filePath)
-			default:
-				return fmt.Errorf("[ERROR] Unknown rule type. Use: lock (or deny), allow, rules, binary, or all (for JSON/TOML)")
-			}
+			return apprule.ImportText(w, s, ruleType, filePath)
 		})
 	},
 }
@@ -449,7 +440,6 @@ Examples:
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
-			ruleService := services.NewRuleService(config.DefaultWriteGateway())
 			filePath := args[0]
 			format, _ := cmd.Flags().GetString("format")
 			w := cmd.OutOrStdout()
@@ -472,13 +462,13 @@ Examples:
 			// Export based on format
 			switch format {
 			case ruleTypeBinary:
-				return ruleService.ExportBinary(w, s, filePath)
+				return apprule.ExportBinary(w, s, filePath)
 			case ruleTypeTOML:
-				return ruleService.ExportStructured(w, s, filePath, "toml")
+				return apprule.ExportStructured(w, config.DefaultWriteGateway(), s, filePath, "toml")
 			case ruleTypeCSV:
-				return ruleService.ExportCSV(w, s, filePath)
+				return apprule.ExportCSV(w, config.DefaultWriteGateway(), s, filePath)
 			default: // json
-				return ruleService.ExportStructured(w, s, filePath, "json")
+				return apprule.ExportStructured(w, config.DefaultWriteGateway(), s, filePath, "json")
 			}
 		})
 	},

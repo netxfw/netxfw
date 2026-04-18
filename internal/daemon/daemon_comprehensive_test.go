@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/stretchr/testify/assert"
 )
 

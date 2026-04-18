@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/netxfw/netxfw/internal/xdp"
+	datapathhealth "github.com/netxfw/netxfw/internal/datapath/xdp/health"
 )
 
 // handleHealth returns the health status of the service including BPF maps.
@@ -23,31 +23,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try to get the xdp manager for health checking
-	// 尝试获取 xdp manager 进行健康检查
-	xdpMgr, ok := mgr.(interface {
-		GetHealthChecker() *xdp.HealthChecker
-	})
-	if !ok {
-		// Fallback to basic health check
-		// 回退到基本健康检查
+	healthStatus, err := datapathhealth.LoadStatus(mgr)
+	if err != nil {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":  "ok",
 			"message": "Basic health check passed",
 		})
 		return
 	}
-
-	healthChecker := xdpMgr.GetHealthChecker()
-	if healthChecker == nil {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"status":  "ok",
-			"message": "Health checker not initialized",
-		})
-		return
-	}
-
-	healthStatus := healthChecker.CheckHealth()
 	_ = json.NewEncoder(w).Encode(healthStatus)
 }
 
@@ -67,21 +50,11 @@ func (s *Server) handleHealthMaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	xdpMgr, ok := mgr.(interface {
-		GetHealthChecker() *xdp.HealthChecker
-	})
-	if !ok {
+	healthStatus, err := datapathhealth.LoadStatus(mgr)
+	if err != nil {
 		http.Error(w, "Health checking not supported", http.StatusNotImplemented)
 		return
 	}
-
-	healthChecker := xdpMgr.GetHealthChecker()
-	if healthChecker == nil {
-		http.Error(w, "Health checker not initialized", http.StatusServiceUnavailable)
-		return
-	}
-
-	healthStatus := healthChecker.CheckHealth()
 	_ = json.NewEncoder(w).Encode(healthStatus.BPFMaps)
 }
 
@@ -107,21 +80,13 @@ func (s *Server) handleHealthMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	xdpMgr, ok := mgr.(interface {
-		GetHealthChecker() *xdp.HealthChecker
-	})
-	if !ok {
+	checker := datapathhealth.CheckerFromManager(mgr)
+	if checker == nil {
 		http.Error(w, "Health checking not supported", http.StatusNotImplemented)
 		return
 	}
 
-	healthChecker := xdpMgr.GetHealthChecker()
-	if healthChecker == nil {
-		http.Error(w, "Health checker not initialized", http.StatusServiceUnavailable)
-		return
-	}
-
-	mapStatus, err := healthChecker.CheckMapHealth(mapName)
+	mapStatus, err := checker.CheckMapHealth(mapName)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

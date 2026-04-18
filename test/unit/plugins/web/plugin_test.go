@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	web "github.com/netxfw/netxfw/internal/plugins/webplugin"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
@@ -95,7 +95,7 @@ func TestWebPlugin_Validate(t *testing.T) {
 // TestWebPlugin_Init 测试插件初始化
 func TestWebPlugin_Init(t *testing.T) {
 	p := &web.WebPlugin{}
-	ctx := &sdk.PluginContext{
+	ctx := &sdk.RuntimePluginContext{
 		Config: &types.GlobalConfig{
 			Web: types.WebConfig{
 				Enabled: true,

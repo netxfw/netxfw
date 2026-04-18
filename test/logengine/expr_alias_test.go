@@ -6,7 +6,7 @@ import (
 
 	"github.com/netxfw/netxfw/internal/plugins/logengine"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 )
 
 // TestExpressionAliases validates using Log/Msg instead of Line in expressions.

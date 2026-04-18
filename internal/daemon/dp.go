@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -30,7 +30,7 @@ func runDataPlane(ctx context.Context) {
 		return
 	}
 
-	// Initialize Logging (Global init might be redundant if done in main, but keeps compatibility)
+	// Initialize logging (global init might be redundant if done in main, but keeps older callers working)
 	InitRuntimeLogging(globalCfg)
 
 	// 1. Initialize Manager (Create or Load Pinned) / 初始化管理器（创建或加载固定内容）

@@ -117,7 +117,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 // handleRules provides a REST interface for listing, adding, and removing BPF rules.
 // handleRules 提供用于列出、添加和移除 BPF 规则的 REST 接口。
 //
-//nolint:gocyclo // legacy HTTP handler kept inline; behavior changes should stay localized.
+//nolint:gocyclo // HTTP handler stays inline so behavior changes stay localized.
 func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	switch r.Method {

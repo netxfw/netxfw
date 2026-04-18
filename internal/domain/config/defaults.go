@@ -1,0 +1,83 @@
+package config
+
+import "github.com/netxfw/netxfw/internal/utils/logger"
+
+// DefaultConfig returns the canonical default configuration snapshot.
+func DefaultConfig() Config {
+	return Config{
+		Cluster: ClusterConfig{
+			Enabled:    false,
+			ConfigPath: "cluster.toml",
+		},
+		Base: BaseConfig{
+			DefaultDeny:        true,
+			AllowReturnTraffic: false,
+			AllowICMP:          true,
+			PersistRules:       true,
+			CleanupInterval:    "1m",
+			ICMPRate:           10,
+			ICMPBurst:          50,
+			LockListV4Mask:     24,
+			LockListV6Mask:     64,
+			EnablePprof:        false,
+			PprofPort:          6060,
+		},
+		Conntrack: ConntrackConfig{
+			Enabled:    true,
+			MaxEntries: 100000,
+			TCPTimeout: "1h",
+			UDPTimeout: "5m",
+		},
+		RateLimit: RateLimitConfig{
+			Enabled:         true,
+			AutoBlock:       true,
+			AutoBlockExpiry: "10m",
+		},
+		LogEngine: LogEngineConfig{
+			Enabled: false,
+			Workers: 4,
+		},
+		Capacity: CapacityConfig{
+			Conntrack:       100000,
+			LockList:        2000000,
+			DynLockList:     2000000,
+			Whitelist:       65536,
+			IPPortRules:     65536,
+			AllowedPorts:    1024,
+			RateLimits:      1000,
+			DropReasonStats: 1000000,
+			PassReasonStats: 1000000,
+		},
+		Logging: logger.LoggingConfig{
+			Enabled:    false,
+			Path:       "/var/log/netxfw/agent.log",
+			MaxSize:    10,
+			MaxBackups: 3,
+			MaxAge:     30,
+			Compress:   true,
+		},
+		Web: WebConfig{
+			Port: 11811,
+		},
+		Metrics: MetricsConfig{
+			Enabled:           false,
+			ServerEnabled:     false,
+			Port:              11812,
+			TopN:              10,
+			ThresholdCritical: 90,
+			ThresholdHigh:     75,
+			ThresholdMedium:   50,
+			StatsInterval:     "1s",
+			AvgPacketSize:     500,
+		},
+		AI: AIConfig{
+			Enabled: false,
+			Port:    11813,
+		},
+		MCP: MCPConfig{
+			Enabled: false,
+			Port:    11814,
+			Mode:    "sse",
+		},
+	}
+}

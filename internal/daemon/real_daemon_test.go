@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/xdp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -652,7 +652,7 @@ func TestRealDaemon_ConfigFileValidation(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	// Create a temporary config file
+	// Create a test config file
 	// 创建临时配置文件
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")

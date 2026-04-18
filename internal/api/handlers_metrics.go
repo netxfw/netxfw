@@ -2,10 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/xdp"
+	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -45,24 +46,13 @@ func registerMetricsRoutes(mux *http.ServeMux, handler *MetricsHandler, middlewa
 	register("/api/v1/metrics/protocols", handler.HandleProtocolStats)
 }
 
-// getManager extracts the xdp.Manager from the SDK.
-// getManager 从 SDK 中提取 xdp.Manager。
-func (h *MetricsHandler) getManager() *xdp.Manager {
+// collectMetrics loads unified datapath metrics from the SDK manager.
+// collectMetrics 从 SDK manager 加载统一的 datapath 指标。
+func (h *MetricsHandler) collectMetrics() (*datapathstats.MetricsData, error) {
 	if h.sdk == nil {
-		return nil
+		return nil, fmt.Errorf("sdk not available")
 	}
-
-	mgr := h.sdk.GetManager()
-	if mgr == nil {
-		return nil
-	}
-
-	// Try to get Manager from Adapter / 尝试从 Adapter 获取 Manager
-	if adapter, ok := mgr.(*xdp.Adapter); ok {
-		return adapter.GetManager()
-	}
-
-	return nil
+	return datapathstats.LoadMetrics(h.sdk.GetManager())
 }
 
 // HandleMetrics handles full metrics request.
@@ -73,19 +63,11 @@ func (h *MetricsHandler) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	manager := h.getManager()
-	if manager == nil {
+	metrics, err := h.collectMetrics()
+	if err != nil {
 		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
 		return
 	}
-
-	collector := xdp.NewMetricsCollector(manager)
-	if err := collector.Collect(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	metrics := collector.GetMetrics()
 	writeJSONResponse(w, metrics)
 }
 
@@ -97,20 +79,12 @@ func (h *MetricsHandler) HandleTrafficMetrics(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	manager := h.getManager()
-	if manager == nil {
+	metrics, err := h.collectMetrics()
+	if err != nil {
 		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
 		return
 	}
-
-	collector := xdp.NewMetricsCollector(manager)
-	if err := collector.Collect(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	metrics := collector.GetTrafficMetrics()
-	writeJSONResponse(w, metrics)
+	writeJSONResponse(w, metrics.TrafficMetrics)
 }
 
 // HandleConntrackHealth handles conntrack health request.
@@ -121,20 +95,12 @@ func (h *MetricsHandler) HandleConntrackHealth(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	manager := h.getManager()
-	if manager == nil {
+	metrics, err := h.collectMetrics()
+	if err != nil {
 		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
 		return
 	}
-
-	collector := xdp.NewMetricsCollector(manager)
-	if err := collector.Collect(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	health := collector.GetConntrackHealth()
-	writeJSONResponse(w, health)
+	writeJSONResponse(w, metrics.ConntrackHealth)
 }
 
 // HandleMapUsage handles map usage statistics request.
@@ -145,20 +111,12 @@ func (h *MetricsHandler) HandleMapUsage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	manager := h.getManager()
-	if manager == nil {
+	metrics, err := h.collectMetrics()
+	if err != nil {
 		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
 		return
 	}
-
-	collector := xdp.NewMetricsCollector(manager)
-	if err := collector.Collect(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	usage := collector.GetMapUsage()
-	writeJSONResponse(w, usage)
+	writeJSONResponse(w, metrics.MapUsage)
 }
 
 // HandleRateLimitStats handles rate limit statistics request.
@@ -169,20 +127,12 @@ func (h *MetricsHandler) HandleRateLimitStats(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	manager := h.getManager()
-	if manager == nil {
+	metrics, err := h.collectMetrics()
+	if err != nil {
 		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
 		return
 	}
-
-	collector := xdp.NewMetricsCollector(manager)
-	if err := collector.Collect(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	stats := collector.GetRateLimitStats()
-	writeJSONResponse(w, stats)
+	writeJSONResponse(w, metrics.RateLimitStats)
 }
 
 // HandleProtocolStats handles protocol distribution request.
@@ -193,20 +143,12 @@ func (h *MetricsHandler) HandleProtocolStats(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	manager := h.getManager()
-	if manager == nil {
+	metrics, err := h.collectMetrics()
+	if err != nil {
 		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
 		return
 	}
-
-	collector := xdp.NewMetricsCollector(manager)
-	if err := collector.Collect(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	stats := collector.GetProtocolStats()
-	writeJSONResponse(w, stats)
+	writeJSONResponse(w, metrics.ProtocolStats)
 }
 
 // MetricsSummary represents a summary of all metrics.

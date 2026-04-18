@@ -4,13 +4,11 @@ import (
 	"fmt"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/internal/application/services"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
 var lastCommandErr error
-var commandRuntimeService = services.NewCommandRuntimeService()
 
 func setLastCommandError(err error) {
 	lastCommandErr = err
@@ -157,7 +155,7 @@ func (e *CommandExecutor) PrintWarning(msg string) {
 	e.cmd.PrintErrln("[WARN]  " + msg)
 }
 
-// Global helper functions to maintain backward compatibility
+// Global helper functions kept for older command wiring
 // 全局辅助函数以保持向后兼容性
 
 // Execute executes a command with common setup and error handling

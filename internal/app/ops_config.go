@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	netxfw_binary "github.com/netxfw/netxfw/internal/binary"
-	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/optimizer"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
@@ -15,7 +15,7 @@ import (
 
 // GetDefaultConfigPath returns the preferred default configuration path.
 func GetDefaultConfigPath() string {
-	return config.GetDefaultConfigPath()
+	return appconfig.GetDefaultConfigPath()
 }
 
 // RuntimeConfigPathVar returns a pointer to the runtime config path string for flag binding.
@@ -25,7 +25,7 @@ func RuntimeConfigPathVar() *string {
 
 // SetConfigPath updates the active configuration path.
 func SetConfigPath(path string) {
-	config.SetConfigPath(path)
+	appconfig.SetConfigPath(path)
 }
 
 // ReinitLoggerFromConfig reloads config and re-initializes logging.
@@ -43,21 +43,17 @@ func ReinitLoggerFromConfig(ctx context.Context) context.Context {
 
 // GetConfigPath returns the active configuration file path.
 func GetConfigPath() string {
-	return config.GetConfigPath()
+	return appconfig.GetConfigPath()
 }
 
 // LoadConfig loads the current configuration using the configured path.
 func LoadConfig() (*sdk.GlobalConfig, error) {
-	cfg, err := config.ReloadCurrentConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load configuration: %w", err)
-	}
-	return cfg, nil
+	return appconfig.LoadConfig()
 }
 
 // MutateLoadedConfig reloads the current configuration, applies fn, and persists it.
 func MutateLoadedConfig(fn func(*sdk.GlobalConfig) error) error {
-	return config.MutateLoadedConfig(fn)
+	return appconfig.MutateLoadedConfig(fn)
 }
 
 // OptimizeWhitelistConfig normalizes and merges whitelist entries in config.
@@ -149,4 +145,22 @@ func EncodeBinaryRecords(w io.Writer, records []BinaryRecord) error {
 // WithConfigLock runs fn while holding the shared config persistence mutex.
 func WithConfigLock(fn func() error) error {
 	return fn()
+}
+
+// ReconcileConfigToRuntime applies the active config to runtime through the unified reconcile entry.
+func ReconcileConfigToRuntime(ctx context.Context, mgr sdk.ManagerInterface, cfg *sdk.GlobalConfig) error {
+	_, err := appconfig.ReconcileConfigToRuntime(ctx, mgr, cfg)
+	return err
+}
+
+// ReconcileRuntimeToConfig captures runtime state back into config through the unified reconcile entry.
+func ReconcileRuntimeToConfig(ctx context.Context, mgr sdk.ManagerInterface, cfg *sdk.GlobalConfig) error {
+	_, err := appconfig.ReconcileRuntimeToConfig(ctx, mgr, cfg)
+	return err
+}
+
+// VerifyAndRepairRuntime checks drift and reconciles runtime using the unified reconcile entry.
+func VerifyAndRepairRuntime(ctx context.Context, mgr sdk.ManagerInterface, cfg *sdk.GlobalConfig) error {
+	_, err := appconfig.VerifyAndRepair(ctx, mgr, cfg)
+	return err
 }

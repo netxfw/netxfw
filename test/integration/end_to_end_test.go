@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 )
 
 // TestEndToEnd_MockWorkflow tests the complete workflow using MockManager

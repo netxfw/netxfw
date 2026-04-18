@@ -7,9 +7,9 @@ const (
 	// TOML 格式优先，以获得更好的跨语言支持。
 	DefaultConfigPath = "/etc/netxfw/config.toml"
 
-	// LegacyConfigPath is the old YAML config path for backward compatibility.
-	// LegacyConfigPath 是旧的 YAML 配置路径，用于向后兼容。
-	LegacyConfigPath = "/etc/netxfw/config.yaml"
+	// YAMLConfigPath is the YAML config path kept for older installs.
+	// YAMLConfigPath 是为旧安装保留的 YAML 配置路径。
+	YAMLConfigPath = "/etc/netxfw/config.yaml"
 
 	// DefaultPidPath is the location of the daemon PID file.
 	// DefaultPidPath 是守护进程 PID 文件的位置。
@@ -21,8 +21,8 @@ const (
 
 	// BPFPinPath is the filesystem path where BPF maps and programs are pinned.
 	// BPFPinPath 是 BPF Map 和程序固定的文件系统路径。
-	// We use _v2 to allow parallel existence during migration/upgrades or to avoid conflicts with old versions.
-	// 我们使用 _v2 来允许在迁移/升级期间并行存在，或避免与旧版本冲突。
+	// We use _v2 to allow parallel existence during upgrades or to avoid conflicts with old versions.
+	// 我们使用 _v2 来允许在升级期间并行存在，或避免与旧版本冲突。
 	BPFPinPath = "/sys/fs/bpf/netxfw"
 )
 

@@ -4,12 +4,12 @@ import (
 	"context"
 
 	"github.com/netxfw/netxfw/internal/api"
+	"github.com/netxfw/netxfw/internal/daemon/engine"
 	"go.uber.org/zap"
 
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/core/engine"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -79,7 +79,7 @@ func runUnified(ctx context.Context) {
 
 // createReloadFunc creates a reload function for configuration changes.
 // createReloadFunc 创建配置变更的重载函数。
-func createReloadFunc(_ string, coreModules []engine.CoreModule, pluginCtx *sdk.PluginContext, log *zap.SugaredLogger) func() error {
+func createReloadFunc(_ string, coreModules []engine.CoreModule, pluginCtx *sdk.RuntimePluginContext, log *zap.SugaredLogger) func() error {
 	return func() error {
 		newCfg, err := config.ReloadCurrentConfig()
 		if err != nil {

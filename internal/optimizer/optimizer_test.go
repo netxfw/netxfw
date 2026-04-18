@@ -3,7 +3,7 @@ package optimizer
 import (
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/stretchr/testify/assert"
 )
 

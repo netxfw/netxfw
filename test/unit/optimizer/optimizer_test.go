@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/optimizer"
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 )
 
 // TestOptimizeWhitelistConfig tests whitelist config optimization

@@ -1,7 +1,7 @@
 package daemon
 
 import (
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 )
 
 // DaemonOptions configuration options for the daemon

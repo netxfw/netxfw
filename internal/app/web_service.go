@@ -8,7 +8,7 @@ import (
 
 	"github.com/netxfw/netxfw/internal/api"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 

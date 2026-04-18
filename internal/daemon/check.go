@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
+	runtimehost "github.com/netxfw/netxfw/internal/adapters/plugins/runtime"
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
@@ -23,14 +23,21 @@ func TestConfiguration(ctx context.Context) {
 		log.Fatalf("[ERROR] Error loading config.yaml: %v", err)
 	}
 
+	host := runtimehost.NewHost(nil)
+	failures := host.ValidateConfig(cfg)
+	failedNames := make(map[string]error, len(failures))
+	for _, failure := range failures {
+		failedNames[failure.Name] = failure.Err
+	}
+
 	allValid := true
-	for _, p := range plugins.GetPlugins() {
-		if err := p.Validate(cfg); err != nil {
-			log.Errorf("[ERROR] Validation failed for plugin %s: %v", p.Name(), err)
+	for _, item := range host.Inventory() {
+		if err, failed := failedNames[item.Name]; failed {
+			log.Errorf("[ERROR] Validation failed for plugin %s: %v", item.Name, err)
 			allValid = false
 			continue
 		}
-		log.Infof("[OK] Plugin %s configuration is valid", p.Name())
+		log.Infof("[OK] Plugin %s configuration is valid", item.Name)
 	}
 
 	if allValid {

@@ -21,6 +21,7 @@
 /.claude/
 /.kilocode/
 /plans
+
 /.codex
 # BPF objects
 internal/xdp/netxfw_bpfel.o
@@ -30,6 +31,7 @@ internal/xdp/netxfw_bpfeb.go
 bpf/**/*.o
 bpf/netxfw.bpf.o
 config/*.yaml
+
 
 .vscode/
 # OS metadata

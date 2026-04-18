@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/xdp"
+	runtimehost "github.com/netxfw/netxfw/internal/adapters/plugins/runtime"
+	applugin "github.com/netxfw/netxfw/internal/app/plugin"
+	domaindatapath "github.com/netxfw/netxfw/internal/domain/plugin/datapath"
+	domainruntime "github.com/netxfw/netxfw/internal/domain/plugin/runtime"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // PluginCommandRequest describes a plugin operation request.
@@ -14,6 +17,14 @@ type PluginCommandRequest struct {
 	Action string
 	Path   string
 	Index  int
+}
+
+type PluginStatusSnapshot = applugin.StatusSnapshot
+type PluginHealthSnapshot = applugin.HealthSnapshot
+
+// NewRuntimePluginStatuses returns runtime plugin status derived from the unified host.
+func NewRuntimePluginStatuses(cfg *sdk.GlobalConfig) []domainruntime.Status {
+	return runtimehost.NewHost(nil).Statuses(cfg)
 }
 
 // LoadPlugin loads a plugin into the pinned runtime.
@@ -28,35 +39,14 @@ func RemovePlugin(ctx context.Context, index int) error {
 
 // ExecutePluginCommand processes plugin-related app operations.
 func ExecutePluginCommand(ctx context.Context, req PluginCommandRequest) error {
-	log := logger.Get(ctx)
-
-	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
-	if err != nil {
-		return fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
-	}
-	defer manager.Close()
-
-	switch req.Action {
-	case "load":
-		if req.Path == "" {
-			return fmt.Errorf("plugin path is required")
-		}
-		if err := manager.LoadPlugin(req.Path, req.Index); err != nil {
-			return fmt.Errorf("failed to load plugin: %v", err)
-		}
-	case "remove":
-		if err := manager.RemovePlugin(req.Index); err != nil {
-			return fmt.Errorf("failed to remove plugin: %v", err)
-		}
-	default:
-		return fmt.Errorf("unknown plugin command: %s", req.Action)
-	}
-
-	log.Infof("[OK] Plugin command %s executed successfully", req.Action)
-	return nil
+	return applugin.NewDatapathLifecycle().Execute(ctx, domaindatapath.Command{
+		Action: req.Action,
+		Path:   req.Path,
+		Index:  req.Index,
+	})
 }
 
-// HandlePluginCommand maintains compatibility with legacy arg-based callers.
+// HandlePluginCommand keeps older arg-based callers working.
 func HandlePluginCommand(ctx context.Context, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("usage: netxfw plugin <load|remove|list>")
@@ -94,19 +84,28 @@ func HandlePluginCommand(ctx context.Context, args []string) error {
 
 // ListLoadedPlugins lists currently occupied plugin slots.
 func ListLoadedPlugins(ctx context.Context) ([]PluginSlot, error) {
-	log := logger.Get(ctx)
-	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
+	items, err := applugin.NewDatapathLifecycle().List(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
+		return nil, err
 	}
-	defer manager.Close()
 
-	var slots []PluginSlot
-	for i := xdp.ProgramIndexPluginStart; i <= xdp.ProgramIndexPluginEnd; i++ {
-		var progID uint32
-		if err := manager.JmpTable().Lookup(uint32(i), &progID); err == nil {
-			slots = append(slots, PluginSlot{Index: i, Program: progID})
+	slots := make([]PluginSlot, 0, len(items))
+	for _, item := range items {
+		if !item.Occupied {
+			continue
 		}
+		slots = append(slots, PluginSlot{Index: item.Index, Program: item.ProgramID})
 	}
 	return slots, nil
+}
+
+// LoadPluginStatus loads unified runtime/datapath plugin status.
+func LoadPluginStatus(ctx context.Context, runtime []domainruntime.Status, cfg *sdk.GlobalConfig) (PluginStatusSnapshot, error) {
+	datapath, err := applugin.LoadDatapathStatus(ctx, cfg)
+	return applugin.ComposeStatus(runtime, datapath), err
+}
+
+// LoadPluginHealth summarizes unified plugin health from status.
+func LoadPluginHealth(snapshot PluginStatusSnapshot) PluginHealthSnapshot {
+	return applugin.SummarizeHealth(snapshot)
 }

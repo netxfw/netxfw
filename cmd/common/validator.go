@@ -8,17 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/utils/iputil"
+	domainrule "github.com/netxfw/netxfw/internal/domain/rule"
 )
 
 const (
 	// MinPort 最小端口号
 	// MinPort minimum port number
-	MinPort = 0
+	MinPort = domainrule.MinPort
 
 	// MaxPort 最大端口号
 	// MaxPort maximum port number
-	MaxPort = 65535
+	MaxPort = domainrule.MaxPort
 
 	// MinLimit 最小列表限制
 	// MinLimit minimum list limit
@@ -38,11 +38,11 @@ const (
 
 	// MinTTLSeconds 最小 TTL 秒数
 	// MinTTLSeconds minimum TTL in seconds
-	MinTTLSeconds = 1
+	MinTTLSeconds = domainrule.MinTTLSeconds
 
 	// MaxTTLSeconds 最大 TTL 秒数（365 天）
 	// MaxTTLSeconds maximum TTL in seconds (365 days)
-	MaxTTLSeconds = 365 * 24 * 60 * 60
+	MaxTTLSeconds = domainrule.MaxTTLSeconds
 )
 
 // ValidateIP 验证 IP 地址格式（支持 IPv4/IPv6/CIDR）
@@ -50,10 +50,7 @@ const (
 // 返回 nil 表示验证通过，否则返回错误信息
 // Returns nil if valid, otherwise returns error
 func ValidateIP(ip string) error {
-	if iputil.IsValidIP(ip) || iputil.IsValidCIDR(ip) {
-		return nil
-	}
-	return fmt.Errorf("[ERROR] Invalid IP address format: %s", ip)
+	return unwrapRuleValidationError(domainrule.ValidateIP(ip))
 }
 
 // ValidatePort 验证端口号范围（0-65535，允许 0 表示无端口）
@@ -61,10 +58,7 @@ func ValidateIP(ip string) error {
 // 返回 nil 表示验证通过，否则返回错误信息
 // Returns nil if valid, otherwise returns error
 func ValidatePort(port int) error {
-	if port < MinPort || port > MaxPort {
-		return fmt.Errorf("[ERROR] Port must be between %d-%d, got %d", MinPort, MaxPort, port)
-	}
-	return nil
+	return unwrapRuleValidationError(domainrule.ValidatePort(port, true))
 }
 
 // IsValidPort 验证端口号范围（0-65535），返回布尔值
@@ -72,7 +66,7 @@ func ValidatePort(port int) error {
 // 用于文件导入等场景，需要静默验证
 // Used for file import scenarios where silent validation is needed
 func IsValidPort(port int) bool {
-	return port >= MinPort && port <= MaxPort
+	return domainrule.IsValidPort(port)
 }
 
 // ValidatePortNonZero 验证端口号范围（1-65535，不允许 0）
@@ -80,10 +74,7 @@ func IsValidPort(port int) bool {
 // 返回 nil 表示验证通过，否则返回错误信息
 // Returns nil if valid, otherwise returns error
 func ValidatePortNonZero(port int) error {
-	if port < 1 || port > MaxPort {
-		return fmt.Errorf("[ERROR] Port must be between 1-%d, got %d", MaxPort, port)
-	}
-	return nil
+	return unwrapRuleValidationError(domainrule.ValidatePort(port, false))
 }
 
 // ValidateLimit 验证列表限制参数范围（1-100000）
@@ -115,22 +106,7 @@ func ValidateLimitSmall(limit int) error {
 // 返回 nil 表示验证通过，否则返回错误信息
 // Returns nil if valid, otherwise returns error
 func ValidateRateLimit(rate, burst uint64) error {
-	const maxRate = 1000000
-	const maxBurst = 10000000
-
-	if rate == 0 {
-		return fmt.Errorf("[ERROR] Rate cannot be 0")
-	}
-	if rate > maxRate {
-		return fmt.Errorf("[ERROR] Rate must be at most %d, got %d", maxRate, rate)
-	}
-	if burst == 0 {
-		return fmt.Errorf("[ERROR] Burst cannot be 0")
-	}
-	if burst > maxBurst {
-		return fmt.Errorf("[ERROR] Burst must be at most %d, got %d", maxBurst, burst)
-	}
-	return nil
+	return domainrule.ValidateRateLimit(rate, burst)
 }
 
 // ValidateExpiry 验证过期时间范围（1秒 - 365天）
@@ -177,25 +153,7 @@ func ValidateImportFile(path string) (string, error) {
 // 返回解析后的 duration 和错误信息
 // Returns parsed duration and error
 func ParseAndValidateTTL(ttlStr string) (time.Duration, error) {
-	if ttlStr == "" {
-		return 0, fmt.Errorf("[ERROR] --ttl flag is required (e.g., --ttl 1h, --ttl 24h, --ttl 30m)")
-	}
-
-	ttl, err := time.ParseDuration(ttlStr)
-	if err != nil {
-		return 0, fmt.Errorf("[ERROR] Invalid TTL format: %v (use format like 1h, 24h, 30m, 1h30m)", err)
-	}
-
-	// 验证 TTL 范围：最小 1 秒，最大 365 天
-	// Validate TTL range: minimum 1 second, maximum 365 days
-	if ttl < time.Second {
-		return 0, fmt.Errorf("[ERROR] TTL must be at least 1 second")
-	}
-	if ttl > time.Duration(MaxTTLSeconds)*time.Second {
-		return 0, fmt.Errorf("[ERROR] TTL cannot exceed 365 days")
-	}
-
-	return ttl, nil
+	return domainrule.ParseTTL(ttlStr)
 }
 
 // ParseLimitAndSearch 解析列表命令的 limit 和 search 参数
@@ -236,6 +194,17 @@ func parseInt(s string) (int, error) {
 	// strconv.Atoi is stricter, won't parse "192.168" as 192
 	result, err := strconv.Atoi(s)
 	return result, err
+}
+
+func unwrapRuleValidationError(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	if idx := strings.Index(msg, "[ERROR]"); idx >= 0 {
+		return fmt.Errorf("%s", msg[idx:])
+	}
+	return err
 }
 
 // IPPortRule 表示 IP+Port 规则

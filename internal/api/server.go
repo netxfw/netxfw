@@ -123,7 +123,7 @@ func (s *Server) UIHandler() http.Handler {
 	return mux
 }
 
-// Handler returns the combined http.Handler for backward compatibility.
+// Handler returns the combined http.Handler for older callers.
 // Handler 返回 API 和 UI 的 http.Handler。
 func (s *Server) Handler() http.Handler {
 	apiHandler := s.APIHandler()

@@ -7,103 +7,38 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/xdp"
+	apprule "github.com/netxfw/netxfw/internal/app/rule"
+	domainrule "github.com/netxfw/netxfw/internal/domain/rule"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // RuleAction identifies the semantic intent of a rule operation.
-type RuleAction uint8
+type RuleAction = domainrule.Action
 
 const (
-	RuleActionDeny RuleAction = iota
-	RuleActionAllow
+	RuleActionDeny  = domainrule.ActionDeny
+	RuleActionAllow = domainrule.ActionAllow
 )
 
 // ExportRule represents a single rule for structured import/export.
-type ExportRule struct {
-	Type   string `json:"type" toml:"type"`
-	IP     string `json:"ip" toml:"ip"`
-	Port   int    `json:"port,omitempty" toml:"port,omitempty"`
-	Action string `json:"action,omitempty" toml:"action,omitempty"`
-}
+type ExportRule = apprule.ExportRule
 
 // ExportData represents the complete export structure.
-type ExportData struct {
-	Blacklist []ExportRule `json:"blacklist" toml:"blacklist"`
-	Whitelist []ExportRule `json:"whitelist" toml:"whitelist"`
-	IPPort    []ExportRule `json:"ipport_rules" toml:"ipport_rules"`
-}
+type ExportData = apprule.ExportData
 
 // AddRule adds an allow/deny rule and persists configuration when needed.
 func AddRule(s *sdk.SDK, ip string, port uint16, action RuleAction) error {
-	if port > 0 {
-		act := uint8(action)
-		if err := s.Rule.AddIPPortRule(ip, port, act); err != nil {
-			return err
-		}
-		return PersistIPPortRule(ip, port, act)
-	}
-
-	if action == RuleActionAllow {
-		if err := s.Whitelist.Add(ip, 0); err != nil {
-			return err
-		}
-		if err := PersistWhitelistEntry(ip, 0); err != nil {
-			return err
-		}
-		_ = s.Blacklist.Remove(ip)
-		return nil
-	}
-
-	if err := s.Blacklist.Add(ip); err != nil {
-		return err
-	}
-	_ = s.Whitelist.Remove(ip)
-	return nil
+	return apprule.Add(s, ip, port, action)
 }
 
 // DeleteRule removes an IP or IP+port rule and updates persisted state when applicable.
 func DeleteRule(cfg *sdk.GlobalConfig, s *sdk.SDK, ip string, port uint16) (removed bool, err error) {
-	if port > 0 {
-		if err := s.Rule.RemoveIPPortRule(ip, port); err != nil {
-			return false, fmt.Errorf("failed to delete IP+Port rule: %v", err)
-		}
-		return true, nil
-	}
-
-	normalizedIP := NormalizeCIDR(ip)
-	if err := s.Blacklist.Remove(ip); err == nil {
-		if cfg != nil && cfg.Base.PersistRules && cfg.Base.LockListFile != "" {
-			_ = RemoveLineFromFile(cfg.Base.LockListFile, normalizedIP)
-		}
-		removed = true
-	}
-	if err := s.Whitelist.Remove(ip); err == nil {
-		removed = true
-	}
-	return removed, nil
+	return apprule.Remove(cfg, s, ip, port)
 }
 
 // DeleteFromAllRuleStores removes an entry from every applicable runtime store.
 func DeleteFromAllRuleStores(s *sdk.SDK, ip string, port uint16) []string {
-	messages := make([]string, 0, 3)
-	if port > 0 {
-		if err := s.Rule.RemoveIPPortRule(ip, port); err == nil {
-			messages = append(messages, fmt.Sprintf("Removed IP+Port rule: %s:%d", ip, port))
-		}
-		return messages
-	}
-	if err := s.Blacklist.Remove(ip); err == nil {
-		messages = append(messages, fmt.Sprintf("Removed %s from static blacklist", ip))
-	}
-	if err := s.Blacklist.RemoveDynamic(ip); err == nil {
-		messages = append(messages, fmt.Sprintf("Removed %s from dynamic blacklist", ip))
-	}
-	if err := s.Whitelist.Remove(ip); err == nil {
-		messages = append(messages, fmt.Sprintf("Removed %s from whitelist", ip))
-	}
-	return messages
+	return apprule.RemoveFromAll(s, ip, port)
 }
 
 // LoadAndSyncConfigToRuntime reloads config and syncs it to runtime maps without overwrite.
@@ -140,17 +75,7 @@ func SyncConfigToRuntimeOverwrite(s *sdk.SDK) error {
 
 // ClearBlacklist clears the requested blacklist map.
 func ClearBlacklist(ctx context.Context, dynamic bool) error {
-	log := logger.Get(ctx)
-	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
-	if err != nil {
-		return fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
-	}
-	defer manager.Close()
-
-	if dynamic {
-		return xdp.ClearBlacklistMap(manager.DynLockList())
-	}
-	return xdp.ClearBlacklistMap(manager.LockList())
+	return apprule.ClearBlacklist(ctx, dynamic)
 }
 
 // ResetResult captures warnings produced while resetting firewall state.

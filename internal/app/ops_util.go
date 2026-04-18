@@ -6,22 +6,30 @@ import (
 
 	"github.com/netxfw/netxfw/internal/binary"
 	"github.com/netxfw/netxfw/internal/config"
+	datapathlifecycle "github.com/netxfw/netxfw/internal/datapath/xdp/lifecycle"
+	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/internal/version"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 )
 
 // TrafficStats is the app-layer alias for shared runtime traffic statistics.
-type TrafficStats = xdp.TrafficStats
+type TrafficStats = datapathstats.TrafficStats
 
 // PerformanceStats is the app-layer alias for performance statistics.
-type PerformanceStats = xdp.PerformanceStats
+type PerformanceStats = datapathstats.PerformanceStats
 
 // OperationStats is the app-layer alias for per-operation stats.
-type OperationStats = xdp.OperationStats
+type OperationStats = datapathstats.OperationStats
+
+// MetricsData is the app-layer alias for unified datapath metrics.
+type MetricsData = datapathstats.MetricsData
+
+// InterfaceXDPInfo is the app-layer alias for attached interface details.
+type InterfaceXDPInfo = datapathlifecycle.InterfaceXDPInfo
 
 // BinaryRecord is the app-layer alias for binary import/export records.
 type BinaryRecord = binary.Record
@@ -33,8 +41,8 @@ type PluginSlot struct {
 }
 
 // GetAttachedInterfaceInfos returns detailed XDP attachment information.
-func GetAttachedInterfaceInfos() ([]xdp.InterfaceXDPInfo, error) {
-	return xdp.GetAttachedInterfacesWithInfo(GetPinPath())
+func GetAttachedInterfaceInfos() ([]InterfaceXDPInfo, error) {
+	return datapathlifecycle.GetAttachedInterfacesWithInfo(GetPinPath())
 }
 
 // LogInfo writes an info log message using the logger stored in context.

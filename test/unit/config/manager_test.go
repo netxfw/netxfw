@@ -5,14 +5,14 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/stretchr/testify/assert"
 )
 
 // TestConfigManager tests the configuration manager functionality
 // TestConfigManager 测试配置管理器功能
 func TestConfigManager(t *testing.T) {
-	// Create a temporary config file for testing
+	// Create a test config file
 	// 为测试创建临时配置文件
 	tempConfigFile := "/tmp/test_config.toml"
 

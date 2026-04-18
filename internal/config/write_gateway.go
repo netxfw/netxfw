@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/adapters/configfile"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
 )
 
@@ -63,7 +64,7 @@ func (g *atomicWriteGateway) SaveGlobalConfig(path string, cfg *types.GlobalConf
 	if source == "" {
 		source = "unknown"
 	}
-	if err := types.SaveGlobalConfigWithBackup(safePath, cfg, keepBackups); err != nil {
+	if err := configfile.SaveWithBackup(safePath, cfg, keepBackups); err != nil {
 		return fmt.Errorf("%s config save failed: %w", source, err)
 	}
 	return nil

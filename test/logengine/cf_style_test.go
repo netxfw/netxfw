@@ -6,7 +6,7 @@ import (
 
 	"github.com/netxfw/netxfw/internal/plugins/logengine"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 )
 
 // TestCloudflareStyle demonstrates how to write rules that mimic Cloudflare's syntax.
@@ -67,7 +67,7 @@ func TestCloudflareStyle(t *testing.T) {
 
 	// Test 2: Lower Case Match
 	// Get("ua") extracts "Mozilla/5.0" because it splits by space in Get() implementation
-	// "ua=Mozilla/5.0 (compatible; Googlebot/2.1)"
+	// Example: ua=Mozilla/5.0 (Googlebot/2.1)
 	// Get("ua") returns "Mozilla/5.0" because space is default delimiter after value start
 	// We need to verify how Get works.
 	// If the value is quoted it works.

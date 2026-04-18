@@ -4,12 +4,11 @@ import (
 	"fmt"
 
 	"github.com/netxfw/netxfw/internal/metrics/exporter"
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type MetricsPlugin struct {
-	config  *types.MetricsConfig
+	config  *sdk.MetricsConfig
 	server  *exporter.Server
 	running bool
 }
@@ -23,14 +22,14 @@ func (p *MetricsPlugin) Type() sdk.PluginType {
 }
 
 func (p *MetricsPlugin) DefaultConfig() any {
-	return types.MetricsConfig{
+	return sdk.MetricsConfig{
 		Enabled:       true,
 		ServerEnabled: true,
 		Port:          11812,
 	}
 }
 
-func (p *MetricsPlugin) Validate(cfg *types.GlobalConfig) error {
+func (p *MetricsPlugin) Validate(cfg *sdk.GlobalConfig) error {
 	if cfg.Metrics.Enabled && cfg.Metrics.ServerEnabled {
 		if cfg.Metrics.Port <= 0 || cfg.Metrics.Port > 65535 {
 			return fmt.Errorf("invalid metrics port: %d", cfg.Metrics.Port)
@@ -39,13 +38,13 @@ func (p *MetricsPlugin) Validate(cfg *types.GlobalConfig) error {
 	return nil
 }
 
-func (p *MetricsPlugin) Init(ctx *sdk.PluginContext) error {
+func (p *MetricsPlugin) Init(ctx *sdk.RuntimePluginContext) error {
 	p.config = &ctx.Config.Metrics
 	p.server = exporter.NewServer(ctx.SDK, p.config)
 	return nil
 }
 
-func (p *MetricsPlugin) Start(ctx *sdk.PluginContext) error {
+func (p *MetricsPlugin) Start(ctx *sdk.RuntimePluginContext) error {
 	if !p.config.Enabled || !p.config.ServerEnabled {
 		ctx.Logger.Infof("[STATS] Metrics server is disabled via config.")
 		return nil
@@ -73,7 +72,7 @@ func (p *MetricsPlugin) Stop() error {
 	return nil
 }
 
-func (p *MetricsPlugin) Reload(ctx *sdk.PluginContext) error {
+func (p *MetricsPlugin) Reload(ctx *sdk.RuntimePluginContext) error {
 	if err := p.Stop(); err != nil {
 		return err
 	}

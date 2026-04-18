@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
@@ -115,7 +115,7 @@ func TestWebPlugin_Validate(t *testing.T) {
 // TestWebPlugin_Init 测试插件初始化
 func TestWebPlugin_Init(t *testing.T) {
 	p := &WebPlugin{}
-	ctx := &sdk.PluginContext{
+	ctx := &sdk.RuntimePluginContext{
 		Config: &types.GlobalConfig{
 			Web: types.WebConfig{
 				Enabled: true,
@@ -161,7 +161,7 @@ func TestWebPlugin_Stop_WithServer(t *testing.T) {
 			Port:    11819,
 		},
 	}
-	ctx := &sdk.PluginContext{
+	ctx := &sdk.RuntimePluginContext{
 		Config: &types.GlobalConfig{
 			Web: types.WebConfig{
 				Enabled: true,
@@ -181,7 +181,7 @@ func TestWebPlugin_Stop_WithServer(t *testing.T) {
 // TestWebPlugin_Reload 测试插件重载
 func TestWebPlugin_Reload(t *testing.T) {
 	p := &WebPlugin{}
-	ctx := &sdk.PluginContext{
+	ctx := &sdk.RuntimePluginContext{
 		Config: &types.GlobalConfig{
 			Web: types.WebConfig{
 				Enabled: true,
@@ -205,7 +205,7 @@ func TestWebPlugin_Start_Disabled(t *testing.T) {
 			Port:    11821,
 		},
 	}
-	ctx := &sdk.PluginContext{
+	ctx := &sdk.RuntimePluginContext{
 		Config: &types.GlobalConfig{
 			Web: types.WebConfig{
 				Enabled: false,
@@ -234,7 +234,7 @@ func TestWebPlugin_CollectStats(t *testing.T) {
 	}
 
 	// Create a simple context with mock SDK
-	ctx := &sdk.PluginContext{
+	ctx := &sdk.RuntimePluginContext{
 		Config: &types.GlobalConfig{
 			Web: types.WebConfig{
 				Enabled: true,
@@ -259,7 +259,7 @@ func TestWebPlugin_RouteMounts_WithSharedMetrics(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	pluginSDK := sdk.NewSDK(mockMgr)
 	p := &WebPlugin{}
-	ctx := &sdk.PluginContext{
+	ctx := &sdk.RuntimePluginContext{
 		Config: &types.GlobalConfig{
 			Web: types.WebConfig{
 				Enabled: true,
@@ -305,7 +305,7 @@ func TestWebPlugin_RouteMounts_WithDedicatedMetricsServer(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	pluginSDK := sdk.NewSDK(mockMgr)
 	p := &WebPlugin{}
-	ctx := &sdk.PluginContext{
+	ctx := &sdk.RuntimePluginContext{
 		Config: &types.GlobalConfig{
 			Web: types.WebConfig{
 				Enabled: true,

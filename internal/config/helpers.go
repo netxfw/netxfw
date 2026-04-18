@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/cilium/ebpf"
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 )
 
 /**
@@ -39,16 +39,16 @@ var once sync.Once
 
 // GetDefaultConfigPath returns the default config path, preferring TOML over YAML.
 // GetDefaultConfigPath 返回默认配置路径，优先使用 TOML 格式。
-// Priority: TOML > YAML (for backward compatibility)
-// 优先级：TOML > YAML（向后兼容）
+// Priority: TOML > YAML (to support older installs)
+// 优先级：TOML > YAML（用于支持旧安装）
 func GetDefaultConfigPath() string {
 	// Check if TOML config exists / 检查 TOML 配置是否存在
 	if _, err := os.Stat(DefaultConfigPath); err == nil {
 		return DefaultConfigPath
 	}
-	// Fall back to YAML for backward compatibility / 回退到 YAML 以向后兼容
-	if _, err := os.Stat(LegacyConfigPath); err == nil {
-		return LegacyConfigPath
+	// Fall back to YAML for older installs / 回退到 YAML 以支持旧安装
+	if _, err := os.Stat(YAMLConfigPath); err == nil {
+		return YAMLConfigPath
 	}
 	// Return TOML as default for new installations / 新安装默认返回 TOML
 	return DefaultConfigPath

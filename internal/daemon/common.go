@@ -13,9 +13,10 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -250,9 +251,9 @@ func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
 				continue
 			}
 
-			// Type assert to *xdp.PerformanceStats
-			// 类型断言为 *xdp.PerformanceStats
-			ps, ok := perfStats.(*xdp.PerformanceStats)
+			// Type assert to datapath performance stats
+			// 类型断言为 datapath performance stats
+			ps, ok := perfStats.(*datapathstats.PerformanceStats)
 			if !ok {
 				continue
 			}

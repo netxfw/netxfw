@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/application/services"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
-
-var perfQueryService = services.NewPerformanceQueryService()
 
 // PerfCmd represents the performance monitoring command
 // PerfCmd 表示性能监控命令
@@ -121,7 +118,7 @@ func init() {
 
 // getPerfStats retrieves the performance stats from the manager
 // getPerfStats 从 manager 获取性能统计
-func getPerfStats(s *sdk.SDK) (*services.PerformanceStats, error) {
+func getPerfStats(s *sdk.SDK) (*PerformanceStats, error) {
 	return perfQueryService.LoadPerformanceStats(s.GetManager())
 }
 
@@ -314,7 +311,7 @@ func showTrafficStats(s *sdk.SDK) error {
 
 // printOpStats prints operation statistics
 // printOpStats 打印操作统计
-func printOpStats(name string, stats services.OperationStats) {
+func printOpStats(name string, stats OperationStats) {
 	if stats.Count == 0 {
 		return
 	}

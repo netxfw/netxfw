@@ -3,7 +3,6 @@ package logengine
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -11,7 +10,7 @@ import (
 // LogEnginePlugin 实现了插件接口。
 type LogEnginePlugin struct {
 	engine       *LogEngine
-	config       types.LogEngineConfig
+	config       sdk.LogEngineConfig
 	lockListFile string
 }
 
@@ -29,7 +28,7 @@ func (p *LogEnginePlugin) Type() sdk.PluginType {
 
 // Init initializes the plugin with the global configuration.
 // Init 使用全局配置初始化插件。
-func (p *LogEnginePlugin) Init(ctx *sdk.PluginContext) error {
+func (p *LogEnginePlugin) Init(ctx *sdk.RuntimePluginContext) error {
 	p.config = ctx.Config.LogEngine
 	p.lockListFile = ctx.Config.Base.LockListFile
 	return nil
@@ -37,7 +36,7 @@ func (p *LogEnginePlugin) Init(ctx *sdk.PluginContext) error {
 
 // Reload updates the plugin configuration without restarting
 // Reload 在不重启的情况下更新插件配置。
-func (p *LogEnginePlugin) Reload(ctx *sdk.PluginContext) error {
+func (p *LogEnginePlugin) Reload(ctx *sdk.RuntimePluginContext) error {
 	ctx.Logger.Infof("[RELOAD] [LogEngine] Reloading configuration...")
 	newCfg := ctx.Config.LogEngine
 	p.lockListFile = ctx.Config.Base.LockListFile
@@ -64,7 +63,7 @@ func (p *LogEnginePlugin) Reload(ctx *sdk.PluginContext) error {
 
 // Start starts the log engine.
 // Start 启动日志引擎。
-func (p *LogEnginePlugin) Start(ctx *sdk.PluginContext) error {
+func (p *LogEnginePlugin) Start(ctx *sdk.RuntimePluginContext) error {
 	if !p.config.Enabled {
 		return nil
 	}
@@ -88,16 +87,16 @@ func (p *LogEnginePlugin) Stop() error {
 // DefaultConfig returns the default configuration.
 // DefaultConfig 返回默认配置。
 func (p *LogEnginePlugin) DefaultConfig() any {
-	return types.LogEngineConfig{
+	return sdk.LogEngineConfig{
 		Enabled: false,
 		Workers: 4,
-		Rules:   []types.LogEngineRule{},
+		Rules:   []sdk.LogEngineRule{},
 	}
 }
 
 // Validate checks the configuration for errors.
 // Validate 检查配置是否存在错误。
-func (p *LogEnginePlugin) Validate(config *types.GlobalConfig) error {
+func (p *LogEnginePlugin) Validate(config *sdk.GlobalConfig) error {
 	if !config.LogEngine.Enabled {
 		return nil
 	}

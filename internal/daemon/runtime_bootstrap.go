@@ -3,8 +3,8 @@ package daemon
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"go.uber.org/zap"
 )
 

@@ -1,12 +1,14 @@
 package daemon
 
 import (
+	"context"
 	"fmt"
 
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"go.uber.org/zap"
 )
 
@@ -34,6 +36,24 @@ func InitRuntimeLogging(globalCfg *types.GlobalConfig) {
 func VerifyRuntimeConfigAndMaps(manager interface {
 	VerifyAndRepair(*types.GlobalConfig) error
 }, globalCfg *types.GlobalConfig, log *zap.SugaredLogger) {
+	switch m := manager.(type) {
+	case *xdp.Manager:
+		adapter := xdp.NewAdapter(m)
+		if _, err := appconfig.VerifyAndRepair(context.Background(), adapter, globalCfg); err != nil {
+			log.Warnf("[WARN]  Startup consistency check failed: %v", err)
+		} else {
+			log.Info("[OK] Startup consistency check passed (Config synced to BPF).")
+		}
+		return
+	case *xdp.Adapter:
+		if _, err := appconfig.VerifyAndRepair(context.Background(), m, globalCfg); err != nil {
+			log.Warnf("[WARN]  Startup consistency check failed: %v", err)
+		} else {
+			log.Info("[OK] Startup consistency check passed (Config synced to BPF).")
+		}
+		return
+	}
+
 	if err := manager.VerifyAndRepair(globalCfg); err != nil {
 		log.Warnf("[WARN]  Startup consistency check failed: %v", err)
 	} else {

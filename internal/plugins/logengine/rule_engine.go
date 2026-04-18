@@ -14,7 +14,7 @@ import (
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -76,7 +76,7 @@ func (e *Env) Reset() {
 	e.incremented = false
 }
 
-// Fields returns []string for compatibility with expressions like Fields()[0] == "val".
+// Fields returns []string for expressions like Fields()[0] == "val".
 func (e *Env) Fields() []string {
 	if !e.fieldsParsed {
 		// bytes.Fields returns [][]byte, convert to []string
@@ -94,7 +94,7 @@ func (e *Env) Fields() []string {
 	return e.fields
 }
 
-// Split returns []string for compatibility.
+// Split returns []string for expression helpers.
 func (e *Env) Split(sep string) []string {
 	parts := bytes.Split(e.Line, []byte(sep))
 	res := make([]string, len(parts))
@@ -104,7 +104,7 @@ func (e *Env) Split(sep string) []string {
 	return res
 }
 
-// Get returns string for compatibility.
+// Get returns a string for expression helpers.
 func (e *Env) Get(key string) string {
 	keyBytes := []byte(key)
 	idx := bytes.Index(e.Line, append(keyBytes, '='))
@@ -470,13 +470,13 @@ func (re *RuleEngine) parseActionType(cfg types.LogEngineRule) ActionType {
 	case "2", "static", "deny", "lock", "permanent", "blacklist":
 		return ActionStatic
 	default:
-		return re.parseLegacyActionType(cfg, actStr)
+		return re.parseAliasActionType(cfg, actStr)
 	}
 }
 
-// parseLegacyActionType parses legacy action type format.
-// parseLegacyActionType 解析旧版动作类型格式。
-func (re *RuleEngine) parseLegacyActionType(cfg types.LogEngineRule, actStr string) ActionType {
+// parseAliasActionType parses alias action type format.
+// parseAliasActionType 解析别名动作类型格式。
+func (re *RuleEngine) parseAliasActionType(cfg types.LogEngineRule, actStr string) ActionType {
 	if strings.HasPrefix(actStr, "block:") || strings.HasPrefix(actStr, "black:") {
 		return ActionDynamic
 	}

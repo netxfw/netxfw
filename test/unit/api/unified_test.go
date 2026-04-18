@@ -5,7 +5,7 @@ import (
 
 	"github.com/netxfw/netxfw/internal/api"
 	"github.com/netxfw/netxfw/internal/metrics/exporter"
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/stretchr/testify/assert"
 )
 

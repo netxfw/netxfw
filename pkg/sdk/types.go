@@ -17,6 +17,13 @@ type LoggingConfig struct {
 	Compress   bool   `toml:"compress"`
 }
 
+const (
+	// BPFPluginSlotStart and BPFPluginSlotEnd define the supported jump-table
+	// slot range for configured datapath plugins.
+	BPFPluginSlotStart = 2
+	BPFPluginSlotEnd   = 14
+)
+
 // BPFPluginConfig defines the configuration for a BPF plugin.
 type BPFPluginConfig struct {
 	Path        string `toml:"path"`
@@ -218,6 +225,39 @@ type PortConfig struct {
 	IPPortRules  []IPPortRule `toml:"ip_port_rules"`
 }
 
+func (c *BPFPluginConfig) Validate() error {
+	if c.Path == "" {
+		return fmt.Errorf("plugin path is required")
+	}
+	if c.Index < BPFPluginSlotStart || c.Index > BPFPluginSlotEnd {
+		return fmt.Errorf("invalid index: %d (must be between %d and %d)", c.Index, BPFPluginSlotStart, BPFPluginSlotEnd)
+	}
+	return nil
+}
+
+func (c *BPFPluginSettings) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+
+	seen := make(map[int]int, len(c.Plugins))
+	for i := range c.Plugins {
+		plugin := &c.Plugins[i]
+		if !plugin.Enabled {
+			continue
+		}
+		if err := plugin.Validate(); err != nil {
+			return fmt.Errorf("bpf plugin #%d: %w", i, err)
+		}
+		if prev, ok := seen[plugin.Index]; ok {
+			return fmt.Errorf("bpf plugin #%d: duplicate index %d already used by plugin #%d", i, plugin.Index, prev)
+		}
+		seen[plugin.Index] = i
+	}
+
+	return nil
+}
+
 // Validate checks the configuration for errors.
 func (c *GlobalConfig) Validate() error {
 	if err := c.Base.Validate(); err != nil {
@@ -231,6 +271,9 @@ func (c *GlobalConfig) Validate() error {
 	}
 	if err := c.LogEngine.Validate(); err != nil {
 		return fmt.Errorf("log_engine config error: %w", err)
+	}
+	if err := c.BPFPlugin.Validate(); err != nil {
+		return fmt.Errorf("bpf_plugin config error: %w", err)
 	}
 	if c.Conntrack.MaxEntries > 0 {
 		c.Capacity.Conntrack = c.Conntrack.MaxEntries

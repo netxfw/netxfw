@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// AtomicWriteFile writes data to a temporary file and then renames it to the target file.
+// AtomicWriteFile writes data to a staging file and then renames it to the target file.
 // AtomicWriteFile 将数据写入临时文件，然后将其重命名为目标文件。
 func AtomicWriteFile(filename string, data []byte, perm os.FileMode) error {
 	dir := filepath.Dir(filename) // #nosec G703 // Safe: filepath.Dir cleans the path preventing traversal

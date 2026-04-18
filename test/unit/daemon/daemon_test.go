@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/daemon"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/stretchr/testify/assert"
 )
 

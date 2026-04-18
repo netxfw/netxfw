@@ -5,7 +5,7 @@
 
 set -e
 
-# Create temporary config file
+# Create test config file
 CONFIG_FILE=$(mktemp)
 echo "Creating temp config: $CONFIG_FILE"
 

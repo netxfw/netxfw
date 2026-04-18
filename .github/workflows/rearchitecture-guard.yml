@@ -1,0 +1,40 @@
+name: Rearchitecture Guard
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  rearchitecture-guard:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        guard_step:
+          - import-audit
+          - transitional-audit
+          - phase0
+          - phase1
+          - phase2
+          - phase3
+          - phase4
+          - phase5
+          - phase6
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Import Audit
+        if: matrix.guard_step == 'import-audit'
+        run: bash scripts/rearchitecture/import_audit.sh --strict
+
+      - name: Transitional Code Audit
+        if: matrix.guard_step == 'transitional-audit'
+        run: bash scripts/rearchitecture/transitional_code_audit.sh --strict
+
+      - name: Phase Gate
+        if: startsWith(matrix.guard_step, 'phase')
+        run: bash scripts/rearchitecture/phase_gate_check.sh --phase "${{ matrix.guard_step }}" --strict

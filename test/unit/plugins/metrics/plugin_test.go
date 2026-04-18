@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	metrics "github.com/netxfw/netxfw/internal/plugins/metricsplugin"
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
@@ -93,7 +93,7 @@ func TestMetricsPlugin_Validate(t *testing.T) {
 // TestMetricsPlugin_Init 测试插件初始化
 func TestMetricsPlugin_Init(t *testing.T) {
 	p := &metrics.MetricsPlugin{}
-	ctx := &sdk.PluginContext{
+	ctx := &sdk.RuntimePluginContext{
 		Config: &types.GlobalConfig{
 			Metrics: types.MetricsConfig{
 				Enabled:       true,

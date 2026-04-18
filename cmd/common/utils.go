@@ -3,12 +3,13 @@ package common
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/netxfw/netxfw/internal/application/services"
+	"github.com/netxfw/netxfw/internal/app"
+	apprule "github.com/netxfw/netxfw/internal/app/rule"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -25,8 +26,6 @@ var (
 	// realSDK 缓存真实 SDK 实例以避免重复创建
 	realSDK    *sdk.SDK
 	realSDKMux sync.Mutex
-
-	runtimeService = services.NewSDKRuntimeService()
 )
 
 // GetSDK returns an initialized SDK connected to the pinned maps.
@@ -52,7 +51,7 @@ func GetSDK() (*sdk.SDK, error) {
 		return realSDK, nil
 	}
 
-	realSDK, err := runtimeService.NewPinnedSDK()
+	realSDK, err := app.NewPinnedSDK()
 	if err != nil {
 		return nil, err
 	}
@@ -94,170 +93,21 @@ func AskConfirmation(prompt string) bool {
 
 // ImportLockListFromFile imports IPs from a file to the blacklist.
 func ImportLockListFromFile(s *sdk.SDK, path string) error {
-	// 验证文件路径和大小
-	// Validate file path and size
-	safePath, err := ValidateImportFile(path)
-	if err != nil {
-		return err
-	}
-
-	cfg, cfgErr := runtimeService.LoadConfig()
-	persistFile := ""
-	if cfgErr == nil {
-		persistFile = cfg.Base.LockListFile
-	}
-
-	// #nosec G304 -- safePath is validated by ValidateImportFile which sanitizes path and checks file size
-	file, err := os.Open(safePath)
-	if err != nil {
-		return fmt.Errorf("failed to open file: %v", err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" && !strings.HasPrefix(line, "#") {
-			// 验证 IP 格式
-			// Validate IP format
-			if err := ValidateIP(line); err != nil {
-				fmt.Printf("[WARN] Invalid IP format: %s: %v\n", line, err)
-				continue
-			}
-			if persistFile != "" {
-				if err := s.Blacklist.AddWithFile(line, persistFile); err != nil {
-					fmt.Printf("[WARN] Failed to add %s: %v\n", line, err)
-				} else {
-					fmt.Printf("[OK] Added %s to blacklist\n", line)
-				}
-			} else {
-				if err := s.Blacklist.Add(line); err != nil {
-					fmt.Printf("[WARN] Failed to add %s: %v\n", line, err)
-				} else {
-					fmt.Printf("[OK] Added %s to blacklist\n", line)
-				}
-			}
-		}
-	}
-	return scanner.Err()
+	return apprule.ImportText(stdoutWriter{}, s, "lock", path)
 }
 
 // ImportWhitelistFromFile imports IPs from a file to the whitelist.
 func ImportWhitelistFromFile(s *sdk.SDK, path string) error {
-	// 验证文件路径和大小
-	// Validate file path and size
-	safePath, err := ValidateImportFile(path)
-	if err != nil {
-		return err
-	}
-
-	// Whitelist usually doesn't have a separate persistence file in the same way,
-	// or it relies on config.yaml syncing.
-	// But AddWithFile is not available for WhitelistAPI.
-	// So we just Add(), and user should run 'sync to-config' to persist if needed.
-
-	// #nosec G304 -- safePath is validated by ValidateImportFile which sanitizes path and checks file size
-	file, err := os.Open(safePath)
-	if err != nil {
-		return fmt.Errorf("failed to open file: %v", err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" && !strings.HasPrefix(line, "#") {
-			// Format: IP or IP:Port
-			parts := strings.Split(line, ":")
-			ip := parts[0]
-			// 验证 IP 格式
-			// Validate IP format
-			if err := ValidateIP(ip); err != nil {
-				fmt.Printf("[WARN] Invalid IP format: %s: %v\n", line, err)
-				continue
-			}
-			var port uint16
-			if len(parts) > 1 {
-				p, pErr := strconv.Atoi(parts[1])
-				if pErr != nil {
-					fmt.Printf("[WARN] Invalid port in %s: %v\n", line, pErr)
-					continue
-				}
-				// 验证端口范围：0-65535
-				// Validate port range: 0-65535
-				if !IsValidPort(p) {
-					fmt.Printf("[WARN] Port out of range in %s: %d (must be 0-65535)\n", line, p)
-					continue
-				}
-				port = uint16(p) // #nosec G115 // port is validated 0-65535
-			}
-
-			if err := s.Whitelist.Add(ip, port); err != nil {
-				fmt.Printf("[WARN] Failed to add %s: %v\n", line, err)
-			} else {
-				fmt.Printf("[OK] Added %s to whitelist\n", line)
-			}
-		}
-	}
-	return scanner.Err()
+	return apprule.ImportText(stdoutWriter{}, s, "allow", path)
 }
 
 // ImportIPPortRulesFromFile imports IP+Port rules from a file.
 func ImportIPPortRulesFromFile(s *sdk.SDK, path string) error {
-	// 验证文件路径和大小
-	// Validate file path and size
-	safePath, err := ValidateImportFile(path)
-	if err != nil {
-		return err
-	}
+	return apprule.ImportText(stdoutWriter{}, s, "rules", path)
+}
 
-	// #nosec G304 -- safePath is validated by ValidateImportFile which sanitizes path and checks file size
-	file, err := os.Open(safePath)
-	if err != nil {
-		return fmt.Errorf("failed to open file: %v", err)
-	}
-	defer file.Close()
+type stdoutWriter struct{}
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" && !strings.HasPrefix(line, "#") {
-			// Format: IP:Port:Action (allow/deny)
-			parts := strings.Split(line, ":")
-			if len(parts) < 3 {
-				fmt.Printf("[WARN] Invalid format: %s (expected IP:Port:Action)\n", line)
-				continue
-			}
-			ip := parts[0]
-			// 验证 IP 格式
-			// Validate IP format
-			if err := ValidateIP(ip); err != nil {
-				fmt.Printf("[WARN] Invalid IP format: %s: %v\n", line, err)
-				continue
-			}
-			port, pErr := strconv.Atoi(parts[1])
-			if pErr != nil {
-				fmt.Printf("[WARN] Invalid port in %s: %v\n", line, pErr)
-				continue
-			}
-			// 验证端口范围：0-65535
-			// Validate port range: 0-65535
-			if !IsValidPort(port) {
-				fmt.Printf("[WARN] Port out of range in %s: %d (must be 0-65535)\n", line, port)
-				continue
-			}
-			actionStr := strings.ToLower(parts[2])
-			action := uint8(0)
-			if actionStr == "allow" {
-				action = 1
-			}
-
-			if err := s.Rule.AddIPPortRule(ip, uint16(port), action); err != nil { // #nosec G115 // port is validated 0-65535
-				fmt.Printf("[WARN] Failed to add rule %s: %v\n", line, err)
-			} else {
-				fmt.Printf("[OK] Added rule %s\n", line)
-			}
-		}
-	}
-	return scanner.Err()
+func (stdoutWriter) Write(p []byte) (int, error) {
+	return io.WriteString(os.Stdout, string(p))
 }

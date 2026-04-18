@@ -82,7 +82,7 @@ func TestAddToBlacklist(t *testing.T) {
 		t.Error("Expected IP to be blacklisted")
 	}
 
-	// Add temporary entry.
+	// Add a short-lived entry.
 	// 添加临时条目。
 	err = m.AddToBlacklist("10.0.0.1", "temp block", 1*time.Hour)
 	if err != nil {

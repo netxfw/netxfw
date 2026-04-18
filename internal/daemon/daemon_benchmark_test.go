@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 )
 
 // BenchmarkManagePidFile benchmarks managePidFile operation

@@ -3,9 +3,9 @@ package core_test
 import (
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/core/engine"
-	"github.com/netxfw/netxfw/internal/plugins/types"
-	"github.com/netxfw/netxfw/internal/xdp"
+	"github.com/netxfw/netxfw/internal/daemon/engine"
+	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 

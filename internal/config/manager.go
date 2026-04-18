@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/netxfw/netxfw/internal/plugins/types"
+	"github.com/netxfw/netxfw/internal/adapters/configfile"
+	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 )
@@ -57,7 +58,7 @@ func (cm *ConfigManager) ReloadConfig() (*types.GlobalConfig, error) {
 	path := cm.GetConfigPath()
 
 	types.ConfigMu.RLock()
-	cfg, err := types.LoadGlobalConfig(path)
+	cfg, err := configfile.Load(path)
 	types.ConfigMu.RUnlock()
 	if err != nil {
 		return nil, err
@@ -80,7 +81,7 @@ func (cm *ConfigManager) MutateConfig(fn func(*types.GlobalConfig) error) error 
 }
 
 func cloneConfig(cfg *types.GlobalConfig) *types.GlobalConfig {
-	return types.CloneGlobalConfig(cfg)
+	return configfile.Clone(cfg)
 }
 
 // MutateLoadedConfig reloads config, applies fn, then persists.
@@ -106,7 +107,7 @@ func (cm *ConfigManager) LoadConfig() error {
 	path := cm.GetConfigPath()
 
 	types.ConfigMu.RLock()
-	config, err := types.LoadGlobalConfig(path)
+	config, err := configfile.Load(path)
 	types.ConfigMu.RUnlock()
 	if err != nil {
 		return err
