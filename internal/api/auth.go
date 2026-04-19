@@ -6,12 +6,99 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 )
+
+// 配置缓存 - 避免每次请求都重新加载配置文件
+var (
+	configCache *domainconfig.Config
+	configMu    sync.RWMutex
+	lastLoad    time.Time
+	cacheTTL    = 5 * time.Second
+)
+
+// 登录速率限制
+var (
+	loginAttempts = make(map[string]*LoginAttempt)
+	loginMu       sync.Mutex
+	maxAttempts   = 5
+	lockoutTime   = 15 * time.Minute
+)
+
+// LoginAttempt 记录登录尝试
+type LoginAttempt struct {
+	Count       int
+	LastAttempt time.Time
+	LockedUntil time.Time
+}
+
+// getCachedConfig 获取缓存的配置
+func getCachedConfig() (*domainconfig.Config, error) {
+	configMu.RLock()
+	if configCache != nil && time.Since(lastLoad) < cacheTTL {
+		configMu.RUnlock()
+		return configCache, nil
+	}
+	configMu.RUnlock()
+
+	configMu.Lock()
+	defer configMu.Unlock()
+
+	// 双重检查
+	if configCache != nil && time.Since(lastLoad) < cacheTTL {
+		return configCache, nil
+	}
+
+	cfg, err := appconfig.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	configCache = cfg
+	lastLoad = time.Now()
+	return cfg, nil
+}
+
+// checkLoginRateLimit 检查登录速率限制
+func checkLoginRateLimit(ip string) error {
+	loginMu.Lock()
+	defer loginMu.Unlock()
+
+	attempt, exists := loginAttempts[ip]
+	if !exists {
+		loginAttempts[ip] = &LoginAttempt{
+			Count:       1,
+			LastAttempt: time.Now(),
+		}
+		return nil
+	}
+
+	// 检查是否已锁定
+	if time.Now().Before(attempt.LockedUntil) {
+		return fmt.Errorf("too many attempts, try again after %v", attempt.LockedUntil.Sub(time.Now()))
+	}
+
+	// 重置过期记录
+	if time.Since(attempt.LastAttempt) > lockoutTime {
+		attempt.Count = 0
+	}
+
+	attempt.Count++
+	attempt.LastAttempt = time.Now()
+
+	if attempt.Count > maxAttempts {
+		attempt.LockedUntil = time.Now().Add(lockoutTime)
+		return fmt.Errorf("too many attempts, locked for %v", lockoutTime)
+	}
+
+	return nil
+}
 
 // TokenClaims represents the payload of the JWT-like token
 // TokenClaims 代表类似 JWT 的令牌负载
@@ -84,13 +171,13 @@ func verifyToken(tokenString string, secret string) (*TokenClaims, error) {
 // withAuth 是用于基于令牌认证的中间件（支持 Bearer Token 和旧查询参数）
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg, err := appconfig.LoadConfig()
+		cfg, err := getCachedConfig()
 		if err != nil {
-			http.Error(w, "Config Error", http.StatusInternalServerError)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 		if cfg == nil {
-			http.Error(w, "Config is nil", http.StatusInternalServerError)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -113,7 +200,8 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 			token = r.URL.Query().Get("token")
 		}
 
-		if token != "" && token == cfg.Web.Token {
+		// 使用常量时间比较防止时序攻击
+		if token != "" && hmac.Equal([]byte(token), []byte(cfg.Web.Token)) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -130,6 +218,18 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 获取客户端 IP 用于速率限制
+	ip := r.RemoteAddr
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		ip = strings.Split(forwarded, ",")[0]
+	}
+
+	// 检查速率限制
+	if err := checkLoginRateLimit(ip); err != nil {
+		http.Error(w, err.Error(), http.StatusTooManyRequests)
+		return
+	}
+
 	var req struct {
 		Token string `json:"token"`
 	}
@@ -138,17 +238,18 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, err := appconfig.LoadConfig()
+	cfg, err := getCachedConfig()
 	if err != nil {
-		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 	if cfg == nil {
-		http.Error(w, "Config is nil", http.StatusInternalServerError)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	if req.Token != cfg.Web.Token {
+	// 使用常量时间比较
+	if !hmac.Equal([]byte(req.Token), []byte(cfg.Web.Token)) {
 		http.Error(w, "Invalid Credentials", http.StatusUnauthorized)
 		return
 	}

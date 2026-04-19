@@ -109,6 +109,7 @@
     *   **统一 LPM Trie**: 使用单个 128 位最长前缀匹配 (LPM) Trie 同时处理 IPv4 和 IPv6 流量。IPv4 地址在内部被处理为 IPv4 映射的 IPv6 地址 (`::ffff:a.b.c.d`)。
     *   **无锁设计**: 使用 Per-CPU 数组和哈希表存储统计信息，最大程度减少锁竞争。
     *   **XDP 动作**: 支持 `XDP_DROP` (拦截), `XDP_PASS` (放行), 和 `XDP_TX` (回弹 - 计划中)。
+    *   **插件扩展**: 通过 Tail Call 机制支持 14 个插件扩展点（索引 2-15）。
 
 ### 2. 控制面 (Control Plane - Go Agent)
 控制面由 Go 语言编写，运行在用户空间，负责管理 BPF 程序的生命周期并与 BPF Map 交互。
@@ -119,42 +120,260 @@
     *   **持久化**: 将运行时 BPF Map 状态同步到配置与规则持久化文件（以 `config.toml` 为核心入口）。
     *   **CLI**: 提供用户友好的命令行接口 (`netxfw rule add`, `netxfw system status`)。
 
+---
+
+## 架构层次（2026-04 更新）
+
+NetXFW 采用**领域驱动设计（DDD）**和**六边形架构**，清晰地划分了各个层次：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   用户接口层 (Interfaces)                    │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │   CLI       │  │  REST API   │  │   Web UI    │         │
+│  │  (cmd/)     │  │ (internal/) │  │ (plugins/)  │         │
+│  └─────────────┘  └─────────────┘  └─────────────┘         │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   应用服务层 (Application)                   │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │  规则服务   │  │  配置服务   │  │  插件服务   │         │
+│  │  (app/rule) │  │ (app/config)│  │(app/plugin) │         │
+│  └─────────────┘  └─────────────┘  └─────────────┘         │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    领域层 (Domain)                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │  规则模型   │  │  配置模型   │  │  插件模型   │         │
+│  │(domain/rule)│  │(domain/config)│(domain/plugin)│        │
+│  └─────────────┘  └─────────────┘  └─────────────┘         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │  运行时模型 │  │  系统模型   │  │  错误定义   │         │
+│  │(domain/runtime)│(domain/system)│(domain/errors)│        │
+│  └─────────────┘  └─────────────┘  └─────────────┘         │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  基础设施层 (Infrastructure)                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │  XDP 数据面  │  │  配置持久化 │  │  HTTP 服务   │         │
+│  │(datapath/)  │  │(adapters/)  │  │   (api/)    │         │
+│  └─────────────┘  └─────────────┘  └─────────────┘         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 层次说明
+
+1. **用户接口层 (Interfaces)**
+   - CLI 命令行接口 (`cmd/`)
+   - REST API HTTP 接口 (`internal/api/`)
+   - Web UI 插件 (`internal/plugins/webplugin/`)
+   - 负责接收用户请求，转换为领域操作
+
+2. **应用服务层 (Application)**
+   - 规则服务 (`internal/app/rule/`)
+   - 配置服务 (`internal/app/config/`)
+   - 插件服务 (`internal/app/plugin/`)
+   - 协调领域对象，实现业务流程
+
+3. **领域层 (Domain)** - **核心业务逻辑**
+   - 规则模型 (`internal/domain/rule/`)
+   - 配置模型 (`internal/domain/config/`)
+   - 插件模型 (`internal/domain/plugin/`)
+   - 运行时模型 (`internal/domain/runtime/`)
+   - 系统模型 (`internal/domain/system/`)
+   - 错误定义 (`internal/domain/errors/`)
+   - **纯 Go 实现，无外部依赖**
+
+4. **基础设施层 (Infrastructure)**
+   - XDP 数据面 (`internal/datapath/xdp/`)
+   - 配置持久化 (`internal/adapters/configfile/`)
+   - HTTP 服务 (`internal/api/`)
+   - 插件运行时 (`internal/adapters/plugins/`)
+   - 实现技术细节，依赖领域层定义
+
+### 数据通路细粒度分包
+
+`internal/datapath/xdp/` 采用细粒度分包设计，每个子包职责单一：
+
+| 子包 | 职责 | 关键文件 |
+|------|------|----------|
+| `lifecycle/` | XDP 程序生命周期管理 | `install.go`, `unload.go`, `reload.go` |
+| `maps/` | BPF Map 访问和包装 | `wrapper.go`, `operations.go` |
+| `programs/` | 程序加载和跳转表 | `loader.go`, `jump_table.go` |
+| `plugins/` | 插件集成 | `loader.go`, `slots.go` |
+| `stats/` | 统计信息收集 | `collector.go`, `types.go` |
+| `health/` | 健康检查 | `status.go`, `checker.go` |
+| `sync/` | 同步机制 | `incremental_update.go` |
+
+这种设计提高了代码的可维护性和可测试性。
+
+### 领域驱动设计（DDD）
+
+NetXFW 采用领域驱动设计，将业务逻辑清晰地组织在领域层：
+
+| 领域 | 职责 | 关键文件 |
+|------|------|----------|
+| `domain/rule/` | 规则领域模型 | `rule.go`, `validator.go`, `repository.go` |
+| `domain/config/` | 配置领域模型 | `config.go`, `loader.go` |
+| `domain/plugin/` | 插件领域模型 | `plugin.go`, `registry.go` |
+| `domain/runtime/` | 运行时领域模型 | `runtime.go`, `state.go` |
+| `domain/system/` | 系统领域模型 | `system.go`, `health.go` |
+| `domain/errors/` | 领域错误定义 | `errors.go` |
+
+### 适配器模式
+
+`internal/adapters/` 实现了六边形架构的适配器层：
+
+| 适配器 | 职责 | 关键文件 |
+|--------|------|----------|
+| `adapters/configfile/` | 配置文件适配器 | `loader.go`, `saver.go`, `restorer.go` |
+| `adapters/datapath/` | 数据平面适配器 | `manager.go`, `operations.go` |
+| `adapters/plugins/` | 插件运行时适配器 | `runtime.go`, `loader.go` |
+
+### 应用服务层
+
+`internal/application/` 和 `internal/app/` 实现应用服务：
+
+| 服务 | 职责 | 关键文件 |
+|------|------|----------|
+| `application/ports/` | 端口管理服务 | `port_service.go` |
+| `application/services/` | 应用服务 | `rule_service.go`, `config_service.go` |
+| `app/config/` | 配置管理 | `manager.go`, `constants.go` |
+| `app/plugin/` | 插件管理 | `manager.go`, `loader.go` |
+| `app/rule/` | 规则管理 | `service.go`, `validator.go` |
+
 ## 目录结构
+
+### 完整目录结构（2026-04 更新）
 
 ```
 netxfw/
-├── bpf/                          # eBPF 程序源码
+├── bpf/                          # eBPF 程序源码（C 语言）
 │   ├── include/                  # 公共头文件
-│   ├── protocols/                # 协议处理模块
-│   ├── modules/                  # 功能模块
-│   └── plugins/                  # 插件扩展
+│   ├── protocols/                # 协议处理模块（TCP/UDP/ICMP）
+│   ├── modules/                  # 功能模块（过滤/限速/连接跟踪）
+│   ├── plugins/                  # 插件扩展点（Tail Call）
+│   ├── netxfw.bpf.c              # 主 XDP 程序
+│   └── wrappers.bpf.c            # 辅助包装函数
 │
 ├── cmd/                          # 命令行入口
-│   ├── netxfw/                   # 主命令
-│   │   └── commands/
-│   │       ├── agent/            # Agent 命令 (rule, limit, security, port, system)
-│   │       ├── dp/               # 数据平面命令 (conntrack)
-│   │       └── common/           # 共享代码
-│   ├── netxfw-agent/             # Agent 进程入口
-│   ├── netxfw-dp/                # 数据平面进程入口
-│   └── netxfwagent/              # Agent 进程入口（兼容入口）
+│   ├── agent/                    # Agent 命令实现（rule, limit, system 等）
+│   ├── common/                   # 共享工具函数
+│   ├── dp/                       # 数据平面命令（conntrack）
+│   ├── netxfw/                   # 主命令入口
+│   ├── netxfwagent/              # Agent 进程入口（兼容）
+│   └── netxfwdp/                 # 数据平面进程入口
 │
-├── pkg/                          # 公共包
-│   ├── sdk/                      # SDK 接口 (统一 API)
-│   │   └── mock/                 # Mock 实现 (测试)
-│   ├── rules/                    # 规则处理
+├── pkg/                          # 公共包（可复用库）
+│   ├── config/                   # 配置工具包
+│   ├── errors/                   # 错误定义包
+│   ├── sdk/                      # SDK 接口（统一 API）
+│   │   ├── mock/                 # Mock 实现（测试）
+│   │   ├── api.go                # API 定义
+│   │   ├── rule.go               # 规则 API
+│   │   ├── blacklist.go          # 黑名单 API
+│   │   ├── whitelist.go          # 白名单 API
+│   │   ├── stats.go              # 统计 API
+│   │   ├── health.go             # 健康检查 API
+│   │   └── types.go              # 类型定义
 │   └── storage/                  # 存储抽象
 │
-├── internal/                     # 内部实现
-│   ├── xdp/                      # XDP 核心实现
-│   │   ├── xdp_manager.go        # XDP 管理器
-│   │   ├── xdp.go                # XDP 程序加载/附加
-│   │   ├── adapter.go            # SDK 适配器
-│   │   ├── xdp_rules.go          # IP+端口规则
-│   │   ├── xdp_stats.go          # 统计信息
-│   │   ├── sync_incremental_update.go # 增量更新
-│   │   ├── stats_collector.go    # 指标收集
-│   │   └── health_check.go       # 健康检查
+├── internal/                     # 内部实现（私有包）
+│   ├── adapters/                 # 适配器层（端口适配）
+│   │   ├── configfile/           # 配置文件适配器（加载/保存/恢复）
+│   │   ├── datapath/             # 数据平面适配器
+│   │   └── plugins/              # 插件运行时适配器
+│   │
+│   ├── api/                      # HTTP API 服务
+│   │   ├── server.go             # API 服务器
+│   │   ├── handlers.go           # 请求处理
+│   │   ├── handlers_rules.go     # 规则处理
+│   │   ├── handlers_metrics.go   # 指标处理
+│   │   ├── handlers_health.go    # 健康检查处理
+│   │   ├── auth.go               # JWT 认证
+│   │   └── ui.go                 # Web UI
+│   │
+│   ├── app/                      # 应用层（业务逻辑组织）
+│   │   ├── config/               # 配置管理
+│   │   ├── plugin/               # 插件管理
+│   │   └── rule/                 # 规则管理
+│   │
+│   ├── application/              # 应用服务层（领域服务）
+│   │   ├── ports/                # 端口管理服务
+│   │   └── services/             # 应用服务
+│   │
+│   ├── binary/                   # 二进制协议处理
+│   ├── cloudconfig/              # 云服务商配置
+│   ├── core/                     # 核心引擎
+│   │   └── engine/               # 基础策略引擎
+│   │
+│   ├── daemon/                   # 守护进程
+│   │   ├── engine/               # 守护引擎
+│   │   ├── check.go              # 检查函数
+│   │   └── runtime_plan.go       # 运行时计划
+│   │
+│   ├── datapath/                 # 数据通路层
+│   │   └── xdp/                  # XDP 数据通路（细粒度分包）
+│   │       ├── lifecycle/        # 生命周期管理（安装/卸载/重载）
+│   │       ├── maps/             # BPF Map 操作（访问/包装）
+│   │       ├── programs/         # 程序加载（对象加载/跳转表）
+│   │       ├── plugins/          # 插件集成（Tail Call 集成）
+│   │       ├── stats/            # 统计信息收集
+│   │       ├── health/           # 健康检查
+│   │       └── sync/             # 同步机制
+│   │
+│   ├── domain/                   # 领域模型层（DDD）
+│   │   ├── config/               # 配置领域模型
+│   │   ├── errors/               # 领域错误定义
+│   │   ├── plugin/               # 插件领域模型
+│   │   ├── rule/               # 规则领域模型
+│   │   ├── runtime/              # 运行时领域模型
+│   │   └── system/               # 系统领域模型
+│   │
+│   ├── engine/                   # TinyML 引擎（异常检测）
+│   ├── metrics/                  # 指标系统
+│   │   └── exporter/             # Prometheus 导出器
+│   │
+│   ├── optimizer/                # 规则优化（CIDR 合并）
+│   ├── plugins/                  # 插件系统
+│   │   ├── logengine/            # 日志引擎插件
+│   │   ├── metricsplugin/        # 指标插件
+│   │   └── webplugin/            # Web UI 插件
+│   │
+│   ├── ports/                    # 端口管理
+│   ├── ppfilter/                 # Proxy Protocol 过滤器
+│   ├── proxyproto/               # Proxy Protocol 解析
+│   ├── realip/                   # 真实 IP 管理
+│   ├── runtime/                  # 运行时状态
+│   ├── utils/                    # 工具函数
+│   │   ├── fileutil/             # 文件工具
+│   │   ├── fmtutil/              # 格式化工具
+│   │   ├── ipmerge/              # IP 合并工具
+│   │   ├── iputil/               # IP 工具
+│   │   └── logger/               # 日志框架（Zap）
+│   │
+│   └── version/                  # 版本信息
+│
+├── config/                       # 配置文件示例
+├── docs/                         # 文档
+├── test/                         # 测试
+│   ├── unit/                     # 单元测试
+│   ├── integration/              # 集成测试
+│   └── logengine/                # 日志引擎专项测试
+│
+├── tools/                        # 工具程序
+│   └── yaml2toml/                # YAML 转 TOML 工具
+│
+├── Makefile                      # 构建脚本
+├── go.mod                        # Go 模块定义
+└── config.toml                   # 默认配置文件
+```
 │   │
 │   ├── api/                      # HTTP API
 │   │   ├── server.go             # API 服务器

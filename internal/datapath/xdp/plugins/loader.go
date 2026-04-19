@@ -18,9 +18,16 @@ func Load(manager pluginManager, path string, index int) error {
 	if manager == nil {
 		return fmt.Errorf("manager is nil")
 	}
-	if path == "" {
-		return fmt.Errorf("plugin path is required")
+	
+	// 验证插件路径安全性
+	allowedDirs := []string{
+		"/usr/lib/netxfw/plugins/",
+		"/opt/netxfw/plugins/",
 	}
+	if err := validatePluginPath(path, allowedDirs); err != nil {
+		return fmt.Errorf("invalid plugin path: %v", err)
+	}
+	
 	if err := ValidateSlot(index); err != nil {
 		return err
 	}
