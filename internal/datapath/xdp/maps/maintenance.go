@@ -3,7 +3,7 @@ package maps
 import (
 	"fmt"
 
-	xdpbackend "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend"
+	mapbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/mapbridge"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"go.uber.org/zap"
 )
@@ -29,9 +29,9 @@ func ClearPinnedBlacklist(pinPath string, dynamic bool, log *zap.SugaredLogger) 
 	defer manager.Close()
 
 	if dynamic {
-		return xdpbackend.ClearBlacklistMap(manager.DynLockList())
+		return mapbridge.ClearBlacklistMap(manager.DynLockList())
 	}
-	return xdpbackend.ClearBlacklistMap(manager.LockList())
+	return mapbridge.ClearBlacklistMap(manager.LockList())
 }
 
 // CleanupExpiredPinned removes expired entries from pinned blacklist, whitelist,
@@ -43,9 +43,9 @@ func CleanupExpiredPinned(pinPath string, log *zap.SugaredLogger) (ExpiredCleanu
 	}
 	defer manager.Close()
 
-	locked, _ := xdpbackend.CleanupExpiredRules(manager.LockList(), false)
-	whitelist, _ := xdpbackend.CleanupExpiredRules(manager.Whitelist(), false)
-	ipPort, _ := xdpbackend.CleanupExpiredRules(manager.IPPortRules(), false)
+	locked, _ := mapbridge.CleanupExpiredRules(manager.LockList(), false)
+	whitelist, _ := mapbridge.CleanupExpiredRules(manager.Whitelist(), false)
+	ipPort, _ := mapbridge.CleanupExpiredRules(manager.IPPortRules(), false)
 
 	return ExpiredCleanupSummary{
 		Locked:    locked,

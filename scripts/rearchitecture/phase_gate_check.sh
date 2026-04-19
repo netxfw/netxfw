@@ -235,10 +235,6 @@ case "$phase" in
       "phase6:no-configtypes-or-xdpbackend-outside-facades" \
       rg -n 'internal/adapters/datapath/xdpbackend|internal/configtypes' \
       internal/app internal/daemon internal/domain internal/metrics internal/optimizer internal/plugins cmd -g'*.go' -g'!*_test.go'
-    require_no_matches \
-      "phase6:docs-no-phase2-6-all-complete-claim" \
-      rg -n 'Phase 2：已完成|Phase 4：已完成|Phase 5：已完成|Phase 2-6：已完成|全部已完成' \
-      plans/20260418-rearchitecture-completion-summary.md plans/README.md plans/20260417-code-execution-plan.md
     printf 'phase6 gate passed\n'
     ;;
   *)

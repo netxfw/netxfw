@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	runtimehost "github.com/netxfw/netxfw/internal/adapters/plugins/runtime"
 	applugin "github.com/netxfw/netxfw/internal/app/plugin"
 	domaindatapath "github.com/netxfw/netxfw/internal/domain/plugin/datapath"
 	domainruntime "github.com/netxfw/netxfw/internal/domain/plugin/runtime"
@@ -24,17 +23,17 @@ type PluginHealthSnapshot = applugin.HealthSnapshot
 
 // NewRuntimePluginStatuses returns runtime plugin status derived from the unified host.
 func NewRuntimePluginStatuses(cfg *sdk.GlobalConfig) []domainruntime.Status {
-	return runtimehost.NewHost(nil).Statuses(cfg)
+	return applugin.LoadRuntimeStatuses(cfg)
 }
 
 // LoadPlugin loads a plugin into the pinned runtime.
 func LoadPlugin(ctx context.Context, path string, index int) error {
-	return ExecutePluginCommand(ctx, PluginCommandRequest{Action: "load", Path: path, Index: index})
+	return applugin.Load(ctx, path, index)
 }
 
 // RemovePlugin removes a plugin from the pinned runtime.
 func RemovePlugin(ctx context.Context, index int) error {
-	return ExecutePluginCommand(ctx, PluginCommandRequest{Action: "remove", Index: index})
+	return applugin.Remove(ctx, index)
 }
 
 // ExecutePluginCommand processes plugin-related app operations.
@@ -84,17 +83,14 @@ func HandlePluginCommand(ctx context.Context, args []string) error {
 
 // ListLoadedPlugins lists currently occupied plugin slots.
 func ListLoadedPlugins(ctx context.Context) ([]PluginSlot, error) {
-	items, err := applugin.NewDatapathLifecycle().List(ctx)
+	items, err := applugin.ListLoaded(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	slots := make([]PluginSlot, 0, len(items))
 	for _, item := range items {
-		if !item.Occupied {
-			continue
-		}
-		slots = append(slots, PluginSlot{Index: item.Index, Program: item.ProgramID})
+		slots = append(slots, PluginSlot{Index: item.Index, Program: item.Program})
 	}
 	return slots, nil
 }

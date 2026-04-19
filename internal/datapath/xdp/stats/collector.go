@@ -4,33 +4,34 @@ import (
 	"fmt"
 
 	xdpbackend "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend"
+	statsbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/statsbridge"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
-type MetricsCollector = xdpbackend.MetricsCollector
+type MetricsCollector = statsbridge.Collector
 
-type MetricsData = xdpbackend.MetricsData
+type MetricsData = statsbridge.MetricsData
 
-type TrafficMetrics = xdpbackend.TrafficMetrics
+type TrafficMetrics = statsbridge.TrafficMetrics
 
-type ConntrackHealth = xdpbackend.ConntrackHealth
+type ConntrackHealth = statsbridge.ConntrackHealth
 
-type MapUsageStats = xdpbackend.MapUsageStats
+type MapUsageStats = statsbridge.MapUsageStats
 
-type MapUsageDetail = xdpbackend.MapUsageDetail
+type MapUsageDetail = statsbridge.MapUsageDetail
 
-type RateLimitHitStats = xdpbackend.RateLimitHitStats
+type RateLimitHitStats = statsbridge.RateLimitHitStats
 
-type RateLimitRuleHit = xdpbackend.RateLimitRuleHit
+type RateLimitRuleHit = statsbridge.RateLimitRuleHit
 
-type ProtocolDistribution = xdpbackend.ProtocolDistribution
+type ProtocolDistribution = statsbridge.ProtocolDistribution
 
-type ProtocolStats = xdpbackend.ProtocolStats
+type ProtocolStats = statsbridge.ProtocolStats
 
-type StatsCache = xdpbackend.StatsCache
+type StatsCache = statsbridge.Cache
 
-type MapCounts = xdpbackend.MapCounts
+type MapCounts = statsbridge.MapCounts
 
 type counterProvider interface {
 	GetDropCount() (uint64, error)
@@ -43,7 +44,7 @@ type detailProvider interface {
 }
 
 type managerAccessor interface {
-	GetManager() *xdpbackend.Manager
+	GetManagerHandle() *xdpbackend.Handle
 }
 
 func NewCollector(mgr *datapathprograms.Handle) *MetricsCollector {
@@ -60,10 +61,10 @@ func ExtractManager(mgr any) *datapathprograms.Handle {
 		return nil
 	case *datapathprograms.Handle:
 		return typed
-	case *xdpbackend.Manager:
+	case *xdpbackend.Handle:
 		return datapathprograms.WrapExisting(typed)
 	case managerAccessor:
-		return datapathprograms.WrapExisting(typed.GetManager())
+		return datapathprograms.WrapExisting(typed.GetManagerHandle())
 	default:
 		return nil
 	}

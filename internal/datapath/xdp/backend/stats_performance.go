@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/utils/fileutil"
 )
 
 // PerformanceStats holds performance monitoring statistics.
@@ -476,7 +476,7 @@ func (p *PerformanceStats) SaveTrafficStats() error {
 		return err
 	}
 
-	return config.DefaultWriteGateway().WriteFile(trafficStatsFile, fileData, 0600, "xdp.performance_stats.SaveTrafficStats")
+	return fileutil.AtomicWriteFile(trafficStatsFile, fileData, 0600)
 }
 
 // LoadTrafficStats loads traffic statistics from a shared file.

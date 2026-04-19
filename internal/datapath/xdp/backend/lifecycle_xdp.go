@@ -15,7 +15,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
-	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/runtime"
 )
 
 // getBootTime returns the system boot time by reading /proc/stat
@@ -73,7 +73,7 @@ func (m *Manager) Attach(interfaces []string) error {
 		}
 
 		// Try to atomic update existing XDP link / 尝试原子更新现有的 XDP 链接
-		linkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("link_%s", name))
+		linkPath := filepath.Join(runtime.GetPinPath(), fmt.Sprintf("link_%s", name))
 		var attached bool
 
 		if l, err := link.LoadPinnedLink(linkPath, nil); err == nil {
@@ -127,7 +127,7 @@ func (m *Manager) Attach(interfaces []string) error {
 		_ = exec.Command("tc", "qdisc", "add", "dev", name, "clsact").Run() // #nosec G204 // name is controlled interface name from system
 
 		// 2. Attach TC program / 挂载 TC 程序
-		tcLinkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("tc_link_%s", name))
+		tcLinkPath := filepath.Join(runtime.GetPinPath(), fmt.Sprintf("tc_link_%s", name))
 		var tcAttached bool
 
 		// Try atomic update for TC / 尝试原子更新 TC
@@ -174,7 +174,7 @@ func (m *Manager) Attach(interfaces []string) error {
  */
 func (m *Manager) Detach(interfaces []string) error {
 	for _, name := range interfaces {
-		linkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("link_%s", name))
+		linkPath := filepath.Join(runtime.GetPinPath(), fmt.Sprintf("link_%s", name))
 		l, err := link.LoadPinnedLink(linkPath, nil)
 		if err != nil {
 			m.logger.Warnf("[WARN]  No pinned link found for %s, trying manual detach...", name)
@@ -188,7 +188,7 @@ func (m *Manager) Detach(interfaces []string) error {
 		}
 
 		// Detach TC link / 分离 TC 链接
-		tcLinkPath := filepath.Join(config.GetPinPath(), fmt.Sprintf("tc_link_%s", name))
+		tcLinkPath := filepath.Join(runtime.GetPinPath(), fmt.Sprintf("tc_link_%s", name))
 		if tl, err := link.LoadPinnedLink(tcLinkPath, nil); err == nil {
 			if err := tl.Close(); err != nil {
 				m.logger.Errorf("[ERROR] Failed to close TC link for %s: %v", name, err)

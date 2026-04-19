@@ -3,7 +3,23 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+
+	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
 )
+
+func (s *Server) loadPerformanceStats() (*datapathstats.PerformanceStats, error) {
+	if s.sdk == nil {
+		return nil, nil
+	}
+	return datapathstats.LoadPerformanceStats(s.sdk.GetManager())
+}
+
+func (s *Server) rawPerformanceStats() any {
+	if s.sdk == nil {
+		return nil
+	}
+	return s.sdk.GetManager().PerfStats()
+}
 
 // handlePerfStats returns all performance statistics.
 // handlePerfStats 返回所有性能统计信息。
@@ -15,8 +31,8 @@ func (s *Server) handlePerfStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	perfStats := s.sdk.GetManager().PerfStats()
-	if perfStats == nil {
+	perfStats, err := s.loadPerformanceStats()
+	if err != nil || perfStats == nil {
 		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
 		return
 	}
@@ -34,7 +50,7 @@ func (s *Server) handlePerfLatency(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	perfStats := s.sdk.GetManager().PerfStats()
+	perfStats := s.rawPerformanceStats()
 	if perfStats == nil {
 		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
 		return
@@ -61,7 +77,7 @@ func (s *Server) handlePerfCache(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	perfStats := s.sdk.GetManager().PerfStats()
+	perfStats := s.rawPerformanceStats()
 	if perfStats == nil {
 		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
 		return
@@ -88,7 +104,7 @@ func (s *Server) handlePerfTraffic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	perfStats := s.sdk.GetManager().PerfStats()
+	perfStats := s.rawPerformanceStats()
 	if perfStats == nil {
 		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
 		return
@@ -120,7 +136,7 @@ func (s *Server) handlePerfReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	perfStats := s.sdk.GetManager().PerfStats()
+	perfStats := s.rawPerformanceStats()
 	if perfStats == nil {
 		http.Error(w, "Performance stats not available", http.StatusServiceUnavailable)
 		return

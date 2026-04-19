@@ -5,7 +5,7 @@ import (
 	"net/http/pprof"
 	"sync"
 
-	"github.com/netxfw/netxfw/internal/config"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -46,7 +46,7 @@ func NewServer(s *sdk.SDK, port int) *Server {
 func (s *Server) EnsureHandlerInitialized() error {
 	s.initOnce.Do(func() {
 		log := logger.Get(nil)
-		s.initErr = config.MutateLoadedConfig(func(cfg *sdk.GlobalConfig) error {
+		s.initErr = appconfig.MutateLoadedConfig(func(cfg *sdk.GlobalConfig) error {
 			if cfg.Web.Token != "" {
 				log.Infof("[KEY] Using configured Web Token for authentication")
 				return nil
@@ -58,7 +58,7 @@ func (s *Server) EnsureHandlerInitialized() error {
 			cfg.Web.Port = s.port
 
 			log.Infof("[KEY] No Web Token configured. Automatically generated and saved a new token")
-			log.Infof("[LOG] Token has been saved to %s", config.GetConfigPath())
+			log.Infof("[LOG] Token has been saved to %s", appconfig.GetConfigPath())
 			return nil
 		})
 	})
@@ -74,7 +74,11 @@ func (s *Server) APIHandler() http.Handler {
 		return nil
 	}
 
-	cfg := config.GetCurrentConfig()
+	cfg, err := appconfig.LoadConfig()
+	if err != nil {
+		log.Errorf("Failed to load config after initialization: %v", err)
+		return nil
+	}
 	if cfg == nil {
 		log.Error("Config is nil after initialization")
 		return nil

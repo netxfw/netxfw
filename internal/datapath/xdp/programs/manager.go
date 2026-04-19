@@ -6,15 +6,18 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	xdpbackend "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend"
+	healthbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/healthbridge"
+	statsbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/statsbridge"
+	syncbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/syncbridge"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
-type PerformanceStats = xdpbackend.PerformanceStats
+type PerformanceStats = statsbridge.PerformanceStats
 
 // Handle wraps the current datapath manager implementation behind the programs facade.
 type Handle struct {
-	manager *xdpbackend.Manager
+	manager *xdpbackend.Handle
 }
 
 // OpenPinnedManager loads a manager from the currently pinned datapath maps.
@@ -36,7 +39,7 @@ func CreateManager(capacity sdk.CapacityConfig, log *zap.SugaredLogger) (*Handle
 }
 
 // WrapExisting bridges an already-created backend manager into the programs facade.
-func WrapExisting(manager *xdpbackend.Manager) *Handle {
+func WrapExisting(manager *xdpbackend.Handle) *Handle {
 	if manager == nil {
 		return nil
 	}
@@ -62,52 +65,52 @@ func GetAttachedInterfaces(pinPath string) ([]string, error) {
 }
 
 // GetAttachedInterfacesWithInfo returns detailed XDP attachment information.
-func GetAttachedInterfacesWithInfo(pinPath string) ([]xdpbackend.InterfaceXDPInfo, error) {
+func GetAttachedInterfacesWithInfo(pinPath string) ([]xdpbackend.InterfaceInfo, error) {
 	return xdpbackend.GetAttachedInterfacesWithInfo(pinPath)
 }
 
 // NewMetricsCollector constructs a metrics collector for the wrapped manager.
-func NewMetricsCollector(handle *Handle) *xdpbackend.MetricsCollector {
+func NewMetricsCollector(handle *Handle) *statsbridge.Collector {
 	if handle == nil {
 		return nil
 	}
-	return xdpbackend.NewMetricsCollector(handle.manager)
+	return statsbridge.NewMetricsCollector(handle.manager)
 }
 
 // NewStatsCache constructs a stats cache for the wrapped manager.
-func NewStatsCache(handle *Handle) *xdpbackend.StatsCache {
+func NewStatsCache(handle *Handle) *statsbridge.Cache {
 	if handle == nil {
 		return nil
 	}
-	return xdpbackend.NewStatsCache(handle.manager)
+	return statsbridge.NewStatsCache(handle.manager)
 }
 
 // NewHealthChecker constructs a health checker for the wrapped manager.
-func NewHealthChecker(handle *Handle) *xdpbackend.HealthChecker {
+func NewHealthChecker(handle *Handle) *healthbridge.Checker {
 	if handle == nil {
 		return nil
 	}
-	return xdpbackend.NewHealthChecker(handle.manager)
+	return healthbridge.NewHealthChecker(handle.manager)
 }
 
 // NewIncrementalUpdater constructs an incremental updater for the wrapped manager.
-func NewIncrementalUpdater(handle *Handle) *xdpbackend.IncrementalUpdater {
+func NewIncrementalUpdater(handle *Handle) *syncbridge.Updater {
 	if handle == nil {
 		return nil
 	}
-	return xdpbackend.NewIncrementalUpdater(handle.manager)
+	return syncbridge.NewIncrementalUpdater(handle.manager)
 }
 
 // MigrateState copies runtime state from old manager into new manager.
 func MigrateState(newHandle, oldHandle *Handle) error {
+	if newHandle == nil || oldHandle == nil {
+		return nil
+	}
 	return newHandle.manager.MigrateState(oldHandle.manager)
 }
 
 // Close releases manager resources.
 func (h *Handle) Close() error {
-	if h == nil || h.manager == nil {
-		return nil
-	}
 	return h.manager.Close()
 }
 
@@ -173,7 +176,7 @@ func (h *Handle) MatchesCapacity(cfg sdk.CapacityConfig) bool {
 
 // XDPProgram returns the main XDP program handle.
 func (h *Handle) XDPProgram() *ebpf.Program {
-	return h.manager.XdpFirewall()
+	return h.manager.XDPProgram()
 }
 
 // LoadPlugin inserts a datapath plugin into the jump table.
@@ -188,11 +191,7 @@ func (h *Handle) RemovePlugin(index int) error {
 
 // LookupPluginProgram returns the program id currently stored in the jump table slot.
 func (h *Handle) LookupPluginProgram(index int) (uint32, bool, error) {
-	var progID uint32
-	if err := h.manager.JmpTable().Lookup(uint32(index), &progID); err != nil {
-		return 0, false, err
-	}
-	return progID, true, nil
+	return h.manager.LookupPluginProgram(index)
 }
 
 // PerfStats returns the raw performance statistics handle.

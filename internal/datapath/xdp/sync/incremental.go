@@ -1,15 +1,21 @@
 package sync
 
 import (
-	xdpbackend "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend"
+	syncbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/syncbridge"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
-type ConfigDiff = xdpbackend.ConfigDiff
+type ConfigDiff = syncbridge.ConfigDiff
+
+type ConfigChange = syncbridge.ConfigChange
+
+type IPPortRuleChange = syncbridge.IPPortRuleChange
+
+type RateLimitChange = syncbridge.RateLimitChange
 
 type IncrementalUpdater struct {
-	inner *xdpbackend.IncrementalUpdater
+	inner *syncbridge.Updater
 }
 
 func NewIncrementalUpdater(mgr *datapathprograms.Handle) *IncrementalUpdater {

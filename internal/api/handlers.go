@@ -7,7 +7,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/netxfw/netxfw/internal/config"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/version"
 	"github.com/netxfw/netxfw/pkg/sdk"
@@ -321,7 +321,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, err := config.ReloadCurrentConfig()
+	cfg, err := appconfig.LoadConfig()
 	if err != nil {
 		http.Error(w, "Failed to load config: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -332,7 +332,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Direction == "map2file" {
-		err = config.MutateLoadedConfig(func(cfg *sdk.GlobalConfig) error {
+		err = appconfig.MutateLoadedConfig(func(cfg *sdk.GlobalConfig) error {
 			// Sync runtime state into this config snapshot, then persist.
 			return s.sdk.Sync.ToConfig(cfg)
 		})

@@ -3,21 +3,20 @@ package stats
 import (
 	"fmt"
 
-	xdpbackend "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend"
-	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
+	statsbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/statsbridge"
 )
 
-type PerformanceStats = datapathprograms.PerformanceStats
+type PerformanceStats = statsbridge.PerformanceStats
 
-type PerformanceStatsSnapshot = xdpbackend.PerformanceStatsSnapshot
+type PerformanceStatsSnapshot = statsbridge.PerformanceStatsSnapshot
 
-type MapLatencyStats = xdpbackend.MapLatencyStats
+type MapLatencyStats = statsbridge.MapLatencyStats
 
-type OperationStats = xdpbackend.OperationStats
+type OperationStats = statsbridge.OperationStats
 
-type CacheHitRateStats = xdpbackend.CacheHitRateStats
+type CacheHitRateStats = statsbridge.CacheHitRateStats
 
-type TrafficStats = xdpbackend.TrafficStats
+type TrafficStats = statsbridge.TrafficStats
 
 type performanceProvider interface {
 	PerfStats() any
@@ -33,8 +32,8 @@ func LoadPerformanceStats(mgr performanceProvider) (*PerformanceStats, error) {
 		return nil, fmt.Errorf("performance statistics not available")
 	}
 
-	perfStats, ok := perfInterface.(*xdpbackend.PerformanceStats)
-	if !ok {
+	perfStats := statsbridge.WrapPerformanceStats(perfInterface)
+	if perfStats == nil {
 		return nil, fmt.Errorf("invalid performance statistics type")
 	}
 
@@ -42,5 +41,5 @@ func LoadPerformanceStats(mgr performanceProvider) (*PerformanceStats, error) {
 }
 
 func LoadTrafficStats() (TrafficStats, error) {
-	return xdpbackend.LoadTrafficStats()
+	return statsbridge.LoadTrafficStats()
 }

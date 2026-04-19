@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/config"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
 )
 
 // TokenClaims represents the payload of the JWT-like token
@@ -84,7 +84,7 @@ func verifyToken(tokenString string, secret string) (*TokenClaims, error) {
 // withAuth 是用于基于令牌认证的中间件（支持 Bearer Token 和旧查询参数）
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg, err := config.ReloadCurrentConfig()
+		cfg, err := appconfig.LoadConfig()
 		if err != nil {
 			http.Error(w, "Config Error", http.StatusInternalServerError)
 			return
@@ -138,7 +138,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, err := config.ReloadCurrentConfig()
+	cfg, err := appconfig.LoadConfig()
 	if err != nil {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return

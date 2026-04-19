@@ -6,6 +6,7 @@ import (
 
 	"github.com/netxfw/netxfw/internal/app"
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	applugin "github.com/netxfw/netxfw/internal/app/plugin"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -18,8 +19,8 @@ type TrafficStats = app.TrafficStats
 type MetricsData = app.MetricsData
 type InterfaceXDPInfo = app.InterfaceXDPInfo
 type StatusSnapshot = appconfig.StatusSnapshot
-type PluginStatusSnapshot = app.PluginStatusSnapshot
-type PluginHealthSnapshot = app.PluginHealthSnapshot
+type PluginStatusSnapshot = applugin.StatusSnapshot
+type PluginHealthSnapshot = applugin.HealthSnapshot
 type PerformanceStats = app.PerformanceStats
 type OperationStats = app.OperationStats
 
@@ -73,15 +74,15 @@ func (commandRuntimeSupport) Version() string {
 }
 
 func (commandRuntimeSupport) LoadPlugin(ctx context.Context, path string, index int) error {
-	return app.LoadPlugin(ctx, path, index)
+	return applugin.Load(ctx, path, index)
 }
 
 func (commandRuntimeSupport) RemovePlugin(ctx context.Context, index int) error {
-	return app.RemovePlugin(ctx, index)
+	return applugin.Remove(ctx, index)
 }
 
-func (commandRuntimeSupport) ListLoadedPlugins(ctx context.Context) ([]app.PluginSlot, error) {
-	return app.ListLoadedPlugins(ctx)
+func (commandRuntimeSupport) ListLoadedPlugins(ctx context.Context) ([]applugin.LoadedSlot, error) {
+	return applugin.ListLoaded(ctx)
 }
 
 func (commandRuntimeSupport) ClearBlacklist(ctx context.Context, dynamic bool) error {
@@ -153,12 +154,13 @@ func (systemQuerySupport) LoadMetrics(mgr sdk.ManagerInterface) (*MetricsData, e
 }
 
 func (systemQuerySupport) LoadPluginStatus(ctx context.Context, cfg *sdk.GlobalConfig) (PluginStatusSnapshot, error) {
-	runtimeStatuses := app.NewRuntimePluginStatuses(cfg)
-	return app.LoadPluginStatus(ctx, runtimeStatuses, cfg)
+	runtimeStatuses := applugin.LoadRuntimeStatuses(cfg)
+	datapath, err := applugin.LoadDatapathStatus(ctx, cfg)
+	return applugin.ComposeStatus(runtimeStatuses, datapath), err
 }
 
 func (systemQuerySupport) LoadPluginHealth(snapshot PluginStatusSnapshot) PluginHealthSnapshot {
-	return app.LoadPluginHealth(snapshot)
+	return applugin.SummarizeHealth(snapshot)
 }
 
 func (systemQuerySupport) GetAttachedInterfaceInfos() ([]InterfaceXDPInfo, error) {

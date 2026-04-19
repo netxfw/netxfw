@@ -3,16 +3,16 @@ package health
 import (
 	"fmt"
 
-	xdpbackend "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend"
+	healthbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/healthbridge"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
 )
 
-type MapStatus = xdpbackend.MapHealthStatus
+type MapStatus = healthbridge.MapStatus
 
-type Status = xdpbackend.HealthStatus
+type Status = healthbridge.Status
 
-type Checker = xdpbackend.HealthChecker
+type Checker = healthbridge.Checker
 
 func NewChecker(mgr *datapathprograms.Handle) *Checker {
 	return datapathprograms.NewHealthChecker(mgr)
