@@ -49,8 +49,8 @@ Use -v for verbose output with detailed statistics`,
 					commandRuntimeService.FormatBPS(trafficStats.CurrentBPS))
 			}
 
-			blacklistCount, _ := s.GetManager().GetLockedIPCount()
-			dynBlacklistCount, _ := s.GetManager().GetDynLockListCount()
+			blacklistCount, _ := s.Stats.GetLockedIPCount()
+			dynBlacklistCount, _ := s.Stats.GetDynamicLockedIPCount()
 			totalBlocked := uint64(blacklistCount) + uint64(dynBlacklistCount)
 			if totalBlocked > 0 {
 				fmt.Fprintf(w, "[Block] Banned IPs: %s (Static: %s, Dynamic: %s)\n",
@@ -61,15 +61,15 @@ Use -v for verbose output with detailed statistics`,
 				fmt.Fprintln(w, "[Block] Banned IPs: 0")
 			}
 
-			connCount, _ := s.GetManager().GetConntrackCount()
+			connCount, _ := s.Conntrack.Count()
 			fmt.Fprintf(w, "[Conn] Active connections: %s\n", commandRuntimeService.FormatNumberWithComma(uint64(connCount)))
 
-			whitelistCount, _ := s.GetManager().GetWhitelistCount()
+			whitelistCount, _ := s.Stats.GetWhitelistCount()
 			if whitelistCount > 0 {
 				fmt.Fprintf(w, "[Allow] Whitelisted IPs: %s\n", commandRuntimeService.FormatNumberWithComma(uint64(whitelistCount)))
 			}
 
-			showCompactMapStatistics(w, s.GetManager())
+			showCompactMapStatistics(w, s)
 			showTopBlockedIPs(w, s.Stats, drops)
 
 			fmt.Fprintln(w)

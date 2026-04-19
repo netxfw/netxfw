@@ -31,6 +31,18 @@ func (s *StatsImpl) GetLockedIPCount() (int, error) {
 	return int(count), err
 }
 
+func (s *StatsImpl) GetDynamicLockedIPCount() (uint64, error) {
+	return s.mgr.GetDynLockListCount()
+}
+
+func (s *StatsImpl) GetWhitelistCount() (int, error) {
+	return s.mgr.GetWhitelistCount()
+}
+
+func (s *StatsImpl) GetConntrackCount() (int, error) {
+	return s.mgr.GetConntrackCount()
+}
+
 func (s *StatsImpl) GetGlobalStats() (*GlobalStats, error) {
 	return s.mgr.GetGlobalStats()
 }

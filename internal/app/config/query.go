@@ -19,6 +19,10 @@ type StatusSnapshot struct {
 	Drift   runtimestate.StateDiff
 }
 
+type managerProvider interface {
+	GetManager() sdk.ManagerInterface
+}
+
 const (
 	defaultConfigPath = "/etc/netxfw/config.toml"
 	yamlConfigPath    = "/etc/netxfw/config.yaml"
@@ -93,12 +97,26 @@ func DefaultConfigTemplate() string {
 	return configfile.DefaultTemplate()
 }
 
-func LoadStatusSnapshot(mgr sdk.ManagerInterface) (StatusSnapshot, error) {
+func extractManager(source any) sdk.ManagerInterface {
+	switch typed := source.(type) {
+	case nil:
+		return nil
+	case sdk.ManagerInterface:
+		return typed
+	case managerProvider:
+		return typed.GetManager()
+	default:
+		return nil
+	}
+}
+
+func LoadStatusSnapshot(source any) (StatusSnapshot, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
 		return StatusSnapshot{}, err
 	}
 
+	mgr := extractManager(source)
 	desired := systemstate.FromConfig(cfg)
 	actual := runtimestate.FromManager(mgr)
 

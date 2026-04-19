@@ -56,6 +56,14 @@ func (m *MockBlacklistAPI) List(limit int, search string) ([]sdk.BlockedIP, int,
 	return args.Get(0).([]sdk.BlockedIP), args.Int(1), args.Error(2)
 }
 
+func (m *MockBlacklistAPI) ListDynamic(limit int, search string) ([]sdk.BlockedIP, int, error) {
+	args := m.Called(limit, search)
+	if args.Get(0) == nil {
+		return nil, args.Int(1), args.Error(2)
+	}
+	return args.Get(0).([]sdk.BlockedIP), args.Int(1), args.Error(2)
+}
+
 // MockWhitelistAPI is a mock implementation of the WhitelistAPI interface.
 // MockWhitelistAPI 是 WhitelistAPI 接口的 mock 实现。
 type MockWhitelistAPI struct {
@@ -263,6 +271,7 @@ func SetupMockBlacklist(m *sdk.SDK) *MockBlacklistAPI {
 		mb.On("Clear").Return(nil)
 		mb.On("Contains", mock.Anything).Return(true, nil)
 		mb.On("List", mock.Anything, mock.Anything).Return([]sdk.BlockedIP{}, 0, nil)
+		mb.On("ListDynamic", mock.Anything, mock.Anything).Return([]sdk.BlockedIP{}, 0, nil)
 		return mb
 	}
 	return nil
@@ -310,6 +319,9 @@ func SetupMockStats(m *sdk.SDK) *MockStatsAPI {
 	if ms, ok := m.Stats.(*MockStatsAPI); ok {
 		ms.On("GetCounters").Return(uint64(1000), uint64(500), nil)
 		ms.On("GetLockedIPCount").Return(0, nil)
+		ms.On("GetDynamicLockedIPCount").Return(uint64(0), nil)
+		ms.On("GetWhitelistCount").Return(0, nil)
+		ms.On("GetConntrackCount").Return(0, nil)
 		ms.On("GetDropDetails").Return([]sdk.DropDetailEntry{}, nil)
 		ms.On("GetPassDetails").Return([]sdk.DropDetailEntry{}, nil)
 		ms.On("GetGlobalStats").Return(&sdk.GlobalStats{}, nil)

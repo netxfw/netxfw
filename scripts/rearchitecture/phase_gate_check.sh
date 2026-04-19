@@ -8,6 +8,14 @@ cd "$ROOT_DIR"
 phase=""
 strict=1
 
+require_tool() {
+  local tool="$1"
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    printf 'missing required tool: %s\n' "$tool" >&2
+    exit 1
+  fi
+}
+
 usage() {
   cat <<'EOF'
 usage: bash scripts/rearchitecture/phase_gate_check.sh --phase <phase-name> [--strict|--no-strict]
@@ -67,6 +75,8 @@ if [[ -z "$phase" ]]; then
   usage >&2
   exit 2
 fi
+
+require_tool rg
 
 check_file() {
   local file="$1"

@@ -76,3 +76,12 @@ func NewSDK(mgr ManagerInterface) *SDK {
 func (s *SDK) GetManager() ManagerInterface {
 	return s.mgr
 }
+
+// PerfStats returns the low-level performance stats provider when available.
+// PerfStats 返回底层性能统计提供者（如果可用）。
+func (s *SDK) PerfStats() any {
+	if s == nil || s.mgr == nil {
+		return nil
+	}
+	return s.mgr.PerfStats()
+}

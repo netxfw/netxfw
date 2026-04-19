@@ -14,6 +14,9 @@ type commandRuntimeSupport struct{}
 type systemServiceSupport struct{}
 type systemQuerySupport struct{}
 type performanceQuerySupport struct{}
+type performanceProvider interface {
+	PerfStats() any
+}
 
 type TrafficStats = app.TrafficStats
 type MetricsData = app.MetricsData
@@ -141,16 +144,16 @@ func (systemQuerySupport) LoadConfig() (*sdk.GlobalConfig, error) {
 	return appconfig.LoadConfig()
 }
 
-func (systemQuerySupport) LoadStatusSnapshot(mgr sdk.ManagerInterface) (StatusSnapshot, error) {
-	return appconfig.LoadStatusSnapshot(mgr)
+func (systemQuerySupport) LoadStatusSnapshot(source any) (StatusSnapshot, error) {
+	return appconfig.LoadStatusSnapshot(source)
 }
 
 func (systemQuerySupport) LoadTrafficStats() (TrafficStats, error) {
 	return app.LoadTrafficStats()
 }
 
-func (systemQuerySupport) LoadMetrics(mgr sdk.ManagerInterface) (*MetricsData, error) {
-	return app.LoadMetrics(mgr)
+func (systemQuerySupport) LoadMetrics(source any) (*MetricsData, error) {
+	return app.LoadMetrics(source)
 }
 
 func (systemQuerySupport) LoadPluginStatus(ctx context.Context, cfg *sdk.GlobalConfig) (PluginStatusSnapshot, error) {
@@ -183,8 +186,8 @@ func (systemQuerySupport) FormatDuration(d time.Duration) string {
 	return app.FormatDuration(d)
 }
 
-func (performanceQuerySupport) LoadPerformanceStats(mgr sdk.ManagerInterface) (*PerformanceStats, error) {
-	return app.LoadPerformanceStats(mgr)
+func (performanceQuerySupport) LoadPerformanceStats(source performanceProvider) (*PerformanceStats, error) {
+	return app.LoadPerformanceStats(source)
 }
 
 func (performanceQuerySupport) FormatLatency(ns uint64) string {

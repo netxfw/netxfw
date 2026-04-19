@@ -7,9 +7,9 @@ import (
 )
 
 type PortModule struct {
-	config  *sdk.PortConfig
-	manager sdk.ManagerInterface
-	logger  sdk.Logger
+	config *sdk.PortConfig
+	rule   sdk.RuleAPI
+	logger sdk.Logger
 }
 
 func (m *PortModule) Name() string {
@@ -18,7 +18,7 @@ func (m *PortModule) Name() string {
 
 func (m *PortModule) Init(cfg *sdk.GlobalConfig, s *sdk.SDK, logger sdk.Logger) error {
 	m.config = &cfg.Port
-	m.manager = s.GetManager()
+	m.rule = s.Rule
 	m.logger = logger
 	return nil
 }
@@ -44,7 +44,7 @@ func (m *PortModule) Sync() error {
 		return nil
 	}
 
-	currentRules, _, err := m.manager.ListIPPortRules(false, 0, "")
+	currentRules, _, err := m.rule.List(false, 0, "")
 	if err != nil {
 		m.logger.Warnf("[WARN] [Port] Failed to list current IP+Port rules: %v", err)
 	} else {
@@ -81,7 +81,7 @@ func (m *PortModule) Sync() error {
 				continue
 			}
 
-			if removeErr := m.manager.RemoveIPPortRule(rule.IP, rule.Port); removeErr != nil {
+			if removeErr := m.rule.RemoveIPPortRule(rule.IP, rule.Port); removeErr != nil {
 				m.logger.Warnf("[WARN] [Port] Failed to remove rule %s:%d: %v", rule.IP, rule.Port, removeErr)
 			}
 		}
@@ -89,14 +89,14 @@ func (m *PortModule) Sync() error {
 		for key, rule := range desiredRulesMap {
 			existing, exists := currentRulesMap[key]
 			if !exists || existing.Action != rule.Action {
-				if addErr := m.manager.AddIPPortRule(rule.IP, rule.Port, rule.Action); addErr != nil {
+				if addErr := m.rule.AddIPPortRule(rule.IP, rule.Port, rule.Action); addErr != nil {
 					m.logger.Warnf("[WARN] [Port] Failed to add/update rule %s:%d: %v", rule.IP, rule.Port, addErr)
 				}
 			}
 		}
 	}
 
-	currentPorts, err := m.manager.ListAllowedPorts()
+	currentPorts, err := m.rule.ListAllowedPorts()
 	if err != nil {
 		m.logger.Warnf("[WARN] [Port] Failed to list current allowed ports: %v", err)
 	} else {
@@ -110,14 +110,14 @@ func (m *PortModule) Sync() error {
 		}
 		for port := range existingPorts {
 			if !desiredPorts[port] {
-				if err := m.manager.RemoveAllowedPort(port); err != nil {
+				if err := m.rule.RemoveAllowedPort(port); err != nil {
 					m.logger.Warnf("[WARN] [Port] Failed to remove port %d: %v", port, err)
 				}
 			}
 		}
 		for port := range desiredPorts {
 			if !existingPorts[port] {
-				if err := m.manager.AllowPort(port); err != nil {
+				if err := m.rule.AllowPort(port); err != nil {
 					m.logger.Warnf("[WARN] [Port] Failed to allow port %d: %v", port, err)
 				}
 			}

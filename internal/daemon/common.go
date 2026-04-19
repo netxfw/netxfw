@@ -233,14 +233,7 @@ func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
 			log.Info("[STOP] Stopping traffic stats loop")
 			return
 		case <-ticker.C:
-			// Get manager to access performance stats
-			// 获取管理器以访问性能统计
-			mgr := s.GetManager()
-			if mgr == nil {
-				continue
-			}
-
-			perfStats := mgr.PerfStats()
+			perfStats := s.PerfStats()
 			if perfStats == nil {
 				continue
 			}
@@ -270,7 +263,7 @@ func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
 
 			// Update conntrack stats
 			// 更新连接跟踪统计
-			if conntrackCount, err := mgr.GetConntrackCount(); err == nil {
+			if conntrackCount, err := s.Conntrack.Count(); err == nil {
 				ps.UpdateConntrackStats(uint64(conntrackCount)) // #nosec G115 // count is always valid
 			}
 

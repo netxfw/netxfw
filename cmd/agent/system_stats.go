@@ -112,18 +112,18 @@ func showPassStatistics(w io.Writer, s StatsAPI, pass, drops uint64) {
 
 // showMapStatistics displays BPF map statistics
 // showMapStatistics 显示 BPF Map 统计和使用率
-func showMapStatistics(w io.Writer, mgr sdk.ManagerInterface) {
+func showMapStatistics(w io.Writer, s *sdk.SDK) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[DATA] Map Statistics:")
 
 	mapCap := getMapCapacity()
 
-	blacklistCount, _ := mgr.GetLockedIPCount()
-	whitelistCount, _ := mgr.GetWhitelistCount()
-	dynBlacklistCount, _ := mgr.GetDynLockListCount()
-	rateLimitRules, _, _ := mgr.ListRateLimitRules(0, "")
-	ipPortRules, _, _ := mgr.ListIPPortRules(false, 0, "")
-	allowedPorts, _ := mgr.ListAllowedPorts()
+	blacklistCount, _ := s.Stats.GetLockedIPCount()
+	whitelistCount, _ := s.Stats.GetWhitelistCount()
+	dynBlacklistCount, _ := s.Stats.GetDynamicLockedIPCount()
+	rateLimitRules, _, _ := s.Rule.ListRateLimitRules(0, "")
+	ipPortRules, _, _ := s.Rule.List(false, 0, "")
+	allowedPorts, _ := s.Rule.ListAllowedPorts()
 
 	fmt.Fprintf(w, "   %-18s %12s / %-12s %s\n", "Map", "Used", "Max", "Usage")
 	fmt.Fprintf(w, "   %s\n", strings.Repeat("-", 70))
@@ -186,14 +186,14 @@ func renderUsageBar(current, maximum int, width int) string {
 
 // showCompactMapStatistics displays compact map statistics in single line format
 // showCompactMapStatistics 以紧凑格式显示 Map 统计
-func showCompactMapStatistics(w io.Writer, mgr sdk.ManagerInterface) {
+func showCompactMapStatistics(w io.Writer, s *sdk.SDK) {
 	mapCap := getMapCapacity()
 
-	blacklistCount, _ := mgr.GetLockedIPCount()
-	whitelistCount, _ := mgr.GetWhitelistCount()
-	dynBlacklistCount, _ := mgr.GetDynLockListCount()
-	rateLimitRules, _, _ := mgr.ListRateLimitRules(0, "")
-	ipPortRules, _, _ := mgr.ListIPPortRules(false, 0, "")
+	blacklistCount, _ := s.Stats.GetLockedIPCount()
+	whitelistCount, _ := s.Stats.GetWhitelistCount()
+	dynBlacklistCount, _ := s.Stats.GetDynamicLockedIPCount()
+	rateLimitRules, _, _ := s.Rule.ListRateLimitRules(0, "")
+	ipPortRules, _, _ := s.Rule.List(false, 0, "")
 
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[DATA] Map Usage:")
@@ -275,13 +275,13 @@ func showTopBlockedIPs(w io.Writer, s StatsAPI, drops uint64) {
 
 // showConclusionStatistics displays summary statistics at the end
 // showConclusionStatistics 在末尾显示汇总统计
-func showConclusionStatistics(w io.Writer, mgr sdk.ManagerInterface, s StatsAPI) {
+func showConclusionStatistics(w io.Writer, fw *sdk.SDK, s StatsAPI) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[SUMMARY] System Summary:")
 
-	blacklistCount, _ := mgr.GetLockedIPCount()
-	dynBlacklistCount, _ := mgr.GetDynLockListCount()
-	whitelistCount, _ := mgr.GetWhitelistCount()
+	blacklistCount, _ := fw.Stats.GetLockedIPCount()
+	dynBlacklistCount, _ := fw.Stats.GetDynamicLockedIPCount()
+	whitelistCount, _ := fw.Stats.GetWhitelistCount()
 
 	fmt.Fprintf(w, "   ├─ Blacklisted IPs: %d (static) + %d (dynamic) = %d total\n",
 		blacklistCount, dynBlacklistCount, blacklistCount+int(dynBlacklistCount))

@@ -33,11 +33,10 @@ func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
 	_ = ctx
 	fmt.Fprintln(w, "[OK] XDP Program Status: Loaded and Running")
 
-	mgr := s.GetManager()
-	snapshot, snapshotErr := systemQueryService.LoadStatusSnapshot(mgr)
+	snapshot, snapshotErr := systemQueryService.LoadStatusSnapshot(s)
 	pluginSnapshot, pluginErr := loadPluginStatusSnapshot(ctx, snapshot, snapshotErr)
 	pluginHealth := systemQueryService.LoadPluginHealth(pluginSnapshot)
-	metrics, metricsErr := systemQueryService.LoadMetrics(mgr)
+	metrics, metricsErr := systemQueryService.LoadMetrics(s)
 	pass, drops, err := s.Stats.GetCounters()
 	if err != nil {
 		fmt.Fprintf(w, "[WARN]  Could not retrieve statistics: %v\n", err)
@@ -50,13 +49,13 @@ func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
 		showProtocolDistribution(w, s.Stats, pass, drops)
 	}
 	if !showConntrackHealthFromMetrics(w, metrics, metricsErr) {
-		showConntrackHealth(w, mgr)
+		showConntrackHealth(w, s)
 	}
 	showPolicyConfiguration(w, snapshot, snapshotErr)
 	showPluginStatus(w, pluginSnapshot, pluginHealth, pluginErr)
-	showConclusionStatistics(w, mgr, s.Stats)
-	if !showMapStatisticsFromMetrics(w, mgr, metrics, metricsErr) {
-		showMapStatistics(w, mgr)
+	showConclusionStatistics(w, s, s.Stats)
+	if !showMapStatisticsFromMetrics(w, s, metrics, metricsErr) {
+		showMapStatistics(w, s)
 	}
 	showTrafficMetrics(w, pass, drops)
 	showAttachedInterfaces(w)
@@ -198,18 +197,18 @@ func showTrafficMetrics(w io.Writer, pass, drops uint64) {
 	fmt.Fprintf(w, "   └─ Drop PPS: %s pkt/s (%.2f%%)\n", systemQueryService.FormatNumberWithComma(trafficStats.CurrentDropPPS), dropRate)
 }
 
-func showConntrackHealth(w io.Writer, mgr sdk.ManagerInterface) {
+func showConntrackHealth(w io.Writer, s *sdk.SDK) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[TRACK]  Conntrack Health:")
 
-	count, err := mgr.GetConntrackCount()
+	count, err := s.Conntrack.Count()
 	if err != nil {
 		fmt.Fprintln(w, "   └─ Status: Unavailable")
 		return
 	}
 
 	maxVal := getConntrackMax()
-	entries, _ := mgr.ListAllConntrackEntries()
+	entries, _ := s.Conntrack.List()
 
 	fmt.Fprintf(w, "   ├─ Active Connections: %d / %d (%.1f%%)\n", count, maxVal, calculatePercentGeneric(count, uint64(maxVal)))
 
@@ -401,7 +400,7 @@ func showConntrackHealthFromMetrics(w io.Writer, metrics *MetricsData, metricsEr
 	return true
 }
 
-func showMapStatisticsFromMetrics(w io.Writer, mgr sdk.ManagerInterface, metrics *MetricsData, metricsErr error) bool {
+func showMapStatisticsFromMetrics(w io.Writer, s *sdk.SDK, metrics *MetricsData, metricsErr error) bool {
 	if metricsErr != nil || metrics == nil {
 		return false
 	}
@@ -415,7 +414,7 @@ func showMapStatisticsFromMetrics(w io.Writer, mgr sdk.ManagerInterface, metrics
 		return false
 	}
 
-	allowedPorts, _ := mgr.ListAllowedPorts()
+	allowedPorts, _ := s.Rule.ListAllowedPorts()
 
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[DATA] Map Statistics:")

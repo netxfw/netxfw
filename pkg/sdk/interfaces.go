@@ -172,6 +172,10 @@ type BlacklistAPI interface {
 	// List returns a list of blacklisted IPs.
 	// List 返回黑名单 IP 的列表。
 	List(limit int, search string) ([]BlockedIP, int, error)
+
+	// ListDynamic returns a list of dynamically blacklisted IPs.
+	// ListDynamic 返回动态黑名单 IP 的列表。
+	ListDynamic(limit int, search string) ([]BlockedIP, int, error)
 }
 
 // WhitelistAPI defines the interface for whitelist operations.
@@ -253,16 +257,25 @@ type RuleAPI interface {
 	// ListRateLimitRules lists rate limit rules.
 	// ListRateLimitRules 列出限速规则。
 	ListRateLimitRules(limit int, search string) (map[string]RateLimitConf, int, error)
+
+	// ListAllowedPorts returns the global allowed port list.
+	// ListAllowedPorts 返回全局允许端口列表。
+	ListAllowedPorts() ([]uint16, error)
 }
 
 // SecurityAPI defines methods for security configuration.
 // SecurityAPI 定义了安全配置的方法。
 type SecurityAPI interface {
 	SetDefaultDeny(enable bool) error
+	SetAllowReturnTraffic(enable bool) error
+	SetAllowICMP(enable bool) error
 	SetEnableAFXDP(enable bool) error
+	SetStrictProtocol(enable bool) error
 	SetDropFragments(enable bool) error
 	SetStrictTCP(enable bool) error
 	SetSYNLimit(enable bool) error
+	SetICMPRateLimit(rate, burst uint64) error
+	SetEnableRateLimit(enable bool) error
 	SetConntrack(enable bool) error
 	SetConntrackTimeout(timeout time.Duration) error
 	SetBogonFilter(enable bool) error
@@ -288,6 +301,18 @@ type StatsAPI interface {
 	// GetLockedIPCount returns the number of currently locked IPs.
 	// GetLockedIPCount 返回当前被锁定的 IP 数量。
 	GetLockedIPCount() (int, error)
+
+	// GetDynamicLockedIPCount returns the number of dynamically locked IPs.
+	// GetDynamicLockedIPCount 返回当前动态黑名单中的 IP 数量。
+	GetDynamicLockedIPCount() (uint64, error)
+
+	// GetWhitelistCount returns the number of whitelisted IPs.
+	// GetWhitelistCount 返回白名单 IP 数量。
+	GetWhitelistCount() (int, error)
+
+	// GetConntrackCount returns the active conntrack entry count.
+	// GetConntrackCount 返回活动连接跟踪条目数量。
+	GetConntrackCount() (int, error)
 
 	// GetGlobalStats returns all global statistics.
 	// GetGlobalStats 返回所有全局统计信息。

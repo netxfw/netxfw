@@ -16,11 +16,11 @@ func List(fw *sdk.SDK, limit int, search string) (Snapshot, error) {
 func ListWithRuntime(runtime ruleRuntime, limit int, search string) (Snapshot, error) {
 	snapshot := Snapshot{}
 
-	blacklist, _, err := runtime.Manager().ListBlacklistIPs(limit, search)
+	blacklist, _, err := runtime.Blacklist().List(limit, search)
 	if err != nil {
 		return Snapshot{}, err
 	}
-	whitelist, _, err := runtime.Manager().ListWhitelistIPs(limit, search)
+	whitelist, _, err := runtime.Whitelist().List(limit, search)
 	if err != nil {
 		return Snapshot{}, err
 	}

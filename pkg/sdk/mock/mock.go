@@ -22,6 +22,21 @@ func (m *MockStatsAPI) GetLockedIPCount() (int, error) {
 	return args.Int(0), args.Error(1)
 }
 
+func (m *MockStatsAPI) GetDynamicLockedIPCount() (uint64, error) {
+	args := m.Called()
+	return args.Get(0).(uint64), args.Error(1)
+}
+
+func (m *MockStatsAPI) GetWhitelistCount() (int, error) {
+	args := m.Called()
+	return args.Int(0), args.Error(1)
+}
+
+func (m *MockStatsAPI) GetConntrackCount() (int, error) {
+	args := m.Called()
+	return args.Int(0), args.Error(1)
+}
+
 func (m *MockStatsAPI) GetDropDetails() ([]sdk.DropDetailEntry, error) {
 	args := m.Called()
 	return args.Get(0).([]sdk.DropDetailEntry), args.Error(1)
@@ -66,7 +81,22 @@ func (m *MockSecurityAPI) SetDefaultDeny(enable bool) error {
 	return args.Error(0)
 }
 
+func (m *MockSecurityAPI) SetAllowReturnTraffic(enable bool) error {
+	args := m.Called(enable)
+	return args.Error(0)
+}
+
+func (m *MockSecurityAPI) SetAllowICMP(enable bool) error {
+	args := m.Called(enable)
+	return args.Error(0)
+}
+
 func (m *MockSecurityAPI) SetEnableAFXDP(enable bool) error {
+	args := m.Called(enable)
+	return args.Error(0)
+}
+
+func (m *MockSecurityAPI) SetStrictProtocol(enable bool) error {
 	args := m.Called(enable)
 	return args.Error(0)
 }
@@ -82,6 +112,16 @@ func (m *MockSecurityAPI) SetStrictTCP(enable bool) error {
 }
 
 func (m *MockSecurityAPI) SetSYNLimit(enable bool) error {
+	args := m.Called(enable)
+	return args.Error(0)
+}
+
+func (m *MockSecurityAPI) SetICMPRateLimit(rate, burst uint64) error {
+	args := m.Called(rate, burst)
+	return args.Error(0)
+}
+
+func (m *MockSecurityAPI) SetEnableRateLimit(enable bool) error {
 	args := m.Called(enable)
 	return args.Error(0)
 }

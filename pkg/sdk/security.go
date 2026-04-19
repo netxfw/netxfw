@@ -12,8 +12,20 @@ func (s *SecurityImpl) SetDefaultDeny(enable bool) error {
 	return s.mgr.SetDefaultDeny(enable)
 }
 
+func (s *SecurityImpl) SetAllowReturnTraffic(enable bool) error {
+	return s.mgr.SetAllowReturnTraffic(enable)
+}
+
+func (s *SecurityImpl) SetAllowICMP(enable bool) error {
+	return s.mgr.SetAllowICMP(enable)
+}
+
 func (s *SecurityImpl) SetEnableAFXDP(enable bool) error {
 	return s.mgr.SetEnableAFXDP(enable)
+}
+
+func (s *SecurityImpl) SetStrictProtocol(enable bool) error {
+	return s.mgr.SetStrictProtocol(enable)
 }
 
 func (s *SecurityImpl) SetDropFragments(enable bool) error {
@@ -26,6 +38,14 @@ func (s *SecurityImpl) SetStrictTCP(enable bool) error {
 
 func (s *SecurityImpl) SetSYNLimit(enable bool) error {
 	return s.mgr.SetSYNLimit(enable)
+}
+
+func (s *SecurityImpl) SetICMPRateLimit(rate, burst uint64) error {
+	return s.mgr.SetICMPRateLimit(rate, burst)
+}
+
+func (s *SecurityImpl) SetEnableRateLimit(enable bool) error {
+	return s.mgr.SetEnableRateLimit(enable)
 }
 
 func (s *SecurityImpl) SetConntrack(enable bool) error {

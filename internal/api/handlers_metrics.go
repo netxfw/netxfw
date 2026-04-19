@@ -46,13 +46,13 @@ func registerMetricsRoutes(mux *http.ServeMux, handler *MetricsHandler, middlewa
 	register("/api/v1/metrics/protocols", handler.HandleProtocolStats)
 }
 
-// collectMetrics loads unified datapath metrics from the SDK manager.
-// collectMetrics 从 SDK manager 加载统一的 datapath 指标。
+// collectMetrics loads unified datapath metrics from the SDK facade.
+// collectMetrics 从 SDK facade 加载统一的 datapath 指标。
 func (h *MetricsHandler) collectMetrics() (*datapathstats.MetricsData, error) {
 	if h.sdk == nil {
 		return nil, fmt.Errorf("sdk not available")
 	}
-	return datapathstats.LoadMetrics(h.sdk.GetManager())
+	return datapathstats.LoadMetrics(h.sdk)
 }
 
 // HandleMetrics handles full metrics request.

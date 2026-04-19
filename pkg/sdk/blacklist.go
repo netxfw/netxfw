@@ -58,3 +58,7 @@ func (b *BlacklistImpl) Contains(ip string) (bool, error) {
 func (b *BlacklistImpl) List(limit int, search string) ([]BlockedIP, int, error) {
 	return b.mgr.ListBlacklistIPs(limit, search)
 }
+
+func (b *BlacklistImpl) ListDynamic(limit int, search string) ([]BlockedIP, int, error) {
+	return b.mgr.ListDynamicBlacklistIPs(limit, search)
+}

@@ -70,27 +70,24 @@ func (c *Collector) CollectOnce() {
 		sharedmetrics.XdpDropTotal.WithLabelValues("default_deny").Set(float64(globalStats.DropDefaultDeny))
 	}
 
-	mgr := c.sdk.GetManager()
-	if mgr == nil {
-		return
-	}
-
-	count, err := mgr.GetConntrackCount()
+	count, err := c.sdk.Conntrack.Count()
 	if err == nil {
 		sharedmetrics.ConntrackCount.Set(float64(count))
 	}
 
-	whitelistCount, err := mgr.GetWhitelistCount()
+	whitelistEntries, whitelistCount, err := c.sdk.Whitelist.List(0, "")
 	if err == nil {
+		_ = whitelistEntries
 		sharedmetrics.RulesCount.WithLabelValues("whitelist").Set(float64(whitelistCount))
 	}
 
-	blacklistCount, err := mgr.GetLockedIPCount()
+	blacklistEntries, blacklistCount, err := c.sdk.Blacklist.List(0, "")
 	if err == nil {
+		_ = blacklistEntries
 		sharedmetrics.RulesCount.WithLabelValues("blacklist").Set(float64(blacklistCount))
 	}
 
-	_, ipPortRuleCount, err := mgr.ListIPPortRules(false, 0, "")
+	_, ipPortRuleCount, err := c.sdk.Rule.List(false, 0, "")
 	if err == nil {
 		sharedmetrics.RulesCount.WithLabelValues("ipport").Set(float64(ipPortRuleCount))
 	}

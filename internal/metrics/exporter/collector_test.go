@@ -36,6 +36,18 @@ func (s *stubStats) GetLockedIPCount() (int, error) {
 	return s.locked, nil
 }
 
+func (s *stubStats) GetDynamicLockedIPCount() (uint64, error) {
+	return 0, nil
+}
+
+func (s *stubStats) GetWhitelistCount() (int, error) {
+	return 0, nil
+}
+
+func (s *stubStats) GetConntrackCount() (int, error) {
+	return 0, nil
+}
+
 func (s *stubStats) GetGlobalStats() (*sdk.GlobalStats, error) {
 	return s.global, nil
 }

@@ -69,7 +69,7 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 	if err != nil {
 		return fmt.Errorf("[ERROR] %v", err)
 	}
-	_, _ = daemon.StartRuntimePlugins(ctx, nil, s.GetManager(), globalCfg, log, s, webHost)
+	_, _ = daemon.StartRuntimePlugins(ctx, nil, nil, globalCfg, log, s, webHost)
 
 	log.Infof("[START] XDP program installed successfully and pinned to %s", GetPinPath())
 	return nil

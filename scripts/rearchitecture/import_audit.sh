@@ -7,6 +7,14 @@ cd "$ROOT_DIR"
 
 strict=1
 
+require_tool() {
+  local tool="$1"
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    printf 'missing required tool: %s\n' "$tool" >&2
+    exit 1
+  fi
+}
+
 usage() {
   cat <<'EOF'
 usage: bash scripts/rearchitecture/import_audit.sh [--strict|--no-strict]
@@ -41,6 +49,8 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+require_tool rg
 
 paths=(
   "internal/application"

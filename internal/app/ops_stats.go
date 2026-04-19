@@ -1,18 +1,19 @@
 package app
 
-import (
-	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
-	"github.com/netxfw/netxfw/pkg/sdk"
-)
+import datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
+
+type performanceProvider interface {
+	PerfStats() any
+}
 
 // LoadPerformanceStats returns performance statistics from the manager if available.
-func LoadPerformanceStats(mgr sdk.ManagerInterface) (*PerformanceStats, error) {
-	return datapathstats.LoadPerformanceStats(mgr)
+func LoadPerformanceStats(source performanceProvider) (*PerformanceStats, error) {
+	return datapathstats.LoadPerformanceStats(source)
 }
 
 // LoadMetrics returns unified datapath metrics derived from the active manager.
-func LoadMetrics(mgr sdk.ManagerInterface) (*MetricsData, error) {
-	return datapathstats.LoadMetrics(mgr)
+func LoadMetrics(source any) (*MetricsData, error) {
+	return datapathstats.LoadMetrics(source)
 }
 
 // LoadTrafficStats returns shared runtime traffic statistics.

@@ -119,7 +119,7 @@ func init() {
 // getPerfStats retrieves the performance stats from the manager
 // getPerfStats 从 manager 获取性能统计
 func getPerfStats(s *sdk.SDK) (*PerformanceStats, error) {
-	return perfQueryService.LoadPerformanceStats(s.GetManager())
+	return perfQueryService.LoadPerformanceStats(s)
 }
 
 // showPerformanceStats displays all performance statistics

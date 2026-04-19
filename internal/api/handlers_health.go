@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	datapathhealth "github.com/netxfw/netxfw/internal/datapath/xdp/health"
 )
@@ -17,13 +18,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mgr := s.sdk.GetManager()
-	if mgr == nil {
-		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
-		return
-	}
-
-	healthStatus, err := datapathhealth.LoadStatus(mgr)
+	healthStatus, err := datapathhealth.LoadStatus(s.sdk)
 	if err != nil {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":  "ok",
@@ -44,13 +39,7 @@ func (s *Server) handleHealthMaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mgr := s.sdk.GetManager()
-	if mgr == nil {
-		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
-		return
-	}
-
-	healthStatus, err := datapathhealth.LoadStatus(mgr)
+	healthStatus, err := datapathhealth.LoadStatus(s.sdk)
 	if err != nil {
 		http.Error(w, "Health checking not supported", http.StatusNotImplemented)
 		return
@@ -74,20 +63,12 @@ func (s *Server) handleHealthMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mgr := s.sdk.GetManager()
-	if mgr == nil {
-		http.Error(w, "Manager not available", http.StatusServiceUnavailable)
-		return
-	}
-
-	checker := datapathhealth.CheckerFromManager(mgr)
-	if checker == nil {
-		http.Error(w, "Health checking not supported", http.StatusNotImplemented)
-		return
-	}
-
-	mapStatus, err := checker.CheckMapHealth(mapName)
+	mapStatus, err := datapathhealth.LoadMapStatus(s.sdk, mapName)
 	if err != nil {
+		if strings.Contains(err.Error(), "health checking not supported") {
+			http.Error(w, "Health checking not supported", http.StatusNotImplemented)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}

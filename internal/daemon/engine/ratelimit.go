@@ -10,7 +10,8 @@ import (
 
 type RateLimitModule struct {
 	config   *sdk.RateLimitConfig
-	manager  sdk.ManagerInterface
+	security sdk.SecurityAPI
+	rule     sdk.RuleAPI
 	eventBus sdk.EventBus
 	logger   sdk.Logger
 	sdk      *sdk.SDK
@@ -24,7 +25,8 @@ func (m *RateLimitModule) Name() string {
 
 func (m *RateLimitModule) Init(cfg *sdk.GlobalConfig, s *sdk.SDK, logger sdk.Logger) error {
 	m.config = &cfg.RateLimit
-	m.manager = s.GetManager()
+	m.security = s.Security
+	m.rule = s.Rule
 	m.eventBus = s.EventBus
 	m.logger = logger
 	m.sdk = s
@@ -89,21 +91,21 @@ func (m *RateLimitModule) Sync() error {
 		return nil
 	}
 
-	if err := m.manager.SetEnableRateLimit(m.config.Enabled); err != nil {
+	if err := m.security.SetEnableRateLimit(m.config.Enabled); err != nil {
 		m.logger.Warnf("[WARN]  [RateLimit] Failed to set enable: %v", err)
 	}
-	if err := m.manager.SetAutoBlock(m.config.AutoBlock); err != nil {
+	if err := m.security.SetAutoBlock(m.config.AutoBlock); err != nil {
 		m.logger.Warnf("[WARN]  [RateLimit] Failed to set auto-block: %v", err)
 	}
 	if m.config.AutoBlockExpiry != "" {
 		if d, err := time.ParseDuration(m.config.AutoBlockExpiry); err == nil {
-			if err := m.manager.SetAutoBlockExpiry(d); err != nil {
+			if err := m.security.SetAutoBlockExpiry(d); err != nil {
 				m.logger.Warnf("[WARN]  [RateLimit] Failed to set auto-block expiry: %v", err)
 			}
 		}
 	}
 
-	currentRules, _, err := m.manager.ListRateLimitRules(0, "")
+	currentRules, _, err := m.rule.ListRateLimitRules(0, "")
 	if err != nil {
 		m.logger.Warnf("[WARN] [RateLimit] Failed to list current rules: %v", err)
 		return fmt.Errorf("failed to list rate limit rules: %w", err)
@@ -138,7 +140,7 @@ func (m *RateLimitModule) Sync() error {
 
 	for _, rule := range desiredRules {
 		m.logger.Infof("➕ [RateLimit] Syncing rule for %s: %d/%d", rule.IP, rule.Rate, rule.Burst)
-		if err := m.manager.AddRateLimitRule(rule.IP, rule.Rate, rule.Burst); err != nil {
+		if err := m.rule.AddRateLimitRule(rule.IP, rule.Rate, rule.Burst); err != nil {
 			m.logger.Warnf("[WARN] [RateLimit] Failed to add rule for %s: %v", rule.IP, err)
 		}
 	}

@@ -38,7 +38,7 @@ Use --limit to restrict the number of results (default: 100).
 
 		executor.ExecuteWithSDK(func(s *sdk.SDK) error {
 			if static {
-				ips, total, err := s.GetManager().ListBlacklistIPs(limit, "")
+				ips, total, err := s.Blacklist.List(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list blocked IPs: %v", err)
 				}
@@ -52,7 +52,7 @@ Use --limit to restrict the number of results (default: 100).
 					cmd.Printf("\n[INFO] Total: %d IPs\n", total)
 				}
 			} else if dynamic {
-				ips, total, err := s.GetManager().ListDynamicBlacklistIPs(limit, "")
+				ips, total, err := s.Blacklist.ListDynamic(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list blocked IPs: %v", err)
 				}
@@ -66,11 +66,11 @@ Use --limit to restrict the number of results (default: 100).
 					cmd.Printf("\n[INFO] Total: %d IPs\n", total)
 				}
 			} else {
-				staticIPs, staticTotal, err := s.GetManager().ListBlacklistIPs(limit, "")
+				staticIPs, staticTotal, err := s.Blacklist.List(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list static blocked IPs: %v", err)
 				}
-				dynamicIPs, dynamicTotal, err := s.GetManager().ListDynamicBlacklistIPs(limit, "")
+				dynamicIPs, dynamicTotal, err := s.Blacklist.ListDynamic(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list dynamic blocked IPs: %v", err)
 				}
@@ -300,7 +300,7 @@ Use --limit to restrict the number of results (default: 100).
 					cmd.Printf("\n[INFO] Total: %d IPs\n", total)
 				}
 			} else if dynamic {
-				ips, total, err := s.GetManager().ListDynamicBlacklistIPs(limit, "")
+				ips, total, err := s.Blacklist.ListDynamic(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list dynamic blocked IPs: %v", err)
 				}
@@ -318,7 +318,7 @@ Use --limit to restrict the number of results (default: 100).
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list static blocked IPs: %v", err)
 				}
-				dynamicIPs, dynamicTotal, err := s.GetManager().ListDynamicBlacklistIPs(limit, "")
+				dynamicIPs, dynamicTotal, err := s.Blacklist.ListDynamic(limit, "")
 				if err != nil {
 					return fmt.Errorf("[ERROR] Failed to list dynamic blocked IPs: %v", err)
 				}
@@ -538,7 +538,7 @@ var UfwDeleteCmd = &cobra.Command{
 }
 
 func listIPPortRulesByAction(cmd *cobra.Command, s *sdk.SDK, action uint8, emptyMessage string, header string) error {
-	rules, _, err := s.GetManager().ListIPPortRules(false, 0, "")
+	rules, _, err := s.Rule.List(false, 0, "")
 	if err != nil {
 		return fmt.Errorf("[ERROR] Failed to list IP+Port rules: %v", err)
 	}

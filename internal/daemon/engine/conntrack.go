@@ -7,9 +7,9 @@ import (
 )
 
 type ConntrackModule struct {
-	config  *sdk.ConntrackConfig
-	manager sdk.ManagerInterface
-	logger  sdk.Logger
+	config   *sdk.ConntrackConfig
+	security sdk.SecurityAPI
+	logger   sdk.Logger
 }
 
 func (m *ConntrackModule) Name() string {
@@ -18,7 +18,7 @@ func (m *ConntrackModule) Name() string {
 
 func (m *ConntrackModule) Init(cfg *sdk.GlobalConfig, s *sdk.SDK, logger sdk.Logger) error {
 	m.config = &cfg.Conntrack
-	m.manager = s.GetManager()
+	m.security = s.Security
 	m.logger = logger
 	return nil
 }
@@ -42,7 +42,7 @@ func (m *ConntrackModule) Sync() error {
 	if m.config == nil {
 		return nil
 	}
-	if err := m.manager.SetConntrack(m.config.Enabled); err != nil {
+	if err := m.security.SetConntrack(m.config.Enabled); err != nil {
 		m.logger.Warnf("[WARN]  [Conntrack] Failed to set conntrack state: %v", err)
 		return err
 	}
@@ -61,7 +61,7 @@ func (m *ConntrackModule) Sync() error {
 		tcpDuration = time.Hour
 	}
 
-	if err := m.manager.SetConntrackTimeout(tcpDuration); err != nil {
+	if err := m.security.SetConntrackTimeout(tcpDuration); err != nil {
 		m.logger.Warnf("[WARN]  [Conntrack] Failed to set timeout: %v", err)
 	}
 	return nil

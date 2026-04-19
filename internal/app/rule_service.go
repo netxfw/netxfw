@@ -92,7 +92,7 @@ func ResetFirewall(s *sdk.SDK) ResetResult {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("Failed to clear static blacklist: %v", err))
 	}
 
-	dynamicEntries, _, listErr := s.GetManager().ListDynamicBlacklistIPs(0, "")
+	dynamicEntries, _, listErr := s.Blacklist.ListDynamic(0, "")
 	if listErr != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("Failed to list dynamic blacklist: %v", listErr))
 	} else {

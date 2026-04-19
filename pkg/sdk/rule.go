@@ -53,3 +53,7 @@ func (r *RuleImpl) RemoveRateLimitRule(ip string) error {
 func (r *RuleImpl) ListRateLimitRules(limit int, search string) (map[string]RateLimitConf, int, error) {
 	return r.mgr.ListRateLimitRules(limit, search)
 }
+
+func (r *RuleImpl) ListAllowedPorts() ([]uint16, error) {
+	return r.mgr.ListAllowedPorts()
+}

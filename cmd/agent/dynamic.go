@@ -135,7 +135,7 @@ Examples:
 
 			// 列出动态黑名单
 			// List dynamic blacklist
-			ips, count, err := s.GetManager().ListDynamicBlacklistIPs(limit, search)
+			ips, count, err := s.Blacklist.ListDynamic(limit, search)
 			if err != nil {
 				return fmt.Errorf("[ERROR] Failed to list dynamic blacklist: %v", err)
 			}

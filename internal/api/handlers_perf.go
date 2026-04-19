@@ -11,14 +11,14 @@ func (s *Server) loadPerformanceStats() (*datapathstats.PerformanceStats, error)
 	if s.sdk == nil {
 		return nil, nil
 	}
-	return datapathstats.LoadPerformanceStats(s.sdk.GetManager())
+	return datapathstats.LoadPerformanceStats(s.sdk)
 }
 
 func (s *Server) rawPerformanceStats() any {
 	if s.sdk == nil {
 		return nil
 	}
-	return s.sdk.GetManager().PerfStats()
+	return s.sdk.PerfStats()
 }
 
 // handlePerfStats returns all performance statistics.

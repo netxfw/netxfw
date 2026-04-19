@@ -16,12 +16,15 @@ type blacklistPort interface {
 	Remove(cidr string) error
 	RemoveDynamic(cidr string) error
 	Clear() error
+	List(limit int, search string) ([]sdk.BlockedIP, int, error)
+	ListDynamic(limit int, search string) ([]sdk.BlockedIP, int, error)
 }
 
 type whitelistPort interface {
 	Add(cidr string, port uint16) error
 	Remove(cidr string) error
 	Clear() error
+	List(limit int, search string) ([]string, int, error)
 }
 
 type ipPortRulePort interface {
@@ -34,7 +37,6 @@ type ruleRuntime interface {
 	Blacklist() blacklistPort
 	Whitelist() whitelistPort
 	Rule() ipPortRulePort
-	Manager() sdk.ManagerInterface
 }
 
 type sdkRuntime struct {
@@ -55,8 +57,4 @@ func (r sdkRuntime) Whitelist() whitelistPort {
 
 func (r sdkRuntime) Rule() ipPortRulePort {
 	return r.sdk.Rule
-}
-
-func (r sdkRuntime) Manager() sdk.ManagerInterface {
-	return r.sdk.GetManager()
 }

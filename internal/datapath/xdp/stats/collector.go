@@ -47,6 +47,10 @@ type managerAccessor interface {
 	GetManagerHandle() *xdpbackend.Handle
 }
 
+type sdkManagerAccessor interface {
+	GetManager() sdk.ManagerInterface
+}
+
 func NewCollector(mgr *datapathprograms.Handle) *MetricsCollector {
 	return datapathprograms.NewMetricsCollector(mgr)
 }
@@ -65,6 +69,8 @@ func ExtractManager(mgr any) *datapathprograms.Handle {
 		return datapathprograms.WrapExisting(typed)
 	case managerAccessor:
 		return datapathprograms.WrapExisting(typed.GetManagerHandle())
+	case sdkManagerAccessor:
+		return ExtractManager(typed.GetManager())
 	default:
 		return nil
 	}
