@@ -14,7 +14,6 @@ import (
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -319,7 +318,7 @@ func NewRuleEngine(counter *Counter, logger sdk.Logger) *RuleEngine {
 }
 
 // UpdateRules compiles and updates the current rules.
-func (re *RuleEngine) UpdateRules(configs []types.LogEngineRule) error {
+func (re *RuleEngine) UpdateRules(configs []sdk.LogEngineRule) error {
 	newRules := make([]Rule, 0, len(configs))
 	for i := range configs {
 		rule, err := re.compileRule(configs[i])
@@ -334,7 +333,7 @@ func (re *RuleEngine) UpdateRules(configs []types.LogEngineRule) error {
 
 // compileRule compiles a single rule from configuration.
 // compileRule 从配置编译单个规则。
-func (re *RuleEngine) compileRule(cfg types.LogEngineRule) (Rule, error) {
+func (re *RuleEngine) compileRule(cfg sdk.LogEngineRule) (Rule, error) {
 	src := cfg.Expression
 	if src == "" {
 		src = re.generateExpression(cfg)
@@ -374,7 +373,7 @@ func (re *RuleEngine) compileRule(cfg types.LogEngineRule) (Rule, error) {
 
 // generateExpression generates an expression from rule configuration.
 // generateExpression 从规则配置生成表达式。
-func (re *RuleEngine) generateExpression(cfg types.LogEngineRule) string {
+func (re *RuleEngine) generateExpression(cfg sdk.LogEngineRule) string {
 	totalLen := len(cfg.Keywords) + len(cfg.Contains) + len(cfg.Is) + len(cfg.And) +
 		len(cfg.AnyContains) + len(cfg.Or) + len(cfg.NotContains) + len(cfg.Not)
 	if cfg.Regex != "" {
@@ -443,7 +442,7 @@ func combineExpressionParts(andParts, orParts, notParts []string) string {
 
 // parseTTL parses the TTL duration from configuration.
 // parseTTL 从配置解析 TTL 持续时间。
-func (re *RuleEngine) parseTTL(cfg types.LogEngineRule) time.Duration {
+func (re *RuleEngine) parseTTL(cfg sdk.LogEngineRule) time.Duration {
 	ttlStr := cfg.TTL
 	if ttlStr == "" || ttlStr == "0" {
 		return 0
@@ -459,7 +458,7 @@ func (re *RuleEngine) parseTTL(cfg types.LogEngineRule) time.Duration {
 
 // parseActionType parses the action type from configuration.
 // parseActionType 从配置解析动作类型。
-func (re *RuleEngine) parseActionType(cfg types.LogEngineRule) ActionType {
+func (re *RuleEngine) parseActionType(cfg sdk.LogEngineRule) ActionType {
 	actStr := strings.ToLower(strings.TrimSpace(cfg.Action))
 
 	switch actStr {
@@ -476,7 +475,7 @@ func (re *RuleEngine) parseActionType(cfg types.LogEngineRule) ActionType {
 
 // parseAliasActionType parses alias action type format.
 // parseAliasActionType 解析别名动作类型格式。
-func (re *RuleEngine) parseAliasActionType(cfg types.LogEngineRule, actStr string) ActionType {
+func (re *RuleEngine) parseAliasActionType(cfg sdk.LogEngineRule, actStr string) ActionType {
 	if strings.HasPrefix(actStr, "block:") || strings.HasPrefix(actStr, "black:") {
 		return ActionDynamic
 	}

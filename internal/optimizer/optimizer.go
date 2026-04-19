@@ -3,14 +3,14 @@ package optimizer
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/ipmerge"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // OptimizeWhitelistConfig optimizes the whitelist in the configuration.
 // OptimizeWhitelistConfig 优化配置中的白名单。
-func OptimizeWhitelistConfig(cfg *types.GlobalConfig) {
+func OptimizeWhitelistConfig(cfg *sdk.GlobalConfig) {
 	rulesByPort := make(map[uint16][]string)
 	for _, line := range cfg.Base.Whitelist {
 		cidr := line
@@ -46,7 +46,7 @@ func OptimizeWhitelistConfig(cfg *types.GlobalConfig) {
 
 // OptimizeIPPortRulesConfig optimizes IP+Port rules in the configuration.
 // OptimizeIPPortRulesConfig 优化配置中的 IP+端口规则。
-func OptimizeIPPortRulesConfig(cfg *types.GlobalConfig) {
+func OptimizeIPPortRulesConfig(cfg *sdk.GlobalConfig) {
 	type ruleKey struct {
 		port   uint16
 		action uint8
@@ -57,14 +57,14 @@ func OptimizeIPPortRulesConfig(cfg *types.GlobalConfig) {
 		key := ruleKey{r.Port, r.Action}
 		rulesByGroup[key] = append(rulesByGroup[key], r.IP)
 	}
-	var newRules []types.IPPortRule
+	var newRules []sdk.IPPortRule
 	for key, cidrs := range rulesByGroup {
 		merged, err := ipmerge.MergeCIDRs(cidrs)
 		if err != nil {
 			merged = cidrs
 		}
 		for _, cidr := range merged {
-			newRules = append(newRules, types.IPPortRule{
+			newRules = append(newRules, sdk.IPPortRule{
 				IP:     cidr,
 				Port:   key.port,
 				Action: key.action,
