@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -15,14 +14,14 @@ import (
 
 // Server exposes Prometheus metrics on a dedicated HTTP listener.
 type Server struct {
-	config    *types.MetricsConfig
+	config    *sdk.MetricsConfig
 	server    *http.Server
 	running   bool
 	mu        sync.RWMutex
 	collector *Collector
 }
 
-func NewServer(s *sdk.SDK, config *types.MetricsConfig) *Server {
+func NewServer(s *sdk.SDK, config *sdk.MetricsConfig) *Server {
 	return &Server{
 		config:    config,
 		collector: NewCollector(s),

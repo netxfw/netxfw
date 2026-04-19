@@ -7,6 +7,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 /**
@@ -92,6 +93,11 @@ func GetCurrentConfig() *types.GlobalConfig {
 	return GetConfigManager().GetConfig()
 }
 
+// DefaultConfigTemplate returns the default TOML config template text.
+func DefaultConfigTemplate() string {
+	return types.DefaultConfigTOMLTemplate
+}
+
 // MutateConfig applies fn to the current in-memory config and persists it.
 // MutateConfig 对当前内存配置执行 fn 并持久化。
 func MutateConfig(fn func(*types.GlobalConfig) error) error {
@@ -118,4 +124,12 @@ func GetBackupKeep() int {
 		return cfg.Base.BackupKeep
 	}
 	return DefaultBackupKeep
+}
+
+// CloneConfig returns a deep copy of cfg.
+func CloneConfig(cfg *sdk.GlobalConfig) *sdk.GlobalConfig {
+	if cfg == nil {
+		return nil
+	}
+	return types.CloneGlobalConfig(cfg)
 }

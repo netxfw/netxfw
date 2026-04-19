@@ -14,7 +14,6 @@ import (
 
 	"github.com/netxfw/netxfw/internal/config"
 	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
@@ -166,7 +165,7 @@ func waitForSignal(ctx context.Context, _ string, _ *sdk.SDK, reloadFunc func() 
 
 // runCleanupLoop periodically removes expired rules from BPF maps.
 // runCleanupLoop 定期从 BPF Map 中删除过期的规则。
-func runCleanupLoop(ctx context.Context, globalCfg *types.GlobalConfig) {
+func runCleanupLoop(ctx context.Context, globalCfg *sdk.GlobalConfig) {
 	log := logger.Get(ctx)
 	if !globalCfg.Base.EnableExpiry {
 		log.Info("[INFO]  Rule cleanup is disabled in config")

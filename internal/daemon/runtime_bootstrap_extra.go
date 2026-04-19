@@ -6,14 +6,14 @@ import (
 
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
 // LoadRuntimeConfigSnapshot reloads the current config snapshot and ensures it is non-nil.
-func LoadRuntimeConfigSnapshot() (*types.GlobalConfig, error) {
+func LoadRuntimeConfigSnapshot() (*sdk.GlobalConfig, error) {
 	globalCfg, err := config.ReloadCurrentConfig()
 	if err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func LoadRuntimeConfigSnapshot() (*types.GlobalConfig, error) {
 }
 
 // InitRuntimeLogging initializes logging and optional pprof from config.
-func InitRuntimeLogging(globalCfg *types.GlobalConfig) {
+func InitRuntimeLogging(globalCfg *sdk.GlobalConfig) {
 	logger.Init(globalCfg.Logging)
 	if globalCfg.Base.EnablePprof {
 		startPprof(globalCfg.Base.PprofPort)
@@ -34,8 +34,8 @@ func InitRuntimeLogging(globalCfg *types.GlobalConfig) {
 
 // VerifyRuntimeConfigAndMaps preserves the current startup verify-and-repair behavior.
 func VerifyRuntimeConfigAndMaps(manager interface {
-	VerifyAndRepair(*types.GlobalConfig) error
-}, globalCfg *types.GlobalConfig, log *zap.SugaredLogger) {
+	VerifyAndRepair(*sdk.GlobalConfig) error
+}, globalCfg *sdk.GlobalConfig, log *zap.SugaredLogger) {
 	switch m := manager.(type) {
 	case *xdp.Manager:
 		adapter := xdp.NewAdapter(m)

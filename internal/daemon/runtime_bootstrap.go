@@ -3,13 +3,13 @@ package daemon
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
 // LoadOrCreateManager loads a pinned manager or creates a new one if pins are absent.
-func LoadOrCreateManager(log *zap.SugaredLogger, pinPath string, globalCfg *types.GlobalConfig) (*xdp.Manager, error) {
+func LoadOrCreateManager(log *zap.SugaredLogger, pinPath string, globalCfg *sdk.GlobalConfig) (*xdp.Manager, error) {
 	manager, err := xdp.NewManagerFromPins(pinPath, log)
 	if err == nil {
 		return manager, nil
@@ -32,7 +32,7 @@ func PinManager(manager *xdp.Manager, pinPath string) error {
 }
 
 // ResolveRuntimeInterfaces resolves interfaces from CLI override, config, or physical NIC discovery.
-func ResolveRuntimeInterfaces(cliInterfaces []string, globalCfg *types.GlobalConfig, log *zap.SugaredLogger) ([]string, error) {
+func ResolveRuntimeInterfaces(cliInterfaces []string, globalCfg *sdk.GlobalConfig, log *zap.SugaredLogger) ([]string, error) {
 	if len(cliInterfaces) > 0 {
 		log.Infof("[INFO]  Using CLI provided interfaces: %v", cliInterfaces)
 		return cliInterfaces, nil

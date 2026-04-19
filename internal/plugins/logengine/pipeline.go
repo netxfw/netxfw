@@ -5,14 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // LogEngine is the main orchestrator.
 type LogEngine struct {
 	logger     sdk.Logger
-	config     types.LogEngineConfig
+	config     sdk.LogEngineConfig
 	tailer     *Tailer
 	tokenizer  *Tokenizer
 	extractor  *IPExtractor
@@ -27,7 +26,7 @@ type LogEngine struct {
 }
 
 // New creates a new LogEngine.
-func New(cfg types.LogEngineConfig, logger sdk.Logger, actionHandler ActionHandler) *LogEngine {
+func New(cfg sdk.LogEngineConfig, logger sdk.Logger, actionHandler ActionHandler) *LogEngine {
 	if cfg.Workers <= 0 {
 		cfg.Workers = 4 // Default to 4 workers
 	}
@@ -275,7 +274,7 @@ func (le *LogEngine) executeAction(ip netip.Addr, actionType ActionType, ttl tim
 }
 
 // UpdateConfig updates the configuration and reloads rules.
-func (le *LogEngine) UpdateConfig(cfg types.LogEngineConfig) error {
+func (le *LogEngine) UpdateConfig(cfg sdk.LogEngineConfig) error {
 	le.config = cfg
 	if err := le.ruleEngine.UpdateRules(cfg.Rules); err != nil {
 		return err

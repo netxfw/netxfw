@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
@@ -24,7 +23,7 @@ func InitConfiguration(ctx context.Context) {
 	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		if err := os.WriteFile(configPath, []byte(types.DefaultConfigTOMLTemplate), 0600); err != nil {
+		if err := os.WriteFile(configPath, []byte(config.DefaultConfigTemplate()), 0600); err != nil {
 			log.Fatalf("[ERROR] Failed to create config file: %v", err)
 		}
 		log.Infof("[FILE] Created default global config with comments: %s", configPath)
