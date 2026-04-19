@@ -8,15 +8,15 @@ import (
 	"github.com/netxfw/netxfw/internal/daemon"
 	datapathlifecycle "github.com/netxfw/netxfw/internal/datapath/xdp/lifecycle"
 	datapathplugins "github.com/netxfw/netxfw/internal/datapath/xdp/plugins"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
 // IsXDPLoaded returns true if XDP is attached to any interface.
 func IsXDPLoaded() bool {
-	ifaces, err := xdp.GetAttachedInterfaces(GetPinPath())
+	ifaces, err := datapathprograms.GetAttachedInterfaces(GetPinPath())
 	return err == nil && len(ifaces) > 0
 }
 
@@ -63,7 +63,7 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 		log.Warnf("[WARN]  Failed to load BPF plugins: %v (continuing anyway)", err)
 	}
 
-	s := sdk.NewSDK(xdp.NewAdapter(manager))
+	s := sdk.NewSDK(datapathprograms.NewAdapter(manager))
 	webHost := api.NewServer(s, globalCfg.Web.Port)
 	_, err = daemon.StartDefaultRuntimeCore(globalCfg, s, log)
 	if err != nil {
@@ -77,7 +77,10 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 
 // loadBPFPlugins loads BPF plugins configured in the global config.
 // loadBPFPlugins 加载全局配置中配置的 BPF 插件。
-func loadBPFPlugins(manager *xdp.Manager, globalCfg *sdk.GlobalConfig, log *zap.SugaredLogger) error {
+func loadBPFPlugins(manager interface {
+	LoadPlugin(path string, index int) error
+	RemovePlugin(index int) error
+}, globalCfg *sdk.GlobalConfig, log *zap.SugaredLogger) error {
 	return datapathplugins.LoadConfigured(manager, globalCfg, log)
 }
 

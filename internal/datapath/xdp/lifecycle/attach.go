@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/ebpf/link"
-	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
@@ -17,7 +17,7 @@ import (
 func AttachWithMode(ctx context.Context, pinPath string, interfaces []string, mode string, globalCfg *sdk.GlobalConfig, log *zap.SugaredLogger) ([]string, error) {
 	_ = ctx
 
-	manager, err := backendxdp.NewManager(globalCfg.Capacity, log)
+	manager, err := datapathprograms.CreateManager(globalCfg.Capacity, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create XDP manager: %w", err)
 	}
@@ -52,11 +52,7 @@ func AttachWithMode(ctx context.Context, pinPath string, interfaces []string, mo
 		}
 
 		log.Infof("[INFO]  Attempting to attach XDP on %s with mode: %s", name, attachModeName)
-		l, err := link.AttachXDP(link.XDPOptions{
-			Program:   manager.XdpFirewall(),
-			Interface: iface.Index,
-			Flags:     attachMode,
-		})
+		l, err := datapathprograms.AttachProgram(manager.XDPProgram(), iface.Index, attachMode)
 		if err != nil {
 			log.Warnf("[WARN]  Failed to attach XDP on %s using %s mode: %v", name, attachModeName, err)
 			continue

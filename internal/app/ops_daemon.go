@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/netxfw/netxfw/internal/config"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/internal/version"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // InitRootCommandContext initializes logging for CLI root commands and injects logger into context.
 func InitRootCommandContext(ctx context.Context) context.Context {
-	cfg, err := config.ReloadCurrentConfig()
+	cfg, err := appconfig.LoadConfig()
 	if err != nil {
 		logger.Init(logger.LoggingConfig{Enabled: true, Level: "info"})
 	} else {
@@ -36,11 +36,11 @@ func BootstrapDaemon(mode string) context.Context {
 
 // NewPinnedSDK returns an SDK connected to the currently pinned maps.
 func NewPinnedSDK() (*sdk.SDK, error) {
-	mgr, err := xdp.NewManagerFromPins(GetPinPath(), logger.Get(nil))
+	mgr, err := datapathprograms.OpenPinnedManager(GetPinPath(), logger.Get(nil))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load XDP manager from %s: %w", GetPinPath(), err)
 	}
-	return sdk.NewSDK(xdp.NewAdapter(mgr)), nil
+	return sdk.NewSDK(datapathprograms.NewAdapter(mgr)), nil
 }
 
 // SyncLogger flushes any buffered logs.

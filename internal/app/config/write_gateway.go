@@ -11,7 +11,6 @@ import (
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
-// WriteGateway is the unified persistence entry for config and state writes.
 type WriteGateway interface {
 	WriteFile(path string, data []byte, perm os.FileMode, source string) error
 	SaveGlobalConfig(path string, cfg *sdk.GlobalConfig, keepBackups int, source string) error
@@ -23,12 +22,10 @@ type atomicWriteGateway struct {
 
 var defaultWriteGateway WriteGateway = &atomicWriteGateway{}
 
-// DefaultWriteGateway returns the process-wide write gateway.
 func DefaultWriteGateway() WriteGateway {
 	return defaultWriteGateway
 }
 
-// SetDefaultWriteGateway overrides the default write gateway.
 func SetDefaultWriteGateway(gateway WriteGateway) {
 	if gateway == nil {
 		return

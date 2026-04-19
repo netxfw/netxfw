@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/netxfw/netxfw/internal/api"
-	"github.com/netxfw/netxfw/internal/config"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -14,8 +14,8 @@ import (
 // runControlPlane 处理 API、Web、日志引擎和高级管理。
 func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	log := logger.Get(ctx)
-	configPath := config.GetConfigPath()
-	pidPath := config.DefaultPidPath
+	configPath := appconfig.GetConfigPath()
+	pidPath := runtime.DefaultPidPath
 
 	log.Info("[START] Starting netxfw in Agent (Control Plane) mode")
 
@@ -41,12 +41,12 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	InitRuntimeLogging(globalCfg)
 
 	// 1. Initialize Manager
-	var manager xdp.ManagerInterface
+	var manager sdk.ManagerInterface
 	if opts != nil && opts.Manager != nil {
 		log.Info("Using injected Manager (e.g. for testing)")
 		manager = opts.Manager
 	} else {
-		pinPath := config.GetPinPath()
+		pinPath := runtime.GetPinPath()
 		adapter, realMgr, err := RequirePinnedManager(pinPath, log)
 		if err != nil {
 			log.Errorf("[ERROR] Agent requires netxfw daemon to be running and maps pinned at %s: %v", pinPath, err)

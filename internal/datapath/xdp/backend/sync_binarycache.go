@@ -9,11 +9,11 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/netxfw/netxfw/internal/binary"
-	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // loadFromBinaryFile loads rules directly from the binary cache file.
-func (m *Manager) loadFromBinaryFile(cfg *types.GlobalConfig) error {
+func (m *Manager) loadFromBinaryFile(cfg *sdk.GlobalConfig) error {
 	file, err := os.Open(cfg.Base.LockListBinary)
 	if err != nil {
 		return fmt.Errorf("failed to open binary file: %v", err)
@@ -37,7 +37,7 @@ func (m *Manager) loadFromBinaryFile(cfg *types.GlobalConfig) error {
 }
 
 // UpdateBinaryCache encodes records to binary format and compresses them.
-func (m *Manager) UpdateBinaryCache(cfg *types.GlobalConfig, records []binary.Record) {
+func (m *Manager) UpdateBinaryCache(cfg *sdk.GlobalConfig, records []binary.Record) {
 	if cfg.Base.LockListBinary == "" {
 		return
 	}

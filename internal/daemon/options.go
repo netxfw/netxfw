@@ -1,8 +1,6 @@
 package daemon
 
-import (
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
-)
+import "github.com/netxfw/netxfw/pkg/sdk"
 
 // DaemonOptions configuration options for the daemon
 // DaemonOptions 守护进程的配置选项
@@ -11,7 +9,7 @@ type DaemonOptions struct {
 	// Manager 允许注入自定义/模拟的 XDP 管理器。
 	// If nil, the default manager will be created.
 	// 如果为 nil，将创建默认管理器。
-	Manager xdp.ManagerInterface
+	Manager sdk.ManagerInterface
 
 	// Interfaces specifies the network interfaces to bind to.
 	// If nil or empty, all interfaces will be used.

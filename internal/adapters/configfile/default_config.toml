@@ -1,0 +1,385 @@
+# NetXFW Configuration File / NetXFW 配置文件
+# TOML format - Better cross-language support / TOML 格式 - 更好的跨语言支持
+#
+
+# ============================================================================
+# 1. Core Configuration / 核心配置
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 1.1 Base Configuration / 基础配置
+# ----------------------------------------------------------------------------
+[base]
+default_deny = true
+allow_return_traffic = true
+allow_icmp = true
+persist_rules = true
+backup_keep = 3
+interfaces = []
+enable_af_xdp = false
+strict_protocol = true
+drop_fragments = true
+strict_tcp = false
+syn_limit = true
+bogon_filter = true
+icmp_rate = 10
+icmp_burst = 50
+enable_expiry = true
+cleanup_interval = "1m"
+enable_pprof = false
+pprof_port = 6060
+lock_list_file = "/etc/netxfw/deny_list.txt"
+lock_list_binary = "/etc/netxfw/deny_list.bin.zst"
+bpf_pin_path = ""
+lock_list_merge_threshold = 0
+lock_list_v4_mask = 24
+lock_list_v6_mask = 64
+# Example / 示例:
+# default_deny = true          # 默认拒绝所有未显式允许的流量
+# allow_return_traffic = true  # 允许回程流量 (无状态检查)
+# allow_icmp = true            # 允许 ICMP (Ping 等)
+# enable_af_xdp = false        # 启用 AF_XDP 高性能模式
+# strict_protocol = true       # 严格协议验证
+# drop_fragments = true        # 丢弃 IP 分片
+# strict_tcp = true            # 严格 TCP 验证
+# syn_limit = true             # SYN 泛洪限制
+# bogon_filter = false         # 伪路由 IP 过滤
+# icmp_rate = 10               # ICMP 速率限制 (每秒包数)
+# icmp_burst = 50              # ICMP 突发大小
+# lock_list_file = "/etc/netxfw/deny.txt"       # 拒绝列表文件
+# lock_list_binary = "/etc/netxfw/deny.bin.zst" # 压缩二进制格式
+# lock_list_merge_threshold = 1000              # IP 合并阈值
+# lock_list_v4_mask = 24                        # IPv4 合并掩码 (/24 = 256 个 IP)
+# lock_list_v6_mask = 64                        # IPv6 合并掩码 (/64 = 标准子网)
+# enable_expiry = false                         # 启用规则过期
+# cleanup_interval = "1m"                       # 清理间隔
+# persist_rules = true                          # 持久化规则
+# enable_pprof = false                          # 启用性能分析
+# pprof_port = 6060                             # pprof 端口
+
+# ============================================================================
+# 2. Security Rules / 安全规则
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 2.1 Whitelist / 白名单
+# ----------------------------------------------------------------------------
+whitelist = []
+# Example / 示例:
+# whitelist = [
+#     # IPv4 Addresses / IPv4 地址
+#     "127.0.0.1/32",           # 本地回环
+#     "192.168.1.0/24",         # 内网网段
+#     "10.0.0.0/8",             # 私有网络
+#     # IPv6 Addresses / IPv6 地址
+#     "::1/128",                # IPv6 本地回环
+#     "fe80::/10",              # IPv6 链路本地地址
+#     "2001:db8::/32",          # IPv6 文档网络
+#     "2400:3200::/32",         # IPv6 公网地址段
+# ]
+
+# ----------------------------------------------------------------------------
+# 2.2 Log Engine / 日志引擎
+# ----------------------------------------------------------------------------
+[log_engine]
+enabled = false
+workers = 4
+rules = []
+# Example / 示例:
+# rules = [
+#     # 1. Non-Root User Login Attempt -> Block Immediately
+#     # 1. 非 Root 用户登录尝试 -> 立即封禁
+#     # action: 0 = log, 1 = dynblock, 2 = static block
+#     { id = "block_non_root_strict",
+#       path = "/var/log/auth.log",
+#       expression = '(log("password for") || log("Invalid user")) && !log("root")',
+#       action = 0
+#     },
+#     # 2. Root User Failed Login -> Block after 2 failures (on 3rd attempt)
+#     # 2. Root 用户登录失败 -> 2 次失败后封禁（第 3 次尝试时）
+#     { id = "block_root_failed",
+#       path = "/var/log/auth.log",
+#       expression = 'log("Failed") && log("root") && time(60) > 2',
+#       action = 0
+#     },
+# ]
+
+# ----------------------------------------------------------------------------
+# 2.3 Port Configuration / 端口配置
+# ----------------------------------------------------------------------------
+[port]
+allowed_ports = [22]
+# Example / 示例:
+# allowed_ports = [
+#     22,      # SSH
+#     80,      # HTTP
+#     443,     # HTTPS
+#     8080,    # 备用 HTTP
+#     3306,    # MySQL
+#     5432,    # PostgreSQL
+# ]
+
+# ----------------------------------------------------------------------------
+# 2.4 IP-Port Rules / IP-端口规则
+# ----------------------------------------------------------------------------
+# action: 0 = Deny / 拒绝，1 = Allow / 允许
+ip_port_rules = []
+# Example / 示例:
+# ip_port_rules = [
+#     # IPv4 Rules / IPv4 规则
+#     { ip = "0.0.0.0/0", port = 22, action = 1 },   # 允许所有 IPv4 访问 SSH
+#     { ip = "0.0.0.0/0", port = 80, action = 1 },   # 允许所有 IPv4 访问 HTTP
+#     { ip = "0.0.0.0/0", port = 443, action = 1 },  # 允许所有 IPv4 访问 HTTPS
+#     # IPv6 Rules / IPv6 规则
+#     { ip = "::/0", port = 22, action = 1 },        # 允许所有 IPv6 访问 SSH
+#     { ip = "::/0", port = 80, action = 1 },        # 允许所有 IPv6 访问 HTTP
+#     { ip = "::/0", port = 443, action = 1 },       # 允许所有 IPv6 访问 HTTPS
+#     # Mixed Rules / 混合规则
+#     { ip = "2001:db8::/32", port = 8080, action = 0 },  # 拒绝特定 IPv6 网段
+# ]
+
+# ----------------------------------------------------------------------------
+# 2.5 Rate Limit / 速率限制
+# ----------------------------------------------------------------------------
+[rate_limit]
+enabled = false
+auto_block = true
+auto_block_expiry = "10m"
+rules = []
+# Example / 示例:
+# enabled = false              # 启用速率限制
+# auto_block = true            # 自动阻止超过限制的 IP
+# auto_block_expiry = "10m"    # 自动阻止过期时间
+# rules = [
+#     # IPv4 Rate Limits / IPv4 速率限制
+#     { ip = "10.0.0.0/24", rate = 100, burst = 200 },
+#     { ip = "192.168.1.0/24", rate = 500, burst = 1000 },
+#     # IPv6 Rate Limits / IPv6 速率限制
+#     { ip = "2001:db8::/32", rate = 1000, burst = 2000 },
+#     { ip = "2400:3200::/32", rate = 800, burst = 1600 },
+#     # Mixed Rate Limits / 混合速率限制
+#     { ip = "::/0", port = 80, rate = 50, burst = 100 },  # 限制所有 IPv6 的 HTTP 访问
+# ]
+
+# ----------------------------------------------------------------------------
+# 2.6 Connection Tracking / 连接跟踪
+# ----------------------------------------------------------------------------
+[conntrack]
+enabled = true
+max_entries = 10000
+tcp_timeout = "1h"
+udp_timeout = "5m"
+# Example / 示例:
+# enabled = true           # 启用连接跟踪
+# max_entries = 100000     # 最大连接数
+# tcp_timeout = "1h"       # TCP 连接超时
+# udp_timeout = "5m"       # UDP 流超时
+
+# ============================================================================
+# 3. XDP Configuration / XDP 配置
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 3.1 Capacity / 容量配置
+# ----------------------------------------------------------------------------
+[capacity]
+lock_list = 20000
+dyn_lock_list = 2000
+whitelist = 30
+ip_port_rules = 30
+allowed_ports = 30
+rate_limits = 1000
+drop_reason_stats = 1000000
+pass_reason_stats = 1000000
+# Example / 示例:
+# lock_list = 2000000          # 静态拒绝列表容量
+# dyn_lock_list = 2000         # 动态拒绝列表容量
+# whitelist = 65536            # 白名单容量
+# ip_port_rules = 65536        # IP-端口规则容量
+# allowed_ports = 1024         # 允许端口容量
+# rate_limits = 1000           # 速率限制规则容量
+# drop_reason_stats = 1000000  # 丢弃统计容量
+# pass_reason_stats = 1000000  # 通过统计容量
+
+# ----------------------------------------------------------------------------
+# 3.2 Module Configuration / 模块配置
+# ----------------------------------------------------------------------------
+modules = [
+    { name = "sanity", enabled = true, priority = 1 },
+    { name = "critical_blacklist", enabled = true, priority = 2 },
+    { name = "whitelist", enabled = true, priority = 3 },
+    { name = "blacklist", enabled = true, priority = 4 },
+    { name = "dynamic_blacklist", enabled = true, priority = 5 },
+    { name = "ratelimit", enabled = true, priority = 6 },
+    { name = "conntrack", enabled = true, priority = 7 },
+    { name = "ip_port_rules", enabled = true, priority = 8 },
+    { name = "icmp", enabled = true, priority = 9 },
+    { name = "return_traffic", enabled = true, priority = 10 },
+]
+# Example / 示例:
+# modules = [
+#     # 1. Sanity Check - Validate packet structure
+#     # 1. 健全性检查 - 验证数据包结构
+#     { name = "sanity", enabled = true, priority = 1 },
+#     
+#     # 2. Critical Blacklist - Block critical threats
+#     # 2. 关键黑名单 - 阻止关键威胁
+#     { name = "critical_blacklist", enabled = true, priority = 2 },
+#     
+#     # 3. Whitelist - Allow trusted IPs
+#     # 3. 白名单 - 允许受信任的 IP
+#     { name = "whitelist", enabled = true, priority = 3 },
+#     
+#     # 4. Blacklist - Block known bad IPs
+#     # 4. 黑名单 - 阻止已知恶意 IP
+#     { name = "blacklist", enabled = true, priority = 4 },
+#     
+#     # 5. Dynamic Blacklist - Temporary blocks
+#     # 5. 动态黑名单 - 临时封禁
+#     { name = "dynamic_blacklist", enabled = true, priority = 5 },
+#     
+#     # 6. Rate Limit - DDoS protection
+#     # 6. 速率限制 - DDoS 防护
+#     { name = "ratelimit", enabled = true, priority = 6 },
+#     
+#     # 7. Connection Tracking - Stateful inspection
+#     # 7. 连接跟踪 - 状态检查
+#     { name = "conntrack", enabled = true, priority = 7 },
+#     
+#     # 8. IP-Port Rules - Fine-grained rules
+#     # 8. IP-端口规则 - 细粒度规则
+#     { name = "ip_port_rules", enabled = true, priority = 8 },
+#     
+#     # 9. ICMP Control - Ping management
+#     # 9. ICMP 控制 - Ping 管理
+#     { name = "icmp", enabled = true, priority = 9 },
+#     
+#     # 10. Return Traffic - Allow established connections
+#     # 10. 回程流量 - 允许已建立连接
+#     { name = "return_traffic", enabled = true, priority = 10 },
+# ]
+
+# ----------------------------------------------------------------------------
+# 3.3 BPF Plugin / BPF 插件
+# ----------------------------------------------------------------------------
+[bpf_plugin]
+enabled = false
+plugins = []
+# Example / 示例:
+# enabled = false              # 启用 BPF 插件
+# plugins = [                  # BPF 插件列表
+#     { name = "custom_filter", path = "/etc/netxfw/plugins/custom_filter.o" },
+# ]
+
+# ============================================================================
+# 4. Services / 服务
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 4.1 Web API Server / Web API 服务器
+# ----------------------------------------------------------------------------
+[web]
+enabled = false
+port = 11811
+token = ""
+# Example / 示例:
+# enabled = true
+# port = 11811
+# token = "your-secret-token-here"  # API 认证令牌
+
+# ----------------------------------------------------------------------------
+# 4.2 Metrics / 监控指标
+# ----------------------------------------------------------------------------
+[metrics]
+enabled = false
+server_enabled = false
+port = 11812
+push_enabled = false
+push_gateway_addr = ""
+push_interval = "15s"
+textfile_enabled = false
+textfile_path = ""
+top_n = 10
+threshold_critical = 90
+threshold_high = 75
+threshold_medium = 50
+stats_interval = "1s"
+avg_packet_size = 500
+# Example / 示例:
+# enabled = false                  # 启用指标收集
+# server_enabled = false           # 启用 HTTP 指标端点
+# port = 11812                     # 指标服务器端口
+# push_enabled = false             # 启用推送到 Prometheus
+# push_gateway_addr = ""           # Prometheus Pushgateway 地址
+# push_interval = "1m"             # 推送间隔
+# textfile_enabled = false         # 启用文本文件模式
+# textfile_path = ""               # 文本文件目录
+# top_n = 10                       # 统计 Top N IP
+# threshold_critical = 90          # 严重阈值 (%)
+# threshold_high = 75              # 高阈值 (%)
+# threshold_medium = 50            # 中阈值 (%)
+# stats_interval = "1s"            # 统计更新间隔
+# avg_packet_size = 500            # 平均数据包大小 (字节)
+
+# ============================================================================
+# 5. Logging / 日志
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 5.1 Application Logging / 应用日志
+# ----------------------------------------------------------------------------
+[logging]
+enabled = false
+path = "/var/log/netxfw/agent.log"
+max_size = 10
+max_backups = 3
+max_age = 30
+compress = true
+# Example / 示例:
+# enabled = false                    # 启用文件日志
+# path = "/var/log/netxfw/agent.log" # 日志文件路径
+# max_size = 10                      # 最大文件大小 (MB)
+# max_backups = 3                    # 保留备份数量
+# max_age = 30                       # 保留天数
+# compress = true                    # 压缩旧日志
+
+# ============================================================================
+# 6. Advanced / 高级配置
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 6.1 Cluster / 集群
+# ----------------------------------------------------------------------------
+[cluster]
+enabled = false
+configpath = "cluster.toml"
+# Example / 示例:
+# enabled = true
+# configpath = "/etc/netxfw/cluster.toml"
+
+# ----------------------------------------------------------------------------
+# 6.2 Cloud Environment / 云环境
+# ----------------------------------------------------------------------------
+[cloud]
+enabled = false
+provider = "other"
+# Example / 示例:
+# enabled = false              # 启用云环境功能
+# provider = "alibaba"         # 云提供商 (alibaba/aws/huawei/tencent/other)
+
+[cloud.proxy_protocol]
+enabled = false
+trusted_lb_ranges = []
+cache_ttl = "5m"
+# Example / 示例:
+# enabled = false              # 启用 PROXY 协议解析
+# trusted_lb_ranges = [        # 可信负载均衡器 IP 范围
+#     # IPv4 LB Ranges / IPv4 负载均衡范围
+#     "10.0.0.0/8",
+#     "172.16.0.0/12",
+#     "192.168.0.0/16",
+#     # IPv6 LB Ranges / IPv6 负载均衡范围
+#     "fc00::/7",               # IPv6 私有网络
+#     "2001:db8::/32",          # IPv6 文档网络
+# ]
+# cache_ttl = "5m"             # 真实 IP 缓存时间

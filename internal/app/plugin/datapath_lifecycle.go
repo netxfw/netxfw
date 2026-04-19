@@ -3,9 +3,9 @@ package plugin
 import (
 	"context"
 
-	"github.com/netxfw/netxfw/internal/config"
 	datapathplugins "github.com/netxfw/netxfw/internal/datapath/xdp/plugins"
 	domaindatapath "github.com/netxfw/netxfw/internal/domain/plugin/datapath"
+	"github.com/netxfw/netxfw/internal/runtime"
 )
 
 // DatapathLifecycle exposes datapath plugin lifecycle operations.
@@ -23,11 +23,11 @@ func NewDatapathLifecycle() DatapathLifecycle {
 }
 
 func (pinnedDatapathLifecycle) Execute(ctx context.Context, cmd domaindatapath.Command) error {
-	return datapathplugins.ExecutePinned(ctx, config.GetPinPath(), cmd)
+	return datapathplugins.ExecutePinned(ctx, runtime.GetPinPath(), cmd)
 }
 
 func (pinnedDatapathLifecycle) List(ctx context.Context) ([]domaindatapath.SlotStatus, error) {
-	return datapathplugins.ListPinned(ctx, config.GetPinPath())
+	return datapathplugins.ListPinned(ctx, runtime.GetPinPath())
 }
 
 func (pinnedDatapathLifecycle) SlotRange() domaindatapath.SlotRange {

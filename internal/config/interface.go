@@ -1,9 +1,9 @@
 package config
 
 import (
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // Configurable represents the interface for configuration management
@@ -11,39 +11,39 @@ import (
 type Configurable interface {
 	LoadConfig() error
 	SaveConfig() error
-	ReloadConfig() (*types.GlobalConfig, error)
-	GetConfig() *types.GlobalConfig
-	UpdateConfig(*types.GlobalConfig)
-	MutateConfig(func(*types.GlobalConfig) error) error
-	MutateLoadedConfig(func(*types.GlobalConfig) error) error
+	ReloadConfig() (*sdk.GlobalConfig, error)
+	GetConfig() *sdk.GlobalConfig
+	UpdateConfig(*sdk.GlobalConfig)
+	MutateConfig(func(*sdk.GlobalConfig) error) error
+	MutateLoadedConfig(func(*sdk.GlobalConfig) error) error
 
 	// Getters for specific configuration sections
-	GetBaseConfig() *types.BaseConfig
-	GetWebConfig() *types.WebConfig
-	GetMetricsConfig() *types.MetricsConfig
+	GetBaseConfig() *sdk.BaseConfig
+	GetWebConfig() *sdk.WebConfig
+	GetMetricsConfig() *sdk.MetricsConfig
 	GetLoggingConfig() *logger.LoggingConfig
-	GetConntrackConfig() *types.ConntrackConfig
-	GetRateLimitConfig() *types.RateLimitConfig
-	GetPortConfig() *types.PortConfig
-	GetCapacityConfig() *types.CapacityConfig
-	GetLogEngineConfig() *types.LogEngineConfig
-	GetAIConfig() *types.AIConfig
-	GetMCPConfig() *types.MCPConfig
-	GetClusterConfig() *types.ClusterConfig
+	GetConntrackConfig() *sdk.ConntrackConfig
+	GetRateLimitConfig() *sdk.RateLimitConfig
+	GetPortConfig() *sdk.PortConfig
+	GetCapacityConfig() *sdk.CapacityConfig
+	GetLogEngineConfig() *sdk.LogEngineConfig
+	GetAIConfig() *sdk.AIConfig
+	GetMCPConfig() *sdk.MCPConfig
+	GetClusterConfig() *sdk.ClusterConfig
 
 	// Setters for specific configuration sections
-	SetBaseConfig(types.BaseConfig)
-	SetWebConfig(types.WebConfig)
-	SetMetricsConfig(types.MetricsConfig)
+	SetBaseConfig(sdk.BaseConfig)
+	SetWebConfig(sdk.WebConfig)
+	SetMetricsConfig(sdk.MetricsConfig)
 	SetLoggingConfig(logger.LoggingConfig)
-	SetConntrackConfig(types.ConntrackConfig)
-	SetRateLimitConfig(types.RateLimitConfig)
-	SetPortConfig(types.PortConfig)
-	SetCapacityConfig(types.CapacityConfig)
-	SetLogEngineConfig(types.LogEngineConfig)
-	SetAIConfig(types.AIConfig)
-	SetMCPConfig(types.MCPConfig)
-	SetClusterConfig(types.ClusterConfig)
+	SetConntrackConfig(sdk.ConntrackConfig)
+	SetRateLimitConfig(sdk.RateLimitConfig)
+	SetPortConfig(sdk.PortConfig)
+	SetCapacityConfig(sdk.CapacityConfig)
+	SetLogEngineConfig(sdk.LogEngineConfig)
+	SetAIConfig(sdk.AIConfig)
+	SetMCPConfig(sdk.MCPConfig)
+	SetClusterConfig(sdk.ClusterConfig)
 
 	// Utility methods
 	GetConfigPath() string

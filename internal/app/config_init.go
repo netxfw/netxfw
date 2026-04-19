@@ -5,14 +5,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
 // InitConfiguration initializes the default configuration files if they don't exist.
 func InitConfiguration(ctx context.Context) {
 	log := logger.Get(ctx)
-	configPath := config.GetConfigPath()
+	configPath := GetConfigPath()
 	configDir := filepath.Dir(configPath)
 
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
@@ -23,7 +22,7 @@ func InitConfiguration(ctx context.Context) {
 	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		if err := os.WriteFile(configPath, []byte(config.DefaultConfigTemplate()), 0600); err != nil {
+		if err := os.WriteFile(configPath, []byte(DefaultConfigTemplate()), 0600); err != nil {
 			log.Fatalf("[ERROR] Failed to create config file: %v", err)
 		}
 		log.Infof("[FILE] Created default global config with comments: %s", configPath)
@@ -31,7 +30,7 @@ func InitConfiguration(ctx context.Context) {
 		log.Infof("[INFO]  Config file already exists: %s", configPath)
 	}
 
-	globalCfg, err := config.ReloadCurrentConfig()
+	globalCfg, err := LoadConfig()
 	if err == nil && globalCfg.Base.LockListFile != "" {
 		lockListFile := globalCfg.Base.LockListFile
 		if _, statErr := os.Stat(lockListFile); os.IsNotExist(statErr) {

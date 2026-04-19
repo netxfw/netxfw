@@ -76,6 +76,34 @@ check_file() {
   fi
 }
 
+require_no_matches() {
+  local label="$1"
+  shift
+
+  local output
+  set +e
+  output="$("$@" 2>/dev/null)"
+  local status=$?
+  set -e
+
+  if [[ "$status" -eq 0 ]]; then
+    if [[ -n "$output" ]]; then
+      printf 'gate-failed [%s]: unexpected matches\n%s\n' "$label" "$output" >&2
+      return 1
+    fi
+    printf 'gate-ok [%s]\n' "$label"
+    return 0
+  fi
+
+  if [[ "$status" -eq 1 ]]; then
+    printf 'gate-ok [%s]\n' "$label"
+    return 0
+  fi
+
+  printf 'gate-error [%s]: command failed with exit %d\n' "$label" "$status" >&2
+  return "$status"
+}
+
 phase0_required=(
   "plans/phase0/baselines/cli-baseline-matrix.md"
   "plans/phase0/baselines/config-baseline-matrix.md"
@@ -165,22 +193,52 @@ case "$phase" in
     ;;
   phase2)
     check_required_files "${phase2_required[@]}"
+    require_no_matches \
+      "phase2:no-configtypes-production-imports" \
+      rg -n 'internal/configtypes' internal cmd pkg test -g'*.go' -g'!*_test.go'
     printf 'phase2 gate passed\n'
     ;;
   phase3)
     check_required_files "${phase3_required[@]}"
+    require_no_matches \
+      "phase3:no-backend-imports-app-daemon-domain" \
+      rg -n '^\s*(backendxdp\s+)?\"github.com/netxfw/netxfw/internal/datapath/xdp/backend\"' \
+      internal/app internal/daemon internal/domain -g'*.go' -g'!*_test.go'
+    require_no_matches \
+      "phase3:no-backend-imports-datapath-tree" \
+      rg -n '^\s*(backendxdp\s+)?\"github.com/netxfw/netxfw/internal/datapath/xdp/backend\"' \
+      internal/datapath/xdp -g'*.go' -g'!*_test.go'
     printf 'phase3 gate passed\n'
     ;;
   phase4)
     check_required_files "${phase4_required[@]}"
+    require_no_matches \
+      "phase4:no-plugin-backend-imports" \
+      rg -n 'internal/datapath/xdp/backend' \
+      internal/datapath/xdp/plugins internal/app/plugin internal/app/ops_xdp.go -g'*.go' -g'!*_test.go'
     printf 'phase4 gate passed\n'
     ;;
   phase5)
     check_required_files "${phase5_required[@]}"
+    bash scripts/rearchitecture/import_audit.sh --strict >/tmp/netxfw-phase5-import-audit.txt
+    require_no_matches \
+      "phase5:no-configtypes-or-xdpbackend-outside-facades" \
+      rg -n 'internal/adapters/datapath/xdpbackend|internal/configtypes' \
+      internal/app internal/daemon internal/domain internal/metrics internal/optimizer internal/plugins cmd -g'*.go' -g'!*_test.go'
     printf 'phase5 gate passed\n'
     ;;
   phase6)
     check_required_files "${phase6_required[@]}"
+    bash scripts/rearchitecture/import_audit.sh --strict >/tmp/netxfw-phase6-import-audit.txt
+    bash scripts/rearchitecture/transitional_code_audit.sh --strict >/tmp/netxfw-phase6-transitional-audit.txt
+    require_no_matches \
+      "phase6:no-configtypes-or-xdpbackend-outside-facades" \
+      rg -n 'internal/adapters/datapath/xdpbackend|internal/configtypes' \
+      internal/app internal/daemon internal/domain internal/metrics internal/optimizer internal/plugins cmd -g'*.go' -g'!*_test.go'
+    require_no_matches \
+      "phase6:docs-no-phase2-6-all-complete-claim" \
+      rg -n 'Phase 2：已完成|Phase 4：已完成|Phase 5：已完成|Phase 2-6：已完成|全部已完成' \
+      plans/20260418-rearchitecture-completion-summary.md plans/README.md plans/20260417-code-execution-plan.md
     printf 'phase6 gate passed\n'
     ;;
   *)

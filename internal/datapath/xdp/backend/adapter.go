@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -30,19 +29,19 @@ func NewAdapter(m *Manager) *Adapter {
 
 // SyncFromFiles synchronizes BPF maps from configuration files.
 // SyncFromFiles 从配置文件同步 BPF Map。
-func (a *Adapter) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
+func (a *Adapter) SyncFromFiles(cfg *sdk.GlobalConfig, overwrite bool) error {
 	return a.manager.SyncFromFiles(cfg, overwrite)
 }
 
 // SyncToFiles synchronizes configuration files from BPF maps.
 // SyncToFiles 从 BPF Map 同步配置文件。
-func (a *Adapter) SyncToFiles(cfg *types.GlobalConfig) error {
+func (a *Adapter) SyncToFiles(cfg *sdk.GlobalConfig) error {
 	return a.manager.SyncToFiles(cfg)
 }
 
 // VerifyAndRepair ensures consistency between config and BPF maps.
 // VerifyAndRepair 确保配置和 BPF Map 之间的一致性。
-func (a *Adapter) VerifyAndRepair(cfg *types.GlobalConfig) error {
+func (a *Adapter) VerifyAndRepair(cfg *sdk.GlobalConfig) error {
 	return a.manager.VerifyAndRepair(cfg)
 }
 

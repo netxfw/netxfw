@@ -3,20 +3,21 @@ package stats
 import (
 	"fmt"
 
-	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	xdpbackend "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 )
 
-type PerformanceStats = backendxdp.PerformanceStats
+type PerformanceStats = datapathprograms.PerformanceStats
 
-type PerformanceStatsSnapshot = backendxdp.PerformanceStatsSnapshot
+type PerformanceStatsSnapshot = xdpbackend.PerformanceStatsSnapshot
 
-type MapLatencyStats = backendxdp.MapLatencyStats
+type MapLatencyStats = xdpbackend.MapLatencyStats
 
-type OperationStats = backendxdp.OperationStats
+type OperationStats = xdpbackend.OperationStats
 
-type CacheHitRateStats = backendxdp.CacheHitRateStats
+type CacheHitRateStats = xdpbackend.CacheHitRateStats
 
-type TrafficStats = backendxdp.TrafficStats
+type TrafficStats = xdpbackend.TrafficStats
 
 type performanceProvider interface {
 	PerfStats() any
@@ -32,7 +33,7 @@ func LoadPerformanceStats(mgr performanceProvider) (*PerformanceStats, error) {
 		return nil, fmt.Errorf("performance statistics not available")
 	}
 
-	perfStats, ok := perfInterface.(*backendxdp.PerformanceStats)
+	perfStats, ok := perfInterface.(*xdpbackend.PerformanceStats)
 	if !ok {
 		return nil, fmt.Errorf("invalid performance statistics type")
 	}
@@ -41,5 +42,5 @@ func LoadPerformanceStats(mgr performanceProvider) (*PerformanceStats, error) {
 }
 
 func LoadTrafficStats() (TrafficStats, error) {
-	return backendxdp.LoadTrafficStats()
+	return xdpbackend.LoadTrafficStats()
 }

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -57,7 +56,7 @@ func (m *MockManager) GetConfigSnapshot() MockConfigSnapshot {
 }
 
 // Sync Operations
-func (m *MockManager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
+func (m *MockManager) SyncFromFiles(cfg *sdk.GlobalConfig, overwrite bool) error {
 	if overwrite {
 		_ = m.ClearBlacklist()
 		_ = m.ClearWhitelist()
@@ -81,11 +80,11 @@ func (m *MockManager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) err
 	return nil
 }
 
-func (m *MockManager) VerifyAndRepair(cfg *types.GlobalConfig) error {
+func (m *MockManager) VerifyAndRepair(cfg *sdk.GlobalConfig) error {
 	return m.SyncFromFiles(cfg, true)
 }
 
-func (m *MockManager) SyncToFiles(cfg *types.GlobalConfig) error {
+func (m *MockManager) SyncToFiles(cfg *sdk.GlobalConfig) error {
 	// Sync Whitelist to config
 	wl := make([]string, 0, len(m.WhitelistMap))
 	for ip := range m.WhitelistMap {

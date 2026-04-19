@@ -11,17 +11,17 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/netxfw/netxfw/internal/binary"
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/ipmerge"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // VerifyAndRepair ensures consistency between config and BPF maps by forcing a sync.
 // Uses overwrite=false to avoid clearing existing rules (which would cause network outage).
 // VerifyAndRepair 通过强制同步来确保配置和 BPF Map 之间的一致性。
 // 使用 overwrite=false 避免清除现有规则（这会导致网络中断）。
-func (m *Manager) VerifyAndRepair(cfg *types.GlobalConfig) error {
+func (m *Manager) VerifyAndRepair(cfg *sdk.GlobalConfig) error {
 	m.logger.Infof("[SCAN] Verifying consistency between config and BPF maps (Auto-Repair)...")
 	return m.SyncFromFiles(cfg, false)
 }
@@ -207,7 +207,7 @@ func parseIPToNet(ipStr string) *net.IPNet {
 
 // syncIPPortRules syncs IP+Port rules from config to BPF maps.
 // syncIPPortRules 从配置同步 IP+端口规则到 BPF Map。
-func (m *Manager) syncIPPortRules(rules []types.IPPortRule) {
+func (m *Manager) syncIPPortRules(rules []sdk.IPPortRule) {
 	for _, rule := range rules {
 		ipNet := parseIPToNet(rule.IP)
 		if ipNet != nil {
@@ -233,7 +233,7 @@ func (m *Manager) syncAllowedPorts(ports []uint16) {
 
 // syncRateLimitRules syncs rate limit rules from config to BPF maps.
 // syncRateLimitRules 从配置同步速率限制规则到 BPF Map。
-func (m *Manager) syncRateLimitRules(rules []types.RateLimitRule) {
+func (m *Manager) syncRateLimitRules(rules []sdk.RateLimitRule) {
 	for _, rule := range rules {
 		ipNet := parseIPToNet(rule.IP)
 		if ipNet != nil {
@@ -246,7 +246,7 @@ func (m *Manager) syncRateLimitRules(rules []types.RateLimitRule) {
 
 // syncGlobalConfig syncs global configuration to BPF maps.
 // syncGlobalConfig 将全局配置同步到 BPF Map。
-func (m *Manager) syncGlobalConfig(cfg *types.GlobalConfig) {
+func (m *Manager) syncGlobalConfig(cfg *sdk.GlobalConfig) {
 	m.logger.Infof("[CONFIG] Syncing global config: default_deny=%v, allow_return=%v, allow_icmp=%v, enable_afxdp=%v, enable_ratelimit=%v, conntrack=%v",
 		cfg.Base.DefaultDeny, cfg.Base.AllowReturnTraffic, cfg.Base.AllowICMP, cfg.Base.EnableAFXDP, cfg.RateLimit.Enabled, cfg.Conntrack.Enabled)
 	m.setGlobalConfigValue(m.SetDefaultDeny, cfg.Base.DefaultDeny, "default deny")
@@ -291,7 +291,7 @@ func (m *Manager) setGlobalConfigValue(setter func(bool) error, value bool, name
 // If overwrite is true, it clears existing rules in the maps first.
 // SyncFromFiles 从文本或二进制文件读取规则并更新 BPF Map。
 // 如果 overwrite 为 true，则先清除 Map 中的现有规则。
-func (m *Manager) SyncFromFiles(cfg *types.GlobalConfig, overwrite bool) error {
+func (m *Manager) SyncFromFiles(cfg *sdk.GlobalConfig, overwrite bool) error {
 	if overwrite {
 		m.logger.Infof("[CLEAN] Overwrite mode: Clearing BPF maps before sync...")
 		m.ClearMaps()

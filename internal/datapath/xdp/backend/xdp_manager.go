@@ -9,7 +9,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
-	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 /**
@@ -19,7 +19,7 @@ import (
  * Phase 3 mapping: manager bootstrap/load behavior migrates to
  * internal/datapath/xdp/programs and internal/datapath/xdp/lifecycle.
  */
-func (m *Manager) MatchesCapacity(cfg types.CapacityConfig) bool {
+func (m *Manager) MatchesCapacity(cfg sdk.CapacityConfig) bool {
 	if cfg.LockList > 0 {
 		if m.staticBlacklist == nil || m.staticBlacklist.MaxEntries() != uint32(cfg.LockList) { // #nosec G115 // cfg values are always valid for uint32
 			return false
@@ -46,7 +46,7 @@ func (m *Manager) MatchesCapacity(cfg types.CapacityConfig) bool {
  * Phase 3 mapping: new manager construction belongs to
  * internal/datapath/xdp/programs/load.go.
  */
-func NewManager(cfg types.CapacityConfig, logger Logger) (*Manager, error) {
+func NewManager(cfg sdk.CapacityConfig, logger Logger) (*Manager, error) {
 	// Remove resource limits for BPF / 移除 BPF 资源限制
 	if err := rlimit.RemoveMemlock(); err != nil {
 		return nil, fmt.Errorf("remove memlock: %w", err)

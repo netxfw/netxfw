@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"github.com/netxfw/netxfw/internal/adapters/configfile"
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // DefaultBackupKeep is the default number of backups to keep.
@@ -19,7 +19,7 @@ const DefaultBackupKeep = 3
 type ConfigManager struct {
 	configPath string
 	mutex      sync.RWMutex
-	config     *types.GlobalConfig
+	config     *sdk.GlobalConfig
 	backupKeep int // Number of backups to keep / 保留的备份数量
 }
 
@@ -54,12 +54,12 @@ func (cm *ConfigManager) SetBackupKeep(keep int) {
 
 // ReloadConfig loads a fresh config snapshot from disk under the global config lock.
 // ReloadConfig 在全局配置锁保护下从磁盘加载最新配置快照。
-func (cm *ConfigManager) ReloadConfig() (*types.GlobalConfig, error) {
+func (cm *ConfigManager) ReloadConfig() (*sdk.GlobalConfig, error) {
 	path := cm.GetConfigPath()
 
-	types.ConfigMu.RLock()
+	lockConfigRead()
 	cfg, err := configfile.Load(path)
-	types.ConfigMu.RUnlock()
+	unlockConfigRead()
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (cm *ConfigManager) ReloadConfig() (*types.GlobalConfig, error) {
 
 // MutateConfig applies fn to the in-memory config snapshot and persists it.
 // MutateConfig 对内存配置快照执行 fn 并持久化到文件。
-func (cm *ConfigManager) MutateConfig(fn func(*types.GlobalConfig) error) error {
+func (cm *ConfigManager) MutateConfig(fn func(*sdk.GlobalConfig) error) error {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return fmt.Errorf("config is nil")
@@ -80,13 +80,13 @@ func (cm *ConfigManager) MutateConfig(fn func(*types.GlobalConfig) error) error 
 	return cm.SaveConfig()
 }
 
-func cloneConfig(cfg *types.GlobalConfig) *types.GlobalConfig {
+func cloneConfig(cfg *sdk.GlobalConfig) *sdk.GlobalConfig {
 	return configfile.Clone(cfg)
 }
 
 // MutateLoadedConfig reloads config, applies fn, then persists.
 // MutateLoadedConfig 重新加载配置，执行 fn 后再持久化。
-func (cm *ConfigManager) MutateLoadedConfig(fn func(*types.GlobalConfig) error) error {
+func (cm *ConfigManager) MutateLoadedConfig(fn func(*sdk.GlobalConfig) error) error {
 	cfg, err := cm.ReloadConfig()
 	if err != nil {
 		return err
@@ -106,9 +106,9 @@ func (cm *ConfigManager) MutateLoadedConfig(fn func(*types.GlobalConfig) error) 
 func (cm *ConfigManager) LoadConfig() error {
 	path := cm.GetConfigPath()
 
-	types.ConfigMu.RLock()
+	lockConfigRead()
 	config, err := configfile.Load(path)
-	types.ConfigMu.RUnlock()
+	unlockConfigRead()
 	if err != nil {
 		return err
 	}
@@ -141,15 +141,15 @@ func (cm *ConfigManager) SaveConfig() error {
 		backupKeep = cfg.Base.BackupKeep
 	}
 
-	types.ConfigMu.Lock()
-	defer types.ConfigMu.Unlock()
+	lockConfigWrite()
+	defer unlockConfigWrite()
 
 	return DefaultWriteGateway().SaveGlobalConfig(path, cfg, backupKeep, "config.manager.SaveConfig")
 }
 
 // GetConfig returns a deep copy of the current configuration.
 // GetConfig 返回当前配置的深拷贝。
-func (cm *ConfigManager) GetConfig() *types.GlobalConfig {
+func (cm *ConfigManager) GetConfig() *sdk.GlobalConfig {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 
@@ -158,7 +158,7 @@ func (cm *ConfigManager) GetConfig() *types.GlobalConfig {
 
 // UpdateConfig replaces the current configuration with a deep-copied snapshot.
 // UpdateConfig 使用深拷贝快照替换当前配置。
-func (cm *ConfigManager) UpdateConfig(newConfig *types.GlobalConfig) {
+func (cm *ConfigManager) UpdateConfig(newConfig *sdk.GlobalConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -167,7 +167,7 @@ func (cm *ConfigManager) UpdateConfig(newConfig *types.GlobalConfig) {
 
 // GetBaseConfig returns the base configuration
 // GetBaseConfig 返回基础配置
-func (cm *ConfigManager) GetBaseConfig() *types.BaseConfig {
+func (cm *ConfigManager) GetBaseConfig() *sdk.BaseConfig {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return nil
@@ -179,7 +179,7 @@ func (cm *ConfigManager) GetBaseConfig() *types.BaseConfig {
 
 // GetWebConfig returns the web configuration
 // GetWebConfig 返回Web配置
-func (cm *ConfigManager) GetWebConfig() *types.WebConfig {
+func (cm *ConfigManager) GetWebConfig() *sdk.WebConfig {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return nil
@@ -191,7 +191,7 @@ func (cm *ConfigManager) GetWebConfig() *types.WebConfig {
 
 // GetMetricsConfig returns the metrics configuration
 // GetMetricsConfig 返回指标配置
-func (cm *ConfigManager) GetMetricsConfig() *types.MetricsConfig {
+func (cm *ConfigManager) GetMetricsConfig() *sdk.MetricsConfig {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return nil
@@ -215,7 +215,7 @@ func (cm *ConfigManager) GetLoggingConfig() *logger.LoggingConfig {
 
 // GetConntrackConfig returns the connection tracking configuration
 // GetConntrackConfig 返回连接跟踪配置
-func (cm *ConfigManager) GetConntrackConfig() *types.ConntrackConfig {
+func (cm *ConfigManager) GetConntrackConfig() *sdk.ConntrackConfig {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return nil
@@ -227,7 +227,7 @@ func (cm *ConfigManager) GetConntrackConfig() *types.ConntrackConfig {
 
 // GetRateLimitConfig returns the rate limiting configuration
 // GetRateLimitConfig 返回速率限制配置
-func (cm *ConfigManager) GetRateLimitConfig() *types.RateLimitConfig {
+func (cm *ConfigManager) GetRateLimitConfig() *sdk.RateLimitConfig {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return nil
@@ -239,7 +239,7 @@ func (cm *ConfigManager) GetRateLimitConfig() *types.RateLimitConfig {
 
 // GetPortConfig returns the port configuration
 // GetPortConfig 返回端口配置
-func (cm *ConfigManager) GetPortConfig() *types.PortConfig {
+func (cm *ConfigManager) GetPortConfig() *sdk.PortConfig {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return nil
@@ -251,7 +251,7 @@ func (cm *ConfigManager) GetPortConfig() *types.PortConfig {
 
 // GetCapacityConfig returns the capacity configuration
 // GetCapacityConfig 返回容量配置
-func (cm *ConfigManager) GetCapacityConfig() *types.CapacityConfig {
+func (cm *ConfigManager) GetCapacityConfig() *sdk.CapacityConfig {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return nil
@@ -263,7 +263,7 @@ func (cm *ConfigManager) GetCapacityConfig() *types.CapacityConfig {
 
 // GetLogEngineConfig returns the log engine configuration
 // GetLogEngineConfig 返回日志引擎配置
-func (cm *ConfigManager) GetLogEngineConfig() *types.LogEngineConfig {
+func (cm *ConfigManager) GetLogEngineConfig() *sdk.LogEngineConfig {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return nil
@@ -275,7 +275,7 @@ func (cm *ConfigManager) GetLogEngineConfig() *types.LogEngineConfig {
 
 // GetAIConfig returns the AI configuration
 // GetAIConfig 返回AI配置
-func (cm *ConfigManager) GetAIConfig() *types.AIConfig {
+func (cm *ConfigManager) GetAIConfig() *sdk.AIConfig {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return nil
@@ -287,7 +287,7 @@ func (cm *ConfigManager) GetAIConfig() *types.AIConfig {
 
 // GetMCPConfig returns the MCP configuration
 // GetMCPConfig 返回MCP配置
-func (cm *ConfigManager) GetMCPConfig() *types.MCPConfig {
+func (cm *ConfigManager) GetMCPConfig() *sdk.MCPConfig {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return nil
@@ -299,7 +299,7 @@ func (cm *ConfigManager) GetMCPConfig() *types.MCPConfig {
 
 // GetClusterConfig returns the cluster configuration
 // GetClusterConfig 返回集群配置
-func (cm *ConfigManager) GetClusterConfig() *types.ClusterConfig {
+func (cm *ConfigManager) GetClusterConfig() *sdk.ClusterConfig {
 	cfg := cm.GetConfig()
 	if cfg == nil {
 		return nil
@@ -311,7 +311,7 @@ func (cm *ConfigManager) GetClusterConfig() *types.ClusterConfig {
 
 // SetBaseConfig updates the base configuration
 // SetBaseConfig 更新基础配置
-func (cm *ConfigManager) SetBaseConfig(baseConfig types.BaseConfig) {
+func (cm *ConfigManager) SetBaseConfig(baseConfig sdk.BaseConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -322,7 +322,7 @@ func (cm *ConfigManager) SetBaseConfig(baseConfig types.BaseConfig) {
 
 // SetWebConfig updates the web configuration
 // SetWebConfig 更新Web配置
-func (cm *ConfigManager) SetWebConfig(webConfig types.WebConfig) {
+func (cm *ConfigManager) SetWebConfig(webConfig sdk.WebConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -333,7 +333,7 @@ func (cm *ConfigManager) SetWebConfig(webConfig types.WebConfig) {
 
 // SetMetricsConfig updates the metrics configuration
 // SetMetricsConfig 更新指标配置
-func (cm *ConfigManager) SetMetricsConfig(metricsConfig types.MetricsConfig) {
+func (cm *ConfigManager) SetMetricsConfig(metricsConfig sdk.MetricsConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -355,7 +355,7 @@ func (cm *ConfigManager) SetLoggingConfig(loggingConfig logger.LoggingConfig) {
 
 // SetConntrackConfig updates the connection tracking configuration
 // SetConntrackConfig 更新连接跟踪配置
-func (cm *ConfigManager) SetConntrackConfig(conntrackConfig types.ConntrackConfig) {
+func (cm *ConfigManager) SetConntrackConfig(conntrackConfig sdk.ConntrackConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -366,7 +366,7 @@ func (cm *ConfigManager) SetConntrackConfig(conntrackConfig types.ConntrackConfi
 
 // SetRateLimitConfig updates the rate limiting configuration
 // SetRateLimitConfig 更新速率限制配置
-func (cm *ConfigManager) SetRateLimitConfig(rateLimitConfig types.RateLimitConfig) {
+func (cm *ConfigManager) SetRateLimitConfig(rateLimitConfig sdk.RateLimitConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -377,7 +377,7 @@ func (cm *ConfigManager) SetRateLimitConfig(rateLimitConfig types.RateLimitConfi
 
 // SetPortConfig updates the port configuration
 // SetPortConfig 更新端口配置
-func (cm *ConfigManager) SetPortConfig(portConfig types.PortConfig) {
+func (cm *ConfigManager) SetPortConfig(portConfig sdk.PortConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -388,7 +388,7 @@ func (cm *ConfigManager) SetPortConfig(portConfig types.PortConfig) {
 
 // SetCapacityConfig updates the capacity configuration
 // SetCapacityConfig 更新容量配置
-func (cm *ConfigManager) SetCapacityConfig(capacityConfig types.CapacityConfig) {
+func (cm *ConfigManager) SetCapacityConfig(capacityConfig sdk.CapacityConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -399,7 +399,7 @@ func (cm *ConfigManager) SetCapacityConfig(capacityConfig types.CapacityConfig) 
 
 // SetLogEngineConfig updates the log engine configuration
 // SetLogEngineConfig 更新日志引擎配置
-func (cm *ConfigManager) SetLogEngineConfig(logEngineConfig types.LogEngineConfig) {
+func (cm *ConfigManager) SetLogEngineConfig(logEngineConfig sdk.LogEngineConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -410,7 +410,7 @@ func (cm *ConfigManager) SetLogEngineConfig(logEngineConfig types.LogEngineConfi
 
 // SetAIConfig updates the AI configuration
 // SetAIConfig 更新AI配置
-func (cm *ConfigManager) SetAIConfig(aiConfig types.AIConfig) {
+func (cm *ConfigManager) SetAIConfig(aiConfig sdk.AIConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -421,7 +421,7 @@ func (cm *ConfigManager) SetAIConfig(aiConfig types.AIConfig) {
 
 // SetMCPConfig updates the MCP configuration
 // SetMCPConfig 更新MCP配置
-func (cm *ConfigManager) SetMCPConfig(mcpConfig types.MCPConfig) {
+func (cm *ConfigManager) SetMCPConfig(mcpConfig sdk.MCPConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -432,7 +432,7 @@ func (cm *ConfigManager) SetMCPConfig(mcpConfig types.MCPConfig) {
 
 // SetClusterConfig updates the cluster configuration
 // SetClusterConfig 更新集群配置
-func (cm *ConfigManager) SetClusterConfig(clusterConfig types.ClusterConfig) {
+func (cm *ConfigManager) SetClusterConfig(clusterConfig sdk.ClusterConfig) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 

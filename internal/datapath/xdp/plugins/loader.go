@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"strings"
 
-	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
+type pluginManager interface {
+	LoadPlugin(path string, index int) error
+	RemovePlugin(index int) error
+}
+
 // Load inserts a datapath plugin program into the configured jump-table slot.
-func Load(manager *backendxdp.Manager, path string, index int) error {
+func Load(manager pluginManager, path string, index int) error {
 	if manager == nil {
 		return fmt.Errorf("manager is nil")
 	}
@@ -24,7 +28,7 @@ func Load(manager *backendxdp.Manager, path string, index int) error {
 }
 
 // Remove detaches a datapath plugin program from the configured jump-table slot.
-func Remove(manager *backendxdp.Manager, index int) error {
+func Remove(manager pluginManager, index int) error {
 	if manager == nil {
 		return fmt.Errorf("manager is nil")
 	}
@@ -35,7 +39,7 @@ func Remove(manager *backendxdp.Manager, index int) error {
 }
 
 // LoadConfigured loads all enabled datapath plugins declared in config.
-func LoadConfigured(manager *backendxdp.Manager, globalCfg *sdk.GlobalConfig, log *zap.SugaredLogger) error {
+func LoadConfigured(manager pluginManager, globalCfg *sdk.GlobalConfig, log *zap.SugaredLogger) error {
 	if globalCfg == nil {
 		return fmt.Errorf("config is nil")
 	}

@@ -3,32 +3,19 @@ package daemon
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
 // LoadOrCreateManager loads a pinned manager or creates a new one if pins are absent.
-func LoadOrCreateManager(log *zap.SugaredLogger, pinPath string, globalCfg *sdk.GlobalConfig) (*xdp.Manager, error) {
-	manager, err := xdp.NewManagerFromPins(pinPath, log)
-	if err == nil {
-		return manager, nil
-	}
-
-	log.Info("[INFO]  Creating new XDP manager...")
-	manager, err = xdp.NewManager(globalCfg.Capacity, log)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create XDP manager: %v", err)
-	}
-	if err := PinManager(manager, pinPath); err != nil {
-		log.Warnf("[WARN]  Failed to pin maps: %v", err)
-	}
-	return manager, nil
+func LoadOrCreateManager(log *zap.SugaredLogger, pinPath string, globalCfg *sdk.GlobalConfig) (*datapathprograms.Handle, error) {
+	return datapathprograms.LoadOrCreateManager(log, pinPath, globalCfg)
 }
 
 // PinManager pins manager maps to the provided pin path.
-func PinManager(manager *xdp.Manager, pinPath string) error {
-	return manager.Pin(pinPath)
+func PinManager(manager *datapathprograms.Handle, pinPath string) error {
+	return datapathprograms.PinManager(manager, pinPath)
 }
 
 // ResolveRuntimeInterfaces resolves interfaces from CLI override, config, or physical NIC discovery.
@@ -43,7 +30,7 @@ func ResolveRuntimeInterfaces(cliInterfaces []string, globalCfg *sdk.GlobalConfi
 		return globalCfg.Base.Interfaces, nil
 	}
 
-	interfaces, err := xdp.GetPhysicalInterfaces()
+	interfaces, err := datapathprograms.GetPhysicalInterfaces()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get interfaces: %v", err)
 	}
@@ -55,8 +42,8 @@ func ResolveRuntimeInterfaces(cliInterfaces []string, globalCfg *sdk.GlobalConfi
 }
 
 // DetachOrphanedInterfaces detaches XDP from interfaces no longer desired.
-func DetachOrphanedInterfaces(manager *xdp.Manager, pinPath string, configuredInterfaces []string, log *zap.SugaredLogger) {
-	attachedIfaces, err := xdp.GetAttachedInterfaces(pinPath)
+func DetachOrphanedInterfaces(manager *datapathprograms.Handle, pinPath string, configuredInterfaces []string, log *zap.SugaredLogger) {
+	attachedIfaces, err := datapathprograms.GetAttachedInterfaces(pinPath)
 	if err != nil {
 		return
 	}
@@ -84,7 +71,7 @@ func DetachOrphanedInterfaces(manager *xdp.Manager, pinPath string, configuredIn
 }
 
 // ReconcileInterfaces applies attach/detach in the caller-selected order.
-func ReconcileInterfaces(manager *xdp.Manager, pinPath string, interfaces []string, log *zap.SugaredLogger, order InterfaceReconcileOrder) error {
+func ReconcileInterfaces(manager *datapathprograms.Handle, pinPath string, interfaces []string, log *zap.SugaredLogger, order InterfaceReconcileOrder) error {
 	switch order {
 	case DetachBeforeAttach:
 		DetachOrphanedInterfaces(manager, pinPath, interfaces, log)

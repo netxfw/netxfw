@@ -8,7 +8,7 @@ import (
 	"sort"
 
 	"github.com/cilium/ebpf"
-	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // Module definition
@@ -19,7 +19,7 @@ type ModuleDef struct {
 
 // SyncModules updates the execution chain based on configuration
 // SyncModules 根据配置更新执行链
-func (m *Manager) SyncModules(configs []types.ModuleConfig) error {
+func (m *Manager) SyncModules(configs []sdk.ModuleConfig) error {
 	if m.chainMap == nil || m.jmpTable == nil {
 		return fmt.Errorf("maps not initialized")
 	}
@@ -33,7 +33,7 @@ func (m *Manager) SyncModules(configs []types.ModuleConfig) error {
 
 	// 1. Sort modules by priority
 	// 1. 按优先级排序模块
-	sorted := make([]types.ModuleConfig, len(configs))
+	sorted := make([]sdk.ModuleConfig, len(configs))
 	copy(sorted, configs)
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].Priority < sorted[j].Priority

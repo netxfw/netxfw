@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
+	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -14,8 +15,8 @@ import (
 // runDataPlane 处理 XDP 挂载、BPF Map 初始化以及核心数据包处理插件。
 func runDataPlane(ctx context.Context) {
 	log := logger.Get(ctx)
-	configPath := config.GetConfigPath()
-	pidPath := config.DefaultPidPath
+	configPath := appconfig.GetConfigPath()
+	pidPath := runtime.DefaultPidPath
 
 	log.Info("[START] Starting netxfw in DP (Data Plane) mode")
 
@@ -34,7 +35,7 @@ func runDataPlane(ctx context.Context) {
 	InitRuntimeLogging(globalCfg)
 
 	// 1. Initialize Manager (Create or Load Pinned) / 初始化管理器（创建或加载固定内容）
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 	manager, err := LoadOrCreateManager(log, pinPath, globalCfg)
 	if err != nil {
 		log.Errorf("[ERROR] %v", err)
@@ -62,7 +63,7 @@ func runDataPlane(ctx context.Context) {
 	coreModules := DefaultCoreModules()
 
 	// Wrap manager with Adapter for interface compliance
-	adapter := xdp.NewAdapter(manager)
+	adapter := datapathprograms.NewAdapter(manager)
 	s := sdk.NewSDK(adapter)
 
 	if err := StartCoreModules(coreModules, globalCfg, s, log); err != nil {
@@ -78,7 +79,7 @@ func runDataPlane(ctx context.Context) {
 	log.Info("[SHIELD] Data Plane is running.")
 
 	reloadFunc := func() error {
-		newCfg, err := config.ReloadCurrentConfig()
+		newCfg, err := appconfig.LoadConfig()
 		if err != nil {
 			return err
 		}

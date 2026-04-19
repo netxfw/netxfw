@@ -3,37 +3,34 @@ package stats
 import (
 	"fmt"
 
-	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	xdpbackend "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
-type MetricsCollector = backendxdp.MetricsCollector
+type MetricsCollector = xdpbackend.MetricsCollector
 
-type MetricsData = backendxdp.MetricsData
+type MetricsData = xdpbackend.MetricsData
 
-type TrafficMetrics = backendxdp.TrafficMetrics
+type TrafficMetrics = xdpbackend.TrafficMetrics
 
-type ConntrackHealth = backendxdp.ConntrackHealth
+type ConntrackHealth = xdpbackend.ConntrackHealth
 
-type MapUsageStats = backendxdp.MapUsageStats
+type MapUsageStats = xdpbackend.MapUsageStats
 
-type MapUsageDetail = backendxdp.MapUsageDetail
+type MapUsageDetail = xdpbackend.MapUsageDetail
 
-type RateLimitHitStats = backendxdp.RateLimitHitStats
+type RateLimitHitStats = xdpbackend.RateLimitHitStats
 
-type RateLimitRuleHit = backendxdp.RateLimitRuleHit
+type RateLimitRuleHit = xdpbackend.RateLimitRuleHit
 
-type ProtocolDistribution = backendxdp.ProtocolDistribution
+type ProtocolDistribution = xdpbackend.ProtocolDistribution
 
-type ProtocolStats = backendxdp.ProtocolStats
+type ProtocolStats = xdpbackend.ProtocolStats
 
-type StatsCache = backendxdp.StatsCache
+type StatsCache = xdpbackend.StatsCache
 
-type MapCounts = backendxdp.MapCounts
-
-type managerAccessor interface {
-	GetManager() *backendxdp.Manager
-}
+type MapCounts = xdpbackend.MapCounts
 
 type counterProvider interface {
 	GetDropCount() (uint64, error)
@@ -45,22 +42,28 @@ type detailProvider interface {
 	GetPassDetails() ([]sdk.DropDetailEntry, error)
 }
 
-func NewCollector(mgr *backendxdp.Manager) *MetricsCollector {
-	return backendxdp.NewMetricsCollector(mgr)
+type managerAccessor interface {
+	GetManager() *xdpbackend.Manager
 }
 
-func NewCache(mgr *backendxdp.Manager) *StatsCache {
-	return backendxdp.NewStatsCache(mgr)
+func NewCollector(mgr *datapathprograms.Handle) *MetricsCollector {
+	return datapathprograms.NewMetricsCollector(mgr)
 }
 
-func ExtractManager(mgr any) *backendxdp.Manager {
+func NewCache(mgr *datapathprograms.Handle) *StatsCache {
+	return datapathprograms.NewStatsCache(mgr)
+}
+
+func ExtractManager(mgr any) *datapathprograms.Handle {
 	switch typed := mgr.(type) {
 	case nil:
 		return nil
-	case *backendxdp.Manager:
+	case *datapathprograms.Handle:
 		return typed
+	case *xdpbackend.Manager:
+		return datapathprograms.WrapExisting(typed)
 	case managerAccessor:
-		return typed.GetManager()
+		return datapathprograms.WrapExisting(typed.GetManager())
 	default:
 		return nil
 	}

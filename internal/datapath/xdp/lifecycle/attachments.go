@@ -3,7 +3,7 @@ package lifecycle
 import (
 	"time"
 
-	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 )
 
 // InterfaceXDPInfo contains XDP attachment information for an interface.
@@ -17,7 +17,7 @@ type InterfaceXDPInfo struct {
 
 // GetAttachedInterfacesWithInfo returns detailed XDP attachment information.
 func GetAttachedInterfacesWithInfo(pinPath string) ([]InterfaceXDPInfo, error) {
-	attachedInfos, err := backendxdp.GetAttachedInterfacesWithInfo(pinPath)
+	attachedInfos, err := datapathprograms.GetAttachedInterfacesWithInfo(pinPath)
 	if err != nil {
 		return nil, err
 	}
@@ -34,4 +34,9 @@ func GetAttachedInterfacesWithInfo(pinPath string) ([]InterfaceXDPInfo, error) {
 	}
 
 	return infos, nil
+}
+
+// GetAttachedInterfaces returns interface names with pinned XDP attachments.
+func GetAttachedInterfaces(pinPath string) ([]string, error) {
+	return datapathprograms.GetAttachedInterfaces(pinPath)
 }

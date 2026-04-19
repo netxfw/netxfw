@@ -12,10 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/config"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	datapathmaps "github.com/netxfw/netxfw/internal/datapath/xdp/maps"
 	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
+	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -39,7 +40,7 @@ func managePidFileWithInterfaces(path string, interfaces []string) error {
 	// For each interface, create a specific PID file
 	// 对于每个接口，创建特定的 PID 文件
 	for _, iface := range interfaces {
-		pidPath := fmt.Sprintf(config.InterfacePidPathPattern, iface)
+		pidPath := fmt.Sprintf(runtime.InterfacePidPathPattern, iface)
 		if err := manageSinglePidFile(pidPath); err != nil {
 			return fmt.Errorf("failed to manage PID file for interface %s: %v", iface, err)
 		}
@@ -94,7 +95,7 @@ func removePidFileWithInterfaces(path string, interfaces []string) {
 	// For each interface, remove the specific PID file
 	// 对于每个接口，删除特定的 PID 文件
 	for _, iface := range interfaces {
-		pidPath := fmt.Sprintf(config.InterfacePidPathPattern, iface)
+		pidPath := fmt.Sprintf(runtime.InterfacePidPathPattern, iface)
 		removeSinglePidFile(pidPath)
 	}
 }
@@ -188,22 +189,16 @@ func runCleanupLoop(ctx context.Context, globalCfg *sdk.GlobalConfig) {
 			log.Info("[STOP] Stopping cleanup loop")
 			return
 		case <-ticker.C:
-			m, err := xdp.NewManagerFromPins(config.GetPinPath(), log)
+			summary, err := datapathmaps.CleanupExpiredPinned(runtime.GetPinPath(), log)
 			if err != nil {
 				log.Warnf("[WARN]  Failed to create XDP manager for cleanup: %v", err)
 				continue
 			}
 
-			// Cleanup all maps that support expiration / 清理所有支持过期的 Map
-			removed, _ := xdp.CleanupExpiredRules(m.LockList(), false)
-			removedW, _ := xdp.CleanupExpiredRules(m.Whitelist(), false)
-			removedP, _ := xdp.CleanupExpiredRules(m.IPPortRules(), false)
-
-			total := removed + removedW + removedP
+			total := summary.Total()
 			if total > 0 {
 				log.Infof("[CLEAN] Cleanup: removed %d expired rules from BPF maps", total)
 			}
-			m.Close()
 		}
 	}
 }
@@ -217,7 +212,7 @@ func runTrafficStatsLoop(ctx context.Context, s *sdk.SDK) {
 	statsInterval := 1 * time.Second
 	avgPacketSize := 500
 
-	if cfg, err := config.ReloadCurrentConfig(); err == nil && cfg != nil {
+	if cfg, err := appconfig.LoadConfig(); err == nil && cfg != nil {
 		if cfg.Metrics.StatsInterval != "" {
 			if duration, err := time.ParseDuration(cfg.Metrics.StatsInterval); err == nil && duration > 0 {
 				statsInterval = duration

@@ -7,14 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
 	"github.com/netxfw/netxfw/internal/utils/ipmerge"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // SyncToFiles dumps current BPF map rules back to text files.
-func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
+func (m *Manager) SyncToFiles(cfg *sdk.GlobalConfig) error {
 	if cfg.Base.LockListFile == "" {
 		return fmt.Errorf("lock_list_file must be configured")
 	}
@@ -35,7 +34,7 @@ func (m *Manager) SyncToFiles(cfg *types.GlobalConfig) error {
 }
 
 // syncWhitelistToConfig syncs whitelist from BPF map to config.
-func (m *Manager) syncWhitelistToConfig(cfg *types.GlobalConfig) {
+func (m *Manager) syncWhitelistToConfig(cfg *sdk.GlobalConfig) {
 	if m.whitelist == nil {
 		cfg.Base.Whitelist = nil
 		return
@@ -122,18 +121,18 @@ func (m *Manager) replaceWhitelistCIDRsByPort(grouped map[uint16][]string) error
 	return nil
 }
 
-func (m *Manager) syncBlacklistToConfig(cfg *types.GlobalConfig) ([]sdk.BlockedIP, error) {
+func (m *Manager) syncBlacklistToConfig(cfg *sdk.GlobalConfig) ([]sdk.BlockedIP, error) {
 	ips, _, err := ListBlockedIPs(m.staticBlacklist, false, 0, "")
 	return ips, err
 }
 
-func (m *Manager) syncIPPortRulesToConfig(cfg *types.GlobalConfig) {
+func (m *Manager) syncIPPortRulesToConfig(cfg *sdk.GlobalConfig) {
 	ipPortRules, _, err := m.ListIPPortRules(false, 0, "")
 	if err != nil {
 		return
 	}
 
-	newIPPortRules := make([]types.IPPortRule, 0, len(ipPortRules))
+	newIPPortRules := make([]sdk.IPPortRule, 0, len(ipPortRules))
 	for key, actionStr := range ipPortRules {
 		lastColon := strings.LastIndex(key, ":")
 		if lastColon == -1 {
@@ -150,7 +149,7 @@ func (m *Manager) syncIPPortRulesToConfig(cfg *types.GlobalConfig) {
 			action = 1
 		}
 
-		newIPPortRules = append(newIPPortRules, types.IPPortRule{
+		newIPPortRules = append(newIPPortRules, sdk.IPPortRule{
 			IP:     ipCIDR,
 			Port:   port,
 			Action: action,
@@ -159,7 +158,7 @@ func (m *Manager) syncIPPortRulesToConfig(cfg *types.GlobalConfig) {
 	cfg.Port.IPPortRules = newIPPortRules
 }
 
-func (m *Manager) syncAllowedPortsToConfig(cfg *types.GlobalConfig) {
+func (m *Manager) syncAllowedPortsToConfig(cfg *sdk.GlobalConfig) {
 	ports, err := m.ListAllowedPorts()
 	if err != nil {
 		return
@@ -167,15 +166,15 @@ func (m *Manager) syncAllowedPortsToConfig(cfg *types.GlobalConfig) {
 	cfg.Port.AllowedPorts = ports
 }
 
-func (m *Manager) syncRateLimitRulesToConfig(cfg *types.GlobalConfig) {
+func (m *Manager) syncRateLimitRulesToConfig(cfg *sdk.GlobalConfig) {
 	rules, _, err := m.ListRateLimitRules(0, "")
 	if err != nil {
 		return
 	}
 
-	newRateRules := make([]types.RateLimitRule, 0, len(rules))
+	newRateRules := make([]sdk.RateLimitRule, 0, len(rules))
 	for target, conf := range rules {
-		newRateRules = append(newRateRules, types.RateLimitRule{
+		newRateRules = append(newRateRules, sdk.RateLimitRule{
 			IP:    target,
 			Rate:  conf.Rate,
 			Burst: conf.Burst,
@@ -184,7 +183,7 @@ func (m *Manager) syncRateLimitRulesToConfig(cfg *types.GlobalConfig) {
 	cfg.RateLimit.Rules = newRateRules
 }
 
-func (m *Manager) syncGlobalConfigToConfig(cfg *types.GlobalConfig) {
+func (m *Manager) syncGlobalConfigToConfig(cfg *sdk.GlobalConfig) {
 	if m.globalConfig == nil {
 		return
 	}
@@ -230,7 +229,7 @@ func (m *Manager) syncGlobalConfigToConfig(cfg *types.GlobalConfig) {
 	}
 }
 
-func (m *Manager) writeLockListFile(cfg *types.GlobalConfig, ips []sdk.BlockedIP) error {
+func (m *Manager) writeLockListFile(cfg *sdk.GlobalConfig, ips []sdk.BlockedIP) error {
 	var buf bytes.Buffer
 	for _, entry := range ips {
 		buf.WriteString(entry.IP + "\n")

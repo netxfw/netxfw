@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	domaindatapath "github.com/netxfw/netxfw/internal/domain/plugin/datapath"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 )
 
 // ExecutePinned runs a datapath plugin lifecycle command against the pinned manager.
 func ExecutePinned(ctx context.Context, pinPath string, cmd domaindatapath.Command) error {
 	log := logger.Get(ctx)
 
-	manager, err := backendxdp.NewManagerFromPins(pinPath, log)
+	manager, err := datapathprograms.OpenPinnedManager(pinPath, log)
 	if err != nil {
 		return fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
 	}
@@ -40,7 +40,7 @@ func ExecutePinned(ctx context.Context, pinPath string, cmd domaindatapath.Comma
 func ListPinned(ctx context.Context, pinPath string) ([]domaindatapath.SlotStatus, error) {
 	log := logger.Get(ctx)
 
-	manager, err := backendxdp.NewManagerFromPins(pinPath, log)
+	manager, err := datapathprograms.OpenPinnedManager(pinPath, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load XDP manager: %v (Is the firewall running?)", err)
 	}

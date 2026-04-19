@@ -6,7 +6,6 @@ import (
 
 	"github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	datapathsync "github.com/netxfw/netxfw/internal/datapath/xdp/sync"
-	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
@@ -20,7 +19,7 @@ const (
 )
 
 type InstallResult struct {
-	Manager    *backendxdp.Manager
+	Manager    *programs.Handle
 	Interfaces []string
 }
 
@@ -37,7 +36,7 @@ func ResolveInterfaces(cliInterfaces []string, globalCfg *sdk.GlobalConfig, log 
 		return globalCfg.Base.Interfaces, nil
 	}
 
-	interfaces, err := backendxdp.GetPhysicalInterfaces()
+	interfaces, err := programs.GetPhysicalInterfaces()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get interfaces: %v", err)
 	}
@@ -83,8 +82,8 @@ func Install(ctx context.Context, pinPath string, cliInterfaces []string, global
 }
 
 // DetachOrphanedInterfaces detaches XDP from interfaces no longer desired.
-func DetachOrphanedInterfaces(manager *backendxdp.Manager, pinPath string, configuredInterfaces []string, log *zap.SugaredLogger) {
-	attachedIfaces, err := backendxdp.GetAttachedInterfaces(pinPath)
+func DetachOrphanedInterfaces(manager *programs.Handle, pinPath string, configuredInterfaces []string, log *zap.SugaredLogger) {
+	attachedIfaces, err := programs.GetAttachedInterfaces(pinPath)
 	if err != nil {
 		return
 	}
@@ -112,7 +111,7 @@ func DetachOrphanedInterfaces(manager *backendxdp.Manager, pinPath string, confi
 }
 
 // ReconcileInterfaces applies attach/detach in the caller-selected order.
-func ReconcileInterfaces(manager *backendxdp.Manager, pinPath string, interfaces []string, log *zap.SugaredLogger, order InterfaceReconcileOrder) error {
+func ReconcileInterfaces(manager *programs.Handle, pinPath string, interfaces []string, log *zap.SugaredLogger, order InterfaceReconcileOrder) error {
 	switch order {
 	case DetachBeforeAttach:
 		DetachOrphanedInterfaces(manager, pinPath, interfaces, log)

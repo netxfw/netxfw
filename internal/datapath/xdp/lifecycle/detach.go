@@ -2,10 +2,9 @@ package lifecycle
 
 import (
 	"context"
-	"fmt"
 
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -30,7 +29,7 @@ func Remove(ctx context.Context, pinPath string, cliInterfaces []string, globalC
 
 		uniqueInterfaces := make(map[string]bool)
 
-		phyInterfaces, phyErr := backendxdp.GetPhysicalInterfaces()
+		phyInterfaces, phyErr := datapathprograms.GetPhysicalInterfaces()
 		if phyErr == nil {
 			for _, iface := range phyInterfaces {
 				uniqueInterfaces[iface] = true
@@ -41,7 +40,7 @@ func Remove(ctx context.Context, pinPath string, cliInterfaces []string, globalC
 			uniqueInterfaces[iface] = true
 		}
 
-		attachedIfaces, attachErr := backendxdp.GetAttachedInterfaces(pinPath)
+		attachedIfaces, attachErr := datapathprograms.GetAttachedInterfaces(pinPath)
 		if attachErr == nil {
 			for _, iface := range attachedIfaces {
 				uniqueInterfaces[iface] = true
@@ -54,9 +53,9 @@ func Remove(ctx context.Context, pinPath string, cliInterfaces []string, globalC
 		log.Infof("[INFO]  Detaching from all detected interfaces: %v", interfaces)
 	}
 
-	manager, err := backendxdp.NewManager(cfg.Capacity, log)
+	manager, err := datapathprograms.CreateManager(cfg.Capacity, log)
 	if err != nil {
-		return fmt.Errorf("failed to create XDP manager: %v", err)
+		return err
 	}
 	defer manager.Close()
 

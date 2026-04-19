@@ -5,16 +5,15 @@ import (
 	"fmt"
 
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
-	"github.com/netxfw/netxfw/internal/config"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
 // LoadRuntimeConfigSnapshot reloads the current config snapshot and ensures it is non-nil.
 func LoadRuntimeConfigSnapshot() (*sdk.GlobalConfig, error) {
-	globalCfg, err := config.ReloadCurrentConfig()
+	globalCfg, err := appconfig.LoadConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -37,15 +36,15 @@ func VerifyRuntimeConfigAndMaps(manager interface {
 	VerifyAndRepair(*sdk.GlobalConfig) error
 }, globalCfg *sdk.GlobalConfig, log *zap.SugaredLogger) {
 	switch m := manager.(type) {
-	case *xdp.Manager:
-		adapter := xdp.NewAdapter(m)
+	case *datapathprograms.Handle:
+		adapter := datapathprograms.NewAdapter(m)
 		if _, err := appconfig.VerifyAndRepair(context.Background(), adapter, globalCfg); err != nil {
 			log.Warnf("[WARN]  Startup consistency check failed: %v", err)
 		} else {
 			log.Info("[OK] Startup consistency check passed (Config synced to BPF).")
 		}
 		return
-	case *xdp.Adapter:
+	case sdk.ManagerInterface:
 		if _, err := appconfig.VerifyAndRepair(context.Background(), m, globalCfg); err != nil {
 			log.Warnf("[WARN]  Startup consistency check failed: %v", err)
 		} else {
@@ -62,10 +61,10 @@ func VerifyRuntimeConfigAndMaps(manager interface {
 }
 
 // RequirePinnedManager loads an already pinned manager and wraps it as an adapter.
-func RequirePinnedManager(pinPath string, log *zap.SugaredLogger) (sdkManager *xdp.Adapter, realMgr *xdp.Manager, err error) {
-	realMgr, err = xdp.NewManagerFromPins(pinPath, log)
+func RequirePinnedManager(pinPath string, log *zap.SugaredLogger) (sdkManager sdk.ManagerInterface, realMgr *datapathprograms.Handle, err error) {
+	realMgr, err = datapathprograms.OpenPinnedManager(pinPath, log)
 	if err != nil {
 		return nil, nil, err
 	}
-	return xdp.NewAdapter(realMgr), realMgr, nil
+	return datapathprograms.NewAdapter(realMgr), realMgr, nil
 }

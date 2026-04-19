@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	datapathmaps "github.com/netxfw/netxfw/internal/datapath/xdp/maps"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -103,22 +103,22 @@ func FromGlobalConfigMap(globalConfig lookupReader) ActualState {
 	}
 
 	return ActualState{
-		DefaultDeny:        readBool(globalConfig, xdp.ConfigIndexDefaultDeny),
-		AllowReturnTraffic: readBool(globalConfig, xdp.ConfigIndexAllowReturnTraffic),
-		AllowICMP:          readBool(globalConfig, xdp.ConfigIndexAllowICMP),
-		EnableConntrack:    readBool(globalConfig, xdp.ConfigIndexEnableConntrack),
-		ConntrackTimeout:   readUint64(globalConfig, xdp.ConfigIndexConntrackTimeout),
-		ICMPRate:           readUint64(globalConfig, xdp.ConfigIndexICMPRate),
-		ICMPBurst:          readUint64(globalConfig, xdp.ConfigIndexICMPBurst),
-		EnableAFXDP:        readBool(globalConfig, xdp.ConfigIndexEnableAFXDP),
-		StrictProtocol:     readBool(globalConfig, xdp.ConfigIndexStrictProto),
-		EnableRateLimit:    readBool(globalConfig, xdp.ConfigIndexEnableRateLimit),
-		DropFragments:      readBool(globalConfig, xdp.ConfigIndexDropFragments),
-		StrictTCP:          readBool(globalConfig, xdp.ConfigIndexStrictTCP),
-		SYNLimit:           readBool(globalConfig, xdp.ConfigIndexSYNLimit),
-		BogonFilter:        readBool(globalConfig, xdp.ConfigIndexBogonFilter),
-		AutoBlock:          readBool(globalConfig, xdp.ConfigIndexAutoBlock),
-		AutoBlockExpiry:    readUint64(globalConfig, xdp.ConfigIndexAutoBlockExpiry),
+		DefaultDeny:        readBool(globalConfig, datapathmaps.ConfigIndexDefaultDeny),
+		AllowReturnTraffic: readBool(globalConfig, datapathmaps.ConfigIndexAllowReturnTraffic),
+		AllowICMP:          readBool(globalConfig, datapathmaps.ConfigIndexAllowICMP),
+		EnableConntrack:    readBool(globalConfig, datapathmaps.ConfigIndexEnableConntrack),
+		ConntrackTimeout:   readUint64(globalConfig, datapathmaps.ConfigIndexConntrackTimeout),
+		ICMPRate:           readUint64(globalConfig, datapathmaps.ConfigIndexICMPRate),
+		ICMPBurst:          readUint64(globalConfig, datapathmaps.ConfigIndexICMPBurst),
+		EnableAFXDP:        readBool(globalConfig, datapathmaps.ConfigIndexEnableAFXDP),
+		StrictProtocol:     readBool(globalConfig, datapathmaps.ConfigIndexStrictProto),
+		EnableRateLimit:    readBool(globalConfig, datapathmaps.ConfigIndexEnableRateLimit),
+		DropFragments:      readBool(globalConfig, datapathmaps.ConfigIndexDropFragments),
+		StrictTCP:          readBool(globalConfig, datapathmaps.ConfigIndexStrictTCP),
+		SYNLimit:           readBool(globalConfig, datapathmaps.ConfigIndexSYNLimit),
+		BogonFilter:        readBool(globalConfig, datapathmaps.ConfigIndexBogonFilter),
+		AutoBlock:          readBool(globalConfig, datapathmaps.ConfigIndexAutoBlock),
+		AutoBlockExpiry:    readUint64(globalConfig, datapathmaps.ConfigIndexAutoBlockExpiry),
 	}
 }
 

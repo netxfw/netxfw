@@ -6,8 +6,8 @@ import (
 
 	"github.com/netxfw/netxfw/internal/api"
 	"github.com/netxfw/netxfw/internal/daemon"
-	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	datapathplugins "github.com/netxfw/netxfw/internal/datapath/xdp/plugins"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	datapathsync "github.com/netxfw/netxfw/internal/datapath/xdp/sync"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/pkg/sdk"
@@ -28,7 +28,7 @@ func Reload(ctx context.Context, pinPath string, cliInterfaces []string, globalC
 		return err
 	}
 
-	oldManager, err := backendxdp.NewManagerFromPins(pinPath, log)
+	oldManager, err := datapathprograms.OpenPinnedManager(pinPath, log)
 	if err != nil {
 		log.Info("[INFO]  No existing XDP program found. Performing clean install...")
 		_, installErr := Install(ctx, pinPath, cliInterfaces, globalCfg, log)
@@ -38,10 +38,10 @@ func Reload(ctx context.Context, pinPath string, cliInterfaces []string, globalC
 	return reloadExistingManager(ctx, pinPath, oldManager, globalCfg, interfaces, globalCfg, log)
 }
 
-func reloadExistingManager(ctx context.Context, pinPath string, oldManager *backendxdp.Manager, globalCfg *sdk.GlobalConfig, interfaces []string, oldCfg *sdk.GlobalConfig, log *zap.SugaredLogger) error {
+func reloadExistingManager(ctx context.Context, pinPath string, oldManager *datapathprograms.Handle, globalCfg *sdk.GlobalConfig, interfaces []string, oldCfg *sdk.GlobalConfig, log *zap.SugaredLogger) error {
 	defer oldManager.Close()
 
-	oldAdapter := backendxdp.NewAdapter(oldManager)
+	oldAdapter := oldManager.SDKManager()
 	pluginCtx := &sdk.RuntimePluginContext{
 		Context: ctx,
 		Manager: oldAdapter,
@@ -56,7 +56,7 @@ func reloadExistingManager(ctx context.Context, pinPath string, oldManager *back
 	return performFullMigration(ctx, pinPath, oldManager, globalCfg, interfaces, log)
 }
 
-func performIncrementalReload(oldManager *backendxdp.Manager, globalCfg *sdk.GlobalConfig, interfaces []string, pluginCtx *sdk.RuntimePluginContext, oldCfg *sdk.GlobalConfig, log *zap.SugaredLogger) error {
+func performIncrementalReload(oldManager *datapathprograms.Handle, globalCfg *sdk.GlobalConfig, interfaces []string, pluginCtx *sdk.RuntimePluginContext, oldCfg *sdk.GlobalConfig, log *zap.SugaredLogger) error {
 	log.Info("⚡ Capacity unchanged. Performing incremental hot-reload...")
 
 	updater := datapathsync.NewIncrementalUpdater(oldManager)
@@ -86,12 +86,12 @@ func performIncrementalReload(oldManager *backendxdp.Manager, globalCfg *sdk.Glo
 	return nil
 }
 
-func performFullMigration(ctx context.Context, pinPath string, oldManager *backendxdp.Manager, globalCfg *sdk.GlobalConfig, interfaces []string, log *zap.SugaredLogger) error {
+func performFullMigration(ctx context.Context, pinPath string, oldManager *datapathprograms.Handle, globalCfg *sdk.GlobalConfig, interfaces []string, log *zap.SugaredLogger) error {
 	log.Info("[DATA] Capacity changed. Performing full state transfer...")
 
-	newManager, err := backendxdp.NewManager(globalCfg.Capacity, log)
+	newManager, err := datapathprograms.CreateManager(globalCfg.Capacity, log)
 	if err != nil {
-		return fmt.Errorf("failed to create new XDP manager: %v", err)
+		return err
 	}
 
 	if err := datapathsync.MigrateState(newManager, oldManager); err != nil {
@@ -109,7 +109,7 @@ func performFullMigration(ctx context.Context, pinPath string, oldManager *backe
 		log.Warnf("[WARN]  Failed to reload datapath plugins: %v", err)
 	}
 
-	newAdapter := backendxdp.NewAdapter(newManager)
+	newAdapter := newManager.SDKManager()
 	newSDK := sdk.NewSDK(newAdapter)
 	webHost := api.NewServer(newSDK, globalCfg.Web.Port)
 	newCtx := daemon.BuildPluginContext(ctx, nil, newAdapter, globalCfg, log, newSDK, webHost)

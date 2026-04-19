@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/netxfw/netxfw/cmd/common"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	apprule "github.com/netxfw/netxfw/internal/app/rule"
-	"github.com/netxfw/netxfw/internal/config"
 	domainrule "github.com/netxfw/netxfw/internal/domain/rule"
 	"github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -464,11 +464,11 @@ Examples:
 			case ruleTypeBinary:
 				return apprule.ExportBinary(w, s, filePath)
 			case ruleTypeTOML:
-				return apprule.ExportStructured(w, config.DefaultWriteGateway(), s, filePath, "toml")
+				return apprule.ExportStructured(w, appconfig.DefaultWriteGateway(), s, filePath, "toml")
 			case ruleTypeCSV:
-				return apprule.ExportCSV(w, config.DefaultWriteGateway(), s, filePath)
+				return apprule.ExportCSV(w, appconfig.DefaultWriteGateway(), s, filePath)
 			default: // json
-				return apprule.ExportStructured(w, config.DefaultWriteGateway(), s, filePath, "json")
+				return apprule.ExportStructured(w, appconfig.DefaultWriteGateway(), s, filePath, "json")
 			}
 		})
 	},

@@ -13,8 +13,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/klauspost/compress/zstd"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	"github.com/netxfw/netxfw/internal/binary"
-	"github.com/netxfw/netxfw/internal/config"
 	domainrule "github.com/netxfw/netxfw/internal/domain/rule"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -191,7 +191,7 @@ func validatePlainIP(ip string) error {
 
 func importLockList(w io.Writer, fw *sdk.SDK, r io.Reader) error {
 	persistFile := ""
-	if cfg, err := config.ReloadCurrentConfig(); err == nil && cfg != nil {
+	if cfg, err := appconfig.LoadConfig(); err == nil && cfg != nil {
 		persistFile = cfg.Base.LockListFile
 	}
 

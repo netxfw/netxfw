@@ -1,7 +1,6 @@
 package app
 
 import (
-	"github.com/netxfw/netxfw/internal/config"
 	"github.com/netxfw/netxfw/internal/runtime"
 )
 
@@ -27,5 +26,5 @@ func IsTestMode() bool {
 
 // GetPinPath returns the active BPF pin path.
 func GetPinPath() string {
-	return config.GetPinPath()
+	return runtime.GetPinPath()
 }

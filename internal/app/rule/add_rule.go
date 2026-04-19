@@ -3,7 +3,7 @@ package rule
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/internal/config"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	domainrule "github.com/netxfw/netxfw/internal/domain/rule"
 	"github.com/netxfw/netxfw/internal/optimizer"
 	appruntime "github.com/netxfw/netxfw/internal/runtime"
@@ -54,7 +54,7 @@ func persistWhitelistEntry(ip string, port uint16) error {
 		return nil
 	}
 
-	return config.MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
+	return appconfig.MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
 		normalizedCIDR := iputil.NormalizeCIDR(ip)
 		entry := normalizedCIDR
 		if port > 0 {
@@ -87,7 +87,7 @@ func persistIPPortRule(ip string, port uint16, action uint8) error {
 		return nil
 	}
 
-	return config.MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
+	return appconfig.MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
 		normalizedCIDR := iputil.NormalizeCIDR(ip)
 		updated := false
 

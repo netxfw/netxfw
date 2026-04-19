@@ -1,21 +1,22 @@
 package sync
 
 import (
-	"github.com/netxfw/netxfw/internal/configtypes"
-	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	xdpbackend "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
-type ConfigDiff = backendxdp.ConfigDiff
+type ConfigDiff = xdpbackend.ConfigDiff
 
 type IncrementalUpdater struct {
-	inner *backendxdp.IncrementalUpdater
+	inner *xdpbackend.IncrementalUpdater
 }
 
-func NewIncrementalUpdater(mgr *backendxdp.Manager) *IncrementalUpdater {
-	return &IncrementalUpdater{inner: backendxdp.NewIncrementalUpdater(mgr)}
+func NewIncrementalUpdater(mgr *datapathprograms.Handle) *IncrementalUpdater {
+	return &IncrementalUpdater{inner: datapathprograms.NewIncrementalUpdater(mgr)}
 }
 
-func (u *IncrementalUpdater) ComputeDiff(oldCfg, newCfg *types.GlobalConfig) (*ConfigDiff, error) {
+func (u *IncrementalUpdater) ComputeDiff(oldCfg, newCfg *sdk.GlobalConfig) (*ConfigDiff, error) {
 	return u.inner.ComputeDiff(oldCfg, newCfg)
 }
 
@@ -23,6 +24,6 @@ func (u *IncrementalUpdater) ApplyDiff(diff *ConfigDiff) error {
 	return u.inner.ApplyDiff(diff)
 }
 
-func MigrateState(newManager, oldManager *backendxdp.Manager) error {
-	return newManager.MigrateState(oldManager)
+func MigrateState(newManager, oldManager *datapathprograms.Handle) error {
+	return datapathprograms.MigrateState(newManager, oldManager)
 }

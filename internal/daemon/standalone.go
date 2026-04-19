@@ -7,9 +7,10 @@ import (
 	"github.com/netxfw/netxfw/internal/daemon/engine"
 	"go.uber.org/zap"
 
-	"github.com/netxfw/netxfw/internal/config"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
+	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -17,8 +18,8 @@ import (
 // runUnified 运行统一的全栈模式。
 func runUnified(ctx context.Context) {
 	log := logger.Get(ctx)
-	configPath := config.GetConfigPath()
-	pidPath := config.DefaultPidPath
+	configPath := appconfig.GetConfigPath()
+	pidPath := runtime.DefaultPidPath
 
 	if err := managePidFile(pidPath); err != nil {
 		log.Fatalf("[ERROR] %v", err)
@@ -33,7 +34,7 @@ func runUnified(ctx context.Context) {
 
 	InitRuntimeLogging(globalCfg)
 
-	manager, err := LoadOrCreateManager(log, config.GetPinPath(), globalCfg)
+	manager, err := LoadOrCreateManager(log, runtime.GetPinPath(), globalCfg)
 	if err != nil {
 		log.Errorf("[ERROR] %v", err)
 		return
@@ -46,7 +47,7 @@ func runUnified(ctx context.Context) {
 		return
 	}
 	if len(interfaces) > 0 {
-		if err := ReconcileInterfaces(manager, config.GetPinPath(), interfaces, log, DetachBeforeAttach); err != nil {
+		if err := ReconcileInterfaces(manager, runtime.GetPinPath(), interfaces, log, DetachBeforeAttach); err != nil {
 			log.Errorf("[ERROR] Failed to attach XDP: %v", err)
 			return
 		}
@@ -55,7 +56,7 @@ func runUnified(ctx context.Context) {
 	VerifyRuntimeConfigAndMaps(manager, globalCfg, log)
 
 	coreModules := DefaultCoreModules()
-	adapter := xdp.NewAdapter(manager)
+	adapter := datapathprograms.NewAdapter(manager)
 	s := sdk.NewSDK(adapter)
 	webHost := api.NewServer(s, globalCfg.Web.Port)
 	if err := StartCoreModules(coreModules, globalCfg, s, log); err != nil {
@@ -63,7 +64,11 @@ func runUnified(ctx context.Context) {
 		return
 	}
 
-	pluginCtx := BuildPluginContext(ctx, adapter, adapter, globalCfg, log, s, webHost)
+	var fw sdk.Firewall
+	if typed, ok := adapter.(sdk.Firewall); ok {
+		fw = typed
+	}
+	pluginCtx := BuildPluginContext(ctx, fw, adapter, globalCfg, log, s, webHost)
 	StartPlugins(pluginCtx, log)
 
 	ctxCleanup, cancel := context.WithCancel(ctx)
@@ -81,7 +86,7 @@ func runUnified(ctx context.Context) {
 // createReloadFunc 创建配置变更的重载函数。
 func createReloadFunc(_ string, coreModules []engine.CoreModule, pluginCtx *sdk.RuntimePluginContext, log *zap.SugaredLogger) func() error {
 	return func() error {
-		newCfg, err := config.ReloadCurrentConfig()
+		newCfg, err := appconfig.LoadConfig()
 		if err != nil {
 			return err
 		}

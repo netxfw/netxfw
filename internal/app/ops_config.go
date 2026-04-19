@@ -18,6 +18,11 @@ func GetDefaultConfigPath() string {
 	return appconfig.GetDefaultConfigPath()
 }
 
+// DefaultConfigTemplate returns the default TOML config template text.
+func DefaultConfigTemplate() string {
+	return appconfig.DefaultConfigTemplate()
+}
+
 // RuntimeConfigPathVar returns a pointer to the runtime config path string for flag binding.
 func RuntimeConfigPathVar() *string {
 	return &runtime.ConfigPath

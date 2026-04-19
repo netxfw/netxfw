@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/cilium/ebpf"
-	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/internal/adapters/configfile"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -37,6 +37,7 @@ func LoadMap(mapName string) (*ebpf.Map, error) {
 // ConfigManagerInstance 保存配置管理器的单例实例
 var ConfigManagerInstance *ConfigManager
 var once sync.Once
+var configFileMu sync.RWMutex
 
 // GetDefaultConfigPath returns the default config path, preferring TOML over YAML.
 // GetDefaultConfigPath 返回默认配置路径，优先使用 TOML 格式。
@@ -89,30 +90,46 @@ func SaveGlobalConfig() error {
 
 // GetCurrentConfig returns the current configuration
 // GetCurrentConfig 返回当前配置
-func GetCurrentConfig() *types.GlobalConfig {
+func GetCurrentConfig() *sdk.GlobalConfig {
 	return GetConfigManager().GetConfig()
 }
 
 // DefaultConfigTemplate returns the default TOML config template text.
 func DefaultConfigTemplate() string {
-	return types.DefaultConfigTOMLTemplate
+	return configfile.DefaultTemplate()
+}
+
+func lockConfigRead() {
+	configFileMu.RLock()
+}
+
+func unlockConfigRead() {
+	configFileMu.RUnlock()
+}
+
+func lockConfigWrite() {
+	configFileMu.Lock()
+}
+
+func unlockConfigWrite() {
+	configFileMu.Unlock()
 }
 
 // MutateConfig applies fn to the current in-memory config and persists it.
 // MutateConfig 对当前内存配置执行 fn 并持久化。
-func MutateConfig(fn func(*types.GlobalConfig) error) error {
+func MutateConfig(fn func(*sdk.GlobalConfig) error) error {
 	return GetConfigManager().MutateConfig(fn)
 }
 
 // MutateLoadedConfig reloads config from disk, applies fn, and persists it.
 // MutateLoadedConfig 从磁盘重新加载配置，执行 fn 后持久化。
-func MutateLoadedConfig(fn func(*types.GlobalConfig) error) error {
+func MutateLoadedConfig(fn func(*sdk.GlobalConfig) error) error {
 	return GetConfigManager().MutateLoadedConfig(fn)
 }
 
 // ReloadCurrentConfig reloads and returns the current config snapshot.
 // ReloadCurrentConfig 重新加载并返回当前配置快照。
-func ReloadCurrentConfig() (*types.GlobalConfig, error) {
+func ReloadCurrentConfig() (*sdk.GlobalConfig, error) {
 	return GetConfigManager().ReloadConfig()
 }
 
@@ -131,5 +148,5 @@ func CloneConfig(cfg *sdk.GlobalConfig) *sdk.GlobalConfig {
 	if cfg == nil {
 		return nil
 	}
-	return types.CloneGlobalConfig(cfg)
+	return configfile.Clone(cfg)
 }

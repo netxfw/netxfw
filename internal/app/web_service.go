@@ -7,22 +7,22 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/internal/api"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // RunWebServer starts the API and UI server.
 func RunWebServer(ctx context.Context, port int) error {
 	log := logger.Get(ctx)
-	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
+	manager, err := datapathprograms.OpenPinnedManager(GetPinPath(), log)
 	if err != nil {
 		log.Warnf("[WARN]  Could not load pinned maps (is XDP loaded?): %v", err)
 		return fmt.Errorf("web server requires netxfw XDP to be loaded. Run 'netxfw system load' first")
 	}
 	defer manager.Close()
 
-	adapter := xdp.NewAdapter(manager)
+	adapter := datapathprograms.NewAdapter(manager)
 	s := sdk.NewSDK(adapter)
 	server := api.NewServer(s, port)
 	if err := server.EnsureHandlerInitialized(); err != nil {

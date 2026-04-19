@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	"github.com/netxfw/netxfw/internal/binary"
-	"github.com/netxfw/netxfw/internal/config"
 	datapathlifecycle "github.com/netxfw/netxfw/internal/datapath/xdp/lifecycle"
+	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
 	"github.com/netxfw/netxfw/internal/utils/fmtutil"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/internal/version"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 )
 
 // TrafficStats is the app-layer alias for shared runtime traffic statistics.
@@ -87,7 +87,7 @@ func NormalizeCIDR(ipStr string) string {
 
 // GetBackupKeep returns the active backup retention policy.
 func GetBackupKeep() int {
-	return config.GetBackupKeep()
+	return appconfig.GetBackupKeep()
 }
 
 // RunDeployUpdate executes the trusted deployment update pipeline.
@@ -109,7 +109,7 @@ func ReloadPinnedMaps(ctx context.Context) error {
 	}
 
 	log := logger.Get(ctx)
-	manager, err := xdp.NewManagerFromPins(GetPinPath(), log)
+	manager, err := datapathprograms.OpenPinnedManager(GetPinPath(), log)
 	if err != nil {
 		return fmt.Errorf("failed to load XDP manager: %v", err)
 	}

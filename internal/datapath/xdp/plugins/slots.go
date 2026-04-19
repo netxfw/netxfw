@@ -4,12 +4,11 @@ import (
 	"fmt"
 
 	domaindatapath "github.com/netxfw/netxfw/internal/domain/plugin/datapath"
-	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 )
 
 const (
-	SlotStart = backendxdp.ProgramIndexPluginStart
-	SlotEnd   = backendxdp.ProgramIndexPluginEnd
+	SlotStart = 2
+	SlotEnd   = 14
 )
 
 // ValidateSlot checks whether an index is inside the supported plugin slot range.
@@ -29,16 +28,18 @@ func SlotRange() domaindatapath.SlotRange {
 }
 
 // ListSlots returns the current datapath plugin slot occupancy.
-func ListSlots(manager *backendxdp.Manager) ([]domaindatapath.SlotStatus, error) {
+func ListSlots(manager interface {
+	LookupPluginProgram(index int) (uint32, bool, error)
+}) ([]domaindatapath.SlotStatus, error) {
 	if manager == nil {
 		return nil, fmt.Errorf("manager is nil")
 	}
 
 	slots := make([]domaindatapath.SlotStatus, 0, SlotEnd-SlotStart+1)
 	for i := SlotStart; i <= SlotEnd; i++ {
-		var progID uint32
 		slot := domaindatapath.SlotStatus{Index: i}
-		if err := manager.JmpTable().Lookup(uint32(i), &progID); err == nil {
+		progID, loaded, err := manager.LookupPluginProgram(i)
+		if err == nil && loaded {
 			slot.ProgramID = progID
 			slot.Occupied = true
 		}

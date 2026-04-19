@@ -3,7 +3,7 @@ package xdp
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // ConfigDiff represents the difference between two configurations.
@@ -68,7 +68,7 @@ func NewIncrementalUpdater(mgr *Manager) *IncrementalUpdater {
 
 // ComputeDiff computes the difference between old and new configurations.
 // ComputeDiff 计算旧配置和新配置之间的差异。
-func (u *IncrementalUpdater) ComputeDiff(oldCfg, newCfg *types.GlobalConfig) (*ConfigDiff, error) {
+func (u *IncrementalUpdater) ComputeDiff(oldCfg, newCfg *sdk.GlobalConfig) (*ConfigDiff, error) {
 	diff := &ConfigDiff{
 		GlobalConfigChanges: make(map[string]ConfigChange),
 	}
@@ -91,7 +91,7 @@ func (u *IncrementalUpdater) ComputeDiff(oldCfg, newCfg *types.GlobalConfig) (*C
 
 // compareGlobalConfig compares global configuration fields.
 // compareGlobalConfig 比较全局配置字段。
-func (u *IncrementalUpdater) compareGlobalConfig(oldCfg, newCfg *types.GlobalConfig, diff *ConfigDiff) {
+func (u *IncrementalUpdater) compareGlobalConfig(oldCfg, newCfg *sdk.GlobalConfig, diff *ConfigDiff) {
 	// Base config fields / 基础配置字段
 	if oldCfg.Base.DefaultDeny != newCfg.Base.DefaultDeny {
 		diff.GlobalConfigChanges["default_deny"] = ConfigChange{
@@ -185,7 +185,7 @@ func (u *IncrementalUpdater) compareGlobalConfig(oldCfg, newCfg *types.GlobalCon
 
 // compareBlacklist compares blacklist entries.
 // compareBlacklist 比较黑名单条目。
-func (u *IncrementalUpdater) compareBlacklist(oldCfg, newCfg *types.GlobalConfig, diff *ConfigDiff) error {
+func (u *IncrementalUpdater) compareBlacklist(oldCfg, newCfg *sdk.GlobalConfig, diff *ConfigDiff) error {
 	// Check if map is available / 检查 Map 是否可用
 	if u.mgr.staticBlacklist == nil {
 		return nil // Skip comparison if map not available / 如果 Map 不可用则跳过比较
@@ -228,7 +228,7 @@ func (u *IncrementalUpdater) compareBlacklist(oldCfg, newCfg *types.GlobalConfig
 
 // compareWhitelist compares whitelist entries.
 // compareWhitelist 比较白名单条目。
-func (u *IncrementalUpdater) compareWhitelist(oldCfg, newCfg *types.GlobalConfig, diff *ConfigDiff) error {
+func (u *IncrementalUpdater) compareWhitelist(oldCfg, newCfg *sdk.GlobalConfig, diff *ConfigDiff) error {
 	// Check if map is available / 检查 Map 是否可用
 	if u.mgr.whitelist == nil {
 		return nil // Skip comparison if map not available / 如果 Map 不可用则跳过比较

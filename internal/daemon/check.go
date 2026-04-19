@@ -5,7 +5,7 @@ import (
 	"os"
 
 	runtimehost "github.com/netxfw/netxfw/internal/adapters/plugins/runtime"
-	"github.com/netxfw/netxfw/internal/config"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
@@ -15,10 +15,10 @@ import (
  */
 func TestConfiguration(ctx context.Context) {
 	log := logger.Get(ctx)
-	configPath := config.GetConfigPath()
+	configPath := appconfig.GetConfigPath()
 	log.Infof("[SCAN] Testing global configuration in %s...", configPath)
 
-	cfg, err := config.ReloadCurrentConfig()
+	cfg, err := appconfig.LoadConfig()
 	if err != nil {
 		log.Fatalf("[ERROR] Error loading config.yaml: %v", err)
 	}

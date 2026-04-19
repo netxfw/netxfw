@@ -2,10 +2,13 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"sync"
 
-	cfgstore "github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/adapters/configfile"
 	runtimestate "github.com/netxfw/netxfw/internal/domain/runtime"
 	systemstate "github.com/netxfw/netxfw/internal/domain/system"
+	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -16,20 +19,40 @@ type StatusSnapshot struct {
 	Drift   runtimestate.StateDiff
 }
 
+const (
+	defaultConfigPath = "/etc/netxfw/config.toml"
+	yamlConfigPath    = "/etc/netxfw/config.yaml"
+	defaultBackupKeep = 3
+)
+
+var configFileMu sync.RWMutex
+
 func GetDefaultConfigPath() string {
-	return cfgstore.GetDefaultConfigPath()
+	if _, err := os.Stat(defaultConfigPath); err == nil {
+		return defaultConfigPath
+	}
+	if _, err := os.Stat(yamlConfigPath); err == nil {
+		return yamlConfigPath
+	}
+	return defaultConfigPath
 }
 
 func SetConfigPath(path string) {
-	cfgstore.SetConfigPath(path)
+	runtime.ConfigPath = path
 }
 
 func GetConfigPath() string {
-	return cfgstore.GetConfigPath()
+	if runtime.ConfigPath != "" {
+		return runtime.ConfigPath
+	}
+	return GetDefaultConfigPath()
 }
 
 func LoadConfig() (*sdk.GlobalConfig, error) {
-	cfg, err := cfgstore.ReloadCurrentConfig()
+	configFileMu.RLock()
+	defer configFileMu.RUnlock()
+
+	cfg, err := configfile.Load(GetConfigPath())
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
@@ -37,11 +60,37 @@ func LoadConfig() (*sdk.GlobalConfig, error) {
 }
 
 func MutateLoadedConfig(fn func(*sdk.GlobalConfig) error) error {
-	return cfgstore.MutateLoadedConfig(fn)
+	configFileMu.Lock()
+	defer configFileMu.Unlock()
+
+	cfg, err := configfile.Load(GetConfigPath())
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+	if cfg == nil {
+		return fmt.Errorf("config is nil")
+	}
+	if err := fn(cfg); err != nil {
+		return err
+	}
+
+	backupKeep := defaultBackupKeep
+	if cfg.Base.BackupKeep > 0 {
+		backupKeep = cfg.Base.BackupKeep
+	}
+	return configfile.SaveWithBackup(GetConfigPath(), cfg, backupKeep)
 }
 
 func GetBackupKeep() int {
-	return cfgstore.GetBackupKeep()
+	cfg, err := LoadConfig()
+	if err == nil && cfg != nil && cfg.Base.BackupKeep > 0 {
+		return cfg.Base.BackupKeep
+	}
+	return defaultBackupKeep
+}
+
+func DefaultConfigTemplate() string {
+	return configfile.DefaultTemplate()
 }
 
 func LoadStatusSnapshot(mgr sdk.ManagerInterface) (StatusSnapshot, error) {
