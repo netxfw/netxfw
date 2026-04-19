@@ -9,7 +9,7 @@ import (
 
 	apprule "github.com/netxfw/netxfw/internal/app/rule"
 	domainrule "github.com/netxfw/netxfw/internal/domain/rule"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // RuleAction identifies the semantic intent of a rule operation.

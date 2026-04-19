@@ -27,6 +27,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Import Audit
         if: matrix.guard_step == 'import-audit'
         run: bash scripts/rearchitecture/import_audit.sh --strict

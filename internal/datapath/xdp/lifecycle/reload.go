@@ -9,8 +9,9 @@ import (
 	datapathplugins "github.com/netxfw/netxfw/internal/datapath/xdp/plugins"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	datapathsync "github.com/netxfw/netxfw/internal/datapath/xdp/sync"
+	"github.com/netxfw/netxfw/internal/ports"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
@@ -41,7 +42,7 @@ func Reload(ctx context.Context, pinPath string, cliInterfaces []string, globalC
 func reloadExistingManager(ctx context.Context, pinPath string, oldManager *datapathprograms.Handle, globalCfg *sdk.GlobalConfig, interfaces []string, oldCfg *sdk.GlobalConfig, log *zap.SugaredLogger) error {
 	defer oldManager.Close()
 
-	oldAdapter := oldManager.SDKManager()
+	oldAdapter := datapathprograms.NewAdapter(oldManager)
 	pluginCtx := &sdk.RuntimePluginContext{
 		Context: ctx,
 		Manager: oldAdapter,
@@ -105,11 +106,11 @@ func performFullMigration(ctx context.Context, pinPath string, oldManager *datap
 	if err := newManager.Attach(interfaces); err != nil {
 		return fmt.Errorf("failed to attach new XDP program: %v", err)
 	}
-	if err := datapathplugins.LoadConfigured(newManager, globalCfg, log); err != nil {
+	if err := datapathplugins.LoadConfigured(newManager, ports.ConfigFromSDK(globalCfg), log); err != nil {
 		log.Warnf("[WARN]  Failed to reload datapath plugins: %v", err)
 	}
 
-	newAdapter := newManager.SDKManager()
+	newAdapter := datapathprograms.NewAdapter(newManager)
 	newSDK := sdk.NewSDK(newAdapter)
 	webHost := api.NewServer(newSDK, globalCfg.Web.Port)
 	newCtx := daemon.BuildPluginContext(ctx, nil, newAdapter, globalCfg, log, newSDK, webHost)

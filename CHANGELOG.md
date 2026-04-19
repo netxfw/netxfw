@@ -63,7 +63,7 @@
 - **许可证文件**: 添加 Apache-2.0 LICENSE（Go 代码）和 Dual BSD/GPL（BPF 代码）。
 
 ### 变更
-- **内部架构**: 重构 `internal/xdp`，在内部将 IPv4 地址作为 IPv4 映射的 IPv6 地址 (`::ffff:a.b.c.d`) 处理。
+- **内部架构**: 重构 `internal/datapath/xdp`，在内部将 IPv4 地址作为 IPv4 映射的 IPv6 地址 (`::ffff:a.b.c.d`) 处理。
 - **CLI**: 改进 `rule list` 输出，正确区分允许/拒绝列表。
 - **CLI**: 修复 `rule remove` 命令，确保使用 `system sync` 时更改能持久化到磁盘。
 - **CI/CD**: 更新 GitHub Actions 仅运行单元测试，排除需要真实环境的集成测试。

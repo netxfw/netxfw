@@ -9,7 +9,7 @@ import (
 
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
 	"github.com/netxfw/netxfw/internal/utils/ipmerge"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // SyncToFiles dumps current BPF map rules back to text files.

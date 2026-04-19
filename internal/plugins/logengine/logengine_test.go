@@ -7,9 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,10 +41,10 @@ func TestLogEngine_RuleMatching(t *testing.T) {
 
 	// 2. Create LogEngine Config
 	// 2. 创建 LogEngine 配置
-	cfg := types.LogEngineConfig{
+	cfg := sdk.LogEngineConfig{
 		Enabled: true,
 		Workers: 1,
-		Rules: []types.LogEngineRule{
+		Rules: []sdk.LogEngineRule{
 			{
 				ID:         "test_rule_static",
 				Expression: `log("failed") && log("root")`,
@@ -258,10 +257,10 @@ func TestLogEngine_LongWindow(t *testing.T) {
 
 	// 2. Create Config with 1 hour window rule
 	// 2. 创建带有 1 小时窗口规则的配置
-	cfg := types.LogEngineConfig{
+	cfg := sdk.LogEngineConfig{
 		Enabled: true,
 		Workers: 1,
-		Rules: []types.LogEngineRule{
+		Rules: []sdk.LogEngineRule{
 			{
 				ID:         "test_rule_1h",
 				Expression: `log("failed")`,
@@ -305,10 +304,10 @@ func TestLogEngine_LongWindow(t *testing.T) {
 func TestCounter_DynamicConfig(t *testing.T) {
 	// Verify that MaxWindow config is respected
 	// 验证 MaxWindow 配置被遵守
-	cfg := types.LogEngineConfig{
+	cfg := sdk.LogEngineConfig{
 		Enabled:   true,
 		MaxWindow: 7200, // 2 hours
-		Rules:     []types.LogEngineRule{},
+		Rules:     []sdk.LogEngineRule{},
 	}
 
 	mockHandler := &MockActionHandler{}
@@ -340,8 +339,8 @@ func TestLogEnginePlugin_Type(t *testing.T) {
 func TestLogEnginePlugin_DefaultConfig(t *testing.T) {
 	p := &LogEnginePlugin{}
 	cfg := p.DefaultConfig()
-	assert.IsType(t, types.LogEngineConfig{}, cfg)
-	logCfg := cfg.(types.LogEngineConfig)
+	assert.IsType(t, sdk.LogEngineConfig{}, cfg)
+	logCfg := cfg.(sdk.LogEngineConfig)
 	assert.False(t, logCfg.Enabled)
 	assert.Equal(t, 4, logCfg.Workers)
 }
@@ -350,8 +349,8 @@ func TestLogEnginePlugin_DefaultConfig(t *testing.T) {
 // TestLogEnginePlugin_Validate_Disabled 测试禁用时的验证
 func TestLogEnginePlugin_Validate_Disabled(t *testing.T) {
 	p := &LogEnginePlugin{}
-	cfg := &types.GlobalConfig{
-		LogEngine: types.LogEngineConfig{
+	cfg := &sdk.GlobalConfig{
+		LogEngine: sdk.LogEngineConfig{
 			Enabled: false,
 		},
 	}
@@ -363,10 +362,10 @@ func TestLogEnginePlugin_Validate_Disabled(t *testing.T) {
 // TestLogEnginePlugin_Validate_NoRules 测试无规则时的验证
 func TestLogEnginePlugin_Validate_NoRules(t *testing.T) {
 	p := &LogEnginePlugin{}
-	cfg := &types.GlobalConfig{
-		LogEngine: types.LogEngineConfig{
+	cfg := &sdk.GlobalConfig{
+		LogEngine: sdk.LogEngineConfig{
 			Enabled: true,
-			Rules:   []types.LogEngineRule{},
+			Rules:   []sdk.LogEngineRule{},
 		},
 	}
 	err := p.Validate(cfg)
@@ -378,10 +377,10 @@ func TestLogEnginePlugin_Validate_NoRules(t *testing.T) {
 // TestLogEnginePlugin_Validate_Valid 测试有效配置的验证
 func TestLogEnginePlugin_Validate_Valid(t *testing.T) {
 	p := &LogEnginePlugin{}
-	cfg := &types.GlobalConfig{
-		LogEngine: types.LogEngineConfig{
+	cfg := &sdk.GlobalConfig{
+		LogEngine: sdk.LogEngineConfig{
 			Enabled: true,
-			Rules: []types.LogEngineRule{
+			Rules: []sdk.LogEngineRule{
 				{ID: "test", Expression: `log("test")`, Action: "2"},
 			},
 		},
@@ -402,7 +401,7 @@ func TestLogEnginePlugin_Stop(t *testing.T) {
 // TestLogEnginePlugin_Stop_WithEngine 测试带引擎的插件停止
 func TestLogEnginePlugin_Stop_WithEngine(t *testing.T) {
 	p := &LogEnginePlugin{
-		engine: New(types.LogEngineConfig{Enabled: true}, logger.Get(nil), &MockActionHandler{}),
+		engine: New(sdk.LogEngineConfig{Enabled: true}, logger.Get(nil), &MockActionHandler{}),
 	}
 	err := p.Stop()
 	assert.NoError(t, err)
@@ -412,13 +411,13 @@ func TestLogEnginePlugin_Stop_WithEngine(t *testing.T) {
 // TestLogEnginePlugin_Start_Disabled 测试禁用时的插件启动
 func TestLogEnginePlugin_Start_Disabled(t *testing.T) {
 	p := &LogEnginePlugin{
-		config: types.LogEngineConfig{
+		config: sdk.LogEngineConfig{
 			Enabled: false,
 		},
 	}
 	ctx := &sdk.RuntimePluginContext{
-		Config: &types.GlobalConfig{
-			LogEngine: types.LogEngineConfig{
+		Config: &sdk.GlobalConfig{
+			LogEngine: sdk.LogEngineConfig{
 				Enabled: false,
 			},
 		},
@@ -432,7 +431,7 @@ func TestLogEnginePlugin_Start_Disabled(t *testing.T) {
 // TestParseActionType_Numeric 测试数字动作值
 func TestParseActionType_Numeric(t *testing.T) {
 	mockHandler := &MockActionHandler{}
-	cfg := types.LogEngineConfig{Enabled: true, Workers: 1}
+	cfg := sdk.LogEngineConfig{Enabled: true, Workers: 1}
 	le := New(cfg, logger.Get(nil), mockHandler)
 	re := le.RuleEngine()
 
@@ -472,7 +471,7 @@ func TestParseActionType_Numeric(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rule := types.LogEngineRule{
+			rule := sdk.LogEngineRule{
 				ID:         "test_" + tt.name,
 				Expression: `log("test")`,
 				Action:     tt.action,
@@ -487,7 +486,7 @@ func TestParseActionType_Numeric(t *testing.T) {
 // TestParseActionType_Invalid 测试无效动作值
 func TestParseActionType_Invalid(t *testing.T) {
 	mockHandler := &MockActionHandler{}
-	cfg := types.LogEngineConfig{Enabled: true, Workers: 1}
+	cfg := sdk.LogEngineConfig{Enabled: true, Workers: 1}
 	le := New(cfg, logger.Get(nil), mockHandler)
 	re := le.RuleEngine()
 
@@ -503,7 +502,7 @@ func TestParseActionType_Invalid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rule := types.LogEngineRule{
+			rule := sdk.LogEngineRule{
 				ID:         "test_" + tt.name,
 				Expression: `log("test")`,
 				Action:     tt.action,
@@ -527,10 +526,10 @@ func TestActionType_Constants(t *testing.T) {
 func TestRuleEngine_ActionExecution(t *testing.T) {
 	mockHandler := &MockActionHandler{}
 
-	cfg := types.LogEngineConfig{
+	cfg := sdk.LogEngineConfig{
 		Enabled: true,
 		Workers: 1,
-		Rules: []types.LogEngineRule{
+		Rules: []sdk.LogEngineRule{
 			{
 				ID:         "action_0_log",
 				Expression: `log("ALERT_ONLY")`,

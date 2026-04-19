@@ -4,9 +4,8 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/daemon/engine"
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // TestLogger implements sdk.Logger for testing
@@ -39,25 +38,25 @@ func TestCoreModules(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	s := sdk.NewSDK(mockMgr)
 	logger := &TestLogger{t: t}
-	globalCfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	globalCfg := &sdk.GlobalConfig{
+		Base: sdk.BaseConfig{
 			DefaultDeny:        true,
 			AllowReturnTraffic: true,
 		},
-		Conntrack: types.ConntrackConfig{
+		Conntrack: sdk.ConntrackConfig{
 			Enabled:    true,
 			TCPTimeout: "1h",
 		},
-		Port: types.PortConfig{
+		Port: sdk.PortConfig{
 			AllowedPorts: []uint16{80, 443},
-			IPPortRules: []types.IPPortRule{
+			IPPortRules: []sdk.IPPortRule{
 				{IP: "192.168.1.100", Port: 22, Action: 1}, // Allow SSH
 			},
 		},
-		RateLimit: types.RateLimitConfig{
+		RateLimit: sdk.RateLimitConfig{
 			Enabled:   true,
 			AutoBlock: true,
-			Rules: []types.RateLimitRule{
+			Rules: []sdk.RateLimitRule{
 				{IP: "10.0.0.1", Rate: 100, Burst: 10},
 			},
 		},

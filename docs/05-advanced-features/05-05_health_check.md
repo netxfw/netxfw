@@ -48,7 +48,7 @@ NetXFW 提供完善的健康检查系统，用于监控 BPF Map 状态、服务�
 ### 状态判定
 
 ```go
-// internal/xdp/health_check.go
+// internal/datapath/xdp/backend/health_check.go
 const (
     statusOK          = "ok"          // 使用率 < 80%
     statusWarning     = "warning"     // 使用率 80% - 95%

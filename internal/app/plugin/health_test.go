@@ -5,7 +5,7 @@ import (
 
 	domaindatapath "github.com/netxfw/netxfw/internal/domain/plugin/datapath"
 	domainruntime "github.com/netxfw/netxfw/internal/domain/plugin/runtime"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/ports"
 )
 
 func TestSummarizeHealth(t *testing.T) {
@@ -21,10 +21,10 @@ func TestSummarizeHealth(t *testing.T) {
 	}
 
 	health := SummarizeHealth(snapshot)
-	if health.Runtime.Status != sdk.HealthStatusHealthy {
+	if health.Runtime.Status != ports.HealthStatusHealthy {
 		t.Fatalf("expected healthy runtime status, got %s", health.Runtime.Status)
 	}
-	if health.Datapath.Status != sdk.HealthStatusDegraded {
+	if health.Datapath.Status != ports.HealthStatusDegraded {
 		t.Fatalf("expected degraded datapath status, got %s", health.Datapath.Status)
 	}
 }

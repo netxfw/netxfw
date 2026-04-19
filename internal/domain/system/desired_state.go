@@ -3,7 +3,7 @@ package system
 import (
 	"time"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 )
 
 // DesiredState captures the policy and count-oriented state we expect runtime to match.
@@ -34,7 +34,7 @@ type DesiredState struct {
 }
 
 // FromConfig projects a configuration file into a runtime-oriented desired state.
-func FromConfig(cfg *sdk.GlobalConfig) DesiredState {
+func FromConfig(cfg *domainconfig.Config) DesiredState {
 	if cfg == nil {
 		return DesiredState{}
 	}

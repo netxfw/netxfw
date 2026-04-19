@@ -1,9 +1,9 @@
 package configfile
 
-import "github.com/netxfw/netxfw/pkg/sdk"
+import domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 
 // Clone returns a deep copy of cfg.
-func Clone(cfg *sdk.GlobalConfig) *sdk.GlobalConfig {
+func Clone(cfg *domainconfig.Config) *domainconfig.Config {
 	if cfg == nil {
 		return nil
 	}
@@ -15,40 +15,40 @@ func Clone(cfg *sdk.GlobalConfig) *sdk.GlobalConfig {
 	clone.LogEngine = cloneLogEngineConfig(cfg.LogEngine)
 	clone.Cloud = cloneCloudConfig(cfg.Cloud)
 	clone.BPFPlugin = cloneBPFPluginSettings(cfg.BPFPlugin)
-	clone.Modules = append([]sdk.ModuleConfig(nil), cfg.Modules...)
+	clone.Modules = append([]domainconfig.ModuleConfig(nil), cfg.Modules...)
 	return &clone
 }
 
-func cloneBaseConfig(cfg sdk.BaseConfig) sdk.BaseConfig {
+func cloneBaseConfig(cfg domainconfig.BaseConfig) domainconfig.BaseConfig {
 	clone := cfg
 	clone.Interfaces = append([]string(nil), cfg.Interfaces...)
 	clone.Whitelist = append([]string(nil), cfg.Whitelist...)
 	return clone
 }
 
-func clonePortConfig(cfg sdk.PortConfig) sdk.PortConfig {
+func clonePortConfig(cfg domainconfig.PortConfig) domainconfig.PortConfig {
 	clone := cfg
 	clone.AllowedPorts = append([]uint16(nil), cfg.AllowedPorts...)
-	clone.IPPortRules = append([]sdk.IPPortRule(nil), cfg.IPPortRules...)
+	clone.IPPortRules = append([]domainconfig.IPPortRule(nil), cfg.IPPortRules...)
 	return clone
 }
 
-func cloneRateLimitConfig(cfg sdk.RateLimitConfig) sdk.RateLimitConfig {
+func cloneRateLimitConfig(cfg domainconfig.RateLimitConfig) domainconfig.RateLimitConfig {
 	clone := cfg
-	clone.Rules = append([]sdk.RateLimitRule(nil), cfg.Rules...)
+	clone.Rules = append([]domainconfig.RateLimitRule(nil), cfg.Rules...)
 	return clone
 }
 
-func cloneLogEngineConfig(cfg sdk.LogEngineConfig) sdk.LogEngineConfig {
+func cloneLogEngineConfig(cfg domainconfig.LogEngineConfig) domainconfig.LogEngineConfig {
 	clone := cfg
-	clone.Rules = append([]sdk.LogEngineRule(nil), cfg.Rules...)
+	clone.Rules = append([]domainconfig.LogEngineRule(nil), cfg.Rules...)
 	for i := range clone.Rules {
 		clone.Rules[i] = cloneLogEngineRule(clone.Rules[i])
 	}
 	return clone
 }
 
-func cloneLogEngineRule(rule sdk.LogEngineRule) sdk.LogEngineRule {
+func cloneLogEngineRule(rule domainconfig.LogEngineRule) domainconfig.LogEngineRule {
 	clone := rule
 	clone.Keywords = append([]string(nil), rule.Keywords...)
 	clone.Contains = append([]string(nil), rule.Contains...)
@@ -61,20 +61,20 @@ func cloneLogEngineRule(rule sdk.LogEngineRule) sdk.LogEngineRule {
 	return clone
 }
 
-func cloneCloudConfig(cfg sdk.CloudConfig) sdk.CloudConfig {
+func cloneCloudConfig(cfg domainconfig.CloudConfig) domainconfig.CloudConfig {
 	clone := cfg
 	clone.ProxyProtocol = cloneProxyProtocolConfig(cfg.ProxyProtocol)
 	return clone
 }
 
-func cloneProxyProtocolConfig(cfg sdk.ProxyProtocolConfig) sdk.ProxyProtocolConfig {
+func cloneProxyProtocolConfig(cfg domainconfig.ProxyProtocolConfig) domainconfig.ProxyProtocolConfig {
 	clone := cfg
 	clone.TrustedLBRanges = append([]string(nil), cfg.TrustedLBRanges...)
 	return clone
 }
 
-func cloneBPFPluginSettings(cfg sdk.BPFPluginSettings) sdk.BPFPluginSettings {
+func cloneBPFPluginSettings(cfg domainconfig.BPFPluginSettings) domainconfig.BPFPluginSettings {
 	clone := cfg
-	clone.Plugins = append([]sdk.BPFPluginConfig(nil), cfg.Plugins...)
+	clone.Plugins = append([]domainconfig.BPFPluginConfig(nil), cfg.Plugins...)
 	return clone
 }

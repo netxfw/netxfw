@@ -1,6 +1,6 @@
 package daemon
 
-import "github.com/netxfw/netxfw/pkg/sdk"
+import sdk "github.com/netxfw/netxfw/pkg/sdk"
 
 // DaemonOptions configuration options for the daemon
 // DaemonOptions 守护进程的配置选项

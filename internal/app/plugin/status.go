@@ -4,9 +4,9 @@ import (
 	"context"
 	"sort"
 
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	domaindatapath "github.com/netxfw/netxfw/internal/domain/plugin/datapath"
 	domainruntime "github.com/netxfw/netxfw/internal/domain/plugin/runtime"
-	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // StatusSnapshot captures the unified runtime/datapath plugin read model.
@@ -24,7 +24,7 @@ func ComposeStatus(runtime []domainruntime.Status, datapath []domaindatapath.Lif
 }
 
 // LoadDatapathStatus returns configured and occupied datapath plugin slots.
-func LoadDatapathStatus(ctx context.Context, cfg *sdk.GlobalConfig) ([]domaindatapath.LifecycleStatus, error) {
+func LoadDatapathStatus(ctx context.Context, cfg *domainconfig.Config) ([]domaindatapath.LifecycleStatus, error) {
 	slots, listErr := NewDatapathLifecycle().List(ctx)
 	slotByIndex := make(map[int]domaindatapath.SlotStatus, len(slots))
 	for _, slot := range slots {
@@ -73,12 +73,12 @@ func LoadDatapathStatus(ctx context.Context, cfg *sdk.GlobalConfig) ([]domaindat
 	return statuses, listErr
 }
 
-func configuredDatapathPlugins(cfg *sdk.GlobalConfig) []sdk.BPFPluginConfig {
+func configuredDatapathPlugins(cfg *domainconfig.Config) []domainconfig.BPFPluginConfig {
 	if cfg == nil || !cfg.BPFPlugin.Enabled {
 		return nil
 	}
 
-	items := make([]sdk.BPFPluginConfig, 0, len(cfg.BPFPlugin.Plugins))
+	items := make([]domainconfig.BPFPluginConfig, 0, len(cfg.BPFPlugin.Plugins))
 	for _, plugin := range cfg.BPFPlugin.Plugins {
 		if !plugin.Enabled {
 			continue

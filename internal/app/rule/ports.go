@@ -1,14 +1,14 @@
 package rule
 
 import (
-	"os"
-
-	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/domain/config"
+	"github.com/netxfw/netxfw/internal/ports"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type ConfigGateway interface {
-	WriteFile(path string, data []byte, perm os.FileMode, source string) error
-	SaveGlobalConfig(path string, cfg *sdk.GlobalConfig, keepBackups int, source string) error
+	ports.FileWriter
+	ports.ConfigWriter
 }
 
 type blacklistPort interface {
@@ -16,8 +16,8 @@ type blacklistPort interface {
 	Remove(cidr string) error
 	RemoveDynamic(cidr string) error
 	Clear() error
-	List(limit int, search string) ([]sdk.BlockedIP, int, error)
-	ListDynamic(limit int, search string) ([]sdk.BlockedIP, int, error)
+	List(limit int, search string) ([]ports.BlockedIP, int, error)
+	ListDynamic(limit int, search string) ([]ports.BlockedIP, int, error)
 }
 
 type whitelistPort interface {
@@ -30,7 +30,7 @@ type whitelistPort interface {
 type ipPortRulePort interface {
 	AddIPPortRule(cidr string, port uint16, action uint8) error
 	RemoveIPPortRule(cidr string, port uint16) error
-	ListIPPortRules(limit int, search string) ([]sdk.IPPortRule, int, error)
+	ListIPPortRules(limit int, search string) ([]config.IPPortRule, int, error)
 }
 
 type ruleRuntime interface {
@@ -48,7 +48,7 @@ func NewRuntime(fw *sdk.SDK) ruleRuntime {
 }
 
 func (r sdkRuntime) Blacklist() blacklistPort {
-	return r.sdk.Blacklist
+	return blacklistSDKPort{inner: r.sdk.Blacklist}
 }
 
 func (r sdkRuntime) Whitelist() whitelistPort {
@@ -56,5 +56,48 @@ func (r sdkRuntime) Whitelist() whitelistPort {
 }
 
 func (r sdkRuntime) Rule() ipPortRulePort {
-	return r.sdk.Rule
+	return ruleSDKPort{inner: r.sdk.Rule}
+}
+
+type blacklistSDKPort struct {
+	inner interface {
+		Add(cidr string) error
+		Remove(cidr string) error
+		RemoveDynamic(cidr string) error
+		Clear() error
+		List(limit int, search string) ([]sdk.BlockedIP, int, error)
+		ListDynamic(limit int, search string) ([]sdk.BlockedIP, int, error)
+	}
+}
+
+func (p blacklistSDKPort) Add(cidr string) error           { return p.inner.Add(cidr) }
+func (p blacklistSDKPort) Remove(cidr string) error        { return p.inner.Remove(cidr) }
+func (p blacklistSDKPort) RemoveDynamic(cidr string) error { return p.inner.RemoveDynamic(cidr) }
+func (p blacklistSDKPort) Clear() error                    { return p.inner.Clear() }
+func (p blacklistSDKPort) List(limit int, search string) ([]ports.BlockedIP, int, error) {
+	items, total, err := p.inner.List(limit, search)
+	return ports.BlockedIPsFromSDK(items), total, err
+}
+func (p blacklistSDKPort) ListDynamic(limit int, search string) ([]ports.BlockedIP, int, error) {
+	items, total, err := p.inner.ListDynamic(limit, search)
+	return ports.BlockedIPsFromSDK(items), total, err
+}
+
+type ruleSDKPort struct {
+	inner interface {
+		AddIPPortRule(cidr string, port uint16, action uint8) error
+		RemoveIPPortRule(cidr string, port uint16) error
+		ListIPPortRules(limit int, search string) ([]sdk.IPPortRule, int, error)
+	}
+}
+
+func (p ruleSDKPort) AddIPPortRule(cidr string, port uint16, action uint8) error {
+	return p.inner.AddIPPortRule(cidr, port, action)
+}
+func (p ruleSDKPort) RemoveIPPortRule(cidr string, port uint16) error {
+	return p.inner.RemoveIPPortRule(cidr, port)
+}
+func (p ruleSDKPort) ListIPPortRules(limit int, search string) ([]config.IPPortRule, int, error) {
+	items, total, err := p.inner.ListIPPortRules(limit, search)
+	return ports.IPPortRulesFromSDK(items), total, err
 }

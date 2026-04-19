@@ -68,7 +68,7 @@ NetXFW adopts a multi-layered testing strategy, including unit tests, integratio
   - Concurrent API request performance
 
 #### 3.3 XDP Adapter Benchmarks
-- **File**: `internal/xdp/adapter_benchmark_test.go`
+- **File**: `internal/datapath/xdp/backend/adapter_benchmark_test.go`
 - **Test Content**:
   - Mock Manager creation performance
   - Blacklist/whitelist operation performance
@@ -77,7 +77,7 @@ NetXFW adopts a multi-layered testing strategy, including unit tests, integratio
   - Concurrent operation performance
 
 #### 3.4 Performance Statistics Benchmarks
-- **File**: `internal/xdp/performance_stats_benchmark_test.go`
+- **File**: `internal/datapath/xdp/stats/performance.go`
 - **Test Content**:
   - Statistics collection performance
   - Statistics aggregation performance
@@ -86,7 +86,7 @@ NetXFW adopts a multi-layered testing strategy, including unit tests, integratio
 ### 4. Hot Reload Testing
 
 #### 4.1 Rule Migration Testing
-- **File**: `internal/xdp/migrator_test.go`
+- **File**: `internal/datapath/xdp/backend/health_check_test.go`
 - **Test Content**:
   - Rule migration during reload
   - State preservation during reload
@@ -132,7 +132,7 @@ go tool cover -html=coverage.out
 | Package | Coverage |
 |---------|----------|
 | pkg/sdk | 85% |
-| internal/xdp | 78% |
+| internal/datapath/xdp | 78% |
 | internal/api | 82% |
 | cmd/netxfw | 75% |
 

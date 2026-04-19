@@ -3,17 +3,17 @@ package sync
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 )
 
 type RuntimeSyncPort interface {
-	SyncFromFiles(cfg *sdk.GlobalConfig, overwrite bool) error
-	SyncToFiles(cfg *sdk.GlobalConfig) error
-	VerifyAndRepair(cfg *sdk.GlobalConfig) error
+	SyncFromFiles(cfg *domainconfig.Config, overwrite bool) error
+	SyncToFiles(cfg *domainconfig.Config) error
+	VerifyAndRepair(cfg *domainconfig.Config) error
 }
 
 // SyncConfigToRuntime applies config to runtime through the datapath sync facade.
-func SyncConfigToRuntime(mgr RuntimeSyncPort, cfg *sdk.GlobalConfig, overwrite bool) error {
+func SyncConfigToRuntime(mgr RuntimeSyncPort, cfg *domainconfig.Config, overwrite bool) error {
 	if mgr == nil {
 		return fmt.Errorf("manager is nil")
 	}
@@ -24,7 +24,7 @@ func SyncConfigToRuntime(mgr RuntimeSyncPort, cfg *sdk.GlobalConfig, overwrite b
 }
 
 // VerifyRuntimeConfig applies verify-and-repair through the datapath sync facade.
-func VerifyRuntimeConfig(mgr RuntimeSyncPort, cfg *sdk.GlobalConfig) error {
+func VerifyRuntimeConfig(mgr RuntimeSyncPort, cfg *domainconfig.Config) error {
 	if mgr == nil {
 		return fmt.Errorf("manager is nil")
 	}

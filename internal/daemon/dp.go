@@ -6,9 +6,10 @@ import (
 
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
+	"github.com/netxfw/netxfw/internal/ports"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // runDataPlane handles XDP mounting, BPF map initialization, and core packet processing plugins.
@@ -87,7 +88,7 @@ func runDataPlane(ctx context.Context) {
 			return fmt.Errorf("config is nil after reloading")
 		}
 
-		ReloadCoreModules(coreModules, newCfg, log)
+		ReloadCoreModules(coreModules, ports.ConfigToSDK(newCfg), log)
 		return nil
 	}
 

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // mapCapacity holds the maximum capacity for each BPF map.

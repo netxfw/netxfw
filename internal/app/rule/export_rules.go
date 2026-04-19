@@ -13,7 +13,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/netxfw/netxfw/internal/binary"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 func ExportStructured(w io.Writer, gateway ConfigGateway, fw *sdk.SDK, filePath, format string) error {

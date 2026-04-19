@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // StatsCache provides cached statistics with incremental updates.

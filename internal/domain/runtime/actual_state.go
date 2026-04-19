@@ -5,7 +5,7 @@ import (
 	"time"
 
 	datapathmaps "github.com/netxfw/netxfw/internal/datapath/xdp/maps"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/ports"
 )
 
 type lookupReader interface {
@@ -57,7 +57,7 @@ type ActualState struct {
 }
 
 // FromManager reads runtime state from the manager without failing the whole projection on partial errors.
-func FromManager(mgr sdk.ManagerInterface) ActualState {
+func FromManager(mgr ports.RuntimeStateReader) ActualState {
 	if mgr == nil {
 		return ActualState{}
 	}

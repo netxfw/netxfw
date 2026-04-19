@@ -9,7 +9,7 @@ import (
 
 	"github.com/cilium/ebpf/link"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 

@@ -6,7 +6,8 @@ import (
 
 	"github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	datapathsync "github.com/netxfw/netxfw/internal/datapath/xdp/sync"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/ports"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
@@ -67,7 +68,8 @@ func Install(ctx context.Context, pinPath string, cliInterfaces []string, global
 	}
 
 	log.Infof("[SYNC] Syncing global config and loading persisted rules...")
-	if err := datapathsync.SyncConfigToRuntime(manager, globalCfg, false); err != nil {
+	syncMgr := ports.SDKConfigReconcilerAdapter{ManagerInterface: programs.NewAdapter(manager)}
+	if err := datapathsync.SyncConfigToRuntime(syncMgr, ports.ConfigFromSDK(globalCfg), false); err != nil {
 		log.Warnf("[WARN]  Failed to sync config and load rules: %v (continuing anyway)", err)
 	}
 

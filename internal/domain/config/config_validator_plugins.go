@@ -1,10 +1,6 @@
 package config
 
-import (
-	"fmt"
-
-	"github.com/netxfw/netxfw/pkg/sdk"
-)
+import "fmt"
 
 func (v *ConfigValidator) validateBPFPluginConfig(cfg *BPFPluginSettings, result *ValidationResult) {
 	if !cfg.Enabled {
@@ -27,10 +23,10 @@ func (v *ConfigValidator) validateBPFPluginConfig(cfg *BPFPluginSettings, result
 		if plugin.Path == "" {
 			result.AddError(fieldPrefix+".path", "Plugin path is required", nil)
 		}
-		if plugin.Index < sdk.BPFPluginSlotStart || plugin.Index > sdk.BPFPluginSlotEnd {
+		if plugin.Index < BPFPluginSlotStart || plugin.Index > BPFPluginSlotEnd {
 			result.AddError(
 				fieldPrefix+".index",
-				fmt.Sprintf("Plugin index must be between %d and %d", sdk.BPFPluginSlotStart, sdk.BPFPluginSlotEnd),
+				fmt.Sprintf("Plugin index must be between %d and %d", BPFPluginSlotStart, BPFPluginSlotEnd),
 				plugin.Index,
 			)
 			continue

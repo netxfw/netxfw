@@ -35,8 +35,8 @@ To simplify maintenance and reduce memory usage, `netxfw` uses a unified Map str
 ## Directory Structure
 *   `bpf/`: eBPF source code (`.c`) and headers.
 *   `cmd/netxfw/`: Main entry point for the Go binary.
-*   `internal/core/`: Business logic for rule management.
-*   `internal/xdp/`: Low-level BPF interaction (loading, Map wrappers).
+*   `internal/app/`, `internal/domain/`, `internal/core/`: Application orchestration, domain modeling, and core rule logic.
+*   `internal/datapath/xdp/`: Low-level XDP datapath packages (backend, maps, lifecycle, stats, health, sync, plugins, programs).
 *   `rules/`: Default configuration files.
 *   `test/`: Integration and unit tests.
 

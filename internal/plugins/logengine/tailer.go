@@ -3,7 +3,7 @@ package logengine
 import (
 	"sync"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/nxadm/tail"
 )
 

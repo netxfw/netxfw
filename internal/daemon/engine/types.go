@@ -1,6 +1,6 @@
 package engine
 
-import "github.com/netxfw/netxfw/pkg/sdk"
+import sdk "github.com/netxfw/netxfw/pkg/sdk"
 
 // CoreModule defines the interface for daemon runtime core modules.
 type CoreModule interface {

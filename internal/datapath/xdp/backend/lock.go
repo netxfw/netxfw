@@ -8,7 +8,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 /**

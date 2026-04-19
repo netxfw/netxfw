@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	"go.uber.org/zap"
 )
 
@@ -39,7 +39,7 @@ func Remove(manager pluginManager, index int) error {
 }
 
 // LoadConfigured loads all enabled datapath plugins declared in config.
-func LoadConfigured(manager pluginManager, globalCfg *sdk.GlobalConfig, log *zap.SugaredLogger) error {
+func LoadConfigured(manager pluginManager, globalCfg *domainconfig.Config, log *zap.SugaredLogger) error {
 	if globalCfg == nil {
 		return fmt.Errorf("config is nil")
 	}

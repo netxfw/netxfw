@@ -1,6 +1,6 @@
 package engine
 
-import "github.com/netxfw/netxfw/pkg/sdk"
+import sdk "github.com/netxfw/netxfw/pkg/sdk"
 
 type BaseModule struct {
 	config   *sdk.BaseConfig

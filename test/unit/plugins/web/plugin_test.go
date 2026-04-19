@@ -4,9 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
 	web "github.com/netxfw/netxfw/internal/plugins/webplugin"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,8 +20,8 @@ func (s *stubWebHost) UIHandler() http.Handler         { return http.NewServeMux
 func TestWebPlugin_DefaultConfig(t *testing.T) {
 	p := &web.WebPlugin{}
 	cfg := p.DefaultConfig()
-	assert.IsType(t, types.WebConfig{}, cfg)
-	webCfg := cfg.(types.WebConfig)
+	assert.IsType(t, sdk.WebConfig{}, cfg)
+	webCfg := cfg.(sdk.WebConfig)
 	assert.True(t, webCfg.Enabled)
 	assert.Equal(t, 11811, webCfg.Port)
 }
@@ -34,13 +33,13 @@ func TestWebPlugin_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		cfg     *types.GlobalConfig
+		cfg     *sdk.GlobalConfig
 		wantErr bool
 	}{
 		{
 			name: "valid config",
-			cfg: &types.GlobalConfig{
-				Web: types.WebConfig{
+			cfg: &sdk.GlobalConfig{
+				Web: sdk.WebConfig{
 					Enabled: true,
 					Port:    8080,
 				},
@@ -49,8 +48,8 @@ func TestWebPlugin_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid port low",
-			cfg: &types.GlobalConfig{
-				Web: types.WebConfig{
+			cfg: &sdk.GlobalConfig{
+				Web: sdk.WebConfig{
 					Enabled: true,
 					Port:    0,
 				},
@@ -59,8 +58,8 @@ func TestWebPlugin_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid port high",
-			cfg: &types.GlobalConfig{
-				Web: types.WebConfig{
+			cfg: &sdk.GlobalConfig{
+				Web: sdk.WebConfig{
 					Enabled: true,
 					Port:    70000,
 				},
@@ -69,8 +68,8 @@ func TestWebPlugin_Validate(t *testing.T) {
 		},
 		{
 			name: "disabled valid port",
-			cfg: &types.GlobalConfig{
-				Web: types.WebConfig{
+			cfg: &sdk.GlobalConfig{
+				Web: sdk.WebConfig{
 					Enabled: false,
 					Port:    0,
 				},
@@ -96,8 +95,8 @@ func TestWebPlugin_Validate(t *testing.T) {
 func TestWebPlugin_Init(t *testing.T) {
 	p := &web.WebPlugin{}
 	ctx := &sdk.RuntimePluginContext{
-		Config: &types.GlobalConfig{
-			Web: types.WebConfig{
+		Config: &sdk.GlobalConfig{
+			Web: sdk.WebConfig{
 				Enabled: true,
 				Port:    11811,
 			},

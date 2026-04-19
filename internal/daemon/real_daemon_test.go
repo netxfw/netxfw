@@ -13,10 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/configtypes"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	xdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
+	types "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -208,13 +209,13 @@ func TestRealDaemon_CleanupLoop_InvalidInterval(t *testing.T) {
 func TestRealDaemon_ConfigPath(t *testing.T) {
 	// Test default config path
 	// 测试默认配置路径
-	defaultPath := config.GetConfigPath()
+	defaultPath := appconfig.GetConfigPath()
 	assert.NotEmpty(t, defaultPath, "Config path should not be empty")
 	t.Logf("Default config path: %s", defaultPath)
 
 	// Test pin path
 	// 测试 pin 路径
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 	assert.NotEmpty(t, pinPath, "Pin path should not be empty")
 	t.Logf("Pin path: %s", pinPath)
 }
@@ -524,7 +525,7 @@ func TestRealDaemon_XDPManager(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	// Try to create manager from existing pins
 	// 尝试从现有 pins 创建管理器
@@ -561,7 +562,7 @@ func TestRealDaemon_XDPAdapter(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := xdp.NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -716,7 +717,7 @@ func TestRealDaemon_CleanupExpiredRules(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := xdp.NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -762,7 +763,7 @@ func TestRealDaemon_GetAttachedInterfaces(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 	attached, err := xdp.GetAttachedInterfaces(pinPath)
 	if err != nil {
 		t.Logf("No attached interfaces or error: %v", err)
@@ -783,7 +784,7 @@ func TestRealDaemon_ManagerPinPath(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	// Create a test pin path
 	// 创建测试 pin 路径

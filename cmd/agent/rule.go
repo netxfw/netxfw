@@ -9,7 +9,7 @@ import (
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	apprule "github.com/netxfw/netxfw/internal/app/rule"
 	domainrule "github.com/netxfw/netxfw/internal/domain/rule"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 

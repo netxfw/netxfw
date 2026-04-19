@@ -5,7 +5,7 @@ import (
 
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // Remove detaches XDP from selected interfaces or fully unloads pinned state

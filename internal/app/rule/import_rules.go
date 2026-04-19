@@ -16,7 +16,7 @@ import (
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	"github.com/netxfw/netxfw/internal/binary"
 	domainrule "github.com/netxfw/netxfw/internal/domain/rule"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type importResult struct {

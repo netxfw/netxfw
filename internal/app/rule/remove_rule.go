@@ -5,7 +5,7 @@ import (
 
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 func Remove(cfg *sdk.GlobalConfig, fw *sdk.SDK, ip string, port uint16) (bool, error) {

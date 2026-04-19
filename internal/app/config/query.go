@@ -6,21 +6,22 @@ import (
 	"sync"
 
 	"github.com/netxfw/netxfw/internal/adapters/configfile"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	runtimestate "github.com/netxfw/netxfw/internal/domain/runtime"
 	systemstate "github.com/netxfw/netxfw/internal/domain/system"
+	"github.com/netxfw/netxfw/internal/ports"
 	"github.com/netxfw/netxfw/internal/runtime"
-	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type StatusSnapshot struct {
-	Config  *sdk.GlobalConfig
+	Config  *domainconfig.Config
 	Desired systemstate.DesiredState
 	Actual  runtimestate.ActualState
 	Drift   runtimestate.StateDiff
 }
 
 type managerProvider interface {
-	GetManager() sdk.ManagerInterface
+	GetManager() ports.RuntimeStateReader
 }
 
 const (
@@ -52,7 +53,7 @@ func GetConfigPath() string {
 	return GetDefaultConfigPath()
 }
 
-func LoadConfig() (*sdk.GlobalConfig, error) {
+func LoadConfig() (*domainconfig.Config, error) {
 	configFileMu.RLock()
 	defer configFileMu.RUnlock()
 
@@ -63,7 +64,7 @@ func LoadConfig() (*sdk.GlobalConfig, error) {
 	return cfg, nil
 }
 
-func MutateLoadedConfig(fn func(*sdk.GlobalConfig) error) error {
+func MutateLoadedConfig(fn func(*domainconfig.Config) error) error {
 	configFileMu.Lock()
 	defer configFileMu.Unlock()
 
@@ -97,11 +98,11 @@ func DefaultConfigTemplate() string {
 	return configfile.DefaultTemplate()
 }
 
-func extractManager(source any) sdk.ManagerInterface {
+func extractManager(source any) ports.RuntimeStateReader {
 	switch typed := source.(type) {
 	case nil:
 		return nil
-	case sdk.ManagerInterface:
+	case ports.RuntimeStateReader:
 		return typed
 	case managerProvider:
 		return typed.GetManager()

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 

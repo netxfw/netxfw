@@ -3,7 +3,7 @@ package types
 import (
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
+	types "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 func TestConfigValidation(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // LogEngine is the main orchestrator.

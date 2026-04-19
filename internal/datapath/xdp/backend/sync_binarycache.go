@@ -9,7 +9,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/netxfw/netxfw/internal/binary"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // loadFromBinaryFile loads rules directly from the binary cache file.

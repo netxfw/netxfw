@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 /**

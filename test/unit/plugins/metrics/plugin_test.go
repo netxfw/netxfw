@@ -4,8 +4,7 @@ import (
 	"testing"
 
 	metrics "github.com/netxfw/netxfw/internal/plugins/metricsplugin"
-	"github.com/netxfw/netxfw/internal/configtypes"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,8 +13,8 @@ import (
 func TestMetricsPlugin_DefaultConfig(t *testing.T) {
 	p := &metrics.MetricsPlugin{}
 	cfg := p.DefaultConfig()
-	assert.IsType(t, types.MetricsConfig{}, cfg)
-	metricsCfg := cfg.(types.MetricsConfig)
+	assert.IsType(t, sdk.MetricsConfig{}, cfg)
+	metricsCfg := cfg.(sdk.MetricsConfig)
 	assert.True(t, metricsCfg.Enabled)
 	assert.True(t, metricsCfg.ServerEnabled)
 	assert.Equal(t, 11812, metricsCfg.Port)
@@ -28,13 +27,13 @@ func TestMetricsPlugin_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		cfg     *types.GlobalConfig
+		cfg     *sdk.GlobalConfig
 		wantErr bool
 	}{
 		{
 			name: "valid config",
-			cfg: &types.GlobalConfig{
-				Metrics: types.MetricsConfig{
+			cfg: &sdk.GlobalConfig{
+				Metrics: sdk.MetricsConfig{
 					Enabled:       true,
 					ServerEnabled: true,
 					Port:          8080,
@@ -44,8 +43,8 @@ func TestMetricsPlugin_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid port low",
-			cfg: &types.GlobalConfig{
-				Metrics: types.MetricsConfig{
+			cfg: &sdk.GlobalConfig{
+				Metrics: sdk.MetricsConfig{
 					Enabled:       true,
 					ServerEnabled: true,
 					Port:          0,
@@ -55,8 +54,8 @@ func TestMetricsPlugin_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid port high",
-			cfg: &types.GlobalConfig{
-				Metrics: types.MetricsConfig{
+			cfg: &sdk.GlobalConfig{
+				Metrics: sdk.MetricsConfig{
 					Enabled:       true,
 					ServerEnabled: true,
 					Port:          70000,
@@ -66,8 +65,8 @@ func TestMetricsPlugin_Validate(t *testing.T) {
 		},
 		{
 			name: "disabled valid port",
-			cfg: &types.GlobalConfig{
-				Metrics: types.MetricsConfig{
+			cfg: &sdk.GlobalConfig{
+				Metrics: sdk.MetricsConfig{
 					Enabled:       false,
 					ServerEnabled: false,
 					Port:          0,
@@ -94,8 +93,8 @@ func TestMetricsPlugin_Validate(t *testing.T) {
 func TestMetricsPlugin_Init(t *testing.T) {
 	p := &metrics.MetricsPlugin{}
 	ctx := &sdk.RuntimePluginContext{
-		Config: &types.GlobalConfig{
-			Metrics: types.MetricsConfig{
+		Config: &sdk.GlobalConfig{
+			Metrics: sdk.MetricsConfig{
 				Enabled:       true,
 				ServerEnabled: true,
 				Port:          11812,

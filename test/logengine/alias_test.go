@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/plugins/logengine"
-	"github.com/netxfw/netxfw/internal/configtypes"
+	types "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 func TestAliasFunctions(t *testing.T) {

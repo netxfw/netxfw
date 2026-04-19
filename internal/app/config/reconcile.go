@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
+	"github.com/netxfw/netxfw/internal/ports"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
-func ReconcileConfigToRuntime(ctx context.Context, mgr sdk.ManagerInterface, cfg *sdk.GlobalConfig) (Plan, error) {
+func ReconcileConfigToRuntime(ctx context.Context, mgr ports.ConfigReconciler, cfg *domainconfig.Config) (Plan, error) {
 	plan := NewPlanner().PlanConfigToRuntime(cfg, mgr)
 	logPlan(ctx, plan)
 	if err := NewExecutor().Execute(plan, mgr, cfg); err != nil {
@@ -17,7 +18,7 @@ func ReconcileConfigToRuntime(ctx context.Context, mgr sdk.ManagerInterface, cfg
 	return plan, nil
 }
 
-func ReconcileRuntimeToConfig(ctx context.Context, mgr sdk.ManagerInterface, cfg *sdk.GlobalConfig) (Plan, error) {
+func ReconcileRuntimeToConfig(ctx context.Context, mgr ports.ConfigReconciler, cfg *domainconfig.Config) (Plan, error) {
 	plan := NewPlanner().PlanRuntimeToConfig(mgr)
 	logPlan(ctx, plan)
 	if err := NewExecutor().Execute(plan, mgr, cfg); err != nil {
@@ -26,7 +27,7 @@ func ReconcileRuntimeToConfig(ctx context.Context, mgr sdk.ManagerInterface, cfg
 	return plan, nil
 }
 
-func VerifyAndRepair(ctx context.Context, mgr sdk.ManagerInterface, cfg *sdk.GlobalConfig) (Plan, error) {
+func VerifyAndRepair(ctx context.Context, mgr ports.ConfigReconciler, cfg *domainconfig.Config) (Plan, error) {
 	plan := NewPlanner().PlanVerifyAndRepair(cfg, mgr)
 	logPlan(ctx, plan)
 	if err := NewExecutor().Execute(plan, mgr, cfg); err != nil {

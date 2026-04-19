@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type RateLimitModule struct {

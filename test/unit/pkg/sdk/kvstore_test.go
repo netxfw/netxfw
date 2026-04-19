@@ -3,7 +3,7 @@ package sdk_test
 import (
 	"testing"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
 

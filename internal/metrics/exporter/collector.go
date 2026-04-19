@@ -6,7 +6,7 @@ import (
 	"time"
 
 	sharedmetrics "github.com/netxfw/netxfw/internal/metrics"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 const defaultCollectInterval = 5 * time.Second

@@ -3,7 +3,7 @@ package xdp
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // ConfigDiff represents the difference between two configurations.

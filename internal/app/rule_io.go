@@ -5,7 +5,7 @@ import (
 
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	apprule "github.com/netxfw/netxfw/internal/app/rule"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 func ImportFromStructuredFile(w io.Writer, s *sdk.SDK, filePath string, isJSON bool) error {

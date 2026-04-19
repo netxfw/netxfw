@@ -1,7 +1,7 @@
 package programs
 
 import (
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 

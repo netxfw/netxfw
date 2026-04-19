@@ -1,11 +1,11 @@
 package plugin
 
-import "github.com/netxfw/netxfw/pkg/sdk"
+import "github.com/netxfw/netxfw/internal/ports"
 
 // HealthSnapshot captures aggregated runtime/datapath plugin health.
 type HealthSnapshot struct {
-	Runtime  sdk.HealthCheckResult
-	Datapath sdk.HealthCheckResult
+	Runtime  ports.HealthCheckResult
+	Datapath ports.HealthCheckResult
 }
 
 // SummarizeHealth converts unified plugin status into aggregated health results.
@@ -16,10 +16,10 @@ func SummarizeHealth(snapshot StatusSnapshot) HealthSnapshot {
 	}
 }
 
-func summarizeRuntimeHealth(snapshot StatusSnapshot) sdk.HealthCheckResult {
+func summarizeRuntimeHealth(snapshot StatusSnapshot) ports.HealthCheckResult {
 	if len(snapshot.Runtime) == 0 {
-		return sdk.HealthCheckResult{
-			Status:  sdk.HealthStatusHealthy,
+		return ports.HealthCheckResult{
+			Status:  ports.HealthStatusHealthy,
 			Message: "no runtime plugins registered",
 			Details: map[string]any{"total": 0, "enabled": 0},
 		}
@@ -28,7 +28,7 @@ func summarizeRuntimeHealth(snapshot StatusSnapshot) sdk.HealthCheckResult {
 	enabled := 0
 	unhealthy := 0
 	running := 0
-	status := sdk.HealthStatusHealthy
+	status := ports.HealthStatusHealthy
 	for _, item := range snapshot.Runtime {
 		if item.Enabled {
 			enabled++
@@ -38,7 +38,7 @@ func summarizeRuntimeHealth(snapshot StatusSnapshot) sdk.HealthCheckResult {
 		}
 		if item.Enabled && !item.Healthy {
 			unhealthy++
-			status = sdk.CombineHealthStatuses(status, sdk.HealthStatusUnhealthy)
+			status = ports.CombineHealthStatuses(status, ports.HealthStatusUnhealthy)
 		}
 	}
 
@@ -49,11 +49,11 @@ func summarizeRuntimeHealth(snapshot StatusSnapshot) sdk.HealthCheckResult {
 	case unhealthy > 0:
 		message = "runtime plugin configuration issues detected"
 	case running < enabled:
-		status = sdk.CombineHealthStatuses(status, sdk.HealthStatusDegraded)
+		status = ports.CombineHealthStatuses(status, ports.HealthStatusDegraded)
 		message = "some enabled runtime plugins are not running"
 	}
 
-	return sdk.HealthCheckResult{
+	return ports.HealthCheckResult{
 		Status:  status,
 		Message: message,
 		Details: map[string]any{
@@ -65,10 +65,10 @@ func summarizeRuntimeHealth(snapshot StatusSnapshot) sdk.HealthCheckResult {
 	}
 }
 
-func summarizeDatapathHealth(snapshot StatusSnapshot) sdk.HealthCheckResult {
+func summarizeDatapathHealth(snapshot StatusSnapshot) ports.HealthCheckResult {
 	if len(snapshot.Datapath) == 0 {
-		return sdk.HealthCheckResult{
-			Status:  sdk.HealthStatusHealthy,
+		return ports.HealthCheckResult{
+			Status:  ports.HealthStatusHealthy,
 			Message: "no datapath plugins configured",
 			Details: map[string]any{"total": 0, "loaded": 0},
 		}
@@ -76,14 +76,14 @@ func summarizeDatapathHealth(snapshot StatusSnapshot) sdk.HealthCheckResult {
 
 	loaded := 0
 	unhealthy := 0
-	status := sdk.HealthStatusHealthy
+	status := ports.HealthStatusHealthy
 	for _, item := range snapshot.Datapath {
 		if item.Loaded {
 			loaded++
 		}
 		if !item.Healthy {
 			unhealthy++
-			status = sdk.CombineHealthStatuses(status, sdk.HealthStatusDegraded)
+			status = ports.CombineHealthStatuses(status, ports.HealthStatusDegraded)
 		}
 	}
 
@@ -92,7 +92,7 @@ func summarizeDatapathHealth(snapshot StatusSnapshot) sdk.HealthCheckResult {
 		message = "datapath plugin drift detected"
 	}
 
-	return sdk.HealthCheckResult{
+	return ports.HealthCheckResult{
 		Status:  status,
 		Message: message,
 		Details: map[string]any{

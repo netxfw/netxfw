@@ -1,9 +1,10 @@
 package config
 
 import (
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	runtimestate "github.com/netxfw/netxfw/internal/domain/runtime"
 	systemstate "github.com/netxfw/netxfw/internal/domain/system"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/ports"
 )
 
 type Mode string
@@ -28,7 +29,7 @@ func NewPlanner() *Planner {
 	return &Planner{}
 }
 
-func (p *Planner) PlanConfigToRuntime(cfg *sdk.GlobalConfig, mgr sdk.ManagerInterface) Plan {
+func (p *Planner) PlanConfigToRuntime(cfg *domainconfig.Config, mgr ports.RuntimeStateReader) Plan {
 	desired := systemstate.FromConfig(cfg)
 	actual := runtimestate.FromManager(mgr)
 	return Plan{
@@ -40,14 +41,14 @@ func (p *Planner) PlanConfigToRuntime(cfg *sdk.GlobalConfig, mgr sdk.ManagerInte
 	}
 }
 
-func (p *Planner) PlanRuntimeToConfig(mgr sdk.ManagerInterface) Plan {
+func (p *Planner) PlanRuntimeToConfig(mgr ports.RuntimeStateReader) Plan {
 	return Plan{
 		Mode:   ModeRuntimeToConfig,
 		Actual: runtimestate.FromManager(mgr),
 	}
 }
 
-func (p *Planner) PlanVerifyAndRepair(cfg *sdk.GlobalConfig, mgr sdk.ManagerInterface) Plan {
+func (p *Planner) PlanVerifyAndRepair(cfg *domainconfig.Config, mgr ports.RuntimeStateReader) Plan {
 	desired := systemstate.FromConfig(cfg)
 	actual := runtimestate.FromManager(mgr)
 	return Plan{

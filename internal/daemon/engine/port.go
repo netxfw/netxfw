@@ -3,7 +3,7 @@ package engine
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type PortModule struct {

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/app"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
+	types "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // BenchmarkNewMockManager benchmarks NewMockManager function

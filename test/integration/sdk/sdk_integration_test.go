@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
 

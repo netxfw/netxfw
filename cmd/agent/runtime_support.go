@@ -7,7 +7,8 @@ import (
 	"github.com/netxfw/netxfw/internal/app"
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	applugin "github.com/netxfw/netxfw/internal/app/plugin"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/ports"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type commandRuntimeSupport struct{}
@@ -37,7 +38,11 @@ func (commandRuntimeSupport) SetConfigPath(path string) {
 }
 
 func (commandRuntimeSupport) LoadConfig() (*sdk.GlobalConfig, error) {
-	return appconfig.LoadConfig()
+	cfg, err := appconfig.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	return ports.ConfigToSDK(cfg), nil
 }
 
 func (commandRuntimeSupport) IsTestMode() bool {
@@ -141,7 +146,11 @@ func (systemServiceSupport) RunShellPipeline(command string) error {
 }
 
 func (systemQuerySupport) LoadConfig() (*sdk.GlobalConfig, error) {
-	return appconfig.LoadConfig()
+	cfg, err := appconfig.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	return ports.ConfigToSDK(cfg), nil
 }
 
 func (systemQuerySupport) LoadStatusSnapshot(source any) (StatusSnapshot, error) {
@@ -157,8 +166,8 @@ func (systemQuerySupport) LoadMetrics(source any) (*MetricsData, error) {
 }
 
 func (systemQuerySupport) LoadPluginStatus(ctx context.Context, cfg *sdk.GlobalConfig) (PluginStatusSnapshot, error) {
-	runtimeStatuses := applugin.LoadRuntimeStatuses(cfg)
-	datapath, err := applugin.LoadDatapathStatus(ctx, cfg)
+	runtimeStatuses := applugin.LoadRuntimeStatuses(ports.ConfigFromSDK(cfg))
+	datapath, err := applugin.LoadDatapathStatus(ctx, ports.ConfigFromSDK(cfg))
 	return applugin.ComposeStatus(runtimeStatuses, datapath), err
 }
 

@@ -6,9 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
+	xdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	"github.com/netxfw/netxfw/internal/ports"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	types "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
@@ -214,7 +215,7 @@ func TestLoadBPFPlugins_Disabled(t *testing.T) {
 	}
 
 	manager := &xdp.Manager{}
-	err := loadBPFPlugins(manager, globalCfg, log)
+	err := loadBPFPlugins(manager, ports.ConfigFromSDK(globalCfg), log)
 	assert.NoError(t, err)
 }
 
@@ -232,7 +233,7 @@ func TestLoadBPFPlugins_NoPlugins(t *testing.T) {
 	}
 
 	manager := &xdp.Manager{}
-	err := loadBPFPlugins(manager, globalCfg, log)
+	err := loadBPFPlugins(manager, ports.ConfigFromSDK(globalCfg), log)
 	assert.NoError(t, err)
 }
 
@@ -257,7 +258,7 @@ func TestLoadBPFPlugins_DisabledPlugin(t *testing.T) {
 	}
 
 	manager := &xdp.Manager{}
-	err := loadBPFPlugins(manager, globalCfg, log)
+	err := loadBPFPlugins(manager, ports.ConfigFromSDK(globalCfg), log)
 	assert.NoError(t, err)
 }
 
@@ -282,7 +283,7 @@ func TestLoadBPFPlugins_InvalidIndex(t *testing.T) {
 	}
 
 	manager := &xdp.Manager{}
-	err := loadBPFPlugins(manager, globalCfg, log)
+	err := loadBPFPlugins(manager, ports.ConfigFromSDK(globalCfg), log)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid index")
 }
@@ -308,7 +309,7 @@ func TestLoadBPFPlugins_IndexOutOfRange(t *testing.T) {
 	}
 
 	manager := &xdp.Manager{}
-	err := loadBPFPlugins(manager, globalCfg, log)
+	err := loadBPFPlugins(manager, ports.ConfigFromSDK(globalCfg), log)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid index")
 }

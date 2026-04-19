@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/cmd/common"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/netxfw/netxfw/pkg/sdk/mock"
 	"github.com/stretchr/testify/assert"
 )

@@ -8,11 +8,10 @@ import (
 
 	"github.com/BurntSushi/toml"
 	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
-	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // Load reads a TOML config file into the canonical config model.
-func Load(path string) (*sdk.GlobalConfig, error) {
+func Load(path string) (*domainconfig.Config, error) {
 	safePath := filepath.Clean(path)
 	data, err := os.ReadFile(safePath)
 	if err != nil {
@@ -27,12 +26,11 @@ func Load(path string) (*sdk.GlobalConfig, error) {
 		return nil, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	out := sdk.GlobalConfig(cfg)
-	return &out, nil
+	return &cfg, nil
 }
 
 // Encode serializes cfg to TOML.
-func Encode(cfg *sdk.GlobalConfig) ([]byte, error) {
+func Encode(cfg *domainconfig.Config) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
 		return nil, err

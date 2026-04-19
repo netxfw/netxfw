@@ -10,9 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/configtypes"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	configfile "github.com/netxfw/netxfw/internal/adapters/configfile"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	xdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 )
 
 // TestEndToEnd_MockWorkflow tests the complete workflow using MockManager
@@ -94,8 +95,8 @@ func TestEndToEnd_ConfigPersistence(t *testing.T) {
 
 	// Create initial config
 	// 创建初始配置
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	cfg := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			DefaultDeny:        true,
 			AllowReturnTraffic: true,
 			AllowICMP:          true,
@@ -108,7 +109,7 @@ func TestEndToEnd_ConfigPersistence(t *testing.T) {
 
 	// Save config
 	// 保存配置
-	err := types.SaveGlobalConfig(configPath, cfg)
+	err := configfile.Save(configPath, cfg)
 	require.NoError(t, err)
 
 	// Verify file exists
@@ -118,8 +119,8 @@ func TestEndToEnd_ConfigPersistence(t *testing.T) {
 
 	// Load config
 	// 加载配置
-	config.SetConfigPath(configPath)
-	loadedCfg, err := config.ReloadCurrentConfig()
+	appconfig.SetConfigPath(configPath)
+	loadedCfg, err := appconfig.LoadConfig()
 	require.NoError(t, err)
 	require.NotNil(t, loadedCfg)
 
@@ -242,41 +243,41 @@ func TestEndToEnd_ConfigReload(t *testing.T) {
 
 	// Create initial config
 	// 创建初始配置
-	cfg1 := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	cfg1 := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			DefaultDeny:        false,
 			AllowReturnTraffic: false,
 			Whitelist:          []string{"192.168.1.1/32"},
 		},
 	}
 
-	err := types.SaveGlobalConfig(configPath, cfg1)
+	err := configfile.Save(configPath, cfg1)
 	require.NoError(t, err)
 
 	// Load and verify
 	// 加载并验证
-	config.SetConfigPath(configPath)
-	loaded1, err := config.ReloadCurrentConfig()
+	appconfig.SetConfigPath(configPath)
+	loaded1, err := appconfig.LoadConfig()
 	require.NoError(t, err)
 	assert.False(t, loaded1.Base.DefaultDeny)
 
 	// Modify config
 	// 修改配置
-	cfg2 := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	cfg2 := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			DefaultDeny:        true,
 			AllowReturnTraffic: true,
 			Whitelist:          []string{"192.168.1.1/32", "10.0.0.0/8"},
 		},
 	}
 
-	err = types.SaveGlobalConfig(configPath, cfg2)
+	err = configfile.Save(configPath, cfg2)
 	require.NoError(t, err)
 
 	// Reload and verify changes
 	// 重载并验证更改
-	config.SetConfigPath(configPath)
-	loaded2, err := config.ReloadCurrentConfig()
+	appconfig.SetConfigPath(configPath)
+	loaded2, err := appconfig.LoadConfig()
 	require.NoError(t, err)
 	assert.True(t, loaded2.Base.DefaultDeny)
 	assert.True(t, loaded2.Base.AllowReturnTraffic)
@@ -390,8 +391,8 @@ func TestEndToEnd_Cleanup(t *testing.T) {
 // TestEndToEnd_ConfigValidation tests configuration validation
 // TestEndToEnd_ConfigValidation 测试配置验证
 func TestEndToEnd_ConfigValidation(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	cfg := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			DefaultDeny:        true,
 			AllowReturnTraffic: true,
 			AllowICMP:          true,

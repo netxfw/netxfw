@@ -1,18 +1,16 @@
 package configfile
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"sort"
 
-	"github.com/BurntSushi/toml"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
-func Save(path string, cfg *sdk.GlobalConfig) error {
+func Save(path string, cfg *domainconfig.Config) error {
 	data, err := Encode(cfg)
 	if err != nil {
 		return err
@@ -20,18 +18,17 @@ func Save(path string, cfg *sdk.GlobalConfig) error {
 	return fileutil.AtomicWriteFile(path, data, 0600)
 }
 
-func SaveWithBackup(path string, cfg *sdk.GlobalConfig, keepBackups int) error {
+func SaveWithBackup(path string, cfg *domainconfig.Config, keepBackups int) error {
 	log := logger.Get(nil)
 	safePath := filepath.Clean(path)
 	oldData, readErr := os.ReadFile(safePath)
 
-	var buf bytes.Buffer
-	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
+	newData, err := Encode(cfg)
+	if err != nil {
 		return err
 	}
-	newData := buf.Bytes()
 
-	if readErr == nil && bytes.Equal(oldData, newData) {
+	if readErr == nil && string(oldData) == string(newData) {
 		return nil
 	}
 

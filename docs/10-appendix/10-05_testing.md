@@ -68,7 +68,7 @@ netxfw 采用多层次测试策略，包括单元测试、集成测试、性能�
   - 并发 API 请求性能
 
 #### 3.3 XDP 适配器基准测试
-- **文件**: `internal/xdp/adapter_benchmark_test.go`
+- **文件**: `internal/datapath/xdp/backend/adapter_benchmark_test.go`
 - **测试内容**:
   - Mock Manager 创建性能
   - 黑名单/白名单操作性能
@@ -77,7 +77,7 @@ netxfw 采用多层次测试策略，包括单元测试、集成测试、性能�
   - 并发操作性能
 
 #### 3.4 性能统计基准测试
-- **文件**: `internal/xdp/performance_stats_benchmark_test.go`
+- **文件**: `internal/datapath/xdp/stats/performance.go`
 - **测试内容**:
   - PerformanceStats 创建性能
   - Map 操作记录性能
@@ -161,7 +161,7 @@ go test ./pkg/sdk/mock/... -bench=. -benchmem -run=^$
 go test ./internal/api/... -bench=. -benchmem -run=^$
 
 # 运行 XDP 基准测试
-go test ./internal/xdp/... -bench=. -benchmem -run=^$
+go test ./internal/datapath/xdp/... -bench=. -benchmem -run=^$
 
 # 运行配置缓存基准测试
 go test ./internal/core/... -bench=. -benchmem -run=^$

@@ -3,35 +3,34 @@ package stats
 import (
 	"fmt"
 
-	xdpbackend "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend"
-	statsbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/statsbridge"
+	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
-type MetricsCollector = statsbridge.Collector
+type MetricsCollector = backendxdp.MetricsCollector
 
-type MetricsData = statsbridge.MetricsData
+type MetricsData = backendxdp.MetricsData
 
-type TrafficMetrics = statsbridge.TrafficMetrics
+type TrafficMetrics = backendxdp.TrafficMetrics
 
-type ConntrackHealth = statsbridge.ConntrackHealth
+type ConntrackHealth = backendxdp.ConntrackHealth
 
-type MapUsageStats = statsbridge.MapUsageStats
+type MapUsageStats = backendxdp.MapUsageStats
 
-type MapUsageDetail = statsbridge.MapUsageDetail
+type MapUsageDetail = backendxdp.MapUsageDetail
 
-type RateLimitHitStats = statsbridge.RateLimitHitStats
+type RateLimitHitStats = backendxdp.RateLimitHitStats
 
-type RateLimitRuleHit = statsbridge.RateLimitRuleHit
+type RateLimitRuleHit = backendxdp.RateLimitRuleHit
 
-type ProtocolDistribution = statsbridge.ProtocolDistribution
+type ProtocolDistribution = backendxdp.ProtocolDistribution
 
-type ProtocolStats = statsbridge.ProtocolStats
+type ProtocolStats = backendxdp.ProtocolStats
 
-type StatsCache = statsbridge.Cache
+type StatsCache = backendxdp.StatsCache
 
-type MapCounts = statsbridge.MapCounts
+type MapCounts = backendxdp.MapCounts
 
 type counterProvider interface {
 	GetDropCount() (uint64, error)
@@ -41,10 +40,6 @@ type counterProvider interface {
 type detailProvider interface {
 	GetDropDetails() ([]sdk.DropDetailEntry, error)
 	GetPassDetails() ([]sdk.DropDetailEntry, error)
-}
-
-type managerAccessor interface {
-	GetManagerHandle() *xdpbackend.Handle
 }
 
 type sdkManagerAccessor interface {
@@ -65,10 +60,8 @@ func ExtractManager(mgr any) *datapathprograms.Handle {
 		return nil
 	case *datapathprograms.Handle:
 		return typed
-	case *xdpbackend.Handle:
-		return datapathprograms.WrapExisting(typed)
-	case managerAccessor:
-		return datapathprograms.WrapExisting(typed.GetManagerHandle())
+	case interface{ GetManager() *backendxdp.Manager }:
+		return datapathprograms.WrapExisting(typed.GetManager())
 	case sdkManagerAccessor:
 		return ExtractManager(typed.GetManager())
 	default:

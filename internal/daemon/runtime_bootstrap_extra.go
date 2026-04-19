@@ -6,8 +6,9 @@ import (
 
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
+	"github.com/netxfw/netxfw/internal/ports"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
@@ -20,7 +21,7 @@ func LoadRuntimeConfigSnapshot() (*sdk.GlobalConfig, error) {
 	if globalCfg == nil {
 		return nil, fmt.Errorf("config is nil after loading")
 	}
-	return globalCfg, nil
+	return ports.ConfigToSDK(globalCfg), nil
 }
 
 // InitRuntimeLogging initializes logging and optional pprof from config.
@@ -38,14 +39,14 @@ func VerifyRuntimeConfigAndMaps(manager interface {
 	switch m := manager.(type) {
 	case *datapathprograms.Handle:
 		adapter := datapathprograms.NewAdapter(m)
-		if _, err := appconfig.VerifyAndRepair(context.Background(), adapter, globalCfg); err != nil {
+		if _, err := appconfig.VerifyAndRepair(context.Background(), ports.SDKConfigReconcilerAdapter{adapter}, ports.ConfigFromSDK(globalCfg)); err != nil {
 			log.Warnf("[WARN]  Startup consistency check failed: %v", err)
 		} else {
 			log.Info("[OK] Startup consistency check passed (Config synced to BPF).")
 		}
 		return
 	case sdk.ManagerInterface:
-		if _, err := appconfig.VerifyAndRepair(context.Background(), m, globalCfg); err != nil {
+		if _, err := appconfig.VerifyAndRepair(context.Background(), ports.SDKConfigReconcilerAdapter{m}, ports.ConfigFromSDK(globalCfg)); err != nil {
 			log.Warnf("[WARN]  Startup consistency check failed: %v", err)
 		} else {
 			log.Info("[OK] Startup consistency check passed (Config synced to BPF).")

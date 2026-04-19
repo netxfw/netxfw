@@ -3,15 +3,17 @@ package runtime
 import (
 	"testing"
 
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	domainruntime "github.com/netxfw/netxfw/internal/domain/plugin/runtime"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/ports"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type statusTestRegistry struct {
-	plugins []sdk.RuntimePlugin
+	plugins []RegisteredPlugin
 }
 
-func (r statusTestRegistry) Plugins() []sdk.RuntimePlugin {
+func (r statusTestRegistry) Plugins() []RegisteredPlugin {
 	return r.plugins
 }
 
@@ -21,29 +23,30 @@ func (r statusTestRegistry) Inventory() []domainruntime.Descriptor {
 
 type statusTestPlugin struct {
 	name        string
-	kind        sdk.PluginType
+	kind        ports.PluginType
 	validateErr error
 }
 
-func (p statusTestPlugin) Name() string                                   { return p.name }
-func (p statusTestPlugin) Init(ctx *sdk.RuntimePluginContext) error       { return nil }
-func (p statusTestPlugin) Start(ctx *sdk.RuntimePluginContext) error      { return nil }
-func (p statusTestPlugin) Stop() error                                    { return nil }
-func (p statusTestPlugin) Reload(ctx *sdk.RuntimePluginContext) error     { return nil }
-func (p statusTestPlugin) DefaultConfig() any                             { return nil }
-func (p statusTestPlugin) Validate(config *sdk.GlobalConfig) error        { return p.validateErr }
-func (p statusTestPlugin) Type() sdk.PluginType                           { return p.kind }
+func (p statusTestPlugin) SDKPlugin() sdk.RuntimePlugin               { return nil }
+func (p statusTestPlugin) Name() string                               { return p.name }
+func (p statusTestPlugin) Init(ctx *sdk.RuntimePluginContext) error   { return nil }
+func (p statusTestPlugin) Start(ctx *sdk.RuntimePluginContext) error  { return nil }
+func (p statusTestPlugin) Stop() error                                { return nil }
+func (p statusTestPlugin) Reload(ctx *sdk.RuntimePluginContext) error { return nil }
+func (p statusTestPlugin) DefaultConfig() any                         { return nil }
+func (p statusTestPlugin) Validate(config *sdk.GlobalConfig) error    { return p.validateErr }
+func (p statusTestPlugin) Type() ports.PluginType                     { return p.kind }
 
 func TestRuntimeHostStatuses(t *testing.T) {
 	host := NewHost(statusTestRegistry{
-		plugins: []sdk.RuntimePlugin{
-			statusTestPlugin{name: "log_engine", kind: sdk.PluginTypeExtension},
-			statusTestPlugin{name: "metrics", kind: sdk.PluginTypeExtension},
-			statusTestPlugin{name: "web", kind: sdk.PluginTypeExtension},
+		plugins: []RegisteredPlugin{
+			statusTestPlugin{name: "log_engine", kind: ports.PluginTypeExtension},
+			statusTestPlugin{name: "metrics", kind: ports.PluginTypeExtension},
+			statusTestPlugin{name: "web", kind: ports.PluginTypeExtension},
 		},
 	})
 
-	cfg := &sdk.GlobalConfig{}
+	cfg := &domainconfig.Config{}
 	cfg.LogEngine.Enabled = true
 	cfg.Web.Enabled = true
 

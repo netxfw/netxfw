@@ -3,7 +3,7 @@ package mock
 import (
 	"time"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/mock"
 )
 

@@ -1,12 +1,16 @@
 package rule
 
-import "github.com/netxfw/netxfw/pkg/sdk"
+import (
+	"github.com/netxfw/netxfw/internal/domain/config"
+	"github.com/netxfw/netxfw/internal/ports"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
+)
 
 // Snapshot captures the minimal read model shared by rule-oriented commands.
 type Snapshot struct {
-	Blacklist []sdk.BlockedIP
+	Blacklist []ports.BlockedIP
 	Whitelist []string
-	IPPort    []sdk.IPPortRule
+	IPPort    []config.IPPortRule
 }
 
 func List(fw *sdk.SDK, limit int, search string) (Snapshot, error) {

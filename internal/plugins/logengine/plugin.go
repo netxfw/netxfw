@@ -3,7 +3,7 @@ package logengine
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // LogEnginePlugin implements the Plugin interface.

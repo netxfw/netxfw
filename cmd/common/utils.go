@@ -10,7 +10,7 @@ import (
 
 	"github.com/netxfw/netxfw/internal/app"
 	apprule "github.com/netxfw/netxfw/internal/app/rule"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 var (
@@ -39,6 +39,12 @@ func GetSDK() (*sdk.SDK, error) {
 		return MockSDK, nil
 	}
 	mockSDKMutex.RUnlock()
+
+	// In test mode, callers must explicitly inject a mock SDK.
+	// 测试模式下必须显式注入 mock SDK，不能回退到缓存的真实 SDK。
+	if app.IsTestMode() {
+		return nil, fmt.Errorf("mock SDK not configured in test mode")
+	}
 
 	// Use double-checked locking for real SDK to avoid race condition
 	// 使用双重检查锁定真实 SDK 以避免竞态条件

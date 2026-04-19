@@ -39,7 +39,7 @@ NetXFW 提供全面的性能监控系统，包括 Map 操作延迟、缓存命�
 ### Map 操作延迟
 
 ```go
-// internal/xdp/performance_stats.go
+// internal/datapath/xdp/stats/performance.go
 type MapLatencyStats struct {
     TotalOperations uint64  // 总操作数
     TotalErrors     uint64  // 总错误数

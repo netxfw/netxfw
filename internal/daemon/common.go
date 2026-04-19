@@ -17,7 +17,7 @@ import (
 	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // managePidFile ensures only one instance of the daemon is running by checking/writing a PID file.

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // StatsAPI interface for statistics operations (for testing and decoupling)

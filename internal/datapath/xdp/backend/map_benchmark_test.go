@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // BenchmarkIPPortRuleKeyConstruction benchmarks the key construction for IP+Port rules.

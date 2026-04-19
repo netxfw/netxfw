@@ -6,7 +6,7 @@ import (
 
 	"github.com/netxfw/netxfw/internal/plugins/logengine"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
+	types "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // TestWhitelistUser verifies the "Block if NOT user X" logic.

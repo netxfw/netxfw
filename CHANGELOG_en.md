@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **License Files**: Added Apache-2.0 LICENSE for Go code and Dual BSD/GPL for BPF code.
 
 ### Changed
-- **Internal Architecture**: Refactored `internal/xdp` to handle IPv4 addresses as IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`) internally.
+- **Internal Architecture**: Refactored `internal/datapath/xdp` to handle IPv4 addresses as IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`) internally.
 - **CLI**: Improved `rule list` output to correctly distinguish between allow/deny lists.
 - **CLI**: Fixed `rule remove` command to ensure changes are persisted to disk when `system sync` is used.
 - **CI/CD**: Updated GitHub Actions to run only unit tests, excluding integration tests that require real environment.

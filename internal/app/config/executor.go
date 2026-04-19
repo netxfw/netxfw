@@ -4,14 +4,11 @@ import (
 	"fmt"
 
 	datapathsync "github.com/netxfw/netxfw/internal/datapath/xdp/sync"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
+	"github.com/netxfw/netxfw/internal/ports"
 )
 
-type runtimeSyncPort interface {
-	SyncFromFiles(cfg *sdk.GlobalConfig, overwrite bool) error
-	SyncToFiles(cfg *sdk.GlobalConfig) error
-	VerifyAndRepair(cfg *sdk.GlobalConfig) error
-}
+type runtimeSyncPort = ports.DatapathSyncer
 
 type Executor struct{}
 
@@ -19,7 +16,7 @@ func NewExecutor() *Executor {
 	return &Executor{}
 }
 
-func (e *Executor) Execute(plan Plan, mgr runtimeSyncPort, cfg *sdk.GlobalConfig) error {
+func (e *Executor) Execute(plan Plan, mgr runtimeSyncPort, cfg *domainconfig.Config) error {
 	if mgr == nil {
 		return fmt.Errorf("manager is nil")
 	}

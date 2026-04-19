@@ -7,10 +7,12 @@ import (
 
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	netxfw_binary "github.com/netxfw/netxfw/internal/binary"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	"github.com/netxfw/netxfw/internal/optimizer"
+	"github.com/netxfw/netxfw/internal/ports"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // GetDefaultConfigPath returns the preferred default configuration path.
@@ -53,22 +55,38 @@ func GetConfigPath() string {
 
 // LoadConfig loads the current configuration using the configured path.
 func LoadConfig() (*sdk.GlobalConfig, error) {
-	return appconfig.LoadConfig()
+	cfg, err := appconfig.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	return ports.ConfigToSDK(cfg), nil
 }
 
 // MutateLoadedConfig reloads the current configuration, applies fn, and persists it.
 func MutateLoadedConfig(fn func(*sdk.GlobalConfig) error) error {
-	return appconfig.MutateLoadedConfig(fn)
+	return appconfig.MutateLoadedConfig(func(cfg *domainconfig.Config) error {
+		sdkCfg := ports.ConfigToSDK(cfg)
+		if err := fn(sdkCfg); err != nil {
+			return err
+		}
+		updated := ports.ConfigFromSDK(sdkCfg)
+		*cfg = *updated
+		return nil
+	})
 }
 
 // OptimizeWhitelistConfig normalizes and merges whitelist entries in config.
 func OptimizeWhitelistConfig(cfg *sdk.GlobalConfig) {
-	optimizer.OptimizeWhitelistConfig(cfg)
+	updated := ports.ConfigFromSDK(cfg)
+	optimizer.OptimizeWhitelistConfig(updated)
+	*cfg = *ports.ConfigToSDK(updated)
 }
 
 // OptimizeIPPortRulesConfig normalizes and merges IP+Port rules in config.
 func OptimizeIPPortRulesConfig(cfg *sdk.GlobalConfig) {
-	optimizer.OptimizeIPPortRulesConfig(cfg)
+	updated := ports.ConfigFromSDK(cfg)
+	optimizer.OptimizeIPPortRulesConfig(updated)
+	*cfg = *ports.ConfigToSDK(updated)
 }
 
 // PersistWhitelistEntry records a whitelist entry in config if needed.
@@ -154,18 +172,26 @@ func WithConfigLock(fn func() error) error {
 
 // ReconcileConfigToRuntime applies the active config to runtime through the unified reconcile entry.
 func ReconcileConfigToRuntime(ctx context.Context, mgr sdk.ManagerInterface, cfg *sdk.GlobalConfig) error {
-	_, err := appconfig.ReconcileConfigToRuntime(ctx, mgr, cfg)
+	_, err := appconfig.ReconcileConfigToRuntime(ctx, ports.SDKConfigReconcilerAdapter{ManagerInterface: mgr}, ports.ConfigFromSDK(cfg))
 	return err
 }
 
 // ReconcileRuntimeToConfig captures runtime state back into config through the unified reconcile entry.
 func ReconcileRuntimeToConfig(ctx context.Context, mgr sdk.ManagerInterface, cfg *sdk.GlobalConfig) error {
-	_, err := appconfig.ReconcileRuntimeToConfig(ctx, mgr, cfg)
+	domainCfg := ports.ConfigFromSDK(cfg)
+	_, err := appconfig.ReconcileRuntimeToConfig(ctx, ports.SDKConfigReconcilerAdapter{ManagerInterface: mgr}, domainCfg)
+	if err == nil {
+		*cfg = *ports.ConfigToSDK(domainCfg)
+	}
 	return err
 }
 
 // VerifyAndRepairRuntime checks drift and reconciles runtime using the unified reconcile entry.
 func VerifyAndRepairRuntime(ctx context.Context, mgr sdk.ManagerInterface, cfg *sdk.GlobalConfig) error {
-	_, err := appconfig.VerifyAndRepair(ctx, mgr, cfg)
+	domainCfg := ports.ConfigFromSDK(cfg)
+	_, err := appconfig.VerifyAndRepair(ctx, ports.SDKConfigReconcilerAdapter{ManagerInterface: mgr}, domainCfg)
+	if err == nil {
+		*cfg = *ports.ConfigToSDK(domainCfg)
+	}
 	return err
 }

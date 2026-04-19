@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 )
 
 func TestFromConfig(t *testing.T) {
-	cfg := &sdk.GlobalConfig{}
+	cfg := &domainconfig.Config{}
 	cfg.Base.DefaultDeny = true
 	cfg.Base.AllowReturnTraffic = true
 	cfg.Base.AllowICMP = true
@@ -28,8 +28,8 @@ func TestFromConfig(t *testing.T) {
 	cfg.RateLimit.AutoBlock = true
 	cfg.RateLimit.AutoBlockExpiry = "5m"
 	cfg.Port.AllowedPorts = []uint16{80, 443}
-	cfg.Port.IPPortRules = []sdk.IPPortRule{{IP: "10.0.0.1/32", Port: 80, Action: 1}}
-	cfg.RateLimit.Rules = []sdk.RateLimitRule{{IP: "10.0.0.0/24", Rate: 1000, Burst: 100}}
+	cfg.Port.IPPortRules = []domainconfig.IPPortRule{{IP: "10.0.0.1/32", Port: 80, Action: 1}}
+	cfg.RateLimit.Rules = []domainconfig.RateLimitRule{{IP: "10.0.0.0/24", Rate: 1000, Burst: 100}}
 
 	state := FromConfig(cfg)
 

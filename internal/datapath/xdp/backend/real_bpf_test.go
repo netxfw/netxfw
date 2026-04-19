@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/config"
+	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ func TestRealBPF_ManagerFromPins(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	// Try to create manager from existing pins
 	// 尝试从现有 pins 创建管理器
@@ -46,7 +46,7 @@ func TestRealBPF_GetStats(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -93,7 +93,7 @@ func TestRealBPF_BlacklistOperations(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -150,7 +150,7 @@ func TestRealBPF_WhitelistOperations(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -205,7 +205,7 @@ func TestRealBPF_IPPortRules(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -256,7 +256,7 @@ func TestRealBPF_AllowedPorts(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -312,7 +312,7 @@ func TestRealBPF_RateLimitRules(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -358,7 +358,7 @@ func TestRealBPF_DynamicBlacklist(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -395,7 +395,7 @@ func TestRealBPF_DropDetails(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -441,7 +441,7 @@ func TestRealBPF_ConntrackEntries(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -476,7 +476,7 @@ func TestRealBPF_Configuration(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -512,7 +512,7 @@ func TestRealBPF_ListBlacklistIPs(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -544,7 +544,7 @@ func TestRealBPF_ListWhitelistIPs(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -576,7 +576,7 @@ func TestRealBPF_IPv6Support(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -674,7 +674,7 @@ func TestRealBPF_ClearOperations(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -716,7 +716,7 @@ func TestRealBPF_AdvancedConfiguration(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -761,7 +761,7 @@ func TestRealBPF_SyncOperations(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -784,7 +784,7 @@ func TestRealBPF_AdapterMapGetters(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -817,7 +817,7 @@ func TestRealBPF_AdvancedConfigMethods(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -853,7 +853,7 @@ func TestRealBPF_AdapterStatsMethods(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -889,7 +889,7 @@ func TestRealBPF_AdapterDropLogs(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -914,7 +914,7 @@ func TestRealBPF_AdapterBlockIP(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -958,7 +958,7 @@ func TestRealBPF_AdapterClearOperations(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {
@@ -1018,7 +1018,7 @@ func TestRealBPF_AdapterListOperations(t *testing.T) {
 	}
 
 	log := logger.Get(context.Background())
-	pinPath := config.GetPinPath()
+	pinPath := runtime.GetPinPath()
 
 	mgr, err := NewManagerFromPins(pinPath, log)
 	if err != nil {

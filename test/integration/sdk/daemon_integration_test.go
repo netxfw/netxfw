@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/utils/logger"
+	types "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

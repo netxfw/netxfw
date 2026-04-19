@@ -14,7 +14,7 @@ import (
 	"github.com/netxfw/netxfw/internal/utils/ipmerge"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // VerifyAndRepair ensures consistency between config and BPF maps by forcing a sync.

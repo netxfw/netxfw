@@ -9,10 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/metrics/exporter"
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/metrics/exporter"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -302,7 +301,7 @@ func TestServer_UIHandler_ServesUIRoot(t *testing.T) {
 // TestMetricsServerStart tests starting the metrics server
 // TestMetricsServerStart 测试启动 metrics 服务器
 func TestMetricsServerStart(t *testing.T) {
-	cfg := &types.MetricsConfig{
+	cfg := &sdk.MetricsConfig{
 		Enabled:       true,
 		ServerEnabled: true,
 		Port:          11813, // Use different port to avoid conflicts
@@ -330,7 +329,7 @@ func TestMetricsServerStart(t *testing.T) {
 // TestMetricsServerDisabled tests disabled metrics server
 // TestMetricsServerDisabled 测试禁用的 metrics 服务器
 func TestMetricsServerDisabled(t *testing.T) {
-	cfg := &types.MetricsConfig{
+	cfg := &sdk.MetricsConfig{
 		Enabled:       false,
 		ServerEnabled: false,
 		Port:          11812,
@@ -345,7 +344,7 @@ func TestMetricsServerDisabled(t *testing.T) {
 // TestMetricsServerStop tests stopping the metrics server
 // TestMetricsServerStop 测试停止 metrics 服务器
 func TestMetricsServerStop(t *testing.T) {
-	cfg := &types.MetricsConfig{
+	cfg := &sdk.MetricsConfig{
 		Enabled:       true,
 		ServerEnabled: true,
 		Port:          11814,
@@ -1188,7 +1187,7 @@ func TestMetricsServer_CollectStats(t *testing.T) {
 	mockMgr := xdp.NewMockManager()
 	s := sdk.NewSDK(mockMgr)
 
-	cfg := &types.MetricsConfig{
+	cfg := &sdk.MetricsConfig{
 		Enabled:       true,
 		ServerEnabled: false,
 		Port:          11815,

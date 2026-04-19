@@ -74,7 +74,7 @@ int xdp_sanity(struct xdp_md *ctx) {
 ### Go Layer Chain Building
 
 ```go
-// internal/xdp/xdp_modules.go
+// internal/datapath/xdp/plugins/lifecycle.go
 func (m *Manager) SyncModules(configs []types.ModuleConfig) error {
     // 1. Sort by priority
     sort.Slice(sorted, func(i, j int) bool {

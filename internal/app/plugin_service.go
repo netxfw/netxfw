@@ -8,7 +8,8 @@ import (
 	applugin "github.com/netxfw/netxfw/internal/app/plugin"
 	domaindatapath "github.com/netxfw/netxfw/internal/domain/plugin/datapath"
 	domainruntime "github.com/netxfw/netxfw/internal/domain/plugin/runtime"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/ports"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // PluginCommandRequest describes a plugin operation request.
@@ -23,7 +24,7 @@ type PluginHealthSnapshot = applugin.HealthSnapshot
 
 // NewRuntimePluginStatuses returns runtime plugin status derived from the unified host.
 func NewRuntimePluginStatuses(cfg *sdk.GlobalConfig) []domainruntime.Status {
-	return applugin.LoadRuntimeStatuses(cfg)
+	return applugin.LoadRuntimeStatuses(ports.ConfigFromSDK(cfg))
 }
 
 // LoadPlugin loads a plugin into the pinned runtime.
@@ -97,7 +98,7 @@ func ListLoadedPlugins(ctx context.Context) ([]PluginSlot, error) {
 
 // LoadPluginStatus loads unified runtime/datapath plugin status.
 func LoadPluginStatus(ctx context.Context, runtime []domainruntime.Status, cfg *sdk.GlobalConfig) (PluginStatusSnapshot, error) {
-	datapath, err := applugin.LoadDatapathStatus(ctx, cfg)
+	datapath, err := applugin.LoadDatapathStatus(ctx, ports.ConfigFromSDK(cfg))
 	return applugin.ComposeStatus(runtime, datapath), err
 }
 

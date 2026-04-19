@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/internal/metrics/exporter"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

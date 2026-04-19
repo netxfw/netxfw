@@ -49,7 +49,7 @@ safe_grep() {
   grep -R -E "$pattern" "$@" --include="*.go" 2>/dev/null || true
 }
 
-# 1) 分层/反向依赖基本检查（以“迁移态”为前提）
+# 1) 分层/反向依赖基本检查（按当前目录结构严格执行）
 check_forbidden_imports() {
   echo "检查依赖与反向依赖..."
   echo "Checking layer & reverse dependencies..."
@@ -68,12 +68,12 @@ check_forbidden_imports() {
   fi
   echo ""
 
-  # cmd -> service (若未来引入 internal/service，则建议经 app/usecase；先做 warning)
+  # cmd -> service（若未来引入 internal/service，则建议经 app/usecase；先做 warning)
   echo "2. cmd -> service (warning)"
   local cmd_service
   cmd_service=$(safe_grep 'internal/service/' cmd/)
   if [ -n "$cmd_service" ]; then
-    print_warn "发现 cmd 层直接导入 internal/service（建议通过 app/usecase 层；当前按迁移态告警）"
+    print_warn "发现 cmd 层直接导入 internal/service（建议通过 app/usecase 层）"
     echo "$cmd_service"
     inc_warning
   else
@@ -81,34 +81,21 @@ check_forbidden_imports() {
   fi
   echo ""
 
-  # cmd -> core（当前仓库仍大量使用 internal/core，按迁移态仅告警）
-  echo "3. cmd -> core (migration warning)"
-  local cmd_core
-  cmd_core=$(safe_grep '"github.com/netxfw/netxfw/internal/core"' cmd/)
-  if [ -n "$cmd_core" ]; then
-    print_warn "发现 cmd 层直接导入 internal/core（迁移态：允许但需要逐步收敛）"
-    echo "$cmd_core"
-    inc_warning
+  # cmd -> core / config（禁止 CLI 或 daemon 入口直接回连核心实现）
+  echo "3. cmd -> core/config (error)"
+  local cmd_core_config
+  cmd_core_config=$(safe_grep '"github.com/netxfw/netxfw/internal/(core|config)"' cmd/)
+  if [ -n "$cmd_core_config" ]; then
+    print_err "发现 cmd 层直接导入 internal/core 或 internal/config（不允许）"
+    echo "$cmd_core_config"
+    inc_error
   else
-    print_ok "cmd -> core 检查通过"
+    print_ok "cmd -> core/config 检查通过"
   fi
   echo ""
 
-  # daemon entry cmd -> config（当前 daemon 入口直接加载 config 属于现实需要，按迁移态告警）
-  echo "4. daemon entry cmd -> config (migration warning)"
-  local daemon_entry_cfg
-  daemon_entry_cfg=$(grep -E '"github.com/netxfw/netxfw/internal/config"' cmd/netxfwagent/main.go cmd/netxfwdp/main.go 2>/dev/null || true)
-  if [ -n "$daemon_entry_cfg" ]; then
-    print_warn "daemon 入口直接导入 internal/config（迁移态告警：后续可经 app 装配层收敛）"
-    echo "$daemon_entry_cfg"
-    inc_warning
-  else
-    print_ok "daemon 入口 cmd -> config 检查通过"
-  fi
-  echo ""
-
-  # pkg -> internal（严格禁止，但允许当前仅 pkg/sdk 依赖 internal/plugins/types 的兼容点）
-  echo "5. pkg -> internal reverse deps"
+  # pkg -> internal（严格禁止，仅保留 tests 侧兼容；生产代码不可新增 compat 依赖）
+  echo "4. pkg -> internal reverse deps"
   local pkg_internal
   pkg_internal=$(grep -R -E '"github.com/netxfw/netxfw/internal/' pkg --include="*.go" 2>/dev/null || true)
   if [ -n "$pkg_internal" ]; then
@@ -119,7 +106,7 @@ check_forbidden_imports() {
       echo "$disallowed"
       inc_error
     else
-      print_warn "pkg 依赖 internal/plugins/types（迁移态兼容点，建议后续将 types 下沉到 pkg 或抽象接口）"
+      print_warn "pkg 依赖 internal/plugins/types（历史兼容点，仅允许存量；禁止新增其他 internal 依赖）"
       echo "$pkg_internal"
       inc_warning
     fi
@@ -142,19 +129,19 @@ check_forbidden_imports() {
   echo ""
 }
 
-# 2) system 模块治理（当前仓库仍为单文件聚合形态，规则以告警为主）
+# 2) system 模块治理（基于当前仓库结构）
 check_system_module_conventions() {
   echo "检查 system 模块规范..."
   echo "Checking system module conventions..."
   echo ""
 
-  # system.go 体量（迁移态告警）
-  echo "7. [SYS-ENTRY-SIZE] system.go 体量（warning）"
+  # system.go 体量（保持告警，提示继续拆分）
+  echo "5. [SYS-ENTRY-SIZE] system.go 体量（warning）"
   if [ -f cmd/agent/system.go ]; then
     local lines
     lines=$(wc -l < cmd/agent/system.go | tr -d ' ')
     if [ "$lines" -gt 650 ]; then
-      print_warn "system.go 过大 (${lines} 行)，建议后续拆分（当前按迁移态告警）"
+      print_warn "system.go 过大 (${lines} 行)，建议继续拆分"
       inc_warning
     else
       print_ok "system.go 体量检查通过 (${lines} 行)"
@@ -166,7 +153,7 @@ check_system_module_conventions() {
   echo ""
 
   # reason mapping 单一来源：只要在 cmd/agent 下出现 1 处就通过
-  echo "8. [SYS-REASON-SOURCE] reason 映射单一来源"
+  echo "6. [SYS-REASON-SOURCE] reason 映射单一来源"
   local cnt
   cnt=$(grep -R "func dropReasonToString" cmd/agent --include="*.go" 2>/dev/null | wc -l | tr -d ' ')
   if [ "$cnt" -gt 1 ]; then
@@ -179,7 +166,7 @@ check_system_module_conventions() {
   echo ""
 
   # required files（对齐当前仓库真实文件）
-  echo "9. [SYS-REQUIRED-FILES] system 关键文件完整性"
+  echo "7. [SYS-REQUIRED-FILES] system 关键文件完整性"
   local required=(
     "cmd/agent/system.go"
     "cmd/agent/system_display.go"
@@ -201,10 +188,10 @@ check_system_module_conventions() {
   fi
   echo ""
 
-  # runtime boundary：除了 system.go 之外，不建议其他 agent 文件直接依赖底层 XDP/ebpf/link
-  echo "10. [SYS-RUNTIME-BOUNDARY] 非 system.go 文件的底层依赖泄漏（error）"
+  # runtime boundary：除了 system.go 之外，不允许其他 agent 文件直接依赖底层 XDP/ebpf/link
+  echo "8. [SYS-RUNTIME-BOUNDARY] 非 system.go 文件的底层依赖泄漏（error）"
   local leaked
-  leaked=$(grep -R -E '"github.com/cilium/ebpf/link"|"github.com/netxfw/netxfw/internal/xdp"' cmd/agent --include="*.go" 2>/dev/null | grep -v 'cmd/agent/system.go' || true)
+  leaked=$(grep -R -E '"github.com/cilium/ebpf/link"|"github.com/netxfw/netxfw/internal/(xdp|datapath/xdp)"' cmd/agent --include="*.go" 2>/dev/null | grep -v 'cmd/agent/system.go' || true)
   if [ -n "$leaked" ]; then
     print_err "发现 system 以外的 agent 文件直接依赖底层 XDP/ebpf（建议通过 manager/SDK/执行器封装）"
     echo "$leaked"
@@ -215,66 +202,46 @@ check_system_module_conventions() {
   echo ""
 }
 
-# 3) internal/xdp 治理（保持告警性质为主）
+# 3) internal/datapath/xdp 治理（对齐当前拆分结构）
 check_xdp_module_conventions() {
   echo "检查 xdp 模块规范..."
   echo "Checking xdp module conventions..."
   echo ""
 
-  echo "11. [XDP-SUBPKG-UPWARD-IMPORT] xdp 子包反向依赖（error）"
-  if [ -d internal/xdp/statscalc ] && [ -d internal/xdp/syncutil ]; then
-    local upward
-    upward=$(grep -R '"github.com/netxfw/netxfw/internal/xdp"' internal/xdp/statscalc internal/xdp/syncutil --include="*.go" 2>/dev/null || true)
-    if [ -n "$upward" ]; then
-      print_err "发现 xdp 子包反向导入 internal/xdp"
-      echo "$upward"
-      inc_error
-    else
-      print_ok "xdp 子包反向依赖检查通过"
-    fi
+  echo "9. [XDP-LEGACY-PATH] 禁止残留 internal/xdp 路径（error)"
+  local legacy_xdp
+  legacy_xdp=$(grep -R -E '"github.com/netxfw/netxfw/internal/xdp|internal/xdp/' internal cmd pkg test scripts docs --include="*.go" --include="*.sh" --include="*.md" 2>/dev/null | grep -v 'scripts/check_architecture.sh' || true)
+  if [ -n "$legacy_xdp" ]; then
+    print_err "发现残留 internal/xdp 旧路径，需统一迁移到 internal/datapath/xdp"
+    echo "$legacy_xdp"
+    inc_error
   else
-    print_ok "xdp 子包目录不存在（跳过）"
+    print_ok "旧 XDP 路径检查通过"
   fi
   echo ""
 
-  echo "12. [XDP-FILE-SCALE] xdp 顶层文件规模（warning）"
-  if [ -d internal/xdp ]; then
+  echo "10. [XDP-SUBPKG-UPWARD-IMPORT] xdp 子包反向依赖（error）"
+  local upward
+  upward=$(grep -R '"github.com/netxfw/netxfw/internal/datapath/xdp"' internal/datapath/xdp/{health,lifecycle,maps,plugins,programs,stats,sync} --include="*.go" 2>/dev/null | grep -vE 'internal/datapath/xdp/(health|lifecycle|maps|plugins|programs|stats|sync)/' || true)
+  if [ -n "$upward" ]; then
+    print_err "发现 xdp 子包直接反向导入 internal/datapath/xdp 根路径"
+    echo "$upward"
+    inc_error
+  else
+    print_ok "xdp 子包反向依赖检查通过"
+  fi
+  echo ""
+
+  echo "11. [XDP-ROOT-FILE-SCALE] xdp 根目录文件规模（warning）"
+  if [ -d internal/datapath/xdp ]; then
     local c
-    c=$(find internal/xdp -maxdepth 1 -name "*.go" | wc -l | tr -d ' ')
-    if [ "$c" -gt 70 ]; then
-      print_warn "internal/xdp 顶层 Go 文件数偏多: $c（建议子包化）"
+    c=$(find internal/datapath/xdp -maxdepth 1 -name "*.go" | wc -l | tr -d ' ')
+    if [ "$c" -gt 10 ]; then
+      print_warn "internal/datapath/xdp 根目录 Go 文件数偏多: $c（建议继续按子包收敛）"
       inc_warning
     else
-      print_ok "xdp 文件规模检查通过 ($c files)"
+      print_ok "xdp 根目录文件规模检查通过 ($c files)"
     fi
-  fi
-  echo ""
-
-  echo "13. [XDP-PREFIX-GOVERNANCE] xdp 文件前缀治理（warning）"
-  # 对齐当前仓库：补齐已存在的前缀集合，减少误报
-  local allowed_prefixes="adapter api bpf core errors helpers lifecycle map misc mock netxfw pool real rules stats sync types util xdp health incremental interfaces lock manager metrics performance utils"
-  local unknown=""
-  while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    local base name_no_ext prefix
-    base=$(basename "$f")
-    name_no_ext="${base%.go}"
-    prefix="${name_no_ext%%_*}"
-    if [[ "$name_no_ext" == "$prefix" ]]; then
-      prefix="$name_no_ext"
-    fi
-    case " $allowed_prefixes " in
-      *" $prefix "*) ;;
-      *) unknown+="$f"$'\n' ;;
-    esac
-  done < <(find internal/xdp -maxdepth 1 -name "*.go" -type f | sort)
-
-  if [ -n "$unknown" ]; then
-    print_warn "发现未登记前缀文件（建议登记或重命名）"
-    echo "$unknown"
-    inc_warning
-  else
-    print_ok "xdp 文件前缀治理检查通过"
   fi
   echo ""
 }

@@ -49,7 +49,7 @@ NetXFW provides a comprehensive health check system for monitoring BPF Map statu
 ### Status Determination
 
 ```go
-// internal/xdp/health_check.go
+// internal/datapath/xdp/backend/health_check.go
 const (
     statusOK          = "ok"          // Usage < 80%
     statusWarning     = "warning"     // Usage 80% - 95%

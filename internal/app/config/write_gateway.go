@@ -7,13 +7,14 @@ import (
 	"sync"
 
 	"github.com/netxfw/netxfw/internal/adapters/configfile"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
+	"github.com/netxfw/netxfw/internal/ports"
 	"github.com/netxfw/netxfw/internal/utils/fileutil"
-	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type WriteGateway interface {
-	WriteFile(path string, data []byte, perm os.FileMode, source string) error
-	SaveGlobalConfig(path string, cfg *sdk.GlobalConfig, keepBackups int, source string) error
+	ports.FileWriter
+	ports.ConfigWriter
 }
 
 type atomicWriteGateway struct {
@@ -50,7 +51,7 @@ func (g *atomicWriteGateway) WriteFile(path string, data []byte, perm os.FileMod
 	return nil
 }
 
-func (g *atomicWriteGateway) SaveGlobalConfig(path string, cfg *sdk.GlobalConfig, keepBackups int, source string) error {
+func (g *atomicWriteGateway) SaveConfig(path string, cfg *domainconfig.Config, keepBackups int, source string) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 

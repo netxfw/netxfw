@@ -3,15 +3,15 @@ package optimizer_test
 import (
 	"testing"
 
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	"github.com/netxfw/netxfw/internal/optimizer"
-	"github.com/netxfw/netxfw/internal/configtypes"
 )
 
 // TestOptimizeWhitelistConfig tests whitelist config optimization
 // TestOptimizeWhitelistConfig 测试白名单配置优化
 func TestOptimizeWhitelistConfig(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	cfg := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			Whitelist: []string{
 				"1.2.3.1",
 				"1.2.3.2",
@@ -57,9 +57,9 @@ func TestOptimizeWhitelistConfig(t *testing.T) {
 // TestOptimizeIPPortRulesConfig tests IP port rules config optimization
 // TestOptimizeIPPortRulesConfig 测试 IP 端口规则配置优化
 func TestOptimizeIPPortRulesConfig(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Port: types.PortConfig{
-			IPPortRules: []types.IPPortRule{
+	cfg := &domainconfig.Config{
+		Port: domainconfig.PortConfig{
+			IPPortRules: []domainconfig.IPPortRule{
 				{IP: "192.168.1.1", Port: 80, Action: 1},
 				{IP: "192.168.1.2", Port: 80, Action: 1},
 				{IP: "192.168.1.3", Port: 80, Action: 1},

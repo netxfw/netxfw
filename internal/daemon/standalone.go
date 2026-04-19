@@ -4,14 +4,14 @@ import (
 	"context"
 
 	"github.com/netxfw/netxfw/internal/api"
-	"github.com/netxfw/netxfw/internal/daemon/engine"
-	"go.uber.org/zap"
-
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	"github.com/netxfw/netxfw/internal/daemon/engine"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
+	"github.com/netxfw/netxfw/internal/ports"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
+	"go.uber.org/zap"
 )
 
 // runUnified runs the unified full-stack mode.
@@ -91,8 +91,8 @@ func createReloadFunc(_ string, coreModules []engine.CoreModule, pluginCtx *sdk.
 			return err
 		}
 
-		ReloadCoreModules(coreModules, newCfg, log)
-		pluginCtx.Config = newCfg
+		ReloadCoreModules(coreModules, ports.ConfigToSDK(newCfg), log)
+		pluginCtx.Config = ports.ConfigToSDK(newCfg)
 		ReloadPlugins(pluginCtx, log)
 		return nil
 	}

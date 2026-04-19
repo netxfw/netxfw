@@ -4,7 +4,7 @@ import (
 	"context"
 
 	runtimehost "github.com/netxfw/netxfw/internal/adapters/plugins/runtime"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 

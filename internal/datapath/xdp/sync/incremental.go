@@ -1,21 +1,21 @@
 package sync
 
 import (
-	syncbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/syncbridge"
+	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
-type ConfigDiff = syncbridge.ConfigDiff
+type ConfigDiff = backendxdp.ConfigDiff
 
-type ConfigChange = syncbridge.ConfigChange
+type ConfigChange = backendxdp.ConfigChange
 
-type IPPortRuleChange = syncbridge.IPPortRuleChange
+type IPPortRuleChange = backendxdp.IPPortRuleChange
 
-type RateLimitChange = syncbridge.RateLimitChange
+type RateLimitChange = backendxdp.RateLimitChange
 
 type IncrementalUpdater struct {
-	inner *syncbridge.Updater
+	inner *backendxdp.IncrementalUpdater
 }
 
 func NewIncrementalUpdater(mgr *datapathprograms.Handle) *IncrementalUpdater {
@@ -23,10 +23,16 @@ func NewIncrementalUpdater(mgr *datapathprograms.Handle) *IncrementalUpdater {
 }
 
 func (u *IncrementalUpdater) ComputeDiff(oldCfg, newCfg *sdk.GlobalConfig) (*ConfigDiff, error) {
+	if u == nil || u.inner == nil {
+		return nil, nil
+	}
 	return u.inner.ComputeDiff(oldCfg, newCfg)
 }
 
 func (u *IncrementalUpdater) ApplyDiff(diff *ConfigDiff) error {
+	if u == nil || u.inner == nil {
+		return nil
+	}
 	return u.inner.ApplyDiff(diff)
 }
 

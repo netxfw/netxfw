@@ -3,8 +3,10 @@ package runtime
 import (
 	"context"
 
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	domainruntime "github.com/netxfw/netxfw/internal/domain/plugin/runtime"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/ports"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
@@ -20,9 +22,9 @@ type Host interface {
 	Start(pluginCtx *sdk.RuntimePluginContext, log *zap.SugaredLogger) []sdk.RuntimePlugin
 	Reload(pluginCtx *sdk.RuntimePluginContext, log *zap.SugaredLogger)
 	Stop(started []sdk.RuntimePlugin)
-	ValidateConfig(cfg *sdk.GlobalConfig) []ValidationFailure
+	ValidateConfig(cfg *domainconfig.Config) []ValidationFailure
 	Inventory() []domainruntime.Descriptor
-	Statuses(cfg *sdk.GlobalConfig) []domainruntime.Status
+	Statuses(cfg *domainconfig.Config) []domainruntime.Status
 }
 
 type runtimeHost struct {
@@ -61,7 +63,7 @@ func (h runtimeHost) Start(pluginCtx *sdk.RuntimePluginContext, log *zap.Sugared
 			log.Warnf("[WARN]  Failed to start plugin %s: %v", p.Name(), err)
 			continue
 		}
-		started = append(started, p)
+		started = append(started, p.SDKPlugin())
 	}
 	return started
 }
@@ -84,10 +86,11 @@ func (h runtimeHost) Stop(started []sdk.RuntimePlugin) {
 	}
 }
 
-func (h runtimeHost) ValidateConfig(cfg *sdk.GlobalConfig) []ValidationFailure {
+func (h runtimeHost) ValidateConfig(cfg *domainconfig.Config) []ValidationFailure {
+	sdkCfg := ports.ConfigToSDK(cfg)
 	failures := make([]ValidationFailure, 0)
 	for _, p := range h.registry.Plugins() {
-		if err := p.Validate(cfg); err != nil {
+		if err := p.Validate(sdkCfg); err != nil {
 			failures = append(failures, ValidationFailure{
 				Name: p.Name(),
 				Err:  err,
@@ -101,16 +104,17 @@ func (h runtimeHost) Inventory() []domainruntime.Descriptor {
 	return h.registry.Inventory()
 }
 
-func (h runtimeHost) Statuses(cfg *sdk.GlobalConfig) []domainruntime.Status {
+func (h runtimeHost) Statuses(cfg *domainconfig.Config) []domainruntime.Status {
+	sdkCfg := ports.ConfigToSDK(cfg)
 	items := h.registry.Plugins()
 	statuses := make([]domainruntime.Status, 0, len(items))
 	for _, p := range items {
 		status := domainruntime.Status{
 			Name: p.Name(),
-			Kind: kindFromSDK(p.Type()),
+			Kind: ports.RuntimeKindFromPluginType(p.Type()),
 		}
 
-		if cfg == nil {
+		if sdkCfg == nil {
 			status.Message = "config unavailable"
 			statuses = append(statuses, status)
 			continue
@@ -124,7 +128,7 @@ func (h runtimeHost) Statuses(cfg *sdk.GlobalConfig) []domainruntime.Status {
 			continue
 		}
 
-		if err := p.Validate(cfg); err != nil {
+		if err := p.Validate(sdkCfg); err != nil {
 			status.Message = err.Error()
 			statuses = append(statuses, status)
 			continue
@@ -138,7 +142,10 @@ func (h runtimeHost) Statuses(cfg *sdk.GlobalConfig) []domainruntime.Status {
 	return statuses
 }
 
-func runtimePluginEnabled(cfg *sdk.GlobalConfig, name string) bool {
+func runtimePluginEnabled(cfg *domainconfig.Config, name string) bool {
+	if cfg == nil {
+		return false
+	}
 	switch name {
 	case "log_engine":
 		return cfg.LogEngine.Enabled

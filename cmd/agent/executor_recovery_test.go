@@ -7,7 +7,7 @@ import (
 
 	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/internal/app"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 

@@ -3,15 +3,15 @@ package optimizer
 import (
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	"github.com/stretchr/testify/assert"
 )
 
 // TestOptimizeWhitelistConfig tests whitelist config optimization
 // TestOptimizeWhitelistConfig 测试白名单配置优化
 func TestOptimizeWhitelistConfig(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	cfg := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			Whitelist: []string{
 				"1.2.3.1",
 				"1.2.3.2",
@@ -57,9 +57,9 @@ func TestOptimizeWhitelistConfig(t *testing.T) {
 // TestOptimizeIPPortRulesConfig tests IP port rules config optimization
 // TestOptimizeIPPortRulesConfig 测试 IP 端口规则配置优化
 func TestOptimizeIPPortRulesConfig(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Port: types.PortConfig{
-			IPPortRules: []types.IPPortRule{
+	cfg := &domainconfig.Config{
+		Port: domainconfig.PortConfig{
+			IPPortRules: []domainconfig.IPPortRule{
 				{IP: "192.168.1.1", Port: 80, Action: 1},
 				{IP: "192.168.1.2", Port: 80, Action: 1},
 				{IP: "192.168.1.3", Port: 80, Action: 1},
@@ -79,8 +79,8 @@ func TestOptimizeIPPortRulesConfig(t *testing.T) {
 // TestOptimizeWhitelistConfig_Empty tests empty whitelist
 // TestOptimizeWhitelistConfig_Empty 测试空白名单
 func TestOptimizeWhitelistConfig_Empty(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	cfg := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			Whitelist: []string{},
 		},
 	}
@@ -92,8 +92,8 @@ func TestOptimizeWhitelistConfig_Empty(t *testing.T) {
 // TestOptimizeWhitelistConfig_Single tests single entry whitelist
 // TestOptimizeWhitelistConfig_Single 测试单条目白名单
 func TestOptimizeWhitelistConfig_Single(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	cfg := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			Whitelist: []string{"192.168.1.1"},
 		},
 	}
@@ -105,8 +105,8 @@ func TestOptimizeWhitelistConfig_Single(t *testing.T) {
 // TestOptimizeWhitelistConfig_WithPort tests whitelist with port
 // TestOptimizeWhitelistConfig_WithPort 测试带端口的白名单
 func TestOptimizeWhitelistConfig_WithPort(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	cfg := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			Whitelist: []string{
 				"192.168.1.1:80",
 				"192.168.1.2:80",
@@ -122,8 +122,8 @@ func TestOptimizeWhitelistConfig_WithPort(t *testing.T) {
 // TestOptimizeWhitelistConfig_MixedFormat tests mixed format whitelist
 // TestOptimizeWhitelistConfig_MixedFormat 测试混合格式白名单
 func TestOptimizeWhitelistConfig_MixedFormat(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	cfg := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			Whitelist: []string{
 				"192.168.1.1",
 				"192.168.1.2:8080",
@@ -140,9 +140,9 @@ func TestOptimizeWhitelistConfig_MixedFormat(t *testing.T) {
 // TestOptimizeIPPortRulesConfig_Empty tests empty IP port rules
 // TestOptimizeIPPortRulesConfig_Empty 测试空 IP 端口规则
 func TestOptimizeIPPortRulesConfig_Empty(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Port: types.PortConfig{
-			IPPortRules: []types.IPPortRule{},
+	cfg := &domainconfig.Config{
+		Port: domainconfig.PortConfig{
+			IPPortRules: []domainconfig.IPPortRule{},
 		},
 	}
 
@@ -153,9 +153,9 @@ func TestOptimizeIPPortRulesConfig_Empty(t *testing.T) {
 // TestOptimizeIPPortRulesConfig_Single tests single IP port rule
 // TestOptimizeIPPortRulesConfig_Single 测试单条 IP 端口规则
 func TestOptimizeIPPortRulesConfig_Single(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Port: types.PortConfig{
-			IPPortRules: []types.IPPortRule{
+	cfg := &domainconfig.Config{
+		Port: domainconfig.PortConfig{
+			IPPortRules: []domainconfig.IPPortRule{
 				{IP: "192.168.1.1", Port: 80, Action: 1},
 			},
 		},
@@ -168,9 +168,9 @@ func TestOptimizeIPPortRulesConfig_Single(t *testing.T) {
 // TestOptimizeIPPortRulesConfig_DifferentPorts tests rules with different ports
 // TestOptimizeIPPortRulesConfig_DifferentPorts 测试不同端口的规则
 func TestOptimizeIPPortRulesConfig_DifferentPorts(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Port: types.PortConfig{
-			IPPortRules: []types.IPPortRule{
+	cfg := &domainconfig.Config{
+		Port: domainconfig.PortConfig{
+			IPPortRules: []domainconfig.IPPortRule{
 				{IP: "192.168.1.1", Port: 80, Action: 1},
 				{IP: "192.168.1.1", Port: 443, Action: 1},
 				{IP: "192.168.1.1", Port: 8080, Action: 2},
@@ -185,9 +185,9 @@ func TestOptimizeIPPortRulesConfig_DifferentPorts(t *testing.T) {
 // TestOptimizeIPPortRulesConfig_DifferentActions tests rules with different actions
 // TestOptimizeIPPortRulesConfig_DifferentActions 测试不同动作的规则
 func TestOptimizeIPPortRulesConfig_DifferentActions(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Port: types.PortConfig{
-			IPPortRules: []types.IPPortRule{
+	cfg := &domainconfig.Config{
+		Port: domainconfig.PortConfig{
+			IPPortRules: []domainconfig.IPPortRule{
 				{IP: "192.168.1.1", Port: 80, Action: 1}, // allow
 				{IP: "192.168.1.1", Port: 80, Action: 2}, // deny
 			},
@@ -201,9 +201,9 @@ func TestOptimizeIPPortRulesConfig_DifferentActions(t *testing.T) {
 // TestOptimizeIPPortRulesConfig_CIDR tests rules with CIDR notation
 // TestOptimizeIPPortRulesConfig_CIDR 测试 CIDR 表示法的规则
 func TestOptimizeIPPortRulesConfig_CIDR(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Port: types.PortConfig{
-			IPPortRules: []types.IPPortRule{
+	cfg := &domainconfig.Config{
+		Port: domainconfig.PortConfig{
+			IPPortRules: []domainconfig.IPPortRule{
 				{IP: "192.168.1.0/24", Port: 80, Action: 1},
 				{IP: "10.0.0.0/8", Port: 443, Action: 2},
 			},
@@ -217,9 +217,9 @@ func TestOptimizeIPPortRulesConfig_CIDR(t *testing.T) {
 // TestOptimizeIPPortRulesConfig_IPv6 tests rules with IPv6
 // TestOptimizeIPPortRulesConfig_IPv6 测试 IPv6 规则
 func TestOptimizeIPPortRulesConfig_IPv6(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Port: types.PortConfig{
-			IPPortRules: []types.IPPortRule{
+	cfg := &domainconfig.Config{
+		Port: domainconfig.PortConfig{
+			IPPortRules: []domainconfig.IPPortRule{
 				{IP: "2001:db8::1", Port: 80, Action: 1},
 				{IP: "2001:db8::2", Port: 80, Action: 1},
 			},
@@ -233,8 +233,8 @@ func TestOptimizeIPPortRulesConfig_IPv6(t *testing.T) {
 // TestOptimizeWhitelistConfig_IPv6 tests whitelist with IPv6
 // TestOptimizeWhitelistConfig_IPv6 测试 IPv6 白名单
 func TestOptimizeWhitelistConfig_IPv6(t *testing.T) {
-	cfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	cfg := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			Whitelist: []string{
 				"2001:db8::1",
 				"2001:db8::2",

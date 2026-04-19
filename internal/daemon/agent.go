@@ -7,7 +7,7 @@ import (
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	"github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // runControlPlane handles API, Web, Log Engine, and high-level management.

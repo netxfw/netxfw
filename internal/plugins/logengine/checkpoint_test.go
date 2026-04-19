@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/nxadm/tail"
 	"github.com/stretchr/testify/assert"
 )

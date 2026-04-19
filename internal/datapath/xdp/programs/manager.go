@@ -5,24 +5,23 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
-	xdpbackend "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend"
-	healthbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/healthbridge"
-	statsbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/statsbridge"
-	syncbridge "github.com/netxfw/netxfw/internal/adapters/datapath/xdpbackend/syncbridge"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	backendxdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 
-type PerformanceStats = statsbridge.PerformanceStats
+type PerformanceStats = backendxdp.PerformanceStats
+
+type InterfaceInfo = backendxdp.InterfaceXDPInfo
 
 // Handle wraps the current datapath manager implementation behind the programs facade.
 type Handle struct {
-	manager *xdpbackend.Handle
+	manager *backendxdp.Manager
 }
 
 // OpenPinnedManager loads a manager from the currently pinned datapath maps.
 func OpenPinnedManager(pinPath string, log *zap.SugaredLogger) (*Handle, error) {
-	manager, err := xdpbackend.NewManagerFromPins(pinPath, log)
+	manager, err := backendxdp.NewManagerFromPins(pinPath, log)
 	if err != nil {
 		return nil, err
 	}
@@ -31,15 +30,15 @@ func OpenPinnedManager(pinPath string, log *zap.SugaredLogger) (*Handle, error) 
 
 // CreateManager creates a new datapath manager for the provided capacity config.
 func CreateManager(capacity sdk.CapacityConfig, log *zap.SugaredLogger) (*Handle, error) {
-	manager, err := xdpbackend.NewManager(capacity, log)
+	manager, err := backendxdp.NewManager(capacity, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create XDP manager: %v", err)
 	}
 	return &Handle{manager: manager}, nil
 }
 
-// WrapExisting bridges an already-created backend manager into the programs facade.
-func WrapExisting(manager *xdpbackend.Handle) *Handle {
+// WrapExisting wraps an already-created backend manager into the programs facade.
+func WrapExisting(manager *backendxdp.Manager) *Handle {
 	if manager == nil {
 		return nil
 	}
@@ -51,54 +50,54 @@ func NewAdapter(manager *Handle) sdk.ManagerInterface {
 	if manager == nil {
 		return nil
 	}
-	return xdpbackend.NewAdapter(manager.manager)
+	return backendxdp.NewAdapter(manager.manager)
 }
 
 // GetPhysicalInterfaces returns all physical network interfaces eligible for XDP.
 func GetPhysicalInterfaces() ([]string, error) {
-	return xdpbackend.GetPhysicalInterfaces()
+	return backendxdp.GetPhysicalInterfaces()
 }
 
 // GetAttachedInterfaces returns interface names with pinned XDP attachments.
 func GetAttachedInterfaces(pinPath string) ([]string, error) {
-	return xdpbackend.GetAttachedInterfaces(pinPath)
+	return backendxdp.GetAttachedInterfaces(pinPath)
 }
 
 // GetAttachedInterfacesWithInfo returns detailed XDP attachment information.
-func GetAttachedInterfacesWithInfo(pinPath string) ([]xdpbackend.InterfaceInfo, error) {
-	return xdpbackend.GetAttachedInterfacesWithInfo(pinPath)
+func GetAttachedInterfacesWithInfo(pinPath string) ([]InterfaceInfo, error) {
+	return backendxdp.GetAttachedInterfacesWithInfo(pinPath)
 }
 
 // NewMetricsCollector constructs a metrics collector for the wrapped manager.
-func NewMetricsCollector(handle *Handle) *statsbridge.Collector {
+func NewMetricsCollector(handle *Handle) *backendxdp.MetricsCollector {
 	if handle == nil {
 		return nil
 	}
-	return statsbridge.NewMetricsCollector(handle.manager)
+	return backendxdp.NewMetricsCollector(handle.manager)
 }
 
 // NewStatsCache constructs a stats cache for the wrapped manager.
-func NewStatsCache(handle *Handle) *statsbridge.Cache {
+func NewStatsCache(handle *Handle) *backendxdp.StatsCache {
 	if handle == nil {
 		return nil
 	}
-	return statsbridge.NewStatsCache(handle.manager)
+	return backendxdp.NewStatsCache(handle.manager)
 }
 
 // NewHealthChecker constructs a health checker for the wrapped manager.
-func NewHealthChecker(handle *Handle) *healthbridge.Checker {
+func NewHealthChecker(handle *Handle) *backendxdp.HealthChecker {
 	if handle == nil {
 		return nil
 	}
-	return healthbridge.NewHealthChecker(handle.manager)
+	return backendxdp.NewHealthChecker(handle.manager)
 }
 
 // NewIncrementalUpdater constructs an incremental updater for the wrapped manager.
-func NewIncrementalUpdater(handle *Handle) *syncbridge.Updater {
+func NewIncrementalUpdater(handle *Handle) *backendxdp.IncrementalUpdater {
 	if handle == nil {
 		return nil
 	}
-	return syncbridge.NewIncrementalUpdater(handle.manager)
+	return backendxdp.NewIncrementalUpdater(handle.manager)
 }
 
 // MigrateState copies runtime state from old manager into new manager.
@@ -111,6 +110,9 @@ func MigrateState(newHandle, oldHandle *Handle) error {
 
 // Close releases manager resources.
 func (h *Handle) Close() error {
+	if h == nil || h.manager == nil {
+		return nil
+	}
 	return h.manager.Close()
 }
 
@@ -164,9 +166,9 @@ func (h *Handle) Whitelist() *ebpf.Map {
 	return h.manager.Whitelist()
 }
 
-// IPPortRules returns the IP-port rule map.
+// IPPortRules returns the active unified rule map.
 func (h *Handle) IPPortRules() *ebpf.Map {
-	return h.manager.IPPortRules()
+	return h.manager.RuleMap()
 }
 
 // MatchesCapacity reports whether the current manager capacity matches cfg.
@@ -176,7 +178,7 @@ func (h *Handle) MatchesCapacity(cfg sdk.CapacityConfig) bool {
 
 // XDPProgram returns the main XDP program handle.
 func (h *Handle) XDPProgram() *ebpf.Program {
-	return h.manager.XDPProgram()
+	return h.manager.XdpFirewall()
 }
 
 // LoadPlugin inserts a datapath plugin into the jump table.
@@ -191,17 +193,19 @@ func (h *Handle) RemovePlugin(index int) error {
 
 // LookupPluginProgram returns the program id currently stored in the jump table slot.
 func (h *Handle) LookupPluginProgram(index int) (uint32, bool, error) {
-	return h.manager.LookupPluginProgram(index)
+	var progID uint32
+	if err := h.manager.JmpTable().Lookup(uint32(index), &progID); err != nil {
+		return 0, false, err
+	}
+	return progID, true, nil
 }
 
 // PerfStats returns the raw performance statistics handle.
 func (h *Handle) PerfStats() any {
+	if h == nil || h.manager == nil {
+		return nil
+	}
 	return h.manager.PerfStats()
-}
-
-// SDKManager returns an SDK-facing manager adapter.
-func (h *Handle) SDKManager() sdk.ManagerInterface {
-	return NewAdapter(h)
 }
 
 // AttachProgram attaches the provided XDP program using explicit link options.

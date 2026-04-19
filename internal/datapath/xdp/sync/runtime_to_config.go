@@ -3,11 +3,11 @@ package sync
 import (
 	"fmt"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 )
 
 // SyncRuntimeToConfig captures runtime state back into config through the datapath sync facade.
-func SyncRuntimeToConfig(mgr RuntimeSyncPort, cfg *sdk.GlobalConfig) error {
+func SyncRuntimeToConfig(mgr RuntimeSyncPort, cfg *domainconfig.Config) error {
 	if mgr == nil {
 		return fmt.Errorf("manager is nil")
 	}

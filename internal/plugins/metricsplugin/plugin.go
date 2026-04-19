@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/netxfw/netxfw/internal/metrics/exporter"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type MetricsPlugin struct {

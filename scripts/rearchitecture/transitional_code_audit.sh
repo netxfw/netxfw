@@ -50,16 +50,78 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-require_tool rg
+require_tool python3
+
+count_lines() {
+  python3 -c 'import sys; print(sum(1 for line in sys.stdin if line.strip()))'
+}
+
+search_files() {
+  local pattern="$1"
+  local excludes_regex="${2:-}"
+  python3 - "$ROOT_DIR" "$pattern" "$excludes_regex" <<'PY'
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+pattern = re.compile(sys.argv[2])
+exclude_pattern = re.compile(sys.argv[3]) if sys.argv[3] else None
+search_roots = ["cmd", "internal", "pkg", "test"]
+
+for relative_root in search_roots:
+    base = root / relative_root
+    if not base.exists():
+        continue
+    for path in sorted(base.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(root)
+        relative_str = str(relative)
+        if exclude_pattern and exclude_pattern.search(relative_str):
+            continue
+        if pattern.search(relative_str):
+            print(relative_str)
+PY
+}
+
+search_content() {
+  local pattern="$1"
+  python3 - "$ROOT_DIR" "$pattern" <<'PY'
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+pattern = re.compile(sys.argv[2])
+search_roots = ["cmd", "internal", "pkg", "test"]
+skip_suffixes = {".png", ".jpg", ".jpeg", ".gif", ".pdf", ".ico", ".bin", ".o", ".so", ".a"}
+
+for relative_root in search_roots:
+    base = root / relative_root
+    if not base.exists():
+        continue
+    for path in sorted(base.rglob("*")):
+        if not path.is_file() or path.suffix.lower() in skip_suffixes:
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            content = path.read_text(encoding="utf-8", errors="ignore")
+        for lineno, line in enumerate(content.splitlines(), start=1):
+            if pattern.search(line):
+                print(f"{path.relative_to(root)}:{lineno}:{line}")
+PY
+}
 
 printf '== Transitional Code Audit ==\n'
 printf 'repo: %s\n\n' "$ROOT_DIR"
 
-name_matches="$(find cmd internal pkg test -type f 2>/dev/null | rg 'legacy|compat|migration|transitional|temporary' || true)"
-comment_matches="$(rg -n 'TODO|FIXME|temporary|compat' cmd internal pkg test || true)"
+name_matches="$(search_files 'legacy|compat|migration|transitional|temporary' '(^|/)(test|tests)/|_test\.go$|internal/config/|internal/configtypes/|internal/domain/config/sdk_compat\.go$|internal/ports/sdk_compat\.go$' || true)"
+comment_matches="$(python3 scripts/rearchitecture/python_scan.py content --roots internal/app internal/adapters internal/api internal/daemon internal/datapath internal/domain internal/metrics internal/optimizer internal/plugins internal/runtime internal/utils cmd pkg --include '*.go' --exclude '*_test.go' --pattern 'TODO|FIXME|temporary|compat' || true)"
 
-name_count="$(printf '%s\n' "$name_matches" | sed '/^$/d' | wc -l | tr -d ' ')"
-comment_count="$(printf '%s\n' "$comment_matches" | sed '/^$/d' | wc -l | tr -d ' ')"
+name_count="$(printf '%s\n' "$name_matches" | count_lines)"
+comment_count="$(printf '%s\n' "$comment_matches" | count_lines)"
 
 printf '[naming-matches]\n'
 printf 'count: %s\n' "$name_count"

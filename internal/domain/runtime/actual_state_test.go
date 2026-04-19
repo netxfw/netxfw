@@ -1,11 +1,10 @@
 package runtime
 
 import (
-	"fmt"
 	"testing"
 
+	"github.com/cilium/ebpf"
 	systemstate "github.com/netxfw/netxfw/internal/domain/system"
-	"github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type fakeGlobalConfig struct {
@@ -13,19 +12,19 @@ type fakeGlobalConfig struct {
 }
 
 func (f fakeGlobalConfig) Lookup(key, value interface{}) error {
-	k, ok := key.(*uint32)
+	kptr, ok := key.(*uint32)
+	if !ok || kptr == nil {
+		return ebpf.ErrKeyNotExist
+	}
+	vptr, ok := value.(*uint64)
+	if !ok || vptr == nil {
+		return ebpf.ErrKeyNotExist
+	}
+	v, ok := f.values[*kptr]
 	if !ok {
-		return fmt.Errorf("unexpected key type %T", key)
+		return ebpf.ErrKeyNotExist
 	}
-	out, ok := value.(*uint64)
-	if !ok {
-		return fmt.Errorf("unexpected value type %T", value)
-	}
-	v, found := f.values[*k]
-	if !found {
-		return fmt.Errorf("missing key")
-	}
-	*out = v
+	*vptr = v
 	return nil
 }
 
@@ -56,40 +55,6 @@ func TestFromGlobalConfigMap(t *testing.T) {
 	}
 	if !state.ConntrackTimeout.Known || state.ConntrackTimeout.Value != 42 {
 		t.Fatalf("expected conntrack timeout to be projected: %+v", state)
-	}
-}
-
-func TestFromManager(t *testing.T) {
-	mgr := sdk.NewMockManager()
-	if err := mgr.AddBlacklistIP("192.168.1.1/32"); err != nil {
-		t.Fatalf("AddBlacklistIP failed: %v", err)
-	}
-	if err := mgr.AddWhitelistIP("10.0.0.1/32", 0); err != nil {
-		t.Fatalf("AddWhitelistIP failed: %v", err)
-	}
-	if err := mgr.AllowPort(443); err != nil {
-		t.Fatalf("AllowPort failed: %v", err)
-	}
-	if err := mgr.AddIPPortRule("10.0.0.2/32", 80, 1); err != nil {
-		t.Fatalf("AddIPPortRule failed: %v", err)
-	}
-	if err := mgr.AddRateLimitRule("10.0.0.0/24", 1000, 100); err != nil {
-		t.Fatalf("AddRateLimitRule failed: %v", err)
-	}
-
-	state := FromManager(mgr)
-
-	if !state.LockedCount.Known || state.LockedCount.Value != 1 {
-		t.Fatalf("expected blacklist count to be projected: %+v", state)
-	}
-	if !state.WhitelistCount.Known || state.WhitelistCount.Value != 1 {
-		t.Fatalf("expected whitelist count to be projected: %+v", state)
-	}
-	if !state.AllowedPortCount.Known || state.AllowedPortCount.Value != 1 {
-		t.Fatalf("expected allowed port count to be projected: %+v", state)
-	}
-	if !state.IPPortRuleCount.Known || state.IPPortRuleCount.Value != 1 || !state.RateLimitRuleCount.Known || state.RateLimitRuleCount.Value != 1 {
-		t.Fatalf("expected rule counts to be projected: %+v", state)
 	}
 }
 

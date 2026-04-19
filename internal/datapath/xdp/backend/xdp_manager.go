@@ -9,7 +9,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 /**

@@ -6,9 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netxfw/netxfw/internal/configtypes"
 	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,8 +40,8 @@ func (s *stubWebHost) UIHandler() http.Handler {
 func TestWebPlugin_DefaultConfig(t *testing.T) {
 	p := &WebPlugin{}
 	cfg := p.DefaultConfig()
-	assert.IsType(t, types.WebConfig{}, cfg)
-	webCfg := cfg.(types.WebConfig)
+	assert.IsType(t, sdk.WebConfig{}, cfg)
+	webCfg := cfg.(sdk.WebConfig)
 	assert.True(t, webCfg.Enabled)
 	assert.Equal(t, 11811, webCfg.Port)
 }
@@ -54,13 +53,13 @@ func TestWebPlugin_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		cfg     *types.GlobalConfig
+		cfg     *sdk.GlobalConfig
 		wantErr bool
 	}{
 		{
 			name: "valid config",
-			cfg: &types.GlobalConfig{
-				Web: types.WebConfig{
+			cfg: &sdk.GlobalConfig{
+				Web: sdk.WebConfig{
 					Enabled: true,
 					Port:    8080,
 				},
@@ -69,8 +68,8 @@ func TestWebPlugin_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid port low",
-			cfg: &types.GlobalConfig{
-				Web: types.WebConfig{
+			cfg: &sdk.GlobalConfig{
+				Web: sdk.WebConfig{
 					Enabled: true,
 					Port:    0,
 				},
@@ -79,8 +78,8 @@ func TestWebPlugin_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid port high",
-			cfg: &types.GlobalConfig{
-				Web: types.WebConfig{
+			cfg: &sdk.GlobalConfig{
+				Web: sdk.WebConfig{
 					Enabled: true,
 					Port:    70000,
 				},
@@ -89,8 +88,8 @@ func TestWebPlugin_Validate(t *testing.T) {
 		},
 		{
 			name: "disabled valid port",
-			cfg: &types.GlobalConfig{
-				Web: types.WebConfig{
+			cfg: &sdk.GlobalConfig{
+				Web: sdk.WebConfig{
 					Enabled: false,
 					Port:    0,
 				},
@@ -116,8 +115,8 @@ func TestWebPlugin_Validate(t *testing.T) {
 func TestWebPlugin_Init(t *testing.T) {
 	p := &WebPlugin{}
 	ctx := &sdk.RuntimePluginContext{
-		Config: &types.GlobalConfig{
-			Web: types.WebConfig{
+		Config: &sdk.GlobalConfig{
+			Web: sdk.WebConfig{
 				Enabled: true,
 				Port:    11811,
 			},
@@ -156,14 +155,14 @@ func TestWebPlugin_Stop(t *testing.T) {
 // TestWebPlugin_Stop_WithServer 测试带服务器的插件停止
 func TestWebPlugin_Stop_WithServer(t *testing.T) {
 	p := &WebPlugin{
-		config: &types.WebConfig{
+		config: &sdk.WebConfig{
 			Enabled: true,
 			Port:    11819,
 		},
 	}
 	ctx := &sdk.RuntimePluginContext{
-		Config: &types.GlobalConfig{
-			Web: types.WebConfig{
+		Config: &sdk.GlobalConfig{
+			Web: sdk.WebConfig{
 				Enabled: true,
 				Port:    11819,
 			},
@@ -182,8 +181,8 @@ func TestWebPlugin_Stop_WithServer(t *testing.T) {
 func TestWebPlugin_Reload(t *testing.T) {
 	p := &WebPlugin{}
 	ctx := &sdk.RuntimePluginContext{
-		Config: &types.GlobalConfig{
-			Web: types.WebConfig{
+		Config: &sdk.GlobalConfig{
+			Web: sdk.WebConfig{
 				Enabled: true,
 				Port:    11820,
 			},
@@ -200,14 +199,14 @@ func TestWebPlugin_Reload(t *testing.T) {
 // TestWebPlugin_Start_Disabled 测试禁用时的插件启动
 func TestWebPlugin_Start_Disabled(t *testing.T) {
 	p := &WebPlugin{
-		config: &types.WebConfig{
+		config: &sdk.WebConfig{
 			Enabled: false,
 			Port:    11821,
 		},
 	}
 	ctx := &sdk.RuntimePluginContext{
-		Config: &types.GlobalConfig{
-			Web: types.WebConfig{
+		Config: &sdk.GlobalConfig{
+			Web: sdk.WebConfig{
 				Enabled: false,
 				Port:    11821,
 			},
@@ -226,7 +225,7 @@ func TestWebPlugin_Start_Disabled(t *testing.T) {
 // TestWebPlugin_CollectStats 测试 collectStats 方法
 func TestWebPlugin_CollectStats(t *testing.T) {
 	p := &WebPlugin{
-		config: &types.WebConfig{
+		config: &sdk.WebConfig{
 			Enabled: true,
 			Port:    11822,
 		},
@@ -235,8 +234,8 @@ func TestWebPlugin_CollectStats(t *testing.T) {
 
 	// Create a simple context with mock SDK
 	ctx := &sdk.RuntimePluginContext{
-		Config: &types.GlobalConfig{
-			Web: types.WebConfig{
+		Config: &sdk.GlobalConfig{
+			Web: sdk.WebConfig{
 				Enabled: true,
 				Port:    11822,
 			},
@@ -260,12 +259,12 @@ func TestWebPlugin_RouteMounts_WithSharedMetrics(t *testing.T) {
 	pluginSDK := sdk.NewSDK(mockMgr)
 	p := &WebPlugin{}
 	ctx := &sdk.RuntimePluginContext{
-		Config: &types.GlobalConfig{
-			Web: types.WebConfig{
+		Config: &sdk.GlobalConfig{
+			Web: sdk.WebConfig{
 				Enabled: true,
 				Port:    11823,
 			},
-			Metrics: types.MetricsConfig{
+			Metrics: sdk.MetricsConfig{
 				Enabled:       true,
 				ServerEnabled: false,
 			},
@@ -306,12 +305,12 @@ func TestWebPlugin_RouteMounts_WithDedicatedMetricsServer(t *testing.T) {
 	pluginSDK := sdk.NewSDK(mockMgr)
 	p := &WebPlugin{}
 	ctx := &sdk.RuntimePluginContext{
-		Config: &types.GlobalConfig{
-			Web: types.WebConfig{
+		Config: &sdk.GlobalConfig{
+			Web: sdk.WebConfig{
 				Enabled: true,
 				Port:    11824,
 			},
-			Metrics: types.MetricsConfig{
+			Metrics: sdk.MetricsConfig{
 				Enabled:       true,
 				ServerEnabled: true,
 			},

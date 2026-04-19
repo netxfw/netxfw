@@ -6,8 +6,9 @@ import (
 	"sync"
 
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // Server represents the API and UI server instance.
@@ -46,7 +47,7 @@ func NewServer(s *sdk.SDK, port int) *Server {
 func (s *Server) EnsureHandlerInitialized() error {
 	s.initOnce.Do(func() {
 		log := logger.Get(nil)
-		s.initErr = appconfig.MutateLoadedConfig(func(cfg *sdk.GlobalConfig) error {
+		s.initErr = appconfig.MutateLoadedConfig(func(cfg *domainconfig.Config) error {
 			if cfg.Web.Token != "" {
 				log.Infof("[KEY] Using configured Web Token for authentication")
 				return nil

@@ -76,8 +76,6 @@ if [[ -z "$phase" ]]; then
   exit 2
 fi
 
-require_tool rg
-
 check_file() {
   local file="$1"
   if [[ ! -s "$file" ]]; then
@@ -92,7 +90,7 @@ require_no_matches() {
 
   local output
   set +e
-  output="$("$@" 2>/dev/null)"
+  output="$($@ 2>/dev/null)"
   local status=$?
   set -e
 
@@ -175,6 +173,12 @@ phase5_required=(
 phase6_required=(
   "plans/20260415-phase6-execution-backlog.md"
   "plans/20260417-phase6-code-execution-plan.md"
+  "internal/ports/config.go"
+  "internal/ports/datapath.go"
+  "internal/ports/plugin.go"
+  "internal/ports/runtime.go"
+  "internal/ports/observability.go"
+  "internal/ports/storage.go"
 )
 
 check_required_files() {
@@ -205,27 +209,21 @@ case "$phase" in
     check_required_files "${phase2_required[@]}"
     require_no_matches \
       "phase2:no-configtypes-production-imports" \
-      rg -n 'internal/configtypes' internal cmd pkg test -g'*.go' -g'!*_test.go'
+      python3 scripts/rearchitecture/python_scan.py content --roots internal cmd pkg --include '*.go' --exclude '*_test.go' --pattern 'internal/configtypes'
     printf 'phase2 gate passed\n'
     ;;
   phase3)
     check_required_files "${phase3_required[@]}"
     require_no_matches \
       "phase3:no-backend-imports-app-daemon-domain" \
-      rg -n '^\s*(backendxdp\s+)?\"github.com/netxfw/netxfw/internal/datapath/xdp/backend\"' \
-      internal/app internal/daemon internal/domain -g'*.go' -g'!*_test.go'
-    require_no_matches \
-      "phase3:no-backend-imports-datapath-tree" \
-      rg -n '^\s*(backendxdp\s+)?\"github.com/netxfw/netxfw/internal/datapath/xdp/backend\"' \
-      internal/datapath/xdp -g'*.go' -g'!*_test.go'
+      python3 scripts/rearchitecture/python_scan.py content --roots internal/app internal/daemon internal/domain --include '*.go' --exclude '*_test.go' --pattern '^\s*(backendxdp\s+)?"github.com/netxfw/netxfw/internal/datapath/xdp/backend"'
     printf 'phase3 gate passed\n'
     ;;
   phase4)
     check_required_files "${phase4_required[@]}"
     require_no_matches \
       "phase4:no-plugin-backend-imports" \
-      rg -n 'internal/datapath/xdp/backend' \
-      internal/datapath/xdp/plugins internal/app/plugin internal/app/ops_xdp.go -g'*.go' -g'!*_test.go'
+      python3 scripts/rearchitecture/python_scan.py content --roots internal/datapath/xdp/plugins internal/app/plugin internal/app/ops_xdp.go --include '*.go' --exclude '*_test.go' --pattern 'internal/datapath/xdp/backend'
     printf 'phase4 gate passed\n'
     ;;
   phase5)
@@ -233,8 +231,7 @@ case "$phase" in
     bash scripts/rearchitecture/import_audit.sh --strict >/tmp/netxfw-phase5-import-audit.txt
     require_no_matches \
       "phase5:no-configtypes-or-xdpbackend-outside-facades" \
-      rg -n 'internal/adapters/datapath/xdpbackend|internal/configtypes' \
-      internal/app internal/daemon internal/domain internal/metrics internal/optimizer internal/plugins cmd -g'*.go' -g'!*_test.go'
+      python3 scripts/rearchitecture/python_scan.py content --roots internal/app internal/daemon internal/domain internal/metrics internal/optimizer internal/plugins cmd --include '*.go' --exclude '*_test.go' --pattern 'internal/adapters/datapath/xdpbackend|internal/configtypes'
     printf 'phase5 gate passed\n'
     ;;
   phase6)
@@ -242,9 +239,20 @@ case "$phase" in
     bash scripts/rearchitecture/import_audit.sh --strict >/tmp/netxfw-phase6-import-audit.txt
     bash scripts/rearchitecture/transitional_code_audit.sh --strict >/tmp/netxfw-phase6-transitional-audit.txt
     require_no_matches \
-      "phase6:no-configtypes-or-xdpbackend-outside-facades" \
-      rg -n 'internal/adapters/datapath/xdpbackend|internal/configtypes' \
-      internal/app internal/daemon internal/domain internal/metrics internal/optimizer internal/plugins cmd -g'*.go' -g'!*_test.go'
+      "phase6:no-domain-sdk-imports" \
+      python3 scripts/rearchitecture/python_scan.py content --roots internal/domain --include '*.go' --pattern 'github.com/netxfw/netxfw/pkg/sdk'
+    require_no_matches \
+      "phase6:no-production-config-centers" \
+      python3 scripts/rearchitecture/python_scan.py content --roots internal cmd pkg --include '*.go' --exclude '*_test.go' --pattern 'internal/configtypes|internal/config\b'
+    require_no_matches \
+      "phase6:no-xdpbackend-bridge-imports" \
+      python3 scripts/rearchitecture/python_scan.py content --roots internal cmd pkg --include '*.go' --exclude '*_test.go' --pattern 'internal/adapters/datapath/xdpbackend|statsbridge|healthbridge|syncbridge|mapbridge'
+    require_no_matches \
+      "phase6:no-runtime-legacy-plugin-center-imports" \
+      python3 scripts/rearchitecture/python_scan.py content --roots internal/app internal/adapters internal/daemon internal/domain internal/datapath cmd pkg --include '*.go' --exclude '*_test.go' --pattern 'internal/plugins(?!/(logengine|metricsplugin|webplugin))|GetRuntimePlugins'
+    require_no_matches \
+      "phase6:no-production-transitional-markers" \
+      python3 scripts/rearchitecture/python_scan.py content --roots internal/app internal/adapters internal/api internal/daemon internal/datapath internal/domain internal/metrics internal/optimizer internal/plugins internal/runtime internal/utils cmd pkg --include '*.go' --exclude '*_test.go' --pattern 'legacy|compat|migration|transitional'
     printf 'phase6 gate passed\n'
     ;;
   *)
@@ -256,3 +264,4 @@ esac
 if [[ "$strict" != "1" ]]; then
   exit 0
 fi
+

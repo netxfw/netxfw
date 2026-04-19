@@ -9,7 +9,7 @@ import (
 	"github.com/netxfw/netxfw/internal/api"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // RunWebServer starts the API and UI server.

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/netxfw/netxfw/internal/utils/logger"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/nxadm/tail"
 )
 

@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	domainrule "github.com/netxfw/netxfw/internal/domain/rule"
 	"github.com/netxfw/netxfw/internal/optimizer"
 	appruntime "github.com/netxfw/netxfw/internal/runtime"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 type Action = domainrule.Action
@@ -54,7 +55,7 @@ func persistWhitelistEntry(ip string, port uint16) error {
 		return nil
 	}
 
-	return appconfig.MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
+	return appconfig.MutateLoadedConfig(func(globalCfg *domainconfig.Config) error {
 		normalizedCIDR := iputil.NormalizeCIDR(ip)
 		entry := normalizedCIDR
 		if port > 0 {
@@ -87,7 +88,7 @@ func persistIPPortRule(ip string, port uint16, action uint8) error {
 		return nil
 	}
 
-	return appconfig.MutateLoadedConfig(func(globalCfg *sdk.GlobalConfig) error {
+	return appconfig.MutateLoadedConfig(func(globalCfg *domainconfig.Config) error {
 		normalizedCIDR := iputil.NormalizeCIDR(ip)
 		updated := false
 
@@ -101,7 +102,7 @@ func persistIPPortRule(ip string, port uint16, action uint8) error {
 		}
 
 		if !updated {
-			globalCfg.Port.IPPortRules = append(globalCfg.Port.IPPortRules, sdk.IPPortRule{
+			globalCfg.Port.IPPortRules = append(globalCfg.Port.IPPortRules, domainconfig.IPPortRule{
 				IP:     normalizedCIDR,
 				Port:   port,
 				Action: action,

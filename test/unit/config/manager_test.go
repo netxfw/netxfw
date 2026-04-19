@@ -1,144 +1,122 @@
 package config_test
 
 import (
-	"os"
+	"path/filepath"
+	"sync"
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/config"
-	"github.com/netxfw/netxfw/internal/configtypes"
+	"github.com/netxfw/netxfw/internal/adapters/configfile"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	"github.com/stretchr/testify/assert"
 )
 
-// TestConfigManager tests the configuration manager functionality
-// TestConfigManager 测试配置管理器功能
-func TestConfigManager(t *testing.T) {
-	// Create a test config file
-	// 为测试创建临时配置文件
-	tempConfigFile := "/tmp/test_config.toml"
+// TestConfigPersistence tests saving/loading config via app/domain config APIs.
+// TestConfigPersistence 测试通过 app/domain 配置 API 保存和加载配置。
+func TestConfigPersistence(t *testing.T) {
+	tmpDir := t.TempDir()
+	tempConfigFile := filepath.Join(tmpDir, "config.toml")
 
-	// Create default config
-	// 创建默认配置
-	defaultCfg := &types.GlobalConfig{
-		Base: types.BaseConfig{
+	defaultCfg := &domainconfig.Config{
+		Base: domainconfig.BaseConfig{
 			DefaultDeny:        true,
 			AllowReturnTraffic: true,
 			AllowICMP:          true,
 			Interfaces:         []string{"lo"},
 			EnableAFXDP:        false,
 		},
-		Web: types.WebConfig{
+		Web: domainconfig.WebConfig{
 			Enabled: true,
 			Port:    8080,
 			Token:   "test-token",
 		},
-		Metrics: types.MetricsConfig{
+		Metrics: domainconfig.MetricsConfig{
 			Enabled: true,
 			Port:    9090,
 		},
 	}
 
-	// Save the config using the new manager
-	// 使用新的管理器保存配置
-	cfgManager := config.NewConfigManager(tempConfigFile)
-	cfgManager.UpdateConfig(defaultCfg)
+	originalPath := appconfig.GetConfigPath()
+	appconfig.SetConfigPath(tempConfigFile)
+	defer appconfig.SetConfigPath(originalPath)
 
-	// Save to file
-	// 保存到文件
-	err := cfgManager.SaveConfig()
+	err := appconfig.DefaultWriteGateway().SaveConfig(tempConfigFile, defaultCfg, 3, "test/unit/config.TestConfigPersistence")
 	assert.NoError(t, err)
 
-	// Load from file
-	// 从文件加载
-	err = cfgManager.LoadConfig()
+	loadedCfg, err := appconfig.LoadConfig()
 	assert.NoError(t, err)
-
-	// Get the loaded config
-	// 获取加载的配置
-	loadedCfg := cfgManager.GetConfig()
 	assert.NotNil(t, loadedCfg)
 	assert.Equal(t, defaultCfg.Base.DefaultDeny, loadedCfg.Base.DefaultDeny)
 	assert.Equal(t, defaultCfg.Web.Port, loadedCfg.Web.Port)
 	assert.Equal(t, defaultCfg.Metrics.Port, loadedCfg.Metrics.Port)
 
-	// Test individual getters
-	// 测试单独的 getter 方法
-	baseCfg := cfgManager.GetBaseConfig()
+	baseCfg := loadedCfg.Base
 	assert.Equal(t, defaultCfg.Base.DefaultDeny, baseCfg.DefaultDeny)
 
-	webCfg := cfgManager.GetWebConfig()
+	webCfg := loadedCfg.Web
 	assert.Equal(t, defaultCfg.Web.Port, webCfg.Port)
 
-	metricsCfg := cfgManager.GetMetricsConfig()
+	metricsCfg := loadedCfg.Metrics
 	assert.Equal(t, defaultCfg.Metrics.Port, metricsCfg.Port)
 
-	// Test individual setters
-	// 测试单独的 setter 方法
-	newBaseCfg := types.BaseConfig{
+	loadedCfg.Base = domainconfig.BaseConfig{
 		DefaultDeny:        false,
 		AllowReturnTraffic: false,
 		AllowICMP:          false,
 		Interfaces:         []string{"eth0"},
 		EnableAFXDP:        true,
 	}
-	cfgManager.SetBaseConfig(newBaseCfg)
+	assert.NoError(t, appconfig.DefaultWriteGateway().SaveConfig(tempConfigFile, loadedCfg, 3, "test/unit/config.TestConfigPersistence.update"))
 
-	updatedBaseCfg := cfgManager.GetBaseConfig()
-	assert.Equal(t, newBaseCfg.DefaultDeny, updatedBaseCfg.DefaultDeny)
-	assert.Equal(t, newBaseCfg.EnableAFXDP, updatedBaseCfg.EnableAFXDP)
-
-	// Clean up
-	// 清理
-	os.Remove(tempConfigFile)
-	os.Remove(tempConfigFile + ".bak." + "*") // Remove any backup files
+	reloadedCfg, err := configfile.Load(tempConfigFile)
+	assert.NoError(t, err)
+	assert.Equal(t, loadedCfg.Base.DefaultDeny, reloadedCfg.Base.DefaultDeny)
+	assert.Equal(t, loadedCfg.Base.EnableAFXDP, reloadedCfg.Base.EnableAFXDP)
 }
 
-// TestConfigManagerSingleton tests the singleton instance
-// TestConfigManagerSingleton 测试单例实例
-func TestConfigManagerSingleton(t *testing.T) {
-	// Test that the singleton instance works correctly
-	// 测试单例实例正常工作
-	instance1 := config.GetConfigManager()
-	instance2 := config.GetConfigManager()
+// TestConfigPathSingletonBehavior tests the shared config path behavior.
+// TestConfigPathSingletonBehavior 测试共享配置路径行为。
+func TestConfigPathSingletonBehavior(t *testing.T) {
+	originalPath := appconfig.GetConfigPath()
+	appconfig.SetConfigPath("/tmp/test_singleton_config.toml")
+	defer appconfig.SetConfigPath(originalPath)
+
+	instance1 := appconfig.GetConfigPath()
+	instance2 := appconfig.GetConfigPath()
 
 	assert.Equal(t, instance1, instance2)
-	assert.NotNil(t, instance1)
+	assert.NotEmpty(t, instance1)
 }
 
-// TestConfigManagerConcurrentAccess tests concurrent read/write access
-// TestConfigManagerConcurrentAccess 测试并发读写访问
-func TestConfigManagerConcurrentAccess(t *testing.T) {
-	cfgManager := config.NewConfigManager("/tmp/concurrent_test.yaml")
+// TestConfigConcurrentAccess tests concurrent read/write access through clone/load helpers.
+// TestConfigConcurrentAccess 测试通过 clone/load 辅助方法进行并发读写访问。
+func TestConfigConcurrentAccess(t *testing.T) {
+	cfg := &domainconfig.Config{}
+	var wg sync.WaitGroup
 
-	// Test concurrent read/write access
-	// 测试并发读写访问
-	done := make(chan bool)
+	wg.Add(2)
 
-	// Writer goroutine
-	// 写入协程
 	go func() {
+		defer wg.Done()
 		for i := 0; i < 10; i++ {
-			newCfg := &types.GlobalConfig{
-				Base: types.BaseConfig{
+			newCfg := &domainconfig.Config{
+				Base: domainconfig.BaseConfig{
 					DefaultDeny: i%2 == 0,
 				},
 			}
-			cfgManager.UpdateConfig(newCfg)
+			cfg = configfile.Clone(newCfg)
 		}
-		done <- true
 	}()
 
-	// Reader goroutine
-	// 读取协程
 	go func() {
+		defer wg.Done()
 		for i := 0; i < 10; i++ {
-			cfg := cfgManager.GetConfig()
-			if cfg != nil {
-				_ = cfg.Base.DefaultDeny // Access the value
+			current := configfile.Clone(cfg)
+			if current != nil {
+				_ = current.Base.DefaultDeny
 			}
 		}
-		done <- true
 	}()
 
-	<-done
-	<-done
+	wg.Wait()
 }

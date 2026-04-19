@@ -50,7 +50,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-require_tool rg
+require_tool python3
 
 paths=(
   "internal/application"
@@ -59,14 +59,45 @@ paths=(
   "internal/plugins/types"
 )
 
+count_lines() {
+  python3 -c 'import sys; print(sum(1 for line in sys.stdin if line.strip()))'
+}
+
+search_go_files() {
+  local pattern="$1"
+  python3 - "$ROOT_DIR" "$pattern" <<'PY'
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+pattern = re.compile(sys.argv[2])
+search_roots = ["cmd", "internal", "pkg", "test"]
+
+for relative_root in search_roots:
+    base = root / relative_root
+    if not base.exists():
+        continue
+    for path in sorted(base.rglob("*.go")):
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            content = path.read_text(encoding="utf-8", errors="ignore")
+        for lineno, line in enumerate(content.splitlines(), start=1):
+            if pattern.search(line):
+                print(f"{path.relative_to(root)}:{lineno}:{line}")
+PY
+}
+
 printf '== Import Audit ==\n'
 printf 'repo: %s\n\n' "$ROOT_DIR"
 
 total_matches=0
 
 for path in "${paths[@]}"; do
-  matches="$(rg -n "\"github.com/netxfw/netxfw/${path}\"" cmd internal pkg test --glob '*.go' || true)"
-  count="$(printf '%s\n' "$matches" | sed '/^$/d' | wc -l | tr -d ' ')"
+  escaped_path="${path//\//\/}"
+  matches="$(search_go_files "\"github\.com/netxfw/netxfw/${escaped_path}\"" || true)"
+  count="$(printf '%s\n' "$matches" | count_lines)"
   printf '[%s]\n' "$path"
   printf 'count: %s\n' "$count"
   if [[ "$count" != "0" ]]; then
@@ -76,8 +107,8 @@ for path in "${paths[@]}"; do
   total_matches=$((total_matches + count))
 done
 
-compat_matches="$(rg -n 'legacy|compat|migration|transitional' cmd internal pkg test --glob '*.go' || true)"
-compat_count="$(printf '%s\n' "$compat_matches" | sed '/^$/d' | wc -l | tr -d ' ')"
+compat_matches="$(python3 scripts/rearchitecture/python_scan.py content --roots internal/app internal/adapters internal/api internal/daemon internal/datapath internal/domain internal/metrics internal/optimizer internal/plugins internal/runtime internal/utils cmd pkg --include '*.go' --exclude '*_test.go' --pattern 'legacy|compat|migration|transitional' || true)"
+compat_count="$(printf '%s\n' "$compat_matches" | count_lines)"
 printf '[transitional-markers-in-go-files]\n'
 printf 'count: %s\n' "$compat_count"
 if [[ "$compat_count" != "0" ]]; then

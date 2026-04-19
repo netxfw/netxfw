@@ -2,7 +2,7 @@ package daemon
 
 import (
 	"github.com/netxfw/netxfw/internal/daemon/engine"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"go.uber.org/zap"
 )
 

@@ -8,7 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netxfw/netxfw/pkg/sdk"
+	"github.com/netxfw/netxfw/internal/ports"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 /*
@@ -64,15 +65,17 @@ func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
 }
 
 func loadPluginStatusSnapshot(ctx context.Context, snapshot StatusSnapshot, snapshotErr error) (PluginStatusSnapshot, error) {
-	cfg := snapshot.Config
-	if cfg == nil || snapshotErr != nil {
+	var sdkCfg *sdk.GlobalConfig
+	if snapshot.Config != nil && snapshotErr == nil {
+		sdkCfg = ports.ConfigToSDK(snapshot.Config)
+	} else {
 		var err error
-		cfg, err = systemQueryService.LoadConfig()
+		sdkCfg, err = systemQueryService.LoadConfig()
 		if err != nil {
 			return PluginStatusSnapshot{}, err
 		}
 	}
-	return systemQueryService.LoadPluginStatus(ctx, cfg)
+	return systemQueryService.LoadPluginStatus(ctx, sdkCfg)
 }
 
 func showPolicyConfiguration(w io.Writer, snapshot StatusSnapshot, snapshotErr error) {
@@ -102,10 +105,10 @@ func showPolicyConfiguration(w io.Writer, snapshot StatusSnapshot, snapshotErr e
 		printConfigItem(w, item.icon, item.name, item.value, i == len(items)-1)
 	}
 
-	printConntrackConfig(w, cfg)
-	printRateLimitConfig(w, cfg)
-	printLogEngineConfig(w, cfg)
-	printWebConfig(w, cfg)
+	printConntrackConfig(w, ports.ConfigToSDK(cfg))
+	printRateLimitConfig(w, ports.ConfigToSDK(cfg))
+	printLogEngineConfig(w, ports.ConfigToSDK(cfg))
+	printWebConfig(w, ports.ConfigToSDK(cfg))
 }
 
 func showAttachedInterfaces(w io.Writer) {

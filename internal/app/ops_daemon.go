@@ -8,7 +8,7 @@ import (
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/netxfw/netxfw/internal/version"
-	"github.com/netxfw/netxfw/pkg/sdk"
+	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
 // InitRootCommandContext initializes logging for CLI root commands and injects logger into context.
