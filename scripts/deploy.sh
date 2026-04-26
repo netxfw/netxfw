@@ -97,8 +97,8 @@ rm -rf "$TMP_DIR"
 # 7. Initialize/Update Config
 echo -e "${YELLOW}Checking configuration...${NC}"
 mkdir -p "$CONFIG_DIR"
-if [ ! -f "$CONFIG_DIR/config.yaml" ]; then
-    "$INSTALL_DIR/netxfw" system init --config "$CONFIG_DIR/config.yaml"
+if [ ! -f "$CONFIG_DIR/config.toml" ]; then
+    "$INSTALL_DIR/netxfw" system init --config "$CONFIG_DIR/config.toml"
     echo -e "${GREEN}✓ Configuration initialized.${NC}"
 fi
 touch "$CONFIG_DIR/lock_list.txt"
