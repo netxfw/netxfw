@@ -118,15 +118,15 @@ func (e *CommandExecutor) ExecuteWithSDK(execFunc func(*sdk.SDK) error) {
 // ExecuteWithSDKAndConfig executes command with config and SDK.
 func (e *CommandExecutor) ExecuteWithSDKAndConfig(execFunc func(*sdk.GlobalConfig, *sdk.SDK) error) {
 	if err := e.EnsureMode().ApplyFlags().Do(func() error {
-		cfg, err := e.LoadConfig()
-		if err != nil {
-			return fmt.Errorf("[ERROR] Failed to load configuration: %v", err)
-		}
-
 		if !commandRuntimeService.IsTestMode() && !commandRuntimeService.IsXDPLoaded() {
 			e.PrintWarning("XDP is not attached to any interface. Please run 'netxfw system on' or 'netxfw system load' first.")
 			e.PrintWarning("XDP 未挂载到任何接口。请先运行 'netxfw system on' 或 'netxfw system load'。")
 			return nil
+		}
+
+		cfg, err := e.LoadConfig()
+		if err != nil {
+			return fmt.Errorf("[ERROR] Failed to load configuration: %v", err)
 		}
 
 		s, err := e.GetSDK()

@@ -1,4 +1,4 @@
-.PHONY: build build-compressed generate clean build-zig-amd64 build-zig-arm64 test lint check bench docs-check
+.PHONY: build build-compressed generate clean build-zig-amd64 build-zig-arm64 test lint check bench bench-baseline bench-regression docs-check
 
 BPF_CFLAGS :=
 # Zig compiler configuration
@@ -25,6 +25,8 @@ help:
 	@echo "  make docs-check       - Run docs link + CLI call-graph checks"
 	@echo "  make check            - Run architecture, lint, build and test checks"
 	@echo "  make bench            - Run benchmark tests"
+	@echo "  make bench-baseline   - Create performance baseline"
+	@echo "  make bench-regression - Run performance regression tests"
 	@echo "  make install          - Install binary and config"
 	@echo "  make uninstall        - Remove binary and config"
 	@echo "  make clean            - Clean build artifacts"
@@ -65,7 +67,7 @@ else
 	@echo "⚠️  IPv6 disabled in BPF"
 endif
 	@echo "#endif" >> bpf/include/bpf_features.h
-	cd internal/xdp && go generate
+	cd internal/datapath/xdp/backend && go generate
 
 test:
 	go test ./test/unit/... ./internal/... ./cmd/... ./pkg/...
@@ -87,6 +89,22 @@ docs-check:
 
 bench:
 	go test -bench=. ./test/performance/...
+
+bench-baseline:
+	@echo "📊 Creating performance baseline..."
+	@mkdir -p $(HOME)/.netxfw/benchmarks
+	go test -bench=. -benchmem -run=^$ ./test/performance/... 2>&1 | tee $(HOME)/.netxfw/benchmarks/bench_output.txt
+	@if [ -f $(HOME)/.netxfw/benchmarks/results.json ]; then \
+		cp $(HOME)/.netxfw/benchmarks/results.json $(HOME)/.netxfw/benchmarks/baseline.json; \
+		echo "✅ Baseline saved to $(HOME)/.netxfw/benchmarks/baseline.json"; \
+	else \
+		echo '{}' > $(HOME)/.netxfw/benchmarks/baseline.json; \
+		echo "✅ Empty baseline created"; \
+	fi
+
+bench-regression:
+	@echo "📈 Running performance regression tests..."
+	@bash ./scripts/bench_regression.sh
 
 plugins:
 	@mkdir -p bpf/plugins/out
