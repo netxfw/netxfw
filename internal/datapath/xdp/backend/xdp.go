@@ -4,7 +4,7 @@
 package xdp
 
 // Generate Go bindings for the BPF program / 为 BPF 程序生成 Go 绑定
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang NetXfw ../../bpf/netxfw.bpf.c -- -I../../bpf
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang NetXfw ../../../../bpf/netxfw.bpf.c -- -I../../../../bpf
 
 /*
  * NetXFW XDP Manager
