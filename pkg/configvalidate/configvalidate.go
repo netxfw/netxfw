@@ -4,6 +4,7 @@ package configvalidate
 import (
 	"fmt"
 	"net"
+	"strings"
 )
 
 const (
@@ -23,6 +24,42 @@ func ValidateIPPortRuleAction(action uint8) error {
 	default:
 		return fmt.Errorf("action must be 0/2 (deny) or 1 (allow)")
 	}
+}
+
+// ValidateBPFPluginIndex validates the configured BPF plugin slot.
+func ValidateBPFPluginIndex(index, start, end int) error {
+	if index < start || index > end {
+		return fmt.Errorf("invalid index: %d (must be between %d and %d)", index, start, end)
+	}
+	return nil
+}
+
+// ValidateLockListMask validates a lock list mask value for IPv4 or IPv6.
+func ValidateLockListMask(mask, maxBits int, field string) error {
+	if mask < 0 || mask > maxBits {
+		return fmt.Errorf("invalid %s: %d (must be 0-%d)", field, mask, maxBits)
+	}
+	return nil
+}
+
+// ValidateLogEngineTailPosition validates log engine tail_position values.
+func ValidateLogEngineTailPosition(position string) error {
+	if position == "" || position == "start" || position == "end" || position == "offset" {
+		return nil
+	}
+	return fmt.Errorf("invalid tail_position '%s'", position)
+}
+
+// ValidateLogEngineAction validates log engine action values.
+func ValidateLogEngineAction(action string) error {
+	switch action {
+	case "0", "1", "2", "log", "block", "dynamic", "static", "permanent", "lock", "deny", "black", "dynblock", "dynblack":
+		return nil
+	}
+	if strings.HasPrefix(action, "block:") || strings.HasPrefix(action, "black:") {
+		return nil
+	}
+	return fmt.Errorf("invalid action '%s'", action)
 }
 
 // IsDenyIPPortRuleAction reports whether the action is a deny semantic, including legacy encodings.

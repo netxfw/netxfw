@@ -131,10 +131,12 @@ func ConfigFromSDK(cfg *sdk.GlobalConfig) *domainconfig.Config {
 		Capacity:  domainconfig.CapacityConfig(cfg.Capacity),
 		Logging:   domainconfig.LoggingConfig(cfg.Logging),
 		Cloud:     cloudConfigFromSDK(cfg.Cloud),
-		AI:        domainconfig.AIConfig(cfg.AI),
-		MCP:       domainconfig.MCPConfig(cfg.MCP),
 		BPFPlugin: bpfSettingsFromSDK(cfg.BPFPlugin),
 		Modules:   modulesFromSDK(cfg.Modules),
+		Runtime: domainconfig.RuntimeServicesConfig{
+			AI:  domainconfig.AIConfig(cfg.Runtime.AI),
+			MCP: domainconfig.MCPConfig(cfg.Runtime.MCP),
+		},
 	}
 }
 
@@ -154,10 +156,12 @@ func ConfigToSDK(cfg *domainconfig.Config) *sdk.GlobalConfig {
 		Capacity:  sdk.CapacityConfig(cfg.Capacity),
 		Logging:   sdk.LoggingConfig(cfg.Logging),
 		Cloud:     cloudConfigToSDK(cfg.Cloud),
-		AI:        sdk.AIConfig(cfg.AI),
-		MCP:       sdk.MCPConfig(cfg.MCP),
 		BPFPlugin: bpfSettingsToSDK(cfg.BPFPlugin),
 		Modules:   modulesToSDK(cfg.Modules),
+		Runtime: sdk.RuntimeServicesConfig{
+			AI:  sdk.AIConfig(cfg.Runtime.AI),
+			MCP: sdk.MCPConfig(cfg.Runtime.MCP),
+		},
 	}
 }
 

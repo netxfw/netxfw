@@ -10,7 +10,11 @@ func Validate(cfg *Config) error {
 	if cfg == nil {
 		return ErrNilConfig
 	}
-	if err := cfg.Validate(); err != nil {
+	validator := NewConfigValidator()
+	if err := validator.Normalize(cfg); err != nil {
+		return err
+	}
+	if err := validator.ValidateErr(cfg); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidConfig, err)
 	}
 	return nil

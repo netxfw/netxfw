@@ -19,21 +19,12 @@ func (v *ConfigValidator) validateBPFPluginConfig(cfg *BPFPluginSettings, result
 			continue
 		}
 
-		fieldPrefix := fmt.Sprintf("bpf_plugin.plugins[%d]", i)
-		if plugin.Path == "" {
-			result.AddError(fieldPrefix+".path", "Plugin path is required", nil)
-		}
-		if plugin.Index < BPFPluginSlotStart || plugin.Index > BPFPluginSlotEnd {
-			result.AddError(
-				fieldPrefix+".index",
-				fmt.Sprintf("Plugin index must be between %d and %d", BPFPluginSlotStart, BPFPluginSlotEnd),
-				plugin.Index,
-			)
+		if !v.validateBPFPluginEntry(plugin, i, result) {
 			continue
 		}
 		if prev, ok := seen[plugin.Index]; ok {
 			result.AddError(
-				fieldPrefix+".index",
+				fmt.Sprintf("bpf_plugin.plugins[%d].index", i),
 				fmt.Sprintf("Duplicate plugin index %d already used by bpf_plugin.plugins[%d]", plugin.Index, prev),
 				plugin.Index,
 			)
@@ -41,4 +32,22 @@ func (v *ConfigValidator) validateBPFPluginConfig(cfg *BPFPluginSettings, result
 		}
 		seen[plugin.Index] = i
 	}
+}
+
+func (v *ConfigValidator) validateBPFPluginEntry(plugin *BPFPluginConfig, index int, result *ValidationResult) bool {
+	fieldPrefix := fmt.Sprintf("bpf_plugin.plugins[%d]", index)
+	valid := true
+	if plugin.Path == "" {
+		result.AddError(fieldPrefix+".path", "Plugin path is required", nil)
+		valid = false
+	}
+	if plugin.Index < BPFPluginSlotStart || plugin.Index > BPFPluginSlotEnd {
+		result.AddError(
+			fieldPrefix+".index",
+			fmt.Sprintf("Plugin index must be between %d and %d", BPFPluginSlotStart, BPFPluginSlotEnd),
+			plugin.Index,
+		)
+		valid = false
+	}
+	return valid
 }

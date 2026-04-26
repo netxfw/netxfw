@@ -70,14 +70,16 @@ func DefaultConfig() Config {
 			StatsInterval:     "1s",
 			AvgPacketSize:     500,
 		},
-		AI: AIConfig{
-			Enabled: false,
-			Port:    11813,
-		},
-		MCP: MCPConfig{
-			Enabled: false,
-			Port:    11814,
-			Mode:    "sse",
+		Runtime: RuntimeServicesConfig{
+			AI: AIConfig{
+				Enabled: false,
+				Port:    11813,
+			},
+			MCP: MCPConfig{
+				Enabled: false,
+				Port:    11814,
+				Mode:    "sse",
+			},
 		},
 	}
 }

@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/netxfw/netxfw/pkg/configvalidate"
 )
@@ -11,8 +10,8 @@ func (c *BPFPluginConfig) Validate() error {
 	if c.Path == "" {
 		return fmt.Errorf("plugin path is required")
 	}
-	if c.Index < BPFPluginSlotStart || c.Index > BPFPluginSlotEnd {
-		return fmt.Errorf("invalid index: %d (must be between %d and %d)", c.Index, BPFPluginSlotStart, BPFPluginSlotEnd)
+	if err := configvalidate.ValidateBPFPluginIndex(c.Index, BPFPluginSlotStart, BPFPluginSlotEnd); err != nil {
+		return err
 	}
 	return nil
 }
@@ -63,11 +62,11 @@ func (c *GlobalConfig) Validate() error {
 }
 
 func (c *BaseConfig) Validate() error {
-	if c.LockListV4Mask < 0 || c.LockListV4Mask > 32 {
-		return fmt.Errorf("invalid lock_list_v4_mask: %d (must be 0-32)", c.LockListV4Mask)
+	if err := configvalidate.ValidateLockListMask(c.LockListV4Mask, 32, "lock_list_v4_mask"); err != nil {
+		return err
 	}
-	if c.LockListV6Mask < 0 || c.LockListV6Mask > 128 {
-		return fmt.Errorf("invalid lock_list_v6_mask: %d (must be 0-128)", c.LockListV6Mask)
+	if err := configvalidate.ValidateLockListMask(c.LockListV6Mask, 128, "lock_list_v6_mask"); err != nil {
+		return err
 	}
 	for i, cidr := range c.Whitelist {
 		if err := configvalidate.ValidateCIDROrIPForConfig(cidr); err != nil {
@@ -104,18 +103,14 @@ func (c *RateLimitConfig) Validate() error {
 func (c *LogEngineConfig) Validate() error {
 	for i := range c.Rules {
 		rule := &c.Rules[i]
-		if rule.TailPosition != "" && rule.TailPosition != "start" && rule.TailPosition != "end" && rule.TailPosition != "offset" {
-			return fmt.Errorf("invalid log_engine rule #%d: invalid tail_position '%s'", i, rule.TailPosition)
+		if err := configvalidate.ValidateLogEngineTailPosition(rule.TailPosition); err != nil {
+			return fmt.Errorf("invalid log_engine rule #%d: %w", i, err)
 		}
 		if rule.Action == "" {
 			continue
 		}
-		switch rule.Action {
-		case "0", "1", "2", "log", "block", "dynamic", "static", "permanent", "lock", "deny", "black", "dynblock", "dynblack":
-			continue
-		}
-		if !strings.HasPrefix(rule.Action, "block:") && !strings.HasPrefix(rule.Action, "black:") {
-			return fmt.Errorf("invalid log_engine rule #%d: invalid action '%s'", i, rule.Action)
+		if err := configvalidate.ValidateLogEngineAction(rule.Action); err != nil {
+			return fmt.Errorf("invalid log_engine rule #%d: %w", i, err)
 		}
 	}
 	return nil

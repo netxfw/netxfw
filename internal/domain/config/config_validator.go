@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -28,6 +29,25 @@ type ValidationResult struct {
 	Valid    bool                `json:"valid"`
 	Errors   []ValidationError   `json:"errors"`
 	Warnings []ValidationWarning `json:"warnings"`
+}
+
+func newValidationResult() *ValidationResult {
+	return &ValidationResult{
+		Valid:    true,
+		Errors:   []ValidationError{},
+		Warnings: []ValidationWarning{},
+	}
+}
+
+func (r *ValidationResult) Merge(other *ValidationResult) {
+	if other == nil {
+		return
+	}
+	if !other.Valid {
+		r.Valid = false
+	}
+	r.Errors = append(r.Errors, other.Errors...)
+	r.Warnings = append(r.Warnings, other.Warnings...)
 }
 
 func (r *ValidationResult) AddError(field, message string, value any) {
@@ -106,20 +126,39 @@ func NewConfigValidator() *ConfigValidator {
 }
 
 func (v *ConfigValidator) ValidateSyntax(configData []byte) *ValidationResult {
-	result := &ValidationResult{Valid: true, Errors: []ValidationError{}, Warnings: []ValidationWarning{}}
+	result := newValidationResult()
 
 	var rawConfig map[string]any
 	if _, err := toml.Decode(string(configData), &rawConfig); err != nil {
-		result.AddError("config", fmt.Sprintf("TOML syntax error: %v", err), nil)
+		result.AddError("config.syntax", fmt.Sprintf("TOML syntax error: %v", err), nil)
 		return result
 	}
 
 	return result
 }
 
-func (v *ConfigValidator) Validate(cfg *Config) *ValidationResult {
-	result := &ValidationResult{Valid: true, Errors: []ValidationError{}, Warnings: []ValidationWarning{}}
+func (v *ConfigValidator) Normalize(cfg *Config) error {
+	if cfg == nil {
+		return ErrNilConfig
+	}
+	if cfg.Conntrack.MaxEntries > 0 {
+		cfg.Capacity.Conntrack = cfg.Conntrack.MaxEntries
+	}
+	return nil
+}
 
+func (v *ConfigValidator) Validate(cfg *Config) *ValidationResult {
+	result := newValidationResult()
+	if cfg == nil {
+		result.AddError("config", "configuration is nil", nil)
+		return result
+	}
+	if err := v.Normalize(cfg); err != nil {
+		result.AddError("config", err.Error(), nil)
+		return result
+	}
+
+	v.validateModuleBoundaries(cfg, result)
 	v.validateBaseConfig(&cfg.Base, result)
 	v.validateWebConfig(&cfg.Web, result)
 	v.validateMetricsConfig(&cfg.Metrics, result)
@@ -133,6 +172,33 @@ func (v *ConfigValidator) Validate(cfg *Config) *ValidationResult {
 	v.detectConflicts(cfg, result)
 
 	return result
+}
+
+func (v *ConfigValidator) ValidateErr(cfg *Config) error {
+	result := v.Validate(cfg)
+	if result.Valid {
+		return nil
+	}
+	return errors.New(result.String())
+}
+
+func (v *ConfigValidator) validateModuleBoundaries(cfg *Config, result *ValidationResult) {
+	for i := range cfg.Modules {
+		module := &cfg.Modules[i]
+		fieldPrefix := fmt.Sprintf("modules[%d]", i)
+		if module.Name == "" {
+			result.AddError(fieldPrefix+".name", "module name is required", module.Name)
+		}
+	}
+
+	if cfg.Runtime.AI.Enabled {
+		result.AddWarning("runtime.ai",
+			"AI settings are runtime-only and not persisted in TOML; prefer plugin-scoped/runtime config sources", cfg.Runtime.AI)
+	}
+	if cfg.Runtime.MCP.Enabled {
+		result.AddWarning("runtime.mcp",
+			"MCP settings are runtime-only and not persisted in TOML; prefer plugin-scoped/runtime config sources", cfg.Runtime.MCP)
+	}
 }
 
 func (v *ConfigValidator) validateBaseConfig(cfg *BaseConfig, result *ValidationResult) {
@@ -327,21 +393,33 @@ func (v *ConfigValidator) validateRateLimitConfig(cfg *RateLimitConfig, result *
 
 func ValidateConfig(configData []byte) (*ValidationResult, error) {
 	validator := NewConfigValidator()
-
-	syntaxResult := validator.ValidateSyntax(configData)
-	if !syntaxResult.Valid {
-		return syntaxResult, nil
-	}
+	result := validator.ValidateSyntax(configData)
 
 	cfg := DefaultConfig()
 	if _, err := toml.Decode(string(configData), &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	return validator.Validate(&cfg), nil
+	result.Merge(validator.Validate(&cfg))
+	return result, nil
 }
 
 func ValidateConfigStruct(cfg *Config) *ValidationResult {
 	validator := NewConfigValidator()
 	return validator.Validate(cfg)
+}
+
+func ValidateConfigErr(cfg *Config) error {
+	validator := NewConfigValidator()
+	if err := validator.Normalize(cfg); err != nil {
+		return err
+	}
+	return validator.ValidateErr(cfg)
+}
+
+func ValidateSDKConfig(cfg interface{ Validate() error }) error {
+	if cfg == nil {
+		return ErrNilConfig
+	}
+	return cfg.Validate()
 }
