@@ -6,12 +6,14 @@ import (
 )
 
 func (v *ConfigValidator) detectConflicts(cfg *Config, result *ValidationResult) {
+	v.checkWhitelistBlacklistOverlap(cfg, result)
 	v.checkWhitelistRateLimitOverlap(cfg, result)
 	v.checkDuplicatePorts(cfg, result)
 	v.checkDuplicateIPPortRules(cfg, result)
 	v.checkDuplicateRateLimitRules(cfg, result)
 	v.checkPortConflicts(cfg, result)
 	v.checkDuplicateLogEngineRules(cfg, result)
+	v.checkIPPortRulePortConflicts(cfg, result)
 }
 
 func parseIPNet(ipStr string) *net.IPNet {
@@ -116,4 +118,41 @@ func (v *ConfigValidator) checkDuplicateLogEngineRules(cfg *Config, result *Vali
 
 func (v *ConfigValidator) networksOverlap(n1, n2 *net.IPNet) bool {
 	return n1.Contains(n2.IP) || n2.Contains(n1.IP)
+}
+
+func (v *ConfigValidator) checkWhitelistBlacklistOverlap(cfg *Config, result *ValidationResult) {
+	for _, wlCIDR := range cfg.Base.Whitelist {
+		wlNet := parseIPNet(wlCIDR)
+		if wlNet == nil {
+			continue
+		}
+
+		for i, rule := range cfg.Port.IPPortRules {
+			if rule.Action == 0 {
+				rlNet := parseIPNet(rule.IP)
+				if rlNet == nil {
+					continue
+				}
+
+				if v.networksOverlap(wlNet, rlNet) {
+					result.AddError(fmt.Sprintf("port.ip_port_rules[%d].ip", i),
+						fmt.Sprintf("Deny rule '%s' overlaps with whitelist entry '%s' - this will cause conflicts", rule.IP, wlCIDR), rule.IP)
+				}
+			}
+		}
+	}
+}
+
+func (v *ConfigValidator) checkIPPortRulePortConflicts(cfg *Config, result *ValidationResult) {
+	allowedPortSet := make(map[uint16]bool)
+	for _, port := range cfg.Port.AllowedPorts {
+		allowedPortSet[port] = true
+	}
+
+	for i, rule := range cfg.Port.IPPortRules {
+		if rule.Action == 0 && allowedPortSet[rule.Port] {
+			result.AddWarning(fmt.Sprintf("port.ip_port_rules[%d]", i),
+				fmt.Sprintf("Deny rule for port %d conflicts with global allowed port %d", rule.Port, rule.Port), rule.Port)
+		}
+	}
 }

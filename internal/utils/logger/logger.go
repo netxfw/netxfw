@@ -2,8 +2,10 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -14,11 +16,20 @@ type contextKey string
 
 const LoggerKey = contextKey("logger")
 
-var globalLogger *zap.SugaredLogger
+var (
+	globalLogger      *zap.SugaredLogger
+	globalWriteSyncer zapcore.WriteSyncer
+	globalEncoder     zapcore.Encoder
+	globalLevel       zapcore.Level
+	loggerMutex       sync.RWMutex
+)
 
 // Init initializes the global logger based on configuration.
 // Init 根据配置初始化全局日志记录器。
 func Init(cfg LoggingConfig) {
+	loggerMutex.Lock()
+	defer loggerMutex.Unlock()
+
 	// Default to stdout if not configured or disabled
 	writeSyncer := zapcore.AddSync(os.Stdout)
 
@@ -29,7 +40,7 @@ func Init(cfg LoggingConfig) {
 			// Log to stdout if we can't create the directory
 			// 如果无法创建目录，则输出到 stdout
 			globalLogger = zap.NewExample().Sugar()
-			globalLogger.Warnf("[WARN]  Failed to create log directory: %v", err)
+			globalLogger.Warnf("[WARN] Failed to create log directory: %v", err)
 		}
 
 		rotator := &lumberjack.Logger{
@@ -44,18 +55,83 @@ func Init(cfg LoggingConfig) {
 
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoder := zapcore.NewConsoleEncoder(encoderConfig)
+
+	// Support JSON format
+	var encoder zapcore.Encoder
+	if cfg.Format == "json" {
+		encoder = zapcore.NewJSONEncoder(encoderConfig)
+	} else {
+		encoder = zapcore.NewConsoleEncoder(encoderConfig)
+	}
 
 	level := zapcore.InfoLevel
 	if cfg.Level == "debug" {
 		level = zapcore.DebugLevel
+	} else if cfg.Level == "warn" || cfg.Level == "warning" {
+		level = zapcore.WarnLevel
+	} else if cfg.Level == "error" {
+		level = zapcore.ErrorLevel
 	}
 
 	core := zapcore.NewCore(encoder, writeSyncer, level)
 	logger := zap.New(core, zap.AddCaller())
 	globalLogger = logger.Sugar()
+	globalWriteSyncer = writeSyncer
+	globalEncoder = encoder
+	globalLevel = level
 
-	globalLogger.Infof("[LOG] Logging initialized (Level: %s, Path: %s)", level, cfg.Path)
+	globalLogger.Infof("[LOG] Logging initialized (Level: %s, Path: %s, Format: %s)", level, cfg.Path, cfg.Format)
+}
+
+// SetLevel dynamically changes the logging level.
+// SetLevel 动态更改日志级别。
+func SetLevel(level string) error {
+	var zapLevel zapcore.Level
+	if err := zapLevel.Set(level); err != nil {
+		return fmt.Errorf("invalid log level: %w", err)
+	}
+
+	loggerMutex.Lock()
+	defer loggerMutex.Unlock()
+
+	if globalLogger != nil && globalWriteSyncer != nil && globalEncoder != nil {
+		core := zapcore.NewCore(globalEncoder, globalWriteSyncer, zapLevel)
+		logger := zap.New(core, zap.AddCaller())
+		globalLogger = logger.Sugar()
+		globalLevel = zapLevel
+		globalLogger.Infof("[LOG] Log level changed to %s", level)
+	}
+	return nil
+}
+
+// SetFormat dynamically changes the log output format (console or json).
+// SetFormat 动态更改日志输出格式（控制台或JSON）。
+func SetFormat(format string) error {
+	loggerMutex.Lock()
+	defer loggerMutex.Unlock()
+
+	if globalLogger == nil || globalWriteSyncer == nil {
+		return fmt.Errorf("logger not initialized")
+	}
+
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	var encoder zapcore.Encoder
+	if format == "json" {
+		encoder = zapcore.NewJSONEncoder(encoderConfig)
+	} else if format == "console" {
+		encoder = zapcore.NewConsoleEncoder(encoderConfig)
+	} else {
+		return fmt.Errorf("invalid log format: %s (must be 'console' or 'json')", format)
+	}
+
+	core := zapcore.NewCore(encoder, globalWriteSyncer, globalLevel)
+	logger := zap.New(core, zap.AddCaller())
+	globalLogger = logger.Sugar()
+	globalEncoder = encoder
+	globalLogger.Infof("[LOG] Log format changed to %s", format)
+	return nil
 }
 
 // Sync flushes any buffered log entries.

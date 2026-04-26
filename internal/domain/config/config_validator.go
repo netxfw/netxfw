@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -44,6 +45,43 @@ func (r *ValidationResult) AddWarning(field, message string, value any) {
 		Message: message,
 		Value:   value,
 	})
+}
+
+func (r *ValidationResult) String() string {
+	if r.Valid && len(r.Warnings) == 0 {
+		return "Configuration validation passed with no issues."
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Configuration Validation Report\n")
+	sb.WriteString("===============================\n\n")
+
+	if !r.Valid {
+		sb.WriteString(fmt.Sprintf("Status: FAILED (%d errors, %d warnings)\n\n", len(r.Errors), len(r.Warnings)))
+		sb.WriteString("Errors:\n")
+		for i, err := range r.Errors {
+			sb.WriteString(fmt.Sprintf("  %d. [%s] %s", i+1, err.Field, err.Message))
+			if err.Value != nil {
+				sb.WriteString(fmt.Sprintf(" (value: %v)", err.Value))
+			}
+			sb.WriteString("\n")
+		}
+	} else {
+		sb.WriteString(fmt.Sprintf("Status: PASSED (%d warnings)\n\n", len(r.Warnings)))
+	}
+
+	if len(r.Warnings) > 0 {
+		sb.WriteString("Warnings:\n")
+		for i, warn := range r.Warnings {
+			sb.WriteString(fmt.Sprintf("  %d. [%s] %s", i+1, warn.Field, warn.Message))
+			if warn.Value != nil {
+				sb.WriteString(fmt.Sprintf(" (value: %v)", warn.Value))
+			}
+			sb.WriteString("\n")
+		}
+	}
+
+	return sb.String()
 }
 
 // ConfigValidator provides configuration validation functionality.

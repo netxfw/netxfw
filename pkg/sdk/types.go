@@ -11,6 +11,7 @@ type LoggingConfig struct {
 	Enabled    bool   `toml:"enabled"`
 	Level      string `toml:"level"`
 	Path       string `toml:"path"`
+	Format     string `toml:"format"`
 	MaxSize    int    `toml:"max_size"`
 	MaxBackups int    `toml:"max_backups"`
 	MaxAge     int    `toml:"max_age"`
