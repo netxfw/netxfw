@@ -54,7 +54,7 @@ func TestConfigPath(t *testing.T) {
 
 	// Test setting config path
 	// 测试设置配置路径
-	testPath := "/tmp/test_config.yaml"
+	testPath := "/tmp/test_config.toml"
 	ConfigPath = testPath
 	if ConfigPath != testPath {
 		t.Errorf("ConfigPath should be %s, got %s", testPath, ConfigPath)

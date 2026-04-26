@@ -75,9 +75,9 @@ func TestNormalizeCIDR(t *testing.T) {
 	}
 }
 
-// TestYAMLStore_Creation tests YAMLStore creation
-// TestYAMLStore_Creation 测试 YAMLStore 创建
-func TestYAMLStore_Creation(t *testing.T) {
+// TestTOMLStore_Creation tests TOMLStore creation
+// TestTOMLStore_Creation 测试 TOMLStore 创建
+func TestTOMLStore_Creation(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -85,13 +85,13 @@ func TestYAMLStore_Creation(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 	assert.NotNil(t, store)
 }
 
-// TestYAMLStore_AddIP tests adding IP rules
-// TestYAMLStore_AddIP 测试添加 IP 规则
-func TestYAMLStore_AddIP(t *testing.T) {
+// TestTOMLStore_AddIP tests adding IP rules
+// TestTOMLStore_AddIP 测试添加 IP 规则
+func TestTOMLStore_AddIP(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -104,7 +104,7 @@ func TestYAMLStore_AddIP(t *testing.T) {
 	os.WriteFile(configPath, []byte("whitelist: []\nlock_list: []\nip_port_rules: []\n"), 0644)
 	os.WriteFile(lockPath, []byte("lock_list: []\n"), 0644)
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 
 	// Test AddIP for whitelist
 	// 测试白名单 AddIP
@@ -123,9 +123,9 @@ func TestYAMLStore_AddIP(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestYAMLStore_RemoveIP tests removing IP rules
-// TestYAMLStore_RemoveIP 测试移除 IP 规则
-func TestYAMLStore_RemoveIP(t *testing.T) {
+// TestTOMLStore_RemoveIP tests removing IP rules
+// TestTOMLStore_RemoveIP 测试移除 IP 规则
+func TestTOMLStore_RemoveIP(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -138,7 +138,7 @@ func TestYAMLStore_RemoveIP(t *testing.T) {
 	os.WriteFile(configPath, []byte("whitelist:\n  - cidr: 192.168.1.1/32\nlock_list: []\nip_port_rules: []\n"), 0644)
 	os.WriteFile(lockPath, []byte("lock_list:\n  - cidr: 10.0.0.1/32\n"), 0644)
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 
 	// Test RemoveIP for whitelist
 	// 测试白名单 RemoveIP
@@ -151,9 +151,9 @@ func TestYAMLStore_RemoveIP(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestYAMLStore_AddIPPortRule tests adding IP port rules
-// TestYAMLStore_AddIPPortRule 测试添加 IP 端口规则
-func TestYAMLStore_AddIPPortRule(t *testing.T) {
+// TestTOMLStore_AddIPPortRule tests adding IP port rules
+// TestTOMLStore_AddIPPortRule 测试添加 IP 端口规则
+func TestTOMLStore_AddIPPortRule(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -166,7 +166,7 @@ func TestYAMLStore_AddIPPortRule(t *testing.T) {
 	os.WriteFile(configPath, []byte("whitelist: []\nlock_list: []\nip_port_rules: []\n"), 0644)
 	os.WriteFile(lockPath, []byte("lock_list: []\n"), 0644)
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 
 	rule := IPPortRule{
 		CIDR:     "192.168.1.1",
@@ -179,9 +179,9 @@ func TestYAMLStore_AddIPPortRule(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestYAMLStore_RemoveIPPortRule tests removing IP port rules
-// TestYAMLStore_RemoveIPPortRule 测试移除 IP 端口规则
-func TestYAMLStore_RemoveIPPortRule(t *testing.T) {
+// TestTOMLStore_RemoveIPPortRule tests removing IP port rules
+// TestTOMLStore_RemoveIPPortRule 测试移除 IP 端口规则
+func TestTOMLStore_RemoveIPPortRule(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -201,15 +201,15 @@ ip_port_rules:
 `), 0644)
 	os.WriteFile(lockPath, []byte("lock_list: []\n"), 0644)
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 
 	err = store.RemoveIPPortRule("192.168.1.1/32", 80, "tcp")
 	assert.NoError(t, err)
 }
 
-// TestYAMLStore_LoadAll tests loading all rules
-// TestYAMLStore_LoadAll 测试加载所有规则
-func TestYAMLStore_LoadAll(t *testing.T) {
+// TestTOMLStore_LoadAll tests loading all rules
+// TestTOMLStore_LoadAll 测试加载所有规则
+func TestTOMLStore_LoadAll(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -232,7 +232,7 @@ action = "deny"
 lock_list = [{cidr = "172.16.0.1/32"}]
 `), 0644)
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 
 	whitelist, lockList, ipPortRules, err := store.LoadAll()
 	assert.NoError(t, err)
@@ -246,9 +246,9 @@ lock_list = [{cidr = "172.16.0.1/32"}]
 	assert.Equal(t, uint16(443), ipPortRules[0].Port)
 }
 
-// TestYAMLStore_LoadAll_Empty tests loading from empty files
-// TestYAMLStore_LoadAll_Empty 测试从空文件加载
-func TestYAMLStore_LoadAll_Empty(t *testing.T) {
+// TestTOMLStore_LoadAll_Empty tests loading from empty files
+// TestTOMLStore_LoadAll_Empty 测试从空文件加载
+func TestTOMLStore_LoadAll_Empty(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -261,7 +261,7 @@ func TestYAMLStore_LoadAll_Empty(t *testing.T) {
 	os.WriteFile(configPath, []byte("whitelist = []\nlock_list = []\nip_port_rules = []\n"), 0644)
 	os.WriteFile(lockPath, []byte("lock_list = []\n"), 0644)
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 
 	whitelist, lockList, ipPortRules, err := store.LoadAll()
 	assert.NoError(t, err)
@@ -270,9 +270,9 @@ func TestYAMLStore_LoadAll_Empty(t *testing.T) {
 	assert.Empty(t, ipPortRules)
 }
 
-// TestYAMLStore_LoadAll_NonExistent tests loading from non-existent files
-// TestYAMLStore_LoadAll_NonExistent 测试从不存在的文件加载
-func TestYAMLStore_LoadAll_NonExistent(t *testing.T) {
+// TestTOMLStore_LoadAll_NonExistent tests loading from non-existent files
+// TestTOMLStore_LoadAll_NonExistent 测试从不存在的文件加载
+func TestTOMLStore_LoadAll_NonExistent(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -280,7 +280,7 @@ func TestYAMLStore_LoadAll_NonExistent(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "nonexistent_config.toml")
 	lockPath := filepath.Join(tmpDir, "nonexistent_locklist.txt")
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 
 	whitelist, lockList, ipPortRules, err := store.LoadAll()
 	// Should return empty lists without error
@@ -291,9 +291,9 @@ func TestYAMLStore_LoadAll_NonExistent(t *testing.T) {
 	assert.Empty(t, ipPortRules)
 }
 
-// TestYAMLStore_AddIP_InvalidType tests adding IP with invalid type
-// TestYAMLStore_AddIP_InvalidType 测试使用无效类型添加 IP
-func TestYAMLStore_AddIP_InvalidType(t *testing.T) {
+// TestTOMLStore_AddIP_InvalidType tests adding IP with invalid type
+// TestTOMLStore_AddIP_InvalidType 测试使用无效类型添加 IP
+func TestTOMLStore_AddIP_InvalidType(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -301,15 +301,15 @@ func TestYAMLStore_AddIP_InvalidType(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 
 	err = store.AddIP(RuleType("invalid"), "192.168.1.1", nil)
 	assert.Error(t, err)
 }
 
-// TestYAMLStore_RemoveIP_InvalidType tests removing IP with invalid type
-// TestYAMLStore_RemoveIP_InvalidType 测试使用无效类型移除 IP
-func TestYAMLStore_RemoveIP_InvalidType(t *testing.T) {
+// TestTOMLStore_RemoveIP_InvalidType tests removing IP with invalid type
+// TestTOMLStore_RemoveIP_InvalidType 测试使用无效类型移除 IP
+func TestTOMLStore_RemoveIP_InvalidType(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -317,15 +317,15 @@ func TestYAMLStore_RemoveIP_InvalidType(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.toml")
 	lockPath := filepath.Join(tmpDir, "locklist.txt")
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 
 	err = store.RemoveIP(RuleType("invalid"), "192.168.1.1")
 	assert.Error(t, err)
 }
 
-// TestYAMLStore_UpdateExistingRule tests updating an existing rule
-// TestYAMLStore_UpdateExistingRule 测试更新现有规则
-func TestYAMLStore_UpdateExistingRule(t *testing.T) {
+// TestTOMLStore_UpdateExistingRule tests updating an existing rule
+// TestTOMLStore_UpdateExistingRule 测试更新现有规则
+func TestTOMLStore_UpdateExistingRule(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -336,7 +336,7 @@ func TestYAMLStore_UpdateExistingRule(t *testing.T) {
 	os.WriteFile(configPath, []byte("whitelist:\n  - cidr: 192.168.1.1/32\nlock_list: []\nip_port_rules: []\n"), 0644)
 	os.WriteFile(lockPath, []byte("lock_list: []\n"), 0644)
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 
 	// Add same IP again (should update)
 	// 再次添加相同 IP（应该更新）
@@ -352,9 +352,9 @@ func TestYAMLStore_UpdateExistingRule(t *testing.T) {
 	assert.NotNil(t, whitelist[0].ExpiresAt)
 }
 
-// TestYAMLStore_UpdateExistingIPPortRule tests updating an existing IP port rule
-// TestYAMLStore_UpdateExistingIPPortRule 测试更新现有 IP 端口规则
-func TestYAMLStore_UpdateExistingIPPortRule(t *testing.T) {
+// TestTOMLStore_UpdateExistingIPPortRule tests updating an existing IP port rule
+// TestTOMLStore_UpdateExistingIPPortRule 测试更新现有 IP 端口规则
+func TestTOMLStore_UpdateExistingIPPortRule(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "storage_test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -372,7 +372,7 @@ ip_port_rules:
 `), 0644)
 	os.WriteFile(lockPath, []byte("lock_list: []\n"), 0644)
 
-	store := NewYAMLStore(configPath, lockPath)
+	store := NewTOMLStore(configPath, lockPath)
 
 	// Update the same rule
 	// 更新相同规则

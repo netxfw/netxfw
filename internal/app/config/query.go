@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/netxfw/netxfw/internal/adapters/configfile"
@@ -26,19 +25,12 @@ type managerProvider interface {
 
 const (
 	defaultConfigPath = "/etc/netxfw/config.toml"
-	yamlConfigPath    = "/etc/netxfw/config.yaml"
 	defaultBackupKeep = 3
 )
 
 var configFileMu sync.RWMutex
 
 func GetDefaultConfigPath() string {
-	if _, err := os.Stat(defaultConfigPath); err == nil {
-		return defaultConfigPath
-	}
-	if _, err := os.Stat(yamlConfigPath); err == nil {
-		return yamlConfigPath
-	}
 	return defaultConfigPath
 }
 

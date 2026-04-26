@@ -91,7 +91,7 @@ func TestEndToEnd_MockWorkflow(t *testing.T) {
 // TestEndToEnd_ConfigPersistence 测试配置持久化
 func TestEndToEnd_ConfigPersistence(t *testing.T) {
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "test_config.yaml")
+	configPath := filepath.Join(tmpDir, "test_config.toml")
 
 	// Create initial config
 	// 创建初始配置
@@ -239,7 +239,7 @@ func TestEndToEnd_IPv6Support(t *testing.T) {
 // TestEndToEnd_ConfigReload 测试配置重载场景
 func TestEndToEnd_ConfigReload(t *testing.T) {
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "reload_config.yaml")
+	configPath := filepath.Join(tmpDir, "reload_config.toml")
 
 	// Create initial config
 	// 创建初始配置

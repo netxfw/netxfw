@@ -211,13 +211,3 @@ func (s *TOMLStore) updateFile(path string, updater func(*FileData)) error {
 	}
 	return os.WriteFile(path, content, 0600)
 }
-
-// YAMLStore is an alias for TOMLStore for older callers.
-// YAMLStore 是 TOMLStore 的别名，用于向后兼容。
-type YAMLStore = TOMLStore
-
-// NewYAMLStore creates a new TOML-based storage provider for older callers.
-// NewYAMLStore 创建一个新的基于 TOML 的存储提供程序（向后兼容）。
-func NewYAMLStore(configPath, lockFilePath string) *YAMLStore {
-	return NewTOMLStore(configPath, lockFilePath)
-}

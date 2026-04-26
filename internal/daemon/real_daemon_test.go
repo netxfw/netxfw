@@ -656,23 +656,22 @@ func TestRealDaemon_ConfigFileValidation(t *testing.T) {
 	// Create a test config file
 	// 创建临时配置文件
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 
 	// Write a minimal valid config
 	// 写入一个最小的有效配置
 	validConfig := `
-base:
-  interfaces:
-    - eth0
-  enable_expiry: true
-  cleanup_interval: 5m
+[base]
+interfaces = ["eth0"]
+enable_expiry = true
+cleanup_interval = "5m"
 
-logging:
-  level: info
+[logging]
+level = "info"
 
-capacity:
-  max_locked_ips: 10000
-  max_whitelist_ips: 10000
+[capacity]
+lock_list = 10000
+whitelist = 10000
 `
 	err := os.WriteFile(configPath, []byte(validConfig), 0644)
 	require.NoError(t, err)
@@ -691,14 +690,14 @@ func TestRealDaemon_InvalidConfigFile(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "invalid_config.yaml")
+	configPath := filepath.Join(tmpDir, "invalid_config.toml")
 
 	// Write an invalid config
 	// 写入无效配置
 	invalidConfig := `
-base:
-  interfaces: "should_be_array"
-  cleanup_interval: "not_a_duration"
+[base]
+interfaces = "should_be_array"
+cleanup_interval = "not_a_duration"
 `
 	err := os.WriteFile(configPath, []byte(invalidConfig), 0644)
 	require.NoError(t, err)

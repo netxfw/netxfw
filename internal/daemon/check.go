@@ -20,7 +20,7 @@ func TestConfiguration(ctx context.Context) {
 
 	cfg, err := appconfig.LoadConfig()
 	if err != nil {
-		log.Fatalf("[ERROR] Error loading config.yaml: %v", err)
+		log.Fatalf("[ERROR] Error loading TOML config: %v", err)
 	}
 
 	host := runtimehost.NewHost(nil)

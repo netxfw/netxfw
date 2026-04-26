@@ -175,7 +175,7 @@ var syncCmd = &cobra.Command{
 var syncToConfigCmd = &cobra.Command{
 	Use:   "to-config",
 	Short: "Dump runtime BPF maps to configuration files",
-	Long:  `Dump runtime BPF maps to configuration files (config.yaml and rules.deny.txt).`,
+	Long:  `Dump runtime BPF maps to configuration files (config.toml and rules.deny.txt).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {
 			return systemService.SyncRuntimeToConfig(s)
@@ -186,7 +186,7 @@ var syncToConfigCmd = &cobra.Command{
 var syncToMapCmd = &cobra.Command{
 	Use:   "to-map",
 	Short: "Apply configuration files to runtime BPF maps",
-	Long: `Apply configuration files (config.yaml and rules.deny.txt) to runtime BPF maps.
+	Long: `Apply configuration files (config.toml and rules.deny.txt) to runtime BPF maps.
 This will overwrite the runtime state with what is defined in the configuration files.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		Execute(cmd, args, func(s *sdk.SDK) error {

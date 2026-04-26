@@ -8,7 +8,7 @@ import (
 	types "github.com/netxfw/netxfw/pkg/sdk"
 )
 
-// TestSimplifiedSyntax verifies the YAML-friendly list syntax (and/or/not)
+// TestSimplifiedSyntax verifies the TOML-friendly list syntax (and/or/not)
 func TestSimplifiedSyntax(t *testing.T) {
 	c := logengine.NewCounter(0)
 	re := logengine.NewRuleEngine(c, &MockLogger{})

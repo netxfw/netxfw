@@ -12,16 +12,7 @@ import (
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
-	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
-)
-
-// 配置缓存 - 避免每次请求都重新加载配置文件
-var (
-	configCache *domainconfig.Config
-	configMu    sync.RWMutex
-	lastLoad    time.Time
-	cacheTTL    = 5 * time.Second
 )
 
 const (
@@ -46,29 +37,11 @@ type LoginAttempt struct {
 	LockedUntil time.Time
 }
 
-// getCachedConfig 获取缓存的配置
-func getCachedConfig() (*domainconfig.Config, error) {
-	configMu.RLock()
-	if configCache != nil && time.Since(lastLoad) < cacheTTL {
-		configMu.RUnlock()
-		return configCache, nil
+func (s *Server) authConfig() (*domainconfig.Config, error) {
+	cfg := s.getConfigSnapshot()
+	if cfg == nil {
+		return nil, errors.New("config snapshot unavailable")
 	}
-	configMu.RUnlock()
-
-	configMu.Lock()
-	defer configMu.Unlock()
-
-	// 双重检查
-	if configCache != nil && time.Since(lastLoad) < cacheTTL {
-		return configCache, nil
-	}
-
-	cfg, err := appconfig.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	configCache = cfg
-	lastLoad = time.Now()
 	return cfg, nil
 }
 
@@ -174,12 +147,8 @@ func normalizeJWTError(err error) error {
 // withAuth 是用于基于令牌认证的中间件（支持 Bearer Token 和旧查询参数）
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg, err := getCachedConfig()
+		cfg, err := s.authConfig()
 		if err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-		if cfg == nil {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -241,12 +210,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, err := getCachedConfig()
+	cfg, err := s.authConfig()
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	if cfg == nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}

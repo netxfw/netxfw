@@ -73,7 +73,7 @@ func main() {
 	// 移除前检查文件
 	content, _ := os.ReadFile("/etc/netxfw/lock_list.txt")
 	if !strings.Contains(string(content), testIP) {
-		fmt.Println("⚠️  Warning: IP not found in lock list file after add (might be using config.yaml persistence or not enabled). Checking config.yaml...")
+		fmt.Println("⚠️  Warning: IP not found in lock list file after add (might be using config.toml persistence or not enabled). Checking config.toml...")
 	}
 
 	// Remove

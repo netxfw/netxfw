@@ -5,9 +5,6 @@ const (
 	// DefaultConfigPath is the standard location for the netxfw configuration file.
 	DefaultConfigPath = "/etc/netxfw/config.toml"
 
-	// YAMLConfigPath is the YAML config path kept for older installs.
-	YAMLConfigPath = "/etc/netxfw/config.yaml"
-
 	// DefaultPidPath is the location of the daemon PID file.
 	DefaultPidPath = "/var/run/netxfw.pid"
 

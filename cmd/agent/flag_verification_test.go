@@ -38,12 +38,12 @@ func TestCommandExecutorFlagApplying(t *testing.T) {
 	app.SetConfigPath("")
 	cmd := &cobra.Command{}
 	RegisterCommonFlags(cmd)
-	cmd.SetArgs([]string{"-c", "/tmp/test_config.yaml"})
-	_ = cmd.ParseFlags([]string{"-c", "/tmp/test_config.yaml"})
+	cmd.SetArgs([]string{"-c", "/tmp/test_config.toml"})
+	_ = cmd.ParseFlags([]string{"-c", "/tmp/test_config.toml"})
 
 	configValue, _ := cmd.Flags().GetString("config")
 	ce := NewCommandExecutor(cmd).WithConfig(configValue)
 	ce.ApplyFlags()
 
-	assert.Equal(t, "/tmp/test_config.yaml", app.GetConfigPath())
+	assert.Equal(t, "/tmp/test_config.toml", app.GetConfigPath())
 }
