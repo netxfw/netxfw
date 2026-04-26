@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/pprof"
 	"sync"
@@ -17,8 +18,8 @@ type Server struct {
 	sdk  *sdk.SDK
 	port int
 
-	// EnsureHandlerInitialized makes Handler() side-effect free for callers.
-	// It lazily ensures config-dependent defaults (e.g., Web token) are in place.
+	// EnsureHandlerInitialized keeps handler construction side-effect free.
+	// EnsureHandlerInitialized 仅加载并缓存配置，不执行持久化修改。
 	initOnce sync.Once
 	initErr  error
 
@@ -55,14 +56,17 @@ func (s *Server) EnsureHandlerInitialized() error {
 			s.initErr = nil
 			return
 		}
-
-		cfg, err = s.ensureWebConfig(cfg)
-		if err != nil {
-			logger.Get(nil).Warnf("Config initialization skipped (this is normal in test environments): %v", err)
-			s.initErr = nil
+		if cfg == nil {
+			s.initErr = fmt.Errorf("config snapshot unavailable")
 			return
 		}
 
+		if cfg.Web.Token == "" {
+			s.initErr = fmt.Errorf("web token is not configured; run 'netxfw system init' or set web.token in %s", appconfig.GetConfigPath())
+			return
+		}
+
+		logger.Get(nil).Infof("[KEY] Using configured Web Token for authentication")
 		s.setConfigSnapshot(cfg)
 	})
 
@@ -77,36 +81,6 @@ func (s *Server) prepareConfigSnapshot() (*domainconfig.Config, error) {
 	if cfg == nil {
 		return nil, nil
 	}
-	return cfg, nil
-}
-
-func (s *Server) ensureWebConfig(cfg *domainconfig.Config) (*domainconfig.Config, error) {
-	if cfg == nil {
-		return nil, nil
-	}
-	if cfg.Web.Token != "" {
-		logger.Get(nil).Infof("[KEY] Using configured Web Token for authentication")
-		return cfg, nil
-	}
-
-	log := logger.Get(nil)
-	token := generateRandomToken(16)
-
-	if err := appconfig.MutateLoadedConfig(func(liveCfg *domainconfig.Config) error {
-		liveCfg.Web.Token = token
-		liveCfg.Web.Enabled = true
-		liveCfg.Web.Port = s.port
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	cfg.Web.Token = token
-	cfg.Web.Enabled = true
-	cfg.Web.Port = s.port
-
-	log.Infof("[KEY] No Web Token configured. Automatically generated and saved a new token")
-	log.Infof("[LOG] Token has been saved to %s", appconfig.GetConfigPath())
 	return cfg, nil
 }
 

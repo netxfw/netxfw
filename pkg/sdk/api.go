@@ -36,8 +36,8 @@ type IPPortRule struct {
 	// Port 是端口号。
 	Port uint16
 
-	// Action is the action to take: 0=Deny, 1=Allow.
-	// Action 是要执行的操作：0=拒绝，1=允许。
+	// Action is the action to take: 0/2=Deny, 1=Allow.
+	// Action 是要执行的操作：0/2=拒绝，1=允许。
 	Action uint8
 }
 

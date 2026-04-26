@@ -8,7 +8,7 @@ type PortConfig struct {
 type IPPortRule struct {
 	IP     string `toml:"ip"`
 	Port   uint16 `toml:"port"`
-	Action uint8  `toml:"action"`
+	Action uint8  `toml:"action"` // 0/2 = deny, 1 = allow
 }
 
 type ConntrackConfig struct {

@@ -1,6 +1,11 @@
 .PHONY: build build-compressed generate clean build-zig-amd64 build-zig-arm64 test lint check bench bench-baseline bench-regression docs-check
 
 BPF_CFLAGS :=
+PREFIX ?= /usr/local
+ETCDIR ?= /etc/netxfw
+DESTDIR ?=
+CLANG ?= clang
+BPF_ARCH_INCLUDE ?= /usr/include/x86_64-linux-gnu
 # Zig compiler configuration
 ZIG_CC := zig cc
 ZIG_TARGET_AMD64 := x86_64-linux-gnu.2.17
@@ -19,7 +24,7 @@ help:
 	@echo "  make build-zig-amd64  - Build binary using Zig (amd64, glibc 2.17)"
 	@echo "  make build-zig-arm64  - Build binary using Zig (arm64, glibc 2.17)"
 	@echo "  make build-compressed - Build binary with UPX compression (smallest)"
-	@echo "  make generate         - Generate BPF code"
+	@echo "  make generate         - Generate BPF code (requires Go toolchain)"
 	@echo "  make test             - Run fast test suite"
 	@echo "  make lint             - Run static checks"
 	@echo "  make docs-check       - Run docs link + CLI call-graph checks"
@@ -27,8 +32,9 @@ help:
 	@echo "  make bench            - Run benchmark tests"
 	@echo "  make bench-baseline   - Create performance baseline"
 	@echo "  make bench-regression - Run performance regression tests"
-	@echo "  make install          - Install binary and config"
-	@echo "  make uninstall        - Remove binary and config"
+	@echo "  make plugins          - Compile BPF plugins (requires $(CLANG))"
+	@echo "  make install          - Install binary and config (supports PREFIX/ETCDIR/DESTDIR)"
+	@echo "  make uninstall        - Remove binary and config from DESTDIR/PREFIX"
 	@echo "  make clean            - Clean build artifacts"
 
 build:
@@ -67,7 +73,7 @@ else
 	@echo "⚠️  IPv6 disabled in BPF"
 endif
 	@echo "#endif" >> bpf/include/bpf_features.h
-	cd internal/datapath/xdp/backend && go generate
+	go generate ./internal/datapath/xdp/backend
 
 test:
 	go test ./test/unit/... ./internal/... ./cmd/... ./pkg/...
@@ -115,20 +121,20 @@ plugins:
 	@for f in bpf/plugins/*.bpf.c; do \
 		name=$$(basename $$f .bpf.c); \
 		echo "Compiling plugin: $$name"; \
-		clang -g -O2 -target bpf -D__TARGET_ARCH_x86 -I/usr/include/x86_64-linux-gnu -I./bpf -I./bpf/include $(BPF_CFLAGS) -c $$f -o bpf/plugins/out/$$name.o; \
+		$(CLANG) -g -O2 -target bpf -D__TARGET_ARCH_x86 -I$(BPF_ARCH_INCLUDE) -I./bpf -I./bpf/include $(BPF_CFLAGS) -c $$f -o bpf/plugins/out/$$name.o; \
 	done
 	@echo "✅ Plugins compiled to bpf/plugins/out/"
 
 install: build
-	mkdir -p /etc/netxfw
-	mkdir -p /usr/local/bin
-	cp netxfw /usr/local/bin/
-	if [ ! -f /etc/netxfw/config.yaml ]; then ./netxfw system init --config /etc/netxfw/config.yaml; fi
-	if [ ! -f /etc/netxfw/lock_list.txt ]; then touch /etc/netxfw/lock_list.txt; fi
+	mkdir -p "$(DESTDIR)$(ETCDIR)"
+	mkdir -p "$(DESTDIR)$(PREFIX)/bin"
+	cp netxfw "$(DESTDIR)$(PREFIX)/bin/"
+	if [ ! -f "$(DESTDIR)$(ETCDIR)/config.yaml" ]; then ./netxfw system init --config "$(DESTDIR)$(ETCDIR)/config.yaml"; fi
+	if [ ! -f "$(DESTDIR)$(ETCDIR)/lock_list.txt" ]; then touch "$(DESTDIR)$(ETCDIR)/lock_list.txt"; fi
 
 uninstall:
-	rm -f /usr/local/bin/netxfw
-	rm -rf /sys/fs/bpf/netxfw
+	rm -f "$(DESTDIR)$(PREFIX)/bin/netxfw"
+	rm -rf "$(DESTDIR)/sys/fs/bpf/netxfw"
 
 clean:
 	rm -f netxfw

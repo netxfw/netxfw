@@ -178,11 +178,13 @@ const uiHTML = `
     <script>
         function getAuthHeaders() {
             const token = localStorage.getItem('netxfw_token') || '';
-            return {
-                'Content-Type': 'application/json',
-                'X-NetXFW-Token': token,
-                'Authorization': 'Bearer ' + token
+            const headers = {
+                'Content-Type': 'application/json'
             };
+            if (token) {
+                headers['Authorization'] = 'Bearer ' + token;
+            }
+            return headers;
         }
 
         function saveToken(token) {

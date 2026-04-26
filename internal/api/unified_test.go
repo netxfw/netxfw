@@ -12,6 +12,7 @@ import (
 
 	jwt "github.com/golang-jwt/jwt/v5"
 	xdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	"github.com/netxfw/netxfw/internal/metrics/exporter"
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
@@ -35,6 +36,19 @@ func testClaims(expIn time.Duration) TokenClaims {
 			ExpiresAt: jwt.NewNumericDate(now.Add(expIn)),
 		},
 	}
+}
+
+func newTestServer(t *testing.T) *Server {
+	t.Helper()
+	server := NewServer(nil, 8080)
+	server.setConfigSnapshot(&domainconfig.Config{
+		Web: domainconfig.WebConfig{
+			Enabled: true,
+			Port:    8080,
+			Token:   testSecret,
+		},
+	})
+	return server
 }
 
 // TestHandleHealthz tests the health check endpoint
@@ -804,9 +818,7 @@ func TestHandleLogin(t *testing.T) {
 // TestHandleLogin_InvalidJSON tests login with invalid JSON
 // TestHandleLogin_InvalidJSON 测试无效 JSON 的登录
 func TestHandleLogin_InvalidJSON(t *testing.T) {
-	mockMgr := xdp.NewMockManager()
-	s := sdk.NewSDK(mockMgr)
-	server := NewServer(s, 8080)
+	server := newTestServer(t)
 
 	body := testInvalidJSON
 	req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(body))
@@ -815,6 +827,81 @@ func TestHandleLogin_InvalidJSON(t *testing.T) {
 
 	server.handleLogin(rec, req)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestHandleLogin_SucceedsWithConfiguredToken(t *testing.T) {
+	server := newTestServer(t)
+
+	body := `{"token":"` + testSecret + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.handleLogin(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp map[string]string
+	assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.NotEmpty(t, resp["token"])
+}
+
+func TestWithAuth_RejectsLegacyHeaderAndQueryToken(t *testing.T) {
+	server := newTestServer(t)
+	handler := server.withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	legacyHeaderReq := httptest.NewRequest(http.MethodGet, "/api/stats", http.NoBody)
+	legacyHeaderReq.Header.Set("X-NetXFW-Token", testSecret)
+	legacyHeaderRec := httptest.NewRecorder()
+	handler.ServeHTTP(legacyHeaderRec, legacyHeaderReq)
+	assert.Equal(t, http.StatusUnauthorized, legacyHeaderRec.Code)
+
+	queryReq := httptest.NewRequest(http.MethodGet, "/api/stats?token="+testSecret, http.NoBody)
+	queryRec := httptest.NewRecorder()
+	handler.ServeHTTP(queryRec, queryReq)
+	assert.Equal(t, http.StatusUnauthorized, queryRec.Code)
+}
+
+func TestWithAuth_AllowsBearerJWT(t *testing.T) {
+	server := newTestServer(t)
+	claims := testClaims(1 * time.Hour)
+	token, err := signToken(claims, testSecret)
+	assert.NoError(t, err)
+
+	handler := server.withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/stats", http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestClientIPForLogin_UsesRemoteAddrWithoutTrustedProxy(t *testing.T) {
+	cfg := &domainconfig.Config{}
+	req := httptest.NewRequest(http.MethodPost, "/api/login", http.NoBody)
+	req.RemoteAddr = "198.51.100.10:1234"
+	req.Header.Set("X-Forwarded-For", "203.0.113.5")
+
+	assert.Equal(t, "198.51.100.10", clientIPForLogin(req, cfg))
+}
+
+func TestClientIPForLogin_UsesForwardedForFromTrustedProxy(t *testing.T) {
+	cfg := &domainconfig.Config{
+		Cloud: domainconfig.CloudConfig{
+			ProxyProtocol: domainconfig.ProxyProtocolConfig{
+				TrustedLBRanges: []string{"10.0.0.0/8"},
+			},
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/login", http.NoBody)
+	req.RemoteAddr = "10.1.2.3:4321"
+	req.Header.Set("X-Forwarded-For", "203.0.113.5, 10.1.2.3")
+
+	assert.Equal(t, "203.0.113.5", clientIPForLogin(req, cfg))
 }
 
 // TestHandleHealth tests the health endpoint

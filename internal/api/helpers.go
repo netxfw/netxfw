@@ -24,7 +24,7 @@ func generateRandomToken(length int) string {
 func parseIPPortAction(input string) (string, uint16, uint8, error) {
 	// Format: IP:Port:Action or [IP]:Port:Action
 	// 格式: IP:Port:Action 或 [IP]:Port:Action
-	// Action: allow (1) or deny (2)
+	// Action: allow (1) or deny (0)
 
 	// Use iputil to parse IP and Port first
 	// 首先使用 iputil 解析 IP 和端口

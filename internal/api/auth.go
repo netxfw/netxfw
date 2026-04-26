@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -45,35 +47,98 @@ func (s *Server) authConfig() (*domainconfig.Config, error) {
 	return cfg, nil
 }
 
+func cleanupLoginAttemptsLocked(now time.Time) {
+	for key, attempt := range loginAttempts {
+		if now.Sub(attempt.LastAttempt) > lockoutTime && !now.Before(attempt.LockedUntil) {
+			delete(loginAttempts, key)
+		}
+	}
+}
+
+func isTrustedProxy(remoteIP string, cfg *domainconfig.Config) bool {
+	if cfg == nil {
+		return false
+	}
+	if len(cfg.Cloud.ProxyProtocol.TrustedLBRanges) == 0 {
+		return false
+	}
+
+	addr, err := netip.ParseAddr(remoteIP)
+	if err != nil {
+		return false
+	}
+
+	for _, cidr := range cfg.Cloud.ProxyProtocol.TrustedLBRanges {
+		prefix, err := netip.ParsePrefix(cidr)
+		if err != nil {
+			continue
+		}
+		if prefix.Contains(addr) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func clientIPForLogin(r *http.Request, cfg *domainconfig.Config) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+
+	if !isTrustedProxy(host, cfg) {
+		return host
+	}
+
+	forwarded := r.Header.Get("X-Forwarded-For")
+	if forwarded == "" {
+		return host
+	}
+
+	parts := strings.Split(forwarded, ",")
+	candidate := strings.TrimSpace(parts[0])
+	if candidate == "" {
+		return host
+	}
+	if _, err := netip.ParseAddr(candidate); err != nil {
+		return host
+	}
+	return candidate
+}
+
 // checkLoginRateLimit 检查登录速率限制
 func checkLoginRateLimit(ip string) error {
 	loginMu.Lock()
 	defer loginMu.Unlock()
 
+	now := time.Now()
+	cleanupLoginAttemptsLocked(now)
+
 	attempt, exists := loginAttempts[ip]
 	if !exists {
 		loginAttempts[ip] = &LoginAttempt{
 			Count:       1,
-			LastAttempt: time.Now(),
+			LastAttempt: now,
 		}
 		return nil
 	}
 
 	// 检查是否已锁定
-	if time.Now().Before(attempt.LockedUntil) {
+	if now.Before(attempt.LockedUntil) {
 		return fmt.Errorf("too many attempts, try again after %v", time.Until(attempt.LockedUntil))
 	}
 
 	// 重置过期记录
-	if time.Since(attempt.LastAttempt) > lockoutTime {
+	if now.Sub(attempt.LastAttempt) > lockoutTime {
 		attempt.Count = 0
 	}
 
 	attempt.Count++
-	attempt.LastAttempt = time.Now()
+	attempt.LastAttempt = now
 
 	if attempt.Count > maxAttempts {
-		attempt.LockedUntil = time.Now().Add(lockoutTime)
+		attempt.LockedUntil = now.Add(lockoutTime)
 		return fmt.Errorf("too many attempts, locked for %v", lockoutTime)
 	}
 
@@ -143,8 +208,8 @@ func normalizeJWTError(err error) error {
 	}
 }
 
-// withAuth is a middleware for token-based authentication (Supports Bearer Token & Legacy Query Param)
-// withAuth 是用于基于令牌认证的中间件（支持 Bearer Token 和旧查询参数）
+// withAuth is a middleware for Bearer JWT authentication.
+// withAuth 是用于 Bearer JWT 认证的中间件。
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg, err := s.authConfig()
@@ -153,29 +218,16 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// 1. Check Authorization Header (Bearer <Token>)
-		// 1. 检查授权头（Bearer <Token>）
 		authHeader := r.Header.Get("Authorization")
 		if strings.HasPrefix(authHeader, "Bearer ") {
-			token := strings.TrimPrefix(authHeader, "Bearer ")
-			_, err := verifyToken(token, cfg.Web.Token)
-			if err == nil {
-				next.ServeHTTP(w, r)
-				return
+			token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+			if token != "" {
+				_, err := verifyToken(token, cfg.Web.Token)
+				if err == nil {
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
-		}
-
-		// 2. Check Legacy Query Param / Header (Backwards Compatibility)
-		// 2. 检查旧查询参数/头部（向后兼容性）
-		token := r.Header.Get("X-NetXFW-Token")
-		if token == "" {
-			token = r.URL.Query().Get("token")
-		}
-
-		// 使用常量时间比较防止时序攻击
-		if token != "" && hmac.Equal([]byte(token), []byte(cfg.Web.Token)) {
-			next.ServeHTTP(w, r)
-			return
 		}
 
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -191,28 +243,26 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 获取客户端 IP 用于速率限制
-	ip := r.RemoteAddr
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		ip = strings.Split(forwarded, ",")[0]
+	cfg, err := s.authConfig()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
+	ip := clientIPForLogin(r, cfg)
 
 	// 检查速率限制
-	if err := checkLoginRateLimit(ip); err != nil {
-		http.Error(w, err.Error(), http.StatusTooManyRequests)
+	rateLimitErr := checkLoginRateLimit(ip)
+	if rateLimitErr != nil {
+		http.Error(w, rateLimitErr.Error(), http.StatusTooManyRequests)
 		return
 	}
 
 	var req struct {
 		Token string `json:"token"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decodeErr := json.NewDecoder(r.Body).Decode(&req)
+	if decodeErr != nil {
 		http.Error(w, "Invalid Request", http.StatusBadRequest)
-		return
-	}
-
-	cfg, err := s.authConfig()
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
