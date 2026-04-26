@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/internal/metrics/exporter"
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
@@ -21,6 +23,19 @@ const (
 	testSecret      = "test-secret"
 	testInvalidJSON = `{"invalid json`
 )
+
+func testClaims(expIn time.Duration) TokenClaims {
+	now := time.Now()
+	return TokenClaims{
+		Role:    "admin",
+		Version: tokenVersion,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    tokenIssuer,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(expIn)),
+		},
+	}
+}
 
 // TestHandleHealthz tests the health check endpoint
 // TestHandleHealthz 测试健康检查端点
@@ -408,11 +423,7 @@ func TestParseIPPortAction(t *testing.T) {
 // TestSignToken tests the signToken function
 // TestSignToken 测试 signToken 函数
 func TestSignToken(t *testing.T) {
-	claims := TokenClaims{
-		Role: "admin",
-		Exp:  time.Now().Add(1 * time.Hour).Unix(),
-		Iat:  time.Now().Unix(),
-	}
+	claims := testClaims(1 * time.Hour)
 
 	token, err := signToken(claims, testSecret)
 	assert.NoError(t, err)
@@ -427,11 +438,7 @@ func TestSignToken(t *testing.T) {
 // TestSignToken_EmptySecret tests signToken with empty secret
 // TestSignToken_EmptySecret 测试空密钥的 signToken
 func TestSignToken_EmptySecret(t *testing.T) {
-	claims := TokenClaims{
-		Role: "admin",
-		Exp:  time.Now().Add(1 * time.Hour).Unix(),
-		Iat:  time.Now().Unix(),
-	}
+	claims := testClaims(1 * time.Hour)
 
 	token, err := signToken(claims, "")
 	assert.NoError(t, err)
@@ -441,52 +448,37 @@ func TestSignToken_EmptySecret(t *testing.T) {
 // TestVerifyToken tests the verifyToken function
 // TestVerifyToken 测试 verifyToken 函数
 func TestVerifyToken(t *testing.T) {
-	// Create a valid token
-	// 创建一个有效令牌
-	claims := TokenClaims{
-		Role: "admin",
-		Exp:  time.Now().Add(1 * time.Hour).Unix(),
-		Iat:  time.Now().Unix(),
-	}
+	claims := testClaims(1 * time.Hour)
 	token, err := signToken(claims, testSecret)
 	assert.NoError(t, err)
 
-	// Verify the token
-	// 验证令牌
 	verifiedClaims, err := verifyToken(token, testSecret)
 	assert.NoError(t, err)
 	assert.Equal(t, "admin", verifiedClaims.Role)
+	assert.Equal(t, tokenVersion, verifiedClaims.Version)
+	assert.Equal(t, tokenIssuer, verifiedClaims.Issuer)
 }
 
 // TestVerifyToken_InvalidFormat tests verifyToken with invalid format
 // TestVerifyToken_InvalidFormat 测试格式无效的 verifyToken
 func TestVerifyToken_InvalidFormat(t *testing.T) {
-	// Token with wrong number of parts
-	// 部分数量错误的令牌
 	_, err := verifyToken("invalid.token", "secret")
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "format")
 
-	// Token with no parts
-	// 没有部分的令牌
 	_, err = verifyToken("invalidtoken", "secret")
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "format")
 }
 
 // TestVerifyToken_InvalidSignature tests verifyToken with invalid signature
 // TestVerifyToken_InvalidSignature 测试签名无效的 verifyToken
 func TestVerifyToken_InvalidSignature(t *testing.T) {
 	wrongSecret := "wrong-secret"
-
-	claims := TokenClaims{
-		Role: "admin",
-		Exp:  time.Now().Add(1 * time.Hour).Unix(),
-		Iat:  time.Now().Unix(),
-	}
+	claims := testClaims(1 * time.Hour)
 	token, err := signToken(claims, testSecret)
 	assert.NoError(t, err)
 
-	// Verify with wrong secret
-	// 使用错误的密钥验证
 	_, err = verifyToken(token, wrongSecret)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "signature")
@@ -495,18 +487,11 @@ func TestVerifyToken_InvalidSignature(t *testing.T) {
 // TestVerifyToken_ExpiredToken tests verifyToken with expired token
 // TestVerifyToken_ExpiredToken 测试过期令牌的 verifyToken
 func TestVerifyToken_ExpiredToken(t *testing.T) {
-	// Create an expired token
-	// 创建一个过期的令牌
-	claims := TokenClaims{
-		Role: "admin",
-		Exp:  time.Now().Add(-1 * time.Hour).Unix(), // Expired 1 hour ago
-		Iat:  time.Now().Add(-2 * time.Hour).Unix(),
-	}
+	claims := testClaims(-1 * time.Hour)
+	claims.IssuedAt = jwt.NewNumericDate(time.Now().Add(-2 * time.Hour))
 	token, err := signToken(claims, testSecret)
 	assert.NoError(t, err)
 
-	// Verify should fail
-	// 验证应该失败
 	_, err = verifyToken(token, testSecret)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "expired")
@@ -515,24 +500,98 @@ func TestVerifyToken_ExpiredToken(t *testing.T) {
 // TestVerifyToken_InvalidBase64 tests verifyToken with invalid base64
 // TestVerifyToken_InvalidBase64 测试 base64 无效的 verifyToken
 func TestVerifyToken_InvalidBase64(t *testing.T) {
-	// Token with invalid base64 in payload
-	// 负载中 base64 无效的令牌
 	_, err := verifyToken("aGVhZGVy.!!invalid!!.c2ln", "secret")
 	assert.Error(t, err)
+}
+
+func TestVerifyToken_RejectsTamperedPayload(t *testing.T) {
+	claims := testClaims(1 * time.Hour)
+	token, err := signToken(claims, testSecret)
+	assert.NoError(t, err)
+
+	parts := strings.Split(token, ".")
+	assert.Len(t, parts, 3)
+
+	tamperedPayload := base64.RawURLEncoding.EncodeToString([]byte(`{"role":"user","ver":1}`))
+	tamperedToken := parts[0] + "." + tamperedPayload + "." + parts[2]
+
+	_, err = verifyToken(tamperedToken, testSecret)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "signature")
+}
+
+func TestVerifyToken_RejectsUnexpectedAlgorithm(t *testing.T) {
+	claims := testClaims(1 * time.Hour)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS384, claims)
+	signed, err := token.SignedString([]byte(testSecret))
+	assert.NoError(t, err)
+
+	_, err = verifyToken(signed, testSecret)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "signature")
+}
+
+func TestVerifyToken_RejectsUnsupportedVersion(t *testing.T) {
+	claims := testClaims(1 * time.Hour)
+	claims.Version = tokenVersion + 1
+	token, err := signToken(claims, testSecret)
+	assert.NoError(t, err)
+
+	_, err = verifyToken(token, testSecret)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported token version")
+}
+
+func TestVerifyToken_RejectsMissingRole(t *testing.T) {
+	claims := testClaims(1 * time.Hour)
+	claims.Role = ""
+	token, err := signToken(claims, testSecret)
+	assert.NoError(t, err)
+
+	_, err = verifyToken(token, testSecret)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "missing role")
+}
+
+func TestVerifyToken_RejectsTokenNotValidYet(t *testing.T) {
+	now := time.Now()
+	claims := TokenClaims{
+		Role:    "admin",
+		Version: tokenVersion,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    tokenIssuer,
+			IssuedAt:  jwt.NewNumericDate(now.Add(2 * time.Minute)),
+			NotBefore: jwt.NewNumericDate(now.Add(2 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(1 * time.Hour)),
+		},
+	}
+	token, err := signToken(claims, testSecret)
+	assert.NoError(t, err)
+
+	_, err = verifyToken(token, testSecret)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not valid yet")
 }
 
 // TestTokenClaims tests TokenClaims struct
 // TestTokenClaims 测试 TokenClaims 结构体
 func TestTokenClaims(t *testing.T) {
+	now := time.Unix(1234560000, 0)
 	claims := TokenClaims{
-		Role: "admin",
-		Exp:  1234567890,
-		Iat:  1234560000,
+		Role:    "admin",
+		Version: tokenVersion,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    tokenIssuer,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(time.Unix(1234567890, 0)),
+		},
 	}
 
 	assert.Equal(t, "admin", claims.Role)
-	assert.Equal(t, int64(1234567890), claims.Exp)
-	assert.Equal(t, int64(1234560000), claims.Iat)
+	assert.Equal(t, tokenVersion, claims.Version)
+	assert.Equal(t, tokenIssuer, claims.Issuer)
+	assert.Equal(t, int64(1234567890), claims.ExpiresAt.Unix())
+	assert.Equal(t, int64(1234560000), claims.IssuedAt.Unix())
 }
 
 // TestSignVerifyRoundTrip tests the full sign and verify cycle
@@ -553,11 +612,8 @@ func TestSignVerifyRoundTrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			claims := TokenClaims{
-				Role: tt.role,
-				Exp:  time.Now().Add(tt.expIn).Unix(),
-				Iat:  time.Now().Unix(),
-			}
+			claims := testClaims(tt.expIn)
+			claims.Role = tt.role
 
 			token, err := signToken(claims, secret)
 			assert.NoError(t, err)

@@ -1,0 +1,21 @@
+name: Setup Go and BPF
+description: Set up Go toolchain and install BPF build dependencies
+inputs:
+  go-version:
+    description: Go version to install
+    required: false
+    default: '1.24'
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache: true
+
+    - name: Install BPF dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang llvm gcc-multilib libbpf-dev

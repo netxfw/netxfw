@@ -339,7 +339,7 @@ func ForceCleanup(path string) error {
  * Pin 将 Map 保存到文件系统以进行持久化和外部访问。
  */
 func (m *Manager) Pin(path string) error {
-	if err := os.MkdirAll(path, 0755); err != nil {
+	if err := os.MkdirAll(path, 0750); err != nil {
 		return err
 	}
 

@@ -128,7 +128,7 @@ func (v *ConfigValidator) checkWhitelistBlacklistOverlap(cfg *Config, result *Va
 		}
 
 		for i, rule := range cfg.Port.IPPortRules {
-			if rule.Action == 0 {
+			if IsDenyIPPortRuleAction(rule.Action) {
 				rlNet := parseIPNet(rule.IP)
 				if rlNet == nil {
 					continue
@@ -150,7 +150,7 @@ func (v *ConfigValidator) checkIPPortRulePortConflicts(cfg *Config, result *Vali
 	}
 
 	for i, rule := range cfg.Port.IPPortRules {
-		if rule.Action == 0 && allowedPortSet[rule.Port] {
+		if IsDenyIPPortRuleAction(rule.Action) && allowedPortSet[rule.Port] {
 			result.AddWarning(fmt.Sprintf("port.ip_port_rules[%d]", i),
 				fmt.Sprintf("Deny rule for port %d conflicts with global allowed port %d", rule.Port, rule.Port), rule.Port)
 		}

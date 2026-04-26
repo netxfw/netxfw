@@ -27,6 +27,7 @@ linters:
     - goconst
     - gocritic
     - prealloc
+    - gosec
 
 linters-settings:
   errcheck:
@@ -47,6 +48,10 @@ linters-settings:
   goconst:
     min-len: 3
     min-occurrences: 3
+
+  gosec:
+    excludes:
+      - G115
 
   revive:
     rules:
@@ -99,7 +104,6 @@ issues:
       linters:
         - dupl
         - gocyclo
-        - gosec
         - errcheck
         - revive
         - unusedwrite
@@ -113,8 +117,17 @@ issues:
         - revive
         - unusedwrite
         - govet
+        - gosec
 
-    - path: cmd/
+    - path: cmd/agent/system_display\.go
+      linters:
+        - errcheck
+
+    - path: cmd/agent/system_stats\.go
+      linters:
+        - errcheck
+
+    - path: cmd/agent/system_types\.go
       linters:
         - errcheck
 
@@ -129,6 +142,18 @@ issues:
     - path: scripts/
       linters:
         - gocyclo
+
+    - path: cmd/
+      linters:
+        - gosec
+
+    - path: tools/
+      linters:
+        - gosec
+
+    - path: pkg/
+      linters:
+        - gosec
 
     - linters:
         - staticcheck
@@ -146,6 +171,11 @@ issues:
         - staticcheck
       text: "SA1012:"
 
+  exclude-files:
+    - internal/datapath/xdp/backend/netxfw_bpfeb\.go
+    - internal/datapath/xdp/backend/netxfw_bpfel\.go
+
+  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
   new: false

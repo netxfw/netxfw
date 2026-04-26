@@ -63,7 +63,7 @@ func (cm *CheckpointManager) Save() {
 	}
 
 	// Ensure directory exists
-	if err := os.MkdirAll("/var/lib/netxfw", 0755); err != nil {
+	if err := os.MkdirAll("/var/lib/netxfw", 0750); err != nil {
 		cm.logger.Warnf("[WARN]  Failed to create checkpoint directory: %v", err)
 		return
 	}

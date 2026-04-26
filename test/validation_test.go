@@ -101,6 +101,24 @@ func TestConfigValidation(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "Legacy Deny Action",
+			config: types.GlobalConfig{
+				Port: types.PortConfig{
+					IPPortRules: []types.IPPortRule{{IP: "192.0.2.0/24", Port: 80, Action: 2}},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Invalid Port Action",
+			config: types.GlobalConfig{
+				Port: types.PortConfig{
+					IPPortRules: []types.IPPortRule{{IP: "192.0.2.0/24", Port: 80, Action: 3}},
+				},
+			},
+			wantErr: true,
+		},
+		{
 			name: "Invalid LogEngine Action",
 			config: types.GlobalConfig{
 				LogEngine: types.LogEngineConfig{

@@ -21,26 +21,31 @@ jobs:
       - name: Run docs quality gates
         run: make docs-check
 
-  lint:
-    name: Lint
+  generate-check:
+    name: Generate Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-          cache: true
+      - name: Set up Go and BPF toolchain
+        uses: ./.github/actions/setup-go-bpf
 
-      - name: Install BPF dependencies
+      - name: Verify generated artifacts are up to date
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
+          make generate
+          git diff --exit-code
 
-      - name: Generate BPF code
-        run: make generate
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: [generate-check]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go and BPF toolchain
+        uses: ./.github/actions/setup-go-bpf
 
       - name: Run golangci-lint
         run: make lint
@@ -48,23 +53,13 @@ jobs:
   vet:
     name: Vet
     runs-on: ubuntu-latest
+    needs: [generate-check]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-          cache: true
-
-      - name: Install BPF dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
-
-      - name: Generate BPF code
-        run: make generate
+      - name: Set up Go and BPF toolchain
+        uses: ./.github/actions/setup-go-bpf
 
       - name: Run go vet
         run: go vet ./...
@@ -77,19 +72,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-          cache: true
-
-      - name: Install BPF dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
-
-      - name: Generate BPF code
-        run: make generate
+      - name: Set up Go and BPF toolchain
+        uses: ./.github/actions/setup-go-bpf
 
       - name: Run unit tests only
         run: |
@@ -108,24 +92,13 @@ jobs:
     name: Coverage
     runs-on: ubuntu-latest
     needs: [test]
-    continue-on-error: true  # Coverage issues shouldn't block the build
+    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-          cache: true
-
-      - name: Install BPF dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
-
-      - name: Generate BPF code
-        run: make generate
+      - name: Set up Go and BPF toolchain
+        uses: ./.github/actions/setup-go-bpf
 
       - name: Generate coverage report
         run: |
@@ -161,19 +134,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-          cache: true
-
-      - name: Install BPF dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
-
-      - name: Generate BPF code
-        run: make generate
+      - name: Set up Go and BPF toolchain
+        uses: ./.github/actions/setup-go-bpf
 
       - name: Run unified quality gate
         run: make check
@@ -186,19 +148,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-          cache: true
-
-      - name: Install BPF dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
-
-      - name: Generate BPF code
-        run: make generate
+      - name: Set up Go and BPF toolchain
+        uses: ./.github/actions/setup-go-bpf
 
       - name: Build
         run: |
@@ -220,20 +171,16 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    continue-on-error: true  # Security issues shouldn't block the build
+    continue-on-error: true
+    needs: [generate-check]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install BPF dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm gcc-multilib libbpf-dev
-
-      - name: Generate BPF code
-        run: make generate
+      - name: Set up Go and BPF toolchain
+        uses: ./.github/actions/setup-go-bpf
 
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@master
+        uses: securego/gosec@v2.22.9
         with:
           args: ./...

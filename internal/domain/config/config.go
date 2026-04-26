@@ -2,208 +2,19 @@ package config
 
 import (
 	"fmt"
-	"net"
 	"strings"
 
-	"github.com/netxfw/netxfw/internal/utils/logger"
+	"github.com/netxfw/netxfw/pkg/configvalidate"
 )
 
 const (
-	// BPFPluginSlotStart and BPFPluginSlotEnd define the supported jump-table
-	// slot range for configured datapath plugins.
-	BPFPluginSlotStart = 2
-	BPFPluginSlotEnd   = 14
+	// IPPortRuleActionDeny denies traffic matching the rule.
+	IPPortRuleActionDeny = configvalidate.IPPortRuleActionDeny
+	// IPPortRuleActionAllow allows traffic matching the rule.
+	IPPortRuleActionAllow = configvalidate.IPPortRuleActionAllow
+	// IPPortRuleActionDenyCompat is a legacy deny encoding kept for compatibility.
+	IPPortRuleActionDenyCompat = configvalidate.IPPortRuleActionDenyCompat
 )
-
-type Config struct {
-	Cluster   ClusterConfig     `toml:"cluster"`
-	Base      BaseConfig        `toml:"base"`
-	Web       WebConfig         `toml:"web"`
-	Metrics   MetricsConfig     `toml:"metrics"`
-	Port      PortConfig        `toml:"port"`
-	Conntrack ConntrackConfig   `toml:"conntrack"`
-	RateLimit RateLimitConfig   `toml:"rate_limit"`
-	LogEngine LogEngineConfig   `toml:"log_engine"`
-	Capacity  CapacityConfig    `toml:"capacity"`
-	Logging   LoggingConfig     `toml:"logging"`
-	Cloud     CloudConfig       `toml:"cloud"`
-	AI        AIConfig          `toml:"-"`
-	MCP       MCPConfig         `toml:"-"`
-	BPFPlugin BPFPluginSettings `toml:"bpf_plugin"`
-	Modules   []ModuleConfig    `toml:"modules"`
-}
-
-type ModuleConfig struct {
-	Name     string `toml:"name"`
-	Enabled  bool   `toml:"enabled"`
-	Priority int    `toml:"priority"`
-}
-
-type LogEngineConfig struct {
-	Enabled   bool            `toml:"enabled"`
-	Workers   int             `toml:"workers"`
-	MaxWindow int             `toml:"max_window"`
-	Rules     []LogEngineRule `toml:"rules"`
-}
-
-type LogEngineRule struct {
-	ID           string   `toml:"id"`
-	Path         string   `toml:"path"`
-	TailPosition string   `toml:"tail_position"`
-	Expression   string   `toml:"expression"`
-	Action       string   `toml:"action"`
-	Keywords     []string `toml:"keywords"`
-	Contains     []string `toml:"contains"`
-	AnyContains  []string `toml:"any_contains"`
-	NotContains  []string `toml:"not_contains"`
-	And          []string `toml:"and"`
-	Is           []string `toml:"is"`
-	Or           []string `toml:"or"`
-	Not          []string `toml:"not"`
-	Regex        string   `toml:"regex"`
-	Threshold    int      `toml:"threshold"`
-	Interval     int      `toml:"interval"`
-	TTL          string   `toml:"ttl"`
-}
-
-type RateLimitConfig struct {
-	Enabled         bool            `toml:"enabled"`
-	AutoBlock       bool            `toml:"auto_block"`
-	AutoBlockExpiry string          `toml:"auto_block_expiry"`
-	Rules           []RateLimitRule `toml:"rules"`
-}
-
-type RateLimitRule struct {
-	IP    string `toml:"ip"`
-	Rate  uint64 `toml:"rate"`
-	Burst uint64 `toml:"burst"`
-}
-
-type WebConfig struct {
-	Enabled bool   `toml:"enabled"`
-	Port    int    `toml:"port"`
-	Token   string `toml:"token"`
-}
-
-type AIConfig struct {
-	Enabled bool   `toml:"-"`
-	Port    int    `toml:"-"`
-	Model   string `toml:"-"`
-	APIKey  string `toml:"-"`
-	BaseURL string `toml:"-"`
-}
-
-type MCPConfig struct {
-	Enabled bool   `toml:"-"`
-	Port    int    `toml:"-"`
-	Mode    string `toml:"-"`
-}
-
-type CloudConfig struct {
-	Enabled       bool                `toml:"enabled"`
-	Provider      string              `toml:"provider"`
-	ProxyProtocol ProxyProtocolConfig `toml:"proxy_protocol"`
-}
-
-type ProxyProtocolConfig struct {
-	Enabled         bool     `toml:"enabled"`
-	TrustedLBRanges []string `toml:"trusted_lb_ranges"`
-	CacheTTL        string   `toml:"cache_ttl"`
-}
-
-type ClusterConfig struct {
-	Enabled    bool   `toml:"enabled"`
-	ConfigPath string `toml:"configpath"`
-}
-
-type CapacityConfig struct {
-	Conntrack       int `toml:"-"`
-	LockList        int `toml:"lock_list"`
-	DynLockList     int `toml:"dyn_lock_list"`
-	Whitelist       int `toml:"whitelist"`
-	IPPortRules     int `toml:"ip_port_rules"`
-	AllowedPorts    int `toml:"allowed_ports"`
-	RateLimits      int `toml:"rate_limits"`
-	DropReasonStats int `toml:"drop_reason_stats"`
-	PassReasonStats int `toml:"pass_reason_stats"`
-}
-
-type BaseConfig struct {
-	DefaultDeny            bool     `toml:"default_deny"`
-	AllowReturnTraffic     bool     `toml:"allow_return_traffic"`
-	AllowICMP              bool     `toml:"allow_icmp"`
-	Interfaces             []string `toml:"interfaces"`
-	EnableAFXDP            bool     `toml:"enable_af_xdp"`
-	StrictProtocol         bool     `toml:"strict_protocol"`
-	DropFragments          bool     `toml:"drop_fragments"`
-	StrictTCP              bool     `toml:"strict_tcp"`
-	SYNLimit               bool     `toml:"syn_limit"`
-	BogonFilter            bool     `toml:"bogon_filter"`
-	ICMPRate               uint64   `toml:"icmp_rate"`
-	ICMPBurst              uint64   `toml:"icmp_burst"`
-	Whitelist              []string `toml:"whitelist"`
-	LockListFile           string   `toml:"lock_list_file"`
-	LockListBinary         string   `toml:"lock_list_binary"`
-	LockListMergeThreshold int      `toml:"lock_list_merge_threshold"`
-	LockListV4Mask         int      `toml:"lock_list_v4_mask"`
-	LockListV6Mask         int      `toml:"lock_list_v6_mask"`
-	BPFPinPath             string   `toml:"bpf_pin_path"`
-	EnableExpiry           bool     `toml:"enable_expiry"`
-	CleanupInterval        string   `toml:"cleanup_interval"`
-	PersistRules           bool     `toml:"persist_rules"`
-	EnablePprof            bool     `toml:"enable_pprof"`
-	PprofPort              int      `toml:"pprof_port"`
-	BackupKeep             int      `toml:"backup_keep"`
-}
-
-type ConntrackConfig struct {
-	Enabled    bool   `toml:"enabled"`
-	MaxEntries int    `toml:"max_entries"`
-	TCPTimeout string `toml:"tcp_timeout"`
-	UDPTimeout string `toml:"udp_timeout"`
-}
-
-type MetricsConfig struct {
-	Enabled           bool   `toml:"enabled"`
-	ServerEnabled     bool   `toml:"server_enabled"`
-	Port              int    `toml:"port"`
-	PushEnabled       bool   `toml:"push_enabled"`
-	PushGatewayAddr   string `toml:"push_gateway_addr"`
-	PushInterval      string `toml:"push_interval"`
-	TextfileEnabled   bool   `toml:"textfile_enabled"`
-	TextfilePath      string `toml:"textfile_path"`
-	TopN              int    `toml:"top_n"`
-	ThresholdCritical int    `toml:"threshold_critical"`
-	ThresholdHigh     int    `toml:"threshold_high"`
-	ThresholdMedium   int    `toml:"threshold_medium"`
-	StatsInterval     string `toml:"stats_interval"`
-	AvgPacketSize     int    `toml:"avg_packet_size"`
-}
-
-type PortConfig struct {
-	AllowedPorts []uint16     `toml:"allowed_ports"`
-	IPPortRules  []IPPortRule `toml:"ip_port_rules"`
-}
-
-type IPPortRule struct {
-	IP     string `toml:"ip"`
-	Port   uint16 `toml:"port"`
-	Action uint8  `toml:"action"`
-}
-
-type BPFPluginConfig struct {
-	Path        string `toml:"path"`
-	Index       int    `toml:"index"`
-	Enabled     bool   `toml:"enabled"`
-	Description string `toml:"description"`
-}
-
-type BPFPluginSettings struct {
-	Enabled bool              `toml:"enabled"`
-	Plugins []BPFPluginConfig `toml:"plugins"`
-}
-
-type LoggingConfig = logger.LoggingConfig
 
 func (c *BPFPluginConfig) Validate() error {
 	if c.Path == "" {
@@ -269,7 +80,7 @@ func (c *BaseConfig) Validate() error {
 		return fmt.Errorf("invalid lock_list_v6_mask: %d (must be 0-128)", c.LockListV6Mask)
 	}
 	for i, cidr := range c.Whitelist {
-		if err := validateCIDROrIP(cidr); err != nil {
+		if err := configvalidate.ValidateCIDROrIPForConfig(cidr); err != nil {
 			return fmt.Errorf("invalid whitelist entry #%d (%s): %w", i, cidr, err)
 		}
 	}
@@ -281,10 +92,10 @@ func (c *PortConfig) Validate() error {
 		if rule.Port == 0 {
 			return fmt.Errorf("invalid ip_port_rule #%d: port cannot be 0", i)
 		}
-		if rule.Action != 0 && rule.Action != 1 && rule.Action != 2 {
-			return fmt.Errorf("invalid ip_port_rule #%d: action must be 0/2 (deny) or 1 (allow)", i)
+		if err := configvalidate.ValidateIPPortRuleAction(rule.Action); err != nil {
+			return fmt.Errorf("invalid ip_port_rule #%d: %w", i, err)
 		}
-		if err := validateCIDROrIP(rule.IP); err != nil {
+		if err := configvalidate.ValidateCIDROrIPForConfig(rule.IP); err != nil {
 			return fmt.Errorf("invalid ip_port_rule #%d IP (%s): %w", i, rule.IP, err)
 		}
 	}
@@ -293,7 +104,7 @@ func (c *PortConfig) Validate() error {
 
 func (c *RateLimitConfig) Validate() error {
 	for i, rule := range c.Rules {
-		if err := validateCIDROrIP(rule.IP); err != nil {
+		if err := configvalidate.ValidateCIDROrIPForConfig(rule.IP); err != nil {
 			return fmt.Errorf("invalid rate_limit rule #%d IP (%s): %w", i, rule.IP, err)
 		}
 	}
@@ -320,26 +131,17 @@ func (c *LogEngineConfig) Validate() error {
 	return nil
 }
 
-func validateCIDROrIP(s string) error {
-	if _, _, err := net.ParseCIDR(s); err == nil {
-		return nil
-	}
-	if ip := net.ParseIP(s); ip != nil {
-		return nil
-	}
-	host, _, err := net.SplitHostPort(s)
-	if err == nil {
-		if _, _, cidrErr := net.ParseCIDR(host); cidrErr == nil {
-			return nil
-		}
-		if ip := net.ParseIP(host); ip != nil {
-			return nil
-		}
-	}
-	return fmt.Errorf("invalid CIDR or IP format")
+// ValidateIPPortRuleAction validates the configured action value for IP+port rules.
+func ValidateIPPortRuleAction(action uint8) error {
+	return configvalidate.ValidateIPPortRuleAction(action)
+}
+
+// IsDenyIPPortRuleAction reports whether the action is a deny semantic, including legacy encodings.
+func IsDenyIPPortRuleAction(action uint8) bool {
+	return configvalidate.IsDenyIPPortRuleAction(action)
 }
 
 // ValidateCIDROrIPForConfig validates config CIDR/IP fields, including host:port forms.
 func ValidateCIDROrIPForConfig(s string) error {
-	return validateCIDROrIP(s)
+	return configvalidate.ValidateCIDROrIPForConfig(s)
 }

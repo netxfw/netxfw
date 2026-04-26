@@ -8,6 +8,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/cilium/ebpf v0.20.0
 	github.com/expr-lang/expr v1.17.8
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/klauspost/compress v1.18.4
 	github.com/nxadm/tail v1.4.11
 	github.com/prometheus/client_golang v1.23.2

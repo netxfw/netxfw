@@ -74,6 +74,7 @@ test:
 
 lint:
 	golangci-lint run --timeout=5m
+	gocyclo -over 15 ./internal/api ./internal/datapath/... ./internal/plugins/...
 
 check:
 	bash ./scripts/check_markdown_links.sh

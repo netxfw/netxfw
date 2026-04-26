@@ -262,14 +262,12 @@ func (v *ConfigValidator) validatePortConfig(cfg *PortConfig, result *Validation
 		if rule.Port == 0 {
 			result.AddError(fmt.Sprintf("port.ip_port_rules[%d].port", i), "Port 0 is not allowed in IP-port rules", rule.Port)
 		}
-		if rule.Action > 2 {
-			result.AddError(fmt.Sprintf("port.ip_port_rules[%d].action", i), "Action must be 0 (deny) or 1 (allow)", rule.Action)
+		if err := ValidateIPPortRuleAction(rule.Action); err != nil {
+			result.AddError(fmt.Sprintf("port.ip_port_rules[%d].action", i), err.Error(), rule.Action)
 		}
-		if _, _, err := net.ParseCIDR(rule.IP); err != nil {
-			if ip := net.ParseIP(rule.IP); ip == nil {
-				result.AddError(fmt.Sprintf("port.ip_port_rules[%d].ip", i),
-					fmt.Sprintf("Invalid IP or CIDR format: %s", rule.IP), rule.IP)
-			}
+		if err := ValidateCIDROrIPForConfig(rule.IP); err != nil {
+			result.AddError(fmt.Sprintf("port.ip_port_rules[%d].ip", i),
+				fmt.Sprintf("Invalid IP or CIDR format: %s", rule.IP), rule.IP)
 		}
 	}
 }

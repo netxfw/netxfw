@@ -2,8 +2,6 @@ package api
 
 import (
 	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	jwt "github.com/golang-jwt/jwt/v5"
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 )
@@ -23,6 +22,13 @@ var (
 	lastLoad    time.Time
 	cacheTTL    = 5 * time.Second
 )
+
+const (
+	tokenVersion = 1
+	tokenIssuer  = "netxfw"
+)
+
+var tokenClockSkew = 30 * time.Second
 
 // 登录速率限制
 var (
@@ -100,71 +106,67 @@ func checkLoginRateLimit(ip string) error {
 	return nil
 }
 
-// TokenClaims represents the payload of the JWT-like token
-// TokenClaims 代表类似 JWT 的令牌负载
+// TokenClaims represents the payload of the session JWT.
+// TokenClaims 代表会话 JWT 的负载。
 type TokenClaims struct {
-	Role string `json:"role"`
-	Exp  int64  `json:"exp"`
-	Iat  int64  `json:"iat"`
+	Role    string `json:"role"`
+	Version int    `json:"ver"`
+	jwt.RegisteredClaims
 }
 
-// signToken creates a signed token string
-// signToken 创建一个已签名的令牌字符串
+// signToken creates a signed HS256 JWT.
+// signToken 创建一个已签名的 HS256 JWT。
 func signToken(claims TokenClaims, secret string) (string, error) {
-	header := `{"alg":"HS256","typ":"JWT"}`
-	headerEnc := base64.RawURLEncoding.EncodeToString([]byte(header))
-
-	payloadBytes, err := json.Marshal(claims)
-	if err != nil {
-		return "", err
-	}
-	payloadEnc := base64.RawURLEncoding.EncodeToString(payloadBytes)
-
-	unsigned := headerEnc + "." + payloadEnc
-
-	h := hmac.New(sha256.New, []byte(secret))
-	h.Write([]byte(unsigned))
-	sig := h.Sum(nil)
-	sigEnc := base64.RawURLEncoding.EncodeToString(sig)
-
-	return unsigned + "." + sigEnc, nil
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token.Header["typ"] = "JWT"
+	return token.SignedString([]byte(secret))
 }
 
-// verifyToken checks the signature and expiration of the token
-// verifyToken 检查令牌的签名和过期时间
+// verifyToken checks the signature, claims and expiration of the token.
+// verifyToken 检查令牌的签名、声明和过期时间。
 func verifyToken(tokenString string, secret string) (*TokenClaims, error) {
-	parts := strings.Split(tokenString, ".")
-	if len(parts) != 3 {
-		return nil, errors.New("invalid token format")
-	}
-
-	unsigned := parts[0] + "." + parts[1]
-	sigEnc := parts[2]
-
-	h := hmac.New(sha256.New, []byte(secret))
-	h.Write([]byte(unsigned))
-	expectedSig := h.Sum(nil)
-	expectedSigEnc := base64.RawURLEncoding.EncodeToString(expectedSig)
-
-	if !hmac.Equal([]byte(sigEnc), []byte(expectedSigEnc)) {
-		return nil, errors.New("invalid signature")
-	}
-
-	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
+	claims := &TokenClaims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
+		if token.Method == nil {
+			return nil, errors.New("missing signing method")
+		}
+		if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+			return nil, fmt.Errorf("unexpected signing method: %s", token.Method.Alg())
+		}
+		return []byte(secret), nil
+	},
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithIssuer(tokenIssuer),
+		jwt.WithLeeway(tokenClockSkew),
+	)
 	if err != nil {
-		return nil, err
+		return nil, normalizeJWTError(err)
 	}
-
-	var claims TokenClaims
-	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
-		return nil, err
+	if !token.Valid {
+		return nil, errors.New("invalid token")
 	}
-
-	if time.Now().Unix() > claims.Exp {
-		return nil, errors.New("token expired")
+	if claims.Version != tokenVersion {
+		return nil, fmt.Errorf("unsupported token version: %d", claims.Version)
 	}
+	if claims.Role == "" {
+		return nil, errors.New("missing role claim")
+	}
+	return claims, nil
+}
 
-	return &claims, nil
+func normalizeJWTError(err error) error {
+	switch {
+	case errors.Is(err, jwt.ErrTokenMalformed):
+		return errors.New("invalid token format")
+	case errors.Is(err, jwt.ErrTokenSignatureInvalid):
+		return errors.New("invalid signature")
+	case errors.Is(err, jwt.ErrTokenExpired):
+		return errors.New("token expired")
+	case errors.Is(err, jwt.ErrTokenNotValidYet):
+		return errors.New("token not valid yet")
+	default:
+		return err
+	}
 }
 
 // withAuth is a middleware for token-based authentication (Supports Bearer Token & Legacy Query Param)
@@ -255,10 +257,15 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate JWT
+	now := time.Now()
 	claims := TokenClaims{
-		Role: "admin",
-		Exp:  time.Now().Add(24 * time.Hour).Unix(), // 24 hour session
-		Iat:  time.Now().Unix(),
+		Role:    "admin",
+		Version: tokenVersion,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    tokenIssuer,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(24 * time.Hour)),
+		},
 	}
 
 	signedToken, err := signToken(claims, cfg.Web.Token)
