@@ -1,3 +1,4 @@
+// Package datapath provides datapath functionality.
 package datapath
 
 // SlotRange defines the supported datapath plugin jump-table range.

@@ -1,3 +1,4 @@
+// Package configfile provides configfile functionality.
 package configfile
 
 import _ "embed"

@@ -1,3 +1,4 @@
+// Package daemon provides daemon functionality.
 package daemon
 
 import (

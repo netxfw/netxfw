@@ -3,7 +3,7 @@ package xdp_test
 import (
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	xdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/stretchr/testify/assert"
 )
 

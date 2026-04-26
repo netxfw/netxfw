@@ -1,3 +1,4 @@
+// Package rule provides rule functionality.
 package rule
 
 import (

@@ -1,3 +1,4 @@
+// Package plugin provides plugin functionality.
 package plugin
 
 import (

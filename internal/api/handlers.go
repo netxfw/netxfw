@@ -125,5 +125,5 @@ func (s *Server) handleConntrack(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprint(w, uiHTML)
+	_, _ = fmt.Fprint(w, uiHTML)
 }

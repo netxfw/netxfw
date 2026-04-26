@@ -1,3 +1,4 @@
+// Package ipmerge provides ipmerge functionality.
 package ipmerge
 
 import (

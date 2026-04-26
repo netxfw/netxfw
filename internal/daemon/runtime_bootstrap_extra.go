@@ -39,14 +39,16 @@ func VerifyRuntimeConfigAndMaps(manager interface {
 	switch m := manager.(type) {
 	case *datapathprograms.Handle:
 		adapter := datapathprograms.NewAdapter(m)
-		if _, err := appconfig.VerifyAndRepair(context.Background(), ports.SDKConfigReconcilerAdapter{adapter}, ports.ConfigFromSDK(globalCfg)); err != nil {
+		reconciler := ports.SDKConfigReconcilerAdapter{ManagerInterface: adapter}
+		if _, err := appconfig.VerifyAndRepair(context.Background(), reconciler, ports.ConfigFromSDK(globalCfg)); err != nil {
 			log.Warnf("[WARN]  Startup consistency check failed: %v", err)
 		} else {
 			log.Info("[OK] Startup consistency check passed (Config synced to BPF).")
 		}
 		return
 	case sdk.ManagerInterface:
-		if _, err := appconfig.VerifyAndRepair(context.Background(), ports.SDKConfigReconcilerAdapter{m}, ports.ConfigFromSDK(globalCfg)); err != nil {
+		reconciler := ports.SDKConfigReconcilerAdapter{ManagerInterface: m}
+		if _, err := appconfig.VerifyAndRepair(context.Background(), reconciler, ports.ConfigFromSDK(globalCfg)); err != nil {
 			log.Warnf("[WARN]  Startup consistency check failed: %v", err)
 		} else {
 			log.Info("[OK] Startup consistency check passed (Config synced to BPF).")

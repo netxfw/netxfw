@@ -1,4 +1,4 @@
-// internal/datapath/xdp/backend/lock.go
+// Package xdp provides xdp functionality.
 package xdp
 
 import (

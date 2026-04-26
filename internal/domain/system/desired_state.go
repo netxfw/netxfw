@@ -1,3 +1,4 @@
+// Package system provides system functionality.
 package system
 
 import (

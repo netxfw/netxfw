@@ -51,5 +51,5 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status":"ok"}`)
+	_, _ = fmt.Fprintf(w, `{"status":"ok"}`)
 }

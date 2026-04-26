@@ -1,3 +1,4 @@
+// Package fileutil provides fileutil functionality.
 package fileutil
 
 import (
@@ -14,18 +15,18 @@ func AtomicWriteFile(filename string, data []byte, perm os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpFile.Name()) // Clean up if something fails
+	defer func() { _ = os.Remove(tmpFile.Name()) }() // Clean up if something fails
 
 	if _, err := tmpFile.Write(data); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return err
 	}
 	if err := tmpFile.Chmod(perm); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return err
 	}
 	if err := tmpFile.Sync(); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return err
 	}
 	if err := tmpFile.Close(); err != nil {
@@ -77,11 +78,11 @@ func AppendToFile(filePath, line string) error {
 		}
 	}
 
-	f, err := os.OpenFile(safePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(safePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	_, err = f.WriteString(line + "\n")
 	return err

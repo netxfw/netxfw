@@ -1,3 +1,4 @@
+// Package optimizer provides optimizer functionality.
 package optimizer
 
 import (

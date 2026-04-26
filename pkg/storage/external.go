@@ -1,3 +1,4 @@
+// Package storage provides storage functionality.
 package storage
 
 import "errors"

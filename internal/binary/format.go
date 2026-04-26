@@ -1,3 +1,4 @@
+// Package binary provides binary functionality.
 package binary
 
 import (

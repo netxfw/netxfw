@@ -16,6 +16,8 @@ import (
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
+const ipPortActionAllow = "allow"
+
 func ExportStructured(w io.Writer, gateway ConfigGateway, fw *sdk.SDK, filePath, format string) error {
 	exportData, err := collectExportData(fw)
 	if err != nil {
@@ -109,15 +111,17 @@ func ExportBinary(w io.Writer, fw *sdk.SDK, filePath string) error {
 		return err
 	}
 	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	if err := binary.Encode(tmpFile, records); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return err
 	}
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
 
-	zstdCmd := exec.Command("zstd", "-f", "-o", filePath, tmpPath)
+	zstdCmd := exec.Command("zstd", "-f", "-o", filePath, tmpPath) // #nosec G204 // command is fixed and paths are internal export destinations
 	if _, err := zstdCmd.CombinedOutput(); err != nil {
 		return err
 	}
@@ -151,7 +155,7 @@ func collectExportData(fw *sdk.SDK) (ExportData, error) {
 	for _, rule := range ipportRules {
 		action := "deny"
 		if rule.Action == 1 {
-			action = "allow"
+			action = ipPortActionAllow
 		}
 		exportData.IPPort = append(exportData.IPPort, ExportRule{
 			Type:   "ipport",

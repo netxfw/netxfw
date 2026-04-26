@@ -1,6 +1,7 @@
 package configfile
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"sort"
@@ -28,7 +29,7 @@ func SaveWithBackup(path string, cfg *domainconfig.Config, keepBackups int) erro
 		return err
 	}
 
-	if readErr == nil && string(oldData) == string(newData) {
+	if readErr == nil && bytes.Equal(oldData, newData) {
 		return nil
 	}
 

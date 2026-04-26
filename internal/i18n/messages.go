@@ -1,3 +1,4 @@
+// Package i18n provides i18n functionality.
 package i18n
 
 import (

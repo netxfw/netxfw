@@ -1,3 +1,4 @@
+// Package errors provides errors functionality.
 package errors
 
 import (

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/netxfw/netxfw/internal/daemon/engine"
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	xdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 

@@ -3,7 +3,6 @@ package common
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"sync"
@@ -115,5 +114,5 @@ func ImportIPPortRulesFromFile(s *sdk.SDK, path string) error {
 type stdoutWriter struct{}
 
 func (stdoutWriter) Write(p []byte) (int, error) {
-	return io.WriteString(os.Stdout, string(p))
+	return os.Stdout.WriteString(string(p))
 }

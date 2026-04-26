@@ -1,3 +1,4 @@
+// Package logger provides logger functionality.
 package logger
 
 import (
@@ -36,7 +37,7 @@ func Init(cfg LoggingConfig) {
 	if cfg.Enabled && cfg.Path != "" {
 		// Create directory if not exists
 		dir := filepath.Dir(cfg.Path)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0750); err != nil {
 			// Log to stdout if we can't create the directory
 			// 如果无法创建目录，则输出到 stdout
 			globalLogger = zap.NewExample().Sugar()

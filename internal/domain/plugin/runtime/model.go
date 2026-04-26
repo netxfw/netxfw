@@ -1,3 +1,4 @@
+// Package runtime provides runtime functionality.
 package runtime
 
 // Kind identifies the runtime plugin criticality level.

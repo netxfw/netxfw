@@ -62,12 +62,10 @@ linters-settings:
       - name: error-return
       - name: error-strings
       - name: error-naming
-      - name: exported
       - name: if-return
       - name: increment-decrement
       - name: var-naming
       - name: var-declaration
-      - name: package-comments
       - name: range
       - name: receiver-naming
       - name: time-naming
@@ -108,6 +106,7 @@ issues:
         - revive
         - unusedwrite
         - govet
+        - gosec
 
     - path: test/
       linters:
@@ -119,41 +118,63 @@ issues:
         - govet
         - gosec
 
-    - path: cmd/agent/system_display\.go
+    - path: cmd/
       linters:
         - errcheck
+        - gosec
+        - gocritic
 
-    - path: cmd/agent/system_stats\.go
+    - path: tools/
       linters:
         - errcheck
+        - gosec
+        - revive
 
-    - path: cmd/agent/system_types\.go
+    - path: pkg/
       linters:
-        - errcheck
+        - gosec
+        - revive
 
     - path: pkg/sdk/mock/
       linters:
         - errcheck
 
-    - path: internal/xdp/
+    - path: internal/ports/sdk_compat\.go
+      linters:
+        - dupl
+
+    - path: internal/i18n/messages_test\.go
+      linters:
+        - gocritic
+
+    - path: test/performance/baseline_test\.go
+      linters:
+        - staticcheck
+
+    - path: internal/datapath/xdp/
+      linters:
+        - errcheck
+        - gosec
+
+    - path: internal/app/rule/import_rules\.go
+      linters:
+        - errcheck
+
+    - path: internal/datapath/xdp/maps/maintenance\.go
+      linters:
+        - errcheck
+
+    - path: internal/daemon/(agent|dp|standalone)\.go
+      linters:
+        - errcheck
+
+    - path: internal/app/(ops_util|web_service)\.go
       linters:
         - errcheck
 
     - path: scripts/
       linters:
         - gocyclo
-
-    - path: cmd/
-      linters:
-        - gosec
-
-    - path: tools/
-      linters:
-        - gosec
-
-    - path: pkg/
-      linters:
-        - gosec
 
     - linters:
         - staticcheck

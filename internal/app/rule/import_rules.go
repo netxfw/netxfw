@@ -30,7 +30,7 @@ func ImportText(w io.Writer, fw *sdk.SDK, ruleType string, filePath string) erro
 		return err
 	}
 
-	file, err := os.Open(safePath)
+	file, err := os.Open(safePath) // #nosec G304 // path validated via validateImportPath
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
 	}
@@ -120,7 +120,7 @@ func ImportBinary(w io.Writer, fw *sdk.SDK, filePath string) error {
 		return err
 	}
 
-	file, err := os.Open(safePath)
+	file, err := os.Open(safePath) // #nosec G304 // path validated via validateImportPath
 	if err != nil {
 		return err
 	}
@@ -163,7 +163,7 @@ func parseImportFile(filePath string, isJSON bool) (*ExportData, error) {
 		return nil, err
 	}
 
-	data, err := os.ReadFile(safePath)
+	data, err := os.ReadFile(safePath) // #nosec G304 // path validated via validateImportPath
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}

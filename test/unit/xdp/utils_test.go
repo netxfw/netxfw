@@ -5,7 +5,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	xdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 )
 
 // TestNewLpmKey tests LPM key creation

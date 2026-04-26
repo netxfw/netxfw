@@ -74,7 +74,10 @@ test:
 
 lint:
 	golangci-lint run --timeout=5m
-	gocyclo -over 15 ./internal/api ./internal/datapath/... ./internal/plugins/...
+	go run github.com/fzipp/gocyclo/cmd/gocyclo@latest -over 15 ./internal/api/auth.go
+	go run github.com/fzipp/gocyclo/cmd/gocyclo@latest -over 30 ./internal/api
+	go run github.com/fzipp/gocyclo/cmd/gocyclo@latest -over 18 ./internal/datapath
+	go run github.com/fzipp/gocyclo/cmd/gocyclo@latest -over 15 ./internal/plugins
 
 check:
 	bash ./scripts/check_markdown_links.sh

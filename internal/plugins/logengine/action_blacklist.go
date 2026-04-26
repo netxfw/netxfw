@@ -1,3 +1,4 @@
+// Package logengine provides logengine functionality.
 package logengine
 
 import (

@@ -1,3 +1,4 @@
+// Package xdputil provides xdputil functionality.
 package xdputil
 
 import (

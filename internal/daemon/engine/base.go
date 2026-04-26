@@ -1,3 +1,4 @@
+// Package engine provides engine functionality.
 package engine
 
 import sdk "github.com/netxfw/netxfw/pkg/sdk"

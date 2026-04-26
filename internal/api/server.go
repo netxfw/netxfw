@@ -139,9 +139,6 @@ func (s *Server) UIHandler() http.Handler {
 // Handler 返回 API 和 UI 的 http.Handler。
 func (s *Server) Handler() http.Handler {
 	apiHandler := s.APIHandler()
-	if apiHandler == nil {
-		return nil
-	}
 	uiHandler := s.UIHandler()
 	if uiHandler == nil {
 		return nil

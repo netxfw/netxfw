@@ -1,3 +1,4 @@
+// Package version provides version functionality.
 package version
 
 // Version is the current version of netxfw.

@@ -128,7 +128,7 @@ func ResetFirewall(s *sdk.SDK) ResetResult {
 
 // DetectSSHPort reads sshd_config and returns the configured port, falling back to 22.
 func DetectSSHPort(configPath string) uint16 {
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath) // #nosec G304 // sshd_config path is caller-controlled configuration input
 	if err != nil {
 		return 22
 	}

@@ -1,3 +1,4 @@
+// Package configvalidate provides configvalidate functionality.
 package configvalidate
 
 import (

@@ -1,3 +1,4 @@
+// Package main provides main functionality.
 package main
 
 func main() {

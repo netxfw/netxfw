@@ -1,3 +1,4 @@
+// Package api provides api functionality.
 package api
 
 import (
@@ -87,7 +88,7 @@ func checkLoginRateLimit(ip string) error {
 
 	// 检查是否已锁定
 	if time.Now().Before(attempt.LockedUntil) {
-		return fmt.Errorf("too many attempts, try again after %v", attempt.LockedUntil.Sub(time.Now()))
+		return fmt.Errorf("too many attempts, try again after %v", time.Until(attempt.LockedUntil))
 	}
 
 	// 重置过期记录

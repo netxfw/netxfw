@@ -1,3 +1,4 @@
+// Package web provides web functionality.
 package web
 
 import (

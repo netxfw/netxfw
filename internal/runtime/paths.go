@@ -1,3 +1,4 @@
+// Package runtime provides runtime functionality.
 package runtime
 
 const (

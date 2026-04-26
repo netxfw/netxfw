@@ -1,3 +1,4 @@
+// Package sdk provides sdk functionality.
 package sdk
 
 import (

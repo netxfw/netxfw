@@ -1,3 +1,4 @@
+// Package dp provides dp functionality.
 package dp
 
 import (

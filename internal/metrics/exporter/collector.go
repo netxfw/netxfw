@@ -1,3 +1,4 @@
+// Package exporter provides exporter functionality.
 package exporter
 
 import (

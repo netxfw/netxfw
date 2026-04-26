@@ -1,3 +1,4 @@
+// Package iputil provides iputil functionality.
 package iputil
 
 import (

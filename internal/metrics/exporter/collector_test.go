@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/netxfw/netxfw/internal/datapath/xdp/backend"
+	xdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	sharedmetrics "github.com/netxfw/netxfw/internal/metrics"
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
