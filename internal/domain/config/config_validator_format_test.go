@@ -34,3 +34,26 @@ func TestValidateSyntax_UsesStructuredFieldName(t *testing.T) {
 		t.Fatalf("expected config.syntax field, got %+v", result.Errors)
 	}
 }
+
+func TestValidateServiceBindAddresses(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Web.Enabled = true
+	cfg.Web.Bind = "not-an-ip"
+	cfg.Web.Token = "secret"
+	cfg.Metrics.Enabled = true
+	cfg.Metrics.ServerEnabled = true
+	cfg.Metrics.Bind = "0.0.0.0"
+	cfg.Base.EnablePprof = true
+	cfg.Base.PprofBind = "127.0.0.1"
+
+	result := NewConfigValidator().Validate(&cfg)
+	if result.Valid {
+		t.Fatalf("expected invalid bind address")
+	}
+	if len(result.Errors) == 0 || result.Errors[0].Field != "web.bind" {
+		t.Fatalf("expected web.bind error, got %+v", result.Errors)
+	}
+	if len(result.Warnings) == 0 {
+		t.Fatalf("expected exposure warning for unauthenticated metrics")
+	}
+}

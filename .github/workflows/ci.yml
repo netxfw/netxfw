@@ -92,7 +92,6 @@ jobs:
     name: Coverage
     runs-on: ubuntu-latest
     needs: [test]
-    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -102,7 +101,7 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          go test -coverprofile=coverage.out -covermode=atomic ./...
+          go test -coverprofile=coverage.out -covermode=atomic ./test/unit/... ./internal/... ./cmd/... ./pkg/...
           go tool cover -func=coverage.out > coverage_report.txt
           echo "## Test Coverage Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -171,7 +170,6 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    continue-on-error: true
     needs: [generate-check]
     steps:
       - name: Checkout code

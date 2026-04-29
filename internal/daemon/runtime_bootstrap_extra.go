@@ -28,7 +28,7 @@ func LoadRuntimeConfigSnapshot() (*sdk.GlobalConfig, error) {
 func InitRuntimeLogging(globalCfg *sdk.GlobalConfig) {
 	logger.Init(globalCfg.Logging)
 	if globalCfg.Base.EnablePprof {
-		startPprof(globalCfg.Base.PprofPort)
+		startPprofOn(globalCfg.Base.PprofBind, globalCfg.Base.PprofPort)
 	}
 }
 

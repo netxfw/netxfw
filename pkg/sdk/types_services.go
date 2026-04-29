@@ -3,6 +3,7 @@ package sdk
 // WebConfig defines the configuration for the web interface.
 type WebConfig struct {
 	Enabled bool   `toml:"enabled"`
+	Bind    string `toml:"bind"`
 	Port    int    `toml:"port"`
 	Token   string `toml:"token"`
 }
@@ -11,7 +12,9 @@ type WebConfig struct {
 type MetricsConfig struct {
 	Enabled           bool   `toml:"enabled"`
 	ServerEnabled     bool   `toml:"server_enabled"`
+	Bind              string `toml:"bind"`
 	Port              int    `toml:"port"`
+	Token             string `toml:"token"`
 	PushEnabled       bool   `toml:"push_enabled"`
 	PushGatewayAddr   string `toml:"push_gateway_addr"`
 	PushInterval      string `toml:"push_interval"`

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	domaindatapath "github.com/netxfw/netxfw/internal/domain/plugin/datapath"
@@ -18,7 +20,6 @@ func validatePluginPath(path string, allowedDirs []string) error {
 		return fmt.Errorf("plugin path is required")
 	}
 
-	// 清理路径
 	cleanPath := filepath.Clean(path)
 
 	// 检查是否为绝对路径
@@ -29,7 +30,8 @@ func validatePluginPath(path string, allowedDirs []string) error {
 	// 检查是否在允许的目录内
 	allowed := false
 	for _, dir := range allowedDirs {
-		if strings.HasPrefix(cleanPath, dir) {
+		cleanDir := filepath.Clean(dir) + string(os.PathSeparator)
+		if strings.HasPrefix(cleanPath, cleanDir) {
 			allowed = true
 			break
 		}
@@ -39,15 +41,16 @@ func validatePluginPath(path string, allowedDirs []string) error {
 		return fmt.Errorf("plugin path must be in allowed directories: %v", allowedDirs)
 	}
 
-	// 检查文件是否存在
-	if _, err := os.Stat(cleanPath); os.IsNotExist(err) {
+	if _, err := os.Lstat(cleanPath); os.IsNotExist(err) {
 		return fmt.Errorf("plugin file does not exist")
 	}
 
-	// 检查文件权限
-	info, err := os.Stat(cleanPath)
+	info, err := os.Lstat(cleanPath)
 	if err != nil {
 		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("plugin path must not be a symlink")
 	}
 
 	// 检查是否为普通文件
@@ -55,9 +58,20 @@ func validatePluginPath(path string, allowedDirs []string) error {
 		return fmt.Errorf("plugin path is not a regular file")
 	}
 
-	// 检查是否可执行
 	if info.Mode()&0111 == 0 {
 		return fmt.Errorf("plugin file is not executable")
+	}
+	if info.Mode().Perm()&0022 != 0 {
+		return fmt.Errorf("plugin file must not be group/world-writable")
+	}
+	if runtime.GOOS == "linux" {
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok {
+			return fmt.Errorf("plugin owner information unavailable")
+		}
+		if stat.Uid != 0 {
+			return fmt.Errorf("plugin file must be owned by root")
+		}
 	}
 
 	return nil

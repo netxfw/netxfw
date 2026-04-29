@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -253,6 +254,9 @@ func (v *ConfigValidator) validatePprofConfig(cfg *BaseConfig, result *Validatio
 		result.AddError("base.pprof_port",
 			fmt.Sprintf("Port must be between 1 and %d", v.MaxPort), cfg.PprofPort)
 	}
+	if err := validateBindAddress(cfg.PprofBind); err != nil {
+		result.AddError("base.pprof_bind", err.Error(), cfg.PprofBind)
+	}
 }
 
 func (v *ConfigValidator) validateWhitelistCIDRs(cfg *BaseConfig, result *ValidationResult) {
@@ -291,6 +295,9 @@ func (v *ConfigValidator) validateWebConfig(cfg *WebConfig, result *ValidationRe
 		result.AddError("web.port",
 			fmt.Sprintf("Port must be between 1 and %d", v.MaxPort), cfg.Port)
 	}
+	if err := validateBindAddress(cfg.Bind); err != nil {
+		result.AddError("web.bind", err.Error(), cfg.Bind)
+	}
 	if cfg.Token == "" {
 		result.AddWarning("web.token",
 			"Web interface is enabled without authentication token - not recommended for production", nil)
@@ -305,6 +312,13 @@ func (v *ConfigValidator) validateMetricsConfig(cfg *MetricsConfig, result *Vali
 		result.AddError("metrics.port",
 			fmt.Sprintf("Port must be between 1 and %d", v.MaxPort), cfg.Port)
 	}
+	if err := validateBindAddress(cfg.Bind); err != nil {
+		result.AddError("metrics.bind", err.Error(), cfg.Bind)
+	}
+	if cfg.ServerEnabled && !isLocalBind(cfg.Bind) && cfg.Token == "" {
+		result.AddWarning("metrics.token",
+			"Metrics server is reachable outside localhost without authentication token", nil)
+	}
 	if cfg.PushEnabled && cfg.PushInterval != "" {
 		if _, err := time.ParseDuration(cfg.PushInterval); err != nil {
 			result.AddError("metrics.push_interval",
@@ -315,6 +329,27 @@ func (v *ConfigValidator) validateMetricsConfig(cfg *MetricsConfig, result *Vali
 		result.AddError("metrics.push_gateway_addr",
 			"Push gateway address is required when push is enabled", nil)
 	}
+}
+
+func validateBindAddress(bind string) error {
+	if bind == "" {
+		return nil
+	}
+	if _, err := netip.ParseAddr(bind); err != nil {
+		return fmt.Errorf("bind address must be a valid IP address")
+	}
+	return nil
+}
+
+func isLocalBind(bind string) bool {
+	if bind == "" {
+		return true
+	}
+	addr, err := netip.ParseAddr(bind)
+	if err != nil {
+		return false
+	}
+	return addr.IsLoopback()
 }
 
 func (v *ConfigValidator) validatePortConfig(cfg *PortConfig, result *ValidationResult) {

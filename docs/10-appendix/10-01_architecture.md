@@ -203,15 +203,31 @@ NetXFW 采用**领域驱动设计（DDD）**和**六边形架构**，清晰地�
 
 | 子包 | 职责 | 关键文件 |
 |------|------|----------|
-| `lifecycle/` | XDP 程序生命周期管理 | `install.go`, `unload.go`, `reload.go` |
-| `maps/` | BPF Map 访问和包装 | `wrapper.go`, `operations.go` |
-| `programs/` | 程序加载和跳转表 | `loader.go`, `jump_table.go` |
+| `backend/` | 后端实现（Manager/Adapter/同步/统计） | `xdp_manager.go`, `adapter.go`, `sync.go` |
+| `lifecycle/` | XDP 程序生命周期管理 | `install.go`, `attach.go`, `reload.go` |
+| `maps/` | BPF Map 访问和包装 | `maintenance.go`, `config_indexes.go` |
+| `programs/` | 程序加载和跳转表 | `load.go`, `manager.go` |
 | `plugins/` | 插件集成 | `loader.go`, `slots.go` |
-| `stats/` | 统计信息收集 | `collector.go`, `types.go` |
-| `health/` | 健康检查 | `status.go`, `checker.go` |
-| `sync/` | 同步机制 | `incremental_update.go` |
+| `stats/` | 统计信息收集 | `collector.go`, `performance.go` |
+| `health/` | 健康检查 | `status.go` |
+| `sync/` | 同步机制 | `incremental.go`, `reconcile.go` |
 
 这种设计提高了代码的可维护性和可测试性。
+
+### backend 子包详解
+
+`internal/datapath/xdp/backend/` 是 XDP 数据通路的核心实现：
+
+| 文件 | 功能 |
+|------|------|
+| `xdp_manager.go` | XDP Manager 核心实现 |
+| `adapter.go` | 适配器，实现端口接口 |
+| `sync.go` | 配置同步机制 |
+| `xdp_stats.go` | 统计信息收集 |
+| `health_check.go` | 健康检查实现 |
+| `lifecycle_*.go` | 生命周期管理（XDP/模块/插件） |
+| `map_helpers.go` | BPF Map 操作辅助函数 |
+| `mock_manager.go` | Mock 实现（测试用） |
 
 ### 领域驱动设计（DDD）
 
@@ -238,15 +254,21 @@ NetXFW 采用领域驱动设计，将业务逻辑清晰地组织在领域层：
 
 ### 应用服务层
 
-`internal/application/` 和 `internal/app/` 实现应用服务：
+`internal/app/` 实现应用服务：
 
 | 服务 | 职责 | 关键文件 |
 |------|------|----------|
-| `application/ports/` | 端口管理服务 | `port_service.go` |
-| `application/services/` | 应用服务 | `rule_service.go`, `config_service.go` |
-| `app/config/` | 配置管理 | `manager.go`, `constants.go` |
-| `app/plugin/` | 插件管理 | `manager.go`, `loader.go` |
-| `app/rule/` | 规则管理 | `service.go`, `validator.go` |
+| `app/config/` | 配置管理 | `executor.go`, `planner.go`, `reconcile.go` |
+| `app/plugin/` | 插件管理 | `command.go`, `health.go`, `status.go` |
+| `app/rule/` | 规则管理 | `add_rule.go`, `remove_rule.go`, `list_rules.go` |
+
+### 辅助模块
+
+| 模块 | 职责 | 关键文件 |
+|------|------|----------|
+| `internal/errors/` | 统一错误处理 | `unified.go` |
+| `internal/i18n/` | 国际化消息 | `messages.go` |
+| `internal/binary/` | 二进制协议处理 | `format.go` |
 
 ## 目录结构
 
@@ -271,7 +293,7 @@ netxfw/
 │   └── netxfwdp/                 # 数据平面进程入口
 │
 ├── pkg/                          # 公共包（可复用库）
-│   ├── config/                   # 配置工具包
+│   ├── configvalidate/           # 配置验证包
 │   ├── errors/                   # 错误定义包
 │   ├── sdk/                      # SDK 接口（统一 API）
 │   │   ├── mock/                 # Mock 实现（测试）
@@ -304,22 +326,17 @@ netxfw/
 │   │   ├── plugin/               # 插件管理
 │   │   └── rule/                 # 规则管理
 │   │
-│   ├── application/              # 应用服务层（领域服务）
-│   │   ├── ports/                # 端口管理服务
-│   │   └── services/             # 应用服务
-│   │
 │   ├── binary/                   # 二进制协议处理
 │   ├── cloudconfig/              # 云服务商配置
-│   ├── core/                     # 核心引擎
-│   │   └── engine/               # 基础策略引擎
 │   │
 │   ├── daemon/                   # 守护进程
-│   │   ├── engine/               # 守护引擎
+│   │   ├── engine/               # 守护引擎（基础策略/限速/端口/连接跟踪）
 │   │   ├── check.go              # 检查函数
 │   │   └── runtime_plan.go       # 运行时计划
 │   │
 │   ├── datapath/                 # 数据通路层
 │   │   └── xdp/                  # XDP 数据通路（细粒度分包）
+│   │       ├── backend/          # 后端实现（Manager/Adapter/同步/统计）
 │   │       ├── lifecycle/        # 生命周期管理（安装/卸载/重载）
 │   │       ├── maps/             # BPF Map 操作（访问/包装）
 │   │       ├── programs/         # 程序加载（对象加载/跳转表）
@@ -332,11 +349,14 @@ netxfw/
 │   │   ├── config/               # 配置领域模型
 │   │   ├── errors/               # 领域错误定义
 │   │   ├── plugin/               # 插件领域模型
-│   │   ├── rule/               # 规则领域模型
+│   │   ├── rule/                 # 规则领域模型
 │   │   ├── runtime/              # 运行时领域模型
 │   │   └── system/               # 系统领域模型
 │   │
 │   ├── engine/                   # TinyML 引擎（异常检测）
+│   ├── errors/                   # 统一错误处理
+│   ├── i18n/                     # 国际化消息
+│   │
 │   ├── metrics/                  # 指标系统
 │   │   └── exporter/             # Prometheus 导出器
 │   │
@@ -356,7 +376,8 @@ netxfw/
 │   │   ├── fmtutil/              # 格式化工具
 │   │   ├── ipmerge/              # IP 合并工具
 │   │   ├── iputil/               # IP 工具
-│   │   └── logger/               # 日志框架（Zap）
+│   │   ├── logger/               # 日志框架（Zap）
+│   │   └── xdputil/              # XDP 工具（接口检测）
 │   │
 │   └── version/                  # 版本信息
 │
@@ -435,6 +456,57 @@ netxfw/
 │
 └── scripts/                      # 脚本
 ```
+
+## 公共包说明 (pkg/)
+
+`pkg/` 目录包含可复用的公共包，可被外部项目引用：
+
+### pkg/configvalidate/ - 配置验证包
+
+配置验证包提供配置验证相关的通用工具函数：
+
+| 文件 | 功能 |
+|------|------|
+| `configvalidate.go` | 配置验证器，验证配置项的有效性 |
+
+**使用场景**：
+- 外部工具需要验证 netxfw 配置
+- 配置迁移和转换工具
+- 配置预检查
+
+### pkg/errors/ - 错误定义包
+
+错误定义包提供统一的错误类型和错误处理：
+
+| 文件 | 功能 |
+|------|------|
+| `errors.go` | 基础错误类型定义 |
+| `codes.go` | 错误码定义 |
+| `wrapper.go` | 错误包装工具 |
+
+**错误类型**：
+```go
+// 常见错误类型
+var (
+    ErrRuleNotFound    = errors.New("rule not found")
+    ErrInvalidIP       = errors.New("invalid IP address")
+    ErrMapOperation    = errors.New("BPF map operation failed")
+    ErrConfigLoad      = errors.New("failed to load config")
+)
+```
+
+### pkg/sdk/ - SDK 接口
+
+SDK 接口提供统一的 API 抽象，详见 [09-04_sdk_api.md](09-api-reference/09-04_sdk_api.md)。
+
+### pkg/storage/ - 存储抽象
+
+存储抽象提供键值存储接口，支持多种后端：
+- 本地文件存储
+- etcd 存储（集群模式）
+- 内存存储（测试用）
+
+---
 
 ## 统一双栈架构
 为了简化维护并减少内存占用，`netxfw` 采用了统一 Map 策略：

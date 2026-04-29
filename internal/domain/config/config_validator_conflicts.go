@@ -14,6 +14,19 @@ func (v *ConfigValidator) detectConflicts(cfg *Config, result *ValidationResult)
 	v.checkPortConflicts(cfg, result)
 	v.checkDuplicateLogEngineRules(cfg, result)
 	v.checkIPPortRulePortConflicts(cfg, result)
+	v.checkServiceExposure(cfg, result)
+}
+
+func (v *ConfigValidator) checkServiceExposure(cfg *Config, result *ValidationResult) {
+	if cfg.Web.Enabled && !isLocalBind(cfg.Web.Bind) {
+		result.AddWarning("web.bind", "Web server is reachable outside localhost; ensure firewall rules and TLS termination are configured", cfg.Web.Bind)
+	}
+	if cfg.Web.Enabled && !cfg.Metrics.ServerEnabled && cfg.Metrics.Token == "" && !isLocalBind(cfg.Web.Bind) {
+		result.AddWarning("metrics.token", "Shared /metrics endpoint is reachable outside localhost without a metrics token", nil)
+	}
+	if cfg.Base.EnablePprof && !isLocalBind(cfg.Base.PprofBind) {
+		result.AddWarning("base.pprof_bind", "pprof server is reachable outside localhost and may expose process internals", cfg.Base.PprofBind)
+	}
 }
 
 func parseIPNet(ipStr string) *net.IPNet {

@@ -3,14 +3,19 @@ package app
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/netxfw/netxfw/internal/api"
+	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	datapathprograms "github.com/netxfw/netxfw/internal/datapath/xdp/programs"
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
+
+const defaultHTTPBind = "127.0.0.1"
 
 // RunWebServer starts the API and UI server.
 func RunWebServer(ctx context.Context, port int) error {
@@ -25,12 +30,20 @@ func RunWebServer(ctx context.Context, port int) error {
 	adapter := datapathprograms.NewAdapter(manager)
 	s := sdk.NewSDK(adapter)
 	server := api.NewServer(s, port)
-	if err := server.EnsureHandlerInitialized(); err != nil {
-		return fmt.Errorf("failed to initialize web server: %w", err)
+	if initErr := server.EnsureHandlerInitialized(); initErr != nil {
+		return fmt.Errorf("failed to initialize web server: %w", initErr)
+	}
+	cfg, err := appconfig.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load web config: %w", err)
+	}
+	bind := defaultHTTPBind
+	if cfg != nil && cfg.Web.Bind != "" {
+		bind = cfg.Web.Bind
 	}
 
-	addr := fmt.Sprintf(":%d", port)
-	log.Infof("[START] Management API and UI starting on http://localhost%s", addr)
+	addr := net.JoinHostPort(bind, strconv.Itoa(port))
+	log.Infof("[START] Management API and UI starting on http://%s", addr)
 
 	httpServer := &http.Server{
 		Addr:         addr,

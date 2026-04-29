@@ -27,6 +27,7 @@ icmp_burst = 50
 enable_expiry = true
 cleanup_interval = "1m"
 enable_pprof = false
+pprof_bind = "127.0.0.1"
 pprof_port = 6060
 lock_list_file = "/etc/netxfw/deny_list.txt"
 lock_list_binary = "/etc/netxfw/deny_list.bin.zst"
@@ -55,6 +56,7 @@ lock_list_v6_mask = 64
 # cleanup_interval = "1m"                       # 清理间隔
 # persist_rules = true                          # 持久化规则
 # enable_pprof = false                          # 启用性能分析
+# pprof_bind = "127.0.0.1"                     # 性能分析监听地址
 # pprof_port = 6060                             # pprof 端口
 
 # ============================================================================
@@ -280,10 +282,12 @@ plugins = []
 # ----------------------------------------------------------------------------
 [web]
 enabled = false
+bind = "127.0.0.1"
 port = 11811
 token = ""
 # Example / 示例:
 # enabled = true
+# bind = "127.0.0.1"
 # port = 11811
 # token = "your-secret-token-here"  # API 认证令牌
 
@@ -293,7 +297,9 @@ token = ""
 [metrics]
 enabled = false
 server_enabled = false
+bind = "127.0.0.1"
 port = 11812
+token = ""
 push_enabled = false
 push_gateway_addr = ""
 push_interval = "15s"
@@ -308,7 +314,9 @@ avg_packet_size = 500
 # Example / 示例:
 # enabled = false                  # 启用指标收集
 # server_enabled = false           # 启用 HTTP 指标端点
+# bind = "127.0.0.1"              # 指标服务器监听地址
 # port = 11812                     # 指标服务器端口
+# token = ""                       # 指标端点认证令牌，空值仅建议用于本地监听
 # push_enabled = false             # 启用推送到 Prometheus
 # push_gateway_addr = ""           # Prometheus Pushgateway 地址
 # push_interval = "1m"             # 推送间隔

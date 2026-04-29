@@ -2,8 +2,11 @@ package exporter
 
 import (
 	"context"
-	"fmt"
+	"crypto/hmac"
+	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,6 +14,8 @@ import (
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+const defaultMetricsBind = "127.0.0.1"
 
 // Server exposes Prometheus metrics on a dedicated HTTP listener.
 type Server struct {
@@ -51,10 +56,10 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics", NewPrometheusHandler(s.config.Token))
 
 	s.server = &http.Server{
-		Addr:              fmt.Sprintf(":%d", s.config.Port),
+		Addr:              net.JoinHostPort(metricsBind(s.config.Bind), strconv.Itoa(s.config.Port)),
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -62,7 +67,7 @@ func (s *Server) Start(ctx context.Context) error {
 	s.setRunning(true)
 
 	go func() {
-		logger.Get(ctx).Infof("[STATS] Metrics server starting on :%d", s.config.Port)
+		logger.Get(ctx).Infof("[STATS] Metrics server starting on %s", s.server.Addr)
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Get(ctx).Errorf("[ERROR] Metrics server error: %v", err)
 			s.setRunning(false)
@@ -72,6 +77,32 @@ func (s *Server) Start(ctx context.Context) error {
 	go s.collector.Run(ctx, s.isRunning)
 
 	return nil
+}
+
+// NewPrometheusHandler returns a Prometheus handler protected by a bearer token when configured.
+func NewPrometheusHandler(token string) http.Handler {
+	base := promhttp.Handler()
+	if token == "" {
+		return base
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		provided := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+		if provided == "" {
+			provided = r.Header.Get("X-NetXFW-Metrics-Token")
+		}
+		if provided == "" || !hmac.Equal([]byte(provided), []byte(token)) {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		base.ServeHTTP(w, r)
+	})
+}
+
+func metricsBind(bind string) string {
+	if bind == "" {
+		return defaultMetricsBind
+	}
+	return bind
 }
 
 func (s *Server) Stop() error {

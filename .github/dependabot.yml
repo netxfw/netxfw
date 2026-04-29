@@ -6,7 +6,7 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
 # reviewers 属性不被允许，已移除
 #      - "netxfw"
     labels:
@@ -29,7 +29,7 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
 # reviewers 属性不被允许，已移除
 #      - "netxfw"
     labels:

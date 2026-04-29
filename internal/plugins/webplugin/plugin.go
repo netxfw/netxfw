@@ -4,13 +4,14 @@ package web
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/netxfw/netxfw/internal/metrics/exporter"
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type WebPlugin struct {
@@ -84,7 +85,7 @@ func (p *WebPlugin) Start(ctx *sdk.RuntimePluginContext) error {
 	// 1. Register Metrics Route based on configuration
 	// If metrics server is disabled, serve metrics on the same server
 	if !ctx.Config.Metrics.Enabled || !ctx.Config.Metrics.ServerEnabled {
-		mux.Handle("/metrics", promhttp.Handler())
+		mux.Handle("/metrics", exporter.NewPrometheusHandler(ctx.Config.Metrics.Token))
 	} else {
 		mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
@@ -112,7 +113,7 @@ func (p *WebPlugin) Start(ctx *sdk.RuntimePluginContext) error {
 	mux.Handle("/", uiHandler)
 
 	p.server = &http.Server{
-		Addr:              fmt.Sprintf(":%d", p.config.Port),
+		Addr:              net.JoinHostPort(bindOrLocalhost(p.config.Bind), strconv.Itoa(p.config.Port)),
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -121,7 +122,7 @@ func (p *WebPlugin) Start(ctx *sdk.RuntimePluginContext) error {
 
 	// Start HTTP Server
 	go func() {
-		ctx.Logger.Infof("[WEB] Web & Metrics server starting on :%d", p.config.Port)
+		ctx.Logger.Infof("[WEB] Web & Metrics server starting on %s", p.server.Addr)
 		if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ctx.Logger.Errorf("[ERROR] Web server error: %v", err)
 			p.setRunning(false)
@@ -132,6 +133,13 @@ func (p *WebPlugin) Start(ctx *sdk.RuntimePluginContext) error {
 	go p.collectStats(ctx)
 
 	return nil
+}
+
+func bindOrLocalhost(bind string) string {
+	if bind == "" {
+		return "127.0.0.1"
+	}
+	return bind
 }
 
 func (p *WebPlugin) Stop() error {

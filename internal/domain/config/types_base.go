@@ -29,6 +29,7 @@ type BaseConfig struct {
 	CleanupInterval        string   `toml:"cleanup_interval"`
 	PersistRules           bool     `toml:"persist_rules"`
 	EnablePprof            bool     `toml:"enable_pprof"`
+	PprofBind              string   `toml:"pprof_bind"`
 	PprofPort              int      `toml:"pprof_port"`
 	BackupKeep             int      `toml:"backup_keep"`
 }

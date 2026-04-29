@@ -120,6 +120,25 @@ func TestCollectorCollectOnceUpdatesSharedMetrics(t *testing.T) {
 	assertMetricLine(t, metricsText, `netxfw_rules_count{type="ipport"} 1`, "ipport rules")
 }
 
+func TestPrometheusHandlerRequiresTokenWhenConfigured(t *testing.T) {
+	handler := NewPrometheusHandler("secret-token")
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody)
+	req.Header.Set("Authorization", "Bearer secret-token")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
 func scrapeMetrics(t *testing.T) string {
 	t.Helper()
 

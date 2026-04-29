@@ -412,7 +412,7 @@ func TestManagePidFile_Permissions(t *testing.T) {
 	// 检查文件权限
 	info, err := os.Stat(pidPath)
 	assert.NoError(t, err)
-	assert.Equal(t, os.FileMode(0644), info.Mode().Perm())
+	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
 }
 
 // TestCleanupLoop_VariousIntervals tests cleanup loop with various intervals

@@ -267,9 +267,9 @@ func TestPIDFilePermissions(t *testing.T) {
 	info, err := os.Stat(pidPath)
 	require.NoError(t, err)
 
-	// Should be readable by owner
-	// 应该所有者可读
-	assert.Equal(t, os.FileMode(0644), info.Mode().Perm())
+	// PID files should not be readable by other users.
+	// PID 文件不应被其他用户读取。
+	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
 
 	// Cleanup
 	// 清理

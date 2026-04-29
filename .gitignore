@@ -23,9 +23,6 @@
 /plans
 
 /.codex
-# BPF objects
-/internal/datapath/xdp/backend/*.o
-
 config/*.yaml
 
 

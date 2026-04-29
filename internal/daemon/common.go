@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -112,7 +113,14 @@ func removeSinglePidFile(path string) {
 // startPprof starts the Go pprof server for profiling.
 // startPprof 启动用于分析的 Go pprof 服务器。
 func startPprof(port int) {
-	addr := fmt.Sprintf(":%d", port)
+	startPprofOn("127.0.0.1", port)
+}
+
+func startPprofOn(bind string, port int) {
+	if bind == "" {
+		bind = "127.0.0.1"
+	}
+	addr := net.JoinHostPort(bind, strconv.Itoa(port))
 	log := logger.Get(context.Background())
 	log.Infof("[STATS] Pprof enabled on %s", addr)
 	go func() {

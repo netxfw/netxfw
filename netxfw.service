@@ -17,6 +17,16 @@ Restart=always
 RestartSec=5
 LimitMEMLOCK=infinity
 WorkingDirectory=/usr/local/bin
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_BPF CAP_NET_ADMIN CAP_SYS_ADMIN CAP_IPC_LOCK CAP_SYS_RESOURCE
+AmbientCapabilities=CAP_BPF CAP_NET_ADMIN CAP_SYS_ADMIN CAP_IPC_LOCK CAP_SYS_RESOURCE
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/etc/netxfw /var/log/netxfw /var/lib/netxfw /run /sys/fs/bpf
+PrivateTmp=true
+PrivateDevices=false
+RestrictSUIDSGID=true
+LockPersonality=true
 
 [Install]
 WantedBy=multi-user.target

@@ -20,6 +20,7 @@ func DefaultConfig() Config {
 			LockListV4Mask:     24,
 			LockListV6Mask:     64,
 			EnablePprof:        false,
+			PprofBind:          "127.0.0.1",
 			PprofPort:          6060,
 		},
 		Conntrack: ConntrackConfig{
@@ -57,11 +58,13 @@ func DefaultConfig() Config {
 			Compress:   true,
 		},
 		Web: WebConfig{
+			Bind: "127.0.0.1",
 			Port: 11811,
 		},
 		Metrics: MetricsConfig{
 			Enabled:           false,
 			ServerEnabled:     false,
+			Bind:              "127.0.0.1",
 			Port:              11812,
 			TopN:              10,
 			ThresholdCritical: 90,
