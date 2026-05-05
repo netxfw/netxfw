@@ -3,7 +3,7 @@
 # NetXFW Quick Binary Deployment/Update Script
 # Automatically downloads the latest release from GitHub
 
-set -e
+set -euo pipefail
 
 # Configuration
 REPO="netxfw/netxfw"
@@ -37,7 +37,7 @@ esac
 
 # 3. Get Latest Version info
 echo -e "${YELLOW}Fetching latest release info from GitHub...${NC}"
-LATEST_RELEASE=$(curl -s https://api.github.com/repos/$REPO/releases/latest)
+LATEST_RELEASE=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest")
 VERSION=$(echo "$LATEST_RELEASE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$VERSION" ]; then
@@ -53,7 +53,7 @@ if [ -f "$INSTALL_DIR/netxfw" ]; then
     echo -e "Current version: ${BLUE}$CURRENT_VERSION${NC}"
     echo -e "Latest version:  ${GREEN}$VERSION${NC}"
     
-    if [ "$CURRENT_VERSION" == "$VERSION" ] && [ "$1" != "--force" ]; then
+    if [ "$CURRENT_VERSION" == "$VERSION" ] && [ "${1:-}" != "--force" ]; then
         echo -e "${GREEN}NetXFW is already up to date.${NC}"
         exit 0
     fi
@@ -71,7 +71,26 @@ fi
 
 echo -e "${YELLOW}Downloading: $DOWNLOAD_URL${NC}"
 TMP_DIR=$(mktemp -d)
-curl -L -o "$TMP_DIR/netxfw.tar.gz" "$DOWNLOAD_URL"
+trap 'rm -rf "$TMP_DIR"' EXIT
+curl -fL -o "$TMP_DIR/netxfw.tar.gz" "$DOWNLOAD_URL"
+
+CHECKSUM_URL=$(echo "$LATEST_RELEASE" | grep "browser_download_url" | grep -i "checksums.txt" | cut -d '"' -f 4 | head -n 1)
+if [ -z "$CHECKSUM_URL" ]; then
+    echo -e "${RED}Error: checksums.txt not found in release assets.${NC}"
+    exit 1
+fi
+curl -fsSL -o "$TMP_DIR/checksums.txt" "$CHECKSUM_URL"
+ASSET_NAME=$(basename "$DOWNLOAD_URL")
+EXPECTED_SHA=$(grep "  $ASSET_NAME$\|\*$ASSET_NAME$\| $ASSET_NAME$" "$TMP_DIR/checksums.txt" | awk '{print $1}' | head -n 1)
+if [ -z "$EXPECTED_SHA" ]; then
+    echo -e "${RED}Error: checksum for $ASSET_NAME not found.${NC}"
+    exit 1
+fi
+ACTUAL_SHA=$(sha256sum "$TMP_DIR/netxfw.tar.gz" | awk '{print $1}')
+if [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+    echo -e "${RED}Error: checksum verification failed.${NC}"
+    exit 1
+fi
 
 # 6. Extract and Install
 echo -e "${YELLOW}Extracting and installing...${NC}"
@@ -92,7 +111,6 @@ else
         exit 1
     fi
 fi
-rm -rf "$TMP_DIR"
 
 # 7. Initialize/Update Config
 echo -e "${YELLOW}Checking configuration...${NC}"
@@ -119,6 +137,16 @@ Restart=always
 RestartSec=5
 LimitMEMLOCK=infinity
 WorkingDirectory=$INSTALL_DIR
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_BPF CAP_NET_ADMIN CAP_SYS_ADMIN CAP_IPC_LOCK CAP_SYS_RESOURCE
+AmbientCapabilities=CAP_BPF CAP_NET_ADMIN CAP_SYS_ADMIN CAP_IPC_LOCK CAP_SYS_RESOURCE
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/etc/netxfw /var/log/netxfw /var/lib/netxfw /run /sys/fs/bpf
+PrivateTmp=true
+PrivateDevices=false
+RestrictSUIDSGID=true
+LockPersonality=true
 
 [Install]
 WantedBy=multi-user.target
@@ -138,12 +166,13 @@ else
 fi
 
 # 9. Optional: Setup Auto-Update Cron (Daily check)
-if [ "$1" == "--enable-auto-update" ]; then
+if [ "${1:-}" == "--enable-auto-update" ]; then
     echo -e "${YELLOW}Setting up daily auto-update check...${NC}"
+    install -m 0755 "$0" /usr/local/sbin/netxfw-deploy.sh
     cat <<EOF > /etc/cron.daily/netxfw-update
 #!/bin/bash
 # Automatically check for NetXFW updates
-/usr/bin/curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash > /var/log/netxfw-update.log 2>&1
+/usr/local/sbin/netxfw-deploy.sh --force > /var/log/netxfw-update.log 2>&1
 EOF
     chmod +x /etc/cron.daily/netxfw-update
     echo -e "${GREEN}✓ Daily auto-update check scheduled via cron.${NC}"

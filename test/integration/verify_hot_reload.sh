@@ -19,7 +19,7 @@ NC='\033[0m' # No Color / 无颜色
 # Binary and config paths.
 # 二进制文件和配置文件路径。
 NETXFW_BIN="/root/netxfw/netxfw"
-CONFIG_FILE="/etc/netxfw/config.yaml"
+CONFIG_FILE="/etc/netxfw/config.toml"
 
 # print_result prints test result with color.
 # print_result 打印带颜色的测试结果。
