@@ -14,7 +14,7 @@ type LogEngineRule struct {
 	Path         string   `toml:"path"`
 	TailPosition string   `toml:"tail_position"`
 	Expression   string   `toml:"expression"`
-	Action       string   `toml:"action"`
+	Action       any      `toml:"action"`
 	Keywords     []string `toml:"keywords"`
 	Contains     []string `toml:"contains"`
 	AnyContains  []string `toml:"any_contains"`

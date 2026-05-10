@@ -106,7 +106,7 @@ func (c *LogEngineConfig) Validate() error {
 		if err := configvalidate.ValidateLogEngineTailPosition(rule.TailPosition); err != nil {
 			return fmt.Errorf("invalid log_engine rule #%d: %w", i, err)
 		}
-		if rule.Action == "" {
+		if rule.Action == nil || rule.Action == "" {
 			continue
 		}
 		if err := configvalidate.ValidateLogEngineAction(rule.Action); err != nil {

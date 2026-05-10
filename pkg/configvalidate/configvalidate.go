@@ -51,15 +51,27 @@ func ValidateLogEngineTailPosition(position string) error {
 }
 
 // ValidateLogEngineAction validates log engine action values.
-func ValidateLogEngineAction(action string) error {
-	switch action {
+func ValidateLogEngineAction(action any) error {
+	var actStr string
+	switch v := action.(type) {
+	case string:
+		actStr = v
+	case int64:
+		actStr = fmt.Sprintf("%d", v)
+	case int:
+		actStr = fmt.Sprintf("%d", v)
+	default:
+		return fmt.Errorf("invalid action type: %T", action)
+	}
+
+	switch actStr {
 	case "0", "1", "2", "log", "block", "dynamic", "static", "permanent", "lock", "deny", "black", "dynblock", "dynblack":
 		return nil
 	}
-	if strings.HasPrefix(action, "block:") || strings.HasPrefix(action, "black:") {
+	if strings.HasPrefix(actStr, "block:") || strings.HasPrefix(actStr, "black:") {
 		return nil
 	}
-	return fmt.Errorf("invalid action '%s'", action)
+	return fmt.Errorf("invalid action '%v'", action)
 }
 
 // IsDenyIPPortRuleAction reports whether the action is a deny semantic, including legacy encodings.

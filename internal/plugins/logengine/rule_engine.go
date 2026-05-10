@@ -365,7 +365,7 @@ func (re *RuleEngine) compileRule(cfg sdk.LogEngineRule) (Rule, error) {
 		Path:       cfg.Path,
 		Source:     src,
 		Program:    program,
-		Action:     cfg.Action,
+		Action:     fmt.Sprint(cfg.Action),
 		ActionType: actType,
 		TTL:        ttl,
 	}, nil
@@ -459,7 +459,7 @@ func (re *RuleEngine) parseTTL(cfg sdk.LogEngineRule) time.Duration {
 // parseActionType parses the action type from configuration.
 // parseActionType 从配置解析动作类型。
 func (re *RuleEngine) parseActionType(cfg sdk.LogEngineRule) ActionType {
-	actStr := strings.ToLower(strings.TrimSpace(cfg.Action))
+	actStr := strings.ToLower(strings.TrimSpace(fmt.Sprint(cfg.Action)))
 
 	switch actStr {
 	case "", "0", "log":

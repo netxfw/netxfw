@@ -46,8 +46,12 @@ func (v *ConfigValidator) validateLogEngineRule(rule *LogEngineRule, fieldPrefix
 	if rule.Path == "" {
 		result.AddError(fmt.Sprintf("%s.path", fieldPrefix), "Log path is required", nil)
 	}
-	if rule.Action != "" && rule.Action != "log" && rule.Action != "block" {
-		result.AddError(fmt.Sprintf("%s.action", fieldPrefix), "Action must be 'log' or 'block'", rule.Action)
+	actStr := ""
+	if rule.Action != nil {
+		actStr = fmt.Sprint(rule.Action)
+	}
+	if actStr != "" && actStr != "log" && actStr != "block" && actStr != "0" && actStr != "1" && actStr != "2" {
+		result.AddError(fmt.Sprintf("%s.action", fieldPrefix), "Action must be 'log', 'block', or 0-2", rule.Action)
 	}
 	if rule.TTL != "" {
 		if _, err := time.ParseDuration(rule.TTL); err != nil {
