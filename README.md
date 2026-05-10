@@ -57,6 +57,9 @@ sudo mv netxfw /usr/local/bin/
 ```bash
 # Debian/Ubuntu
 sudo apt-get install -y clang llvm libelf-dev libbpf-dev make
+
+# 可选：安装 Zig（用于交叉编译和更好的 glibc 兼容性）
+# 参考官方文档：https://ziglang.org/learn/getting-started/
 ```
 
 **编译**:
@@ -64,8 +67,51 @@ sudo apt-get install -y clang llvm libelf-dev libbpf-dev make
 git clone https://github.com/netxfw/netxfw.git
 cd netxfw
 make generate
-make
+make build
 ```
+
+**构建命令说明**：
+
+| 命令 | 说明 |
+|------|------|
+| `make build` | 构建二进制文件（已剥离符号，使用系统默认编译器） |
+| `make build-dev` | 构建开发版本（版本号为 dev） |
+| `make build-zig-amd64` | 使用 Zig 构建 amd64 版本（glibc 2.17 兼容，适合发布） |
+| `make build-zig-arm64` | 使用 Zig 构建 arm64 版本（glibc 2.17 兼容，适合发布） |
+| `make build-compressed` | 构建并使用 UPX 压缩（最小体积） |
+| `make generate` | 生成 BPF 代码（需要 Go 工具链） |
+| `make plugins` | 编译 BPF 插件（需要 clang） |
+| `make install` | 安装二进制和配置文件 |
+| `make uninstall` | 卸载二进制和配置文件 |
+| `make clean` | 清理构建产物 |
+
+> **提示**：推荐使用 Zig 构建（`make build-zig-amd64`）用于生产发布，因为它提供更好的 glibc 兼容性（支持 glibc 2.17+），可在更多 Linux 发行版上运行。
+
+**可选构建参数**：
+
+```bash
+# 禁用 IPv6 支持
+make generate ipv6=no
+make build
+
+# 指定安装路径
+make install PREFIX=/opt/netxfw ETCDIR=/etc/netxfw
+
+# 指定 DESTDIR 用于打包
+make install DESTDIR=/tmp/package PREFIX=/usr/local
+```
+
+**开发与测试命令**：
+
+| 命令 | 说明 |
+|------|------|
+| `make test` | 运行单元测试 |
+| `make lint` | 运行静态代码检查 |
+| `make check` | 运行完整检查（架构 + lint + 构建 + 测试） |
+| `make docs-check` | 运行文档链接和 CLI 调用图检查 |
+| `make bench` | 运行性能基准测试 |
+| `make bench-baseline` | 创建性能基线 |
+| `make bench-regression` | 运行性能回归测试 |
 
 ### 2. 运行
 

@@ -57,6 +57,9 @@ sudo mv netxfw /usr/local/bin/
 ```bash
 # Debian/Ubuntu
 sudo apt-get install -y clang llvm libelf-dev libbpf-dev make
+
+# Optional: Install Zig (for cross-compilation and better glibc compatibility)
+# See official docs: https://ziglang.org/learn/getting-started/
 ```
 
 **Build**:
@@ -64,8 +67,51 @@ sudo apt-get install -y clang llvm libelf-dev libbpf-dev make
 git clone https://github.com/netxfw/netxfw.git
 cd netxfw
 make generate
-make
+make build
 ```
+
+**Build Commands**:
+
+| Command | Description |
+|---------|-------------|
+| `make build` | Build binary (stripped, uses system default compiler) |
+| `make build-dev` | Build development version (version: dev) |
+| `make build-zig-amd64` | Build with Zig for amd64 (glibc 2.17 compatible, recommended for release) |
+| `make build-zig-arm64` | Build with Zig for arm64 (glibc 2.17 compatible, recommended for release) |
+| `make build-compressed` | Build and compress with UPX (smallest size) |
+| `make generate` | Generate BPF code (requires Go toolchain) |
+| `make plugins` | Compile BPF plugins (requires clang) |
+| `make install` | Install binary and config files |
+| `make uninstall` | Uninstall binary and config files |
+| `make clean` | Clean build artifacts |
+
+> **Tip**: Zig builds (`make build-zig-amd64`) are recommended for production releases due to better glibc compatibility (supports glibc 2.17+), allowing the binary to run on more Linux distributions.
+
+**Optional Build Parameters**:
+
+```bash
+# Disable IPv6 support
+make generate ipv6=no
+make build
+
+# Specify installation paths
+make install PREFIX=/opt/netxfw ETCDIR=/etc/netxfw
+
+# Specify DESTDIR for packaging
+make install DESTDIR=/tmp/package PREFIX=/usr/local
+```
+
+**Development & Testing Commands**:
+
+| Command | Description |
+|---------|-------------|
+| `make test` | Run unit tests |
+| `make lint` | Run static code analysis |
+| `make check` | Run full checks (architecture + lint + build + test) |
+| `make docs-check` | Run docs link and CLI call-graph checks |
+| `make bench` | Run performance benchmarks |
+| `make bench-baseline` | Create performance baseline |
+| `make bench-regression` | Run performance regression tests |
 
 ### 2. Running
 

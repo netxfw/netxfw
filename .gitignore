@@ -25,6 +25,7 @@
 /.codex
 config/*.yaml
 
+internal/datapath/xdp/backend/*.o
 
 .vscode/
 # OS metadata
