@@ -25,55 +25,14 @@ jobs:
 
 
 
-      # - name: Install dependencies
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y clang llvm libelf-dev libbpf-dev
-      #     sudo apt-get install -y gcc-multilib || true
-      #     # Fix for missing asm/types.h in some environments
-      #     sudo ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/asm || true
-      #     # Also link for specific architectures if needed
-      #     sudo mkdir -p /usr/include/asm
-      #     sudo cp -r /usr/include/x86_64-linux-gnu/asm/* /usr/include/asm/ || true
-      #     sudo apt-get install -y gcc-aarch64-linux-gnu || sudo apt-get install -y binutils-aarch64-linux-gnu
-
-      - name: Install BPF build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-              clang \
-              llvm \
-              libelf-dev \
-              libbpf-dev \
-              gcc \
-              linux-headers-generic \
-              linux-headers-$(uname -r) \
-              gcc-aarch64-linux-gnu \
-              upx-ucl
-
-          # Create /usr/include/asm symlink if missing (required in GitHub Actions)
-          if [ ! -e /usr/include/asm ]; then
-            ARCH=$(dpkg --print-architecture)
-            case $ARCH in
-              amd64)
-                sudo ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/asm
-                ;;
-              arm64)
-                sudo ln -s /usr/include/aarch64-linux-gnu/asm /usr/include/asm
-                ;;
-              *)
-                echo "Unsupported architecture:  $ARCH" >&2
-                exit 1
-                ;;
-            esac
-          fi
+      - name: Set up Go and BPF toolchain
+        uses: ./.github/actions/setup-go-bpf
 
       - name: Generate BPF code
         run: make generate
 
       - name: Run unit tests
-        run: go test -v -race -count=1 ./test/unit/... ./internal/... ./cmd/... ./pkg/... 2>&1 || true
-        continue-on-error: true
+        run: go test -v -race -count=1 ./test/unit/... ./internal/... ./cmd/... ./pkg/...
 
       - name: Build test
         run: go build ./...
