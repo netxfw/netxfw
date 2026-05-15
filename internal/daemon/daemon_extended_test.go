@@ -176,14 +176,18 @@ func TestManagePidFile_PermissionError(t *testing.T) {
 // TestStartPprof_MultiplePorts tests starting multiple pprof servers
 // TestStartPprof_MultiplePorts 测试启动多个 pprof 服务器
 func TestStartPprof_MultiplePorts(t *testing.T) {
+	// Use a unique port to avoid conflicts with other tests
+	// 使用唯一端口避免与其他测试冲突
+	port := 65435
+
 	// Start first pprof server
 	// 启动第一个 pprof 服务器
-	startPprof(65434)
+	startPprof(port)
 	time.Sleep(50 * time.Millisecond)
 
 	// Starting another on the same port should fail silently
 	// 在同一端口启动另一个应该静默失败
-	startPprof(65434)
+	startPprof(port)
 	time.Sleep(50 * time.Millisecond)
 }
 
