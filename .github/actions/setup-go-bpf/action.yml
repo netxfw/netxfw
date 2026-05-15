@@ -14,11 +14,21 @@ runs:
         go-version: ${{ inputs.go-version }}
         cache: true
 
+    - name: Set up Zig
+      uses: goto-bus-stop/setup-zig@v2
+      with:
+        version: 0.16.0
+
     - name: Install BPF dependencies
       shell: bash
       run: |
         sudo apt-get update
         sudo apt-get install -y clang llvm gcc-multilib libbpf-dev libelf-dev pkg-config upx-ucl
+
+        # Ensure upx is available as 'upx'
+        if ! command -v upx &> /dev/null; then
+          sudo apt-get install -y upx || true
+        fi
 
         # Create /usr/include/asm symlink if missing (required in GitHub Actions for BPF)
         if [ ! -e /usr/include/asm ]; then
