@@ -1,5 +1,6 @@
-//go:build linux && integration
-// +build linux,integration
+//go:build integration
+
+
 
 package xdp
 

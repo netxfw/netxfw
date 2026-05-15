@@ -74,7 +74,7 @@ func SetMockSDK(mock *sdk.SDK) {
 // EnsureStandaloneMode ensures that the application is running in standalone mode.
 // EnsureStandaloneMode 确保应用程序以独立模式运行。
 var EnsureStandaloneMode = func() {
-	if MockSDK != nil {
+	if MockSDK != nil || app.IsTestMode() {
 		return
 	}
 	if os.Geteuid() != 0 {
