@@ -30,6 +30,15 @@ func skipIfNotRoot(t *testing.T) {
 	}
 }
 
+// skipIfNoPhysicalInterface skips the test if no physical interface is available
+// skipIfNoPhysicalInterface 如果没有物理网卡则跳过测试
+func skipIfNoPhysicalInterface(t *testing.T) {
+	interfaces, err := xdp.GetPhysicalInterfaces()
+	if err != nil || len(interfaces) == 0 {
+		t.Skip("Skipping test that requires physical network interface")
+	}
+}
+
 // skipIfNoXDPPrivileges skips tests in restricted root environments (e.g. CI containers).
 func skipIfNoXDPPrivileges(t *testing.T) {
 	l, _ := zap.NewDevelopment()
@@ -48,6 +57,7 @@ func skipIfNoXDPPrivileges(t *testing.T) {
 // TestInstallXDP_NoConfig 测试 InstallXDP 缺少配置的情况
 func TestInstallXDP_NoConfig(t *testing.T) {
 	skipIfNotRoot(t)
+	skipIfNoPhysicalInterface(t)
 	ctx := getTestContext()
 
 	// Test with empty interfaces (should fail because no physical interfaces in test env)
@@ -64,6 +74,7 @@ func TestInstallXDP_NoConfig(t *testing.T) {
 // TestInstallXDP_InvalidInterface 测试 InstallXDP 使用无效接口
 func TestInstallXDP_InvalidInterface(t *testing.T) {
 	skipIfNotRoot(t)
+	skipIfNoXDPPrivileges(t)
 	ctx := getTestContext()
 
 	// Test with non-existent interface
@@ -184,6 +195,7 @@ func TestRemoveXDP_InvalidInterface(t *testing.T) {
 // TestReloadXDP_NoConfig 测试 ReloadXDP 无配置情况
 func TestReloadXDP_NoConfig(t *testing.T) {
 	skipIfNotRoot(t)
+	skipIfNoPhysicalInterface(t)
 	ctx := getTestContext()
 
 	// This may succeed if XDP is already loaded in the environment
@@ -195,6 +207,7 @@ func TestReloadXDP_NoConfig(t *testing.T) {
 // TestReloadXDP_InvalidInterface 测试 ReloadXDP 无效接口
 func TestReloadXDP_InvalidInterface(t *testing.T) {
 	skipIfNotRoot(t)
+	skipIfNoXDPPrivileges(t)
 	ctx := getTestContext()
 
 	// This may succeed if XDP is already loaded in the environment
