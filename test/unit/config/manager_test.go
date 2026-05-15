@@ -93,25 +93,30 @@ func TestConfigPathSingletonBehavior(t *testing.T) {
 func TestConfigConcurrentAccess(t *testing.T) {
 	cfg := &domainconfig.Config{}
 	var wg sync.WaitGroup
+	var mu sync.RWMutex
 
 	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 100; i++ {
 			newCfg := &domainconfig.Config{
 				Base: domainconfig.BaseConfig{
 					DefaultDeny: i%2 == 0,
 				},
 			}
+			mu.Lock()
 			cfg = configfile.Clone(newCfg)
+			mu.Unlock()
 		}
 	}()
 
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 100; i++ {
+			mu.RLock()
 			current := configfile.Clone(cfg)
+			mu.RUnlock()
 			if current != nil {
 				_ = current.Base.DefaultDeny
 			}
