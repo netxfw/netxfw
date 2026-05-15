@@ -3,6 +3,7 @@ package logengine
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -62,10 +63,16 @@ func (cm *CheckpointManager) Save() {
 		return
 	}
 
-	// Ensure directory exists
-	if err := os.MkdirAll("/var/lib/netxfw", 0750); err != nil {
-		cm.logger.Warnf("[WARN]  Failed to create checkpoint directory: %v", err)
-		return
+	// Ensure directory exists based on the file path
+	dir := ""
+	if cm.file != "" {
+		dir = filepath.Dir(cm.file)
+	}
+	if dir != "" {
+		if err := os.MkdirAll(dir, 0750); err != nil {
+			cm.logger.Warnf("[WARN]  Failed to create checkpoint directory: %v", err)
+			return
+		}
 	}
 
 	if err := os.WriteFile(cm.file, data, 0600); err != nil {

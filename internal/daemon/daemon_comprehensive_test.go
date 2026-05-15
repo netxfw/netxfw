@@ -49,9 +49,9 @@ func TestRun_NilOptions(t *testing.T) {
 // TestStartPprof tests starting pprof server
 // TestStartPprof 测试启动 pprof 服务器
 func TestStartPprof(t *testing.T) {
-	// Use a random high port to avoid conflicts
-	// 使用随机高端口避免冲突
-	port := 65433
+	// Use a unique port based on test name to avoid conflicts
+	// 使用基于测试名称的唯一端口避免冲突
+	port := 65400 + int(time.Now().UnixNano()%1000)
 
 	// Start pprof
 	// 启动 pprof

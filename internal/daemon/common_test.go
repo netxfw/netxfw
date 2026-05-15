@@ -91,13 +91,13 @@ func TestManagePidFile_RunningProcess(t *testing.T) {
 // TestStartPprof_Extended tests startPprof function (extended version)
 // TestStartPprof_Extended 测试 startPprof 函数（扩展版本）
 func TestStartPprof_Extended(t *testing.T) {
-	// Use a random available port
-	// 使用随机可用端口
-	port := 0
+	// Use a unique port based on test name to avoid conflicts
+	// 使用基于测试名称的唯一端口避免冲突
+	port := 65200 + int(time.Now().UnixNano()%100)
 
 	// This should not block
 	// 这不应阻塞
-	startPprof(port + 16661)
+	startPprof(port)
 
 	// Give the server time to start
 	// 给服务器启动时间

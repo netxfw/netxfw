@@ -266,9 +266,9 @@ func TestRealDaemon_PprofServer(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	// Use a random high port for testing
-	// 使用随机高端口进行测试
-	testPort := 65530
+	// Use a unique port based on test name to avoid conflicts
+	// 使用基于测试名称的唯一端口避免冲突
+	testPort := 65300 + int(time.Now().UnixNano()%100)
 
 	// Start pprof server
 	// 启动 pprof 服务器
