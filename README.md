@@ -123,7 +123,7 @@ make install DESTDIR=/tmp/package PREFIX=/usr/local
 
 ```bash
 # 使用默认配置加载并执行自适应加载
-sudo netxfw system load
+sudo netxfw enable
 ```
 
 ---
@@ -133,26 +133,35 @@ sudo netxfw system load
 ### 基础操作
 
 ```bash
-# 系统管理
-sudo netxfw system load                   # 加载 XDP 程序
-sudo netxfw system unload                 # 卸载 XDP 程序
-sudo netxfw system status                 # 查看运行状态
-sudo netxfw system reload                 # 热重载配置
+# 系统管理 (UFW 风格)
+sudo netxfw enable                        # 启动防火墙并加载 XDP 程序
+sudo netxfw disable                       # 停止防火墙并卸载 XDP 程序
+sudo netxfw status                        # 查看防火墙运行状态
+sudo netxfw reload                        # 热重载配置 (同步 BPF Map)
 
-# 监控
-sudo netxfw status                        # 查看防火墙状态
-sudo netxfw conntrack                     # 查看连接跟踪表
-sudo netxfw perf show                     # 查看性能统计
+# 系统管理 (底层驱动)
+sudo netxfw system load                   # 加载 XDP 驱动
+sudo netxfw system unload                 # 卸载 XDP 驱动
+sudo netxfw system status                 # 查看驱动与 Map 详细信息
 
-# 白名单管理
-sudo netxfw allow 192.168.1.100           # 添加 IP 到白名单
-sudo netxfw allow add 10.0.0.1            # 添加 IP 到白名单（子命令形式）
-sudo netxfw allow list                    # 列出白名单
-sudo netxfw allow port list               # 列出 IP+Port 允许规则
+# 监控与统计
+sudo netxfw conntrack                     # 查看连接跟踪表 (Conntrack)
+sudo netxfw perf show                     # 查看性能统计 (延迟/命中率/流量)
+sudo netxfw status -v                     # 查看详细运行统计
+```
 
-# 黑名单管理
-sudo netxfw deny 192.168.1.100            # 添加 IP 到静态黑名单
-sudo netxfw deny add 10.0.0.1 --ttl 1h    # 添加到动态黑名单（1小时后自动过期）
+### 规则管理
+
+```bash
+# 白名单管理 (Allow)
+sudo netxfw allow 192.168.1.100           # 允许 IP
+sudo netxfw allow 192.168.1.100:8080      # 允许特定 IP + 端口
+sudo netxfw allow list                    # 列出所有白名单 IP
+
+# 黑名单管理 (Deny)
+sudo netxfw deny 1.2.3.4                  # 永久封禁 IP
+sudo netxfw deny 1.2.3.4:443              # 拒绝特定 IP + 端口
+sudo netxfw deny 1.2.3.4 --ttl 1h         # 临时封禁 1 小时 (自动过期)
 sudo netxfw deny list                     # 列出所有黑名单
 sudo netxfw deny list --dynamic           # 仅列出动态黑名单
 sudo netxfw deny port list                # 列出 IP+Port 拒绝规则

@@ -133,58 +133,67 @@ sudo netxfw system load
 ### Basic Operations
 
 ```bash
-# System Management
-sudo netxfw system load                   # Load XDP program
-sudo netxfw system unload                 # Unload XDP program
-sudo netxfw system status                 # View running status
-sudo netxfw system reload                 # Hot reload configuration
+# System Management (UFW style)
+sudo netxfw enable                        # Start firewall and load XDP program
+sudo netxfw disable                       # Stop firewall and unload XDP program
+sudo netxfw status                        # View firewall running status
+sudo netxfw reload                        # Hot-reload config (sync BPF Maps)
 
-# Monitoring
-sudo netxfw status                        # View firewall status
-sudo netxfw conntrack                     # View connection tracking table
-sudo netxfw perf show                     # View performance statistics
+# System Management (Low-level)
+sudo netxfw system load                   # Load XDP driver
+sudo netxfw system unload                 # Unload XDP driver
+sudo netxfw system status                 # View driver and Map details
 
-# Whitelist Management
-sudo netxfw allow 192.168.1.100           # Add IP to whitelist
-sudo netxfw allow add 10.0.0.1            # Add IP to whitelist (subcommand form)
-sudo netxfw allow list                    # List whitelist
-sudo netxfw allow port list               # List IP+Port allow rules
+# Monitoring & Statistics
+sudo netxfw conntrack                     # View connection tracking table (Conntrack)
+sudo netxfw perf show                     # View performance stats (Latency/Cache/Traffic)
+sudo netxfw status -v                     # View detailed operational stats
+```
 
-# Blacklist Management
-sudo netxfw deny 192.168.1.100            # Add IP to static blacklist
-sudo netxfw deny add 10.0.0.1 --ttl 1h    # Add to dynamic blacklist (expires in 1 hour)
+### Rule Management
+
+```bash
+# Whitelist Management (Allow)
+sudo netxfw allow 192.168.1.100           # Allow an IP
+sudo netxfw allow 192.168.1.100:8080      # Allow specific IP + Port
+sudo netxfw allow list                    # List all whitelisted IPs
+
+# Blacklist Management (Deny)
+sudo netxfw deny 1.2.3.4                  # Permanently block an IP
+sudo netxfw deny 1.2.3.4:443              # Deny specific IP + Port
+sudo netxfw deny 1.2.3.4 --ttl 1h         # Temporarily block for 1 hour (Auto-expiry)
 sudo netxfw deny list                     # List all blacklists
-sudo netxfw deny list --dynamic           # List dynamic blacklist only
-sudo netxfw deny port list                # List IP+Port deny rules
+sudo netxfw deny list --dynamic           # List dynamic blacklists only
 
-# Dynamic Blacklist Management (supports alias: dyn)
-sudo netxfw dynamic add 192.168.1.100 --ttl 1h   # Add dynamic blacklist entry
-sudo netxfw dyn del 192.168.1.100                # Delete dynamic entry (using alias)
-sudo netxfw dynamic list                         # List dynamic blacklist
+# Rule Removal (Del)
+sudo netxfw del 1.2.3.4                   # Remove a blacklist or whitelist rule
+sudo netxfw del 192.168.1.100:8080        # Remove an IP+Port rule
 
-# Rule Management
-sudo netxfw rule add 192.168.1.0/24 deny           # Add rule
-sudo netxfw rule list                              # List rules
-sudo netxfw rule del 192.168.1.0/24                # Delete rule (supports delete/remove aliases)
-sudo netxfw rule export rules.toml                 # Export rules
-sudo netxfw rule import all rules.toml             # Import rules
+# Advanced Dynamic Management (Dynamic)
+sudo netxfw dynamic add 5.6.7.8 --ttl 30m # Add a 30-minute dynamic block
+sudo netxfw dynamic list                  # View dynamic block details
 
-# Port Rule Management (IP+Port level control)
-sudo netxfw allow 192.168.1.100:8080     # Allow specific IP+Port
-sudo netxfw deny 10.0.0.1:443            # Deny specific IP+Port
-sudo netxfw rule add 192.168.1.100:8080 allow            # Add IP+Port allow rule
-sudo netxfw rule add 10.0.0.1:443 deny                   # Add IP+Port deny rule
-sudo netxfw rule del 192.168.1.100:8080                  # Delete IP+Port rule
+# Structured Rule Management (Rule)
+sudo netxfw rule add 10.0.0.0/24 deny     # Add a CIDR block rule
+sudo netxfw rule export rules.json        # Export rules to JSON
+sudo netxfw rule import all rules.json    # Import all rules from JSON
+```
 
-# Open Port Management (Global port whitelist)
-sudo netxfw port add 80                  # Open port 80
-sudo netxfw port add 443                 # Open port 443
-sudo netxfw port add 8080-8090           # Open port range
-sudo netxfw port del 8080                # Remove port (supports delete/remove aliases)
+### Other Management
 
-# Rate Limiting
-sudo netxfw limit add 0.0.0.0/0 1000 2000                 # Add rate limit rule
-sudo netxfw limit list                                     # List rate limit rules
+```bash
+# Global Open Ports (Port)
+sudo netxfw port add 80                   # Open port 80
+sudo netxfw port add 8000-9000            # Open a port range
+sudo netxfw port del 80                   # Remove an open port
+
+# Rate Limiting (Limit)
+sudo netxfw limit add 0.0.0.0/0 1000 2000 # Set global default rate limit (PPS)
+sudo netxfw limit list                    # View rate limit rules
+
+# System Maintenance
+sudo netxfw system update                 # Check and upgrade netxfw binary
+sudo netxfw reset                         # Reset firewall (Clear rules, keep SSH)
 ```
 
 ### Shell Auto-Completion
