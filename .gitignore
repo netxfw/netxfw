@@ -31,3 +31,5 @@ internal/datapath/xdp/backend/*.o
 # OS metadata
 .DS_Store
 Thumbs.db
+# Added by code-review-graph
+.code-review-graph/

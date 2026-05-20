@@ -107,7 +107,7 @@ check_command_registration_baseline() {
 check_sampled_chain_symbols() {
   echo "Checking sampled-chain command symbols..."
   require_contains "$ROOT_DIR/cmd/agent/rule.go" "var ruleExportCmd = &cobra.Command{" "symbol: ruleExportCmd"
-  require_contains "$ROOT_DIR/cmd/agent/system.go" "var syncToMapCmd = &cobra.Command{" "symbol: syncToMapCmd"
+  require_contains "$ROOT_DIR/cmd/agent/system_xdp_commands.go" "var syncToMapCmd = &cobra.Command{" "symbol: syncToMapCmd"
   require_contains "$ROOT_DIR/cmd/agent/simple_list.go" "var denyPortListCmd = &cobra.Command{" "symbol: denyPortListCmd"
   require_contains "$ROOT_DIR/cmd/agent/dynamic.go" "var dynamicAddCmd = &cobra.Command{" "symbol: dynamicAddCmd"
   require_contains "$ROOT_DIR/cmd/agent/perf.go" "var perfShowCmd = &cobra.Command{" "symbol: perfShowCmd"

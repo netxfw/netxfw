@@ -938,14 +938,14 @@ func (s *SyncService) Map2File() error {
 
 ### A. 相关文件
 
-- [`internal/adapters/configfile/`](file:///root/work1/netxfw/netxfw/internal/adapters/configfile/) - 配置文件适配器
-- [`internal/domain/config/`](file:///root/work1/netxfw/netxfw/internal/domain/config/) - 配置领域模型
-- [`internal/application/services/`](file:///root/work1/netxfw/netxfw/internal/application/services/) - 应用服务
+- [`internal/adapters/configfile/`](../../internal/adapters/configfile/) - 配置文件适配器
+- [`internal/domain/config/`](../../internal/domain/config/) - 配置领域模型
+- [`internal/app/`](../../internal/app/) - 应用逻辑服务
 
 ### B. 配置示例
 
-- [`config.toml`](file:///root/work1/netxfw/netxfw/config.toml) - 默认配置文件
-- [`docs/04-configuration/04-03_configuration_reference.md`](file:///root/work1/netxfw/netxfw/docs/04-configuration/04-03_configuration_reference.md) - 配置参考文档
+- [`config.toml`](../../config.toml) - 默认配置文件
+- [`04-03_configuration_reference.md`](04-03_configuration_reference.md) - 配置参考文档
 
 ### C. 命令参考
 

@@ -1062,8 +1062,8 @@ log.Printf("Token=%s", secretToken) // 不要记录敏感信息
 ### C. 相关文档
 
 - [REST API 参考](09-03_api_reference.md)
-- [插件开发指南](06-01_plugins.md)
-- [配置管理](04-03_configuration_reference.md)
+- [插件开发指南](../06-plugin-development/06-01_plugins.md)
+- [配置管理](../04-configuration/04-03_configuration_reference.md)
 
 ---
 

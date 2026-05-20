@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+//nolint:unused
 var (
 	ruleValuePool = sync.Pool{
 		New: func() any {
@@ -52,12 +53,16 @@ func init() {
 
 // acquireRuleValue gets a NetXfwRuleValue from the pool.
 // acquireRuleValue 从对象池获取一个 NetXfwRuleValue。
+//
+//nolint:unused
 func acquireRuleValue() *NetXfwRuleValue {
 	return ruleValuePool.Get().(*NetXfwRuleValue)
 }
 
 // releaseRuleValue returns a NetXfwRuleValue to the pool after resetting it.
 // releaseRuleValue 将 NetXfwRuleValue 重置后归还到对象池。
+//
+//nolint:unused
 func releaseRuleValue(v *NetXfwRuleValue) {
 	*v = NetXfwRuleValue{}
 	ruleValuePool.Put(v)
@@ -65,12 +70,16 @@ func releaseRuleValue(v *NetXfwRuleValue) {
 
 // acquireIn6Addr gets a NetXfwIn6Addr from the pool.
 // acquireIn6Addr 从对象池获取一个 NetXfwIn6Addr。
+//
+//nolint:unused
 func acquireIn6Addr() *NetXfwIn6Addr {
 	return in6AddrPool.Get().(*NetXfwIn6Addr)
 }
 
 // releaseIn6Addr returns a NetXfwIn6Addr to the pool after resetting it.
 // releaseIn6Addr 将 NetXfwIn6Addr 重置后归还到对象池。
+//
+//nolint:unused
 func releaseIn6Addr(v *NetXfwIn6Addr) {
 	*v = NetXfwIn6Addr{}
 	in6AddrPool.Put(v)
@@ -78,12 +87,16 @@ func releaseIn6Addr(v *NetXfwIn6Addr) {
 
 // acquireRatelimitValue gets a NetXfwRatelimitValue from the pool.
 // acquireRatelimitValue 从对象池获取一个 NetXfwRatelimitValue。
+//
+//nolint:unused
 func acquireRatelimitValue() *NetXfwRatelimitValue {
 	return ratelimitValuePool.Get().(*NetXfwRatelimitValue)
 }
 
 // releaseRatelimitValue returns a NetXfwRatelimitValue to the pool after resetting it.
 // releaseRatelimitValue 将 NetXfwRatelimitValue 重置后归还到对象池。
+//
+//nolint:unused
 func releaseRatelimitValue(v *NetXfwRatelimitValue) {
 	*v = NetXfwRatelimitValue{}
 	ratelimitValuePool.Put(v)
@@ -91,12 +104,16 @@ func releaseRatelimitValue(v *NetXfwRatelimitValue) {
 
 // acquireLpmKey gets a NetXfwLpmKey from the pool.
 // acquireLpmKey 从对象池获取一个 NetXfwLpmKey。
+//
+//nolint:unused
 func acquireLpmKey() *NetXfwLpmKey {
 	return lpmKeyPool.Get().(*NetXfwLpmKey)
 }
 
 // releaseLpmKey returns a NetXfwLpmKey to the pool after resetting it.
 // releaseLpmKey 将 NetXfwLpmKey 重置后归还到对象池。
+//
+//nolint:unused
 func releaseLpmKey(v *NetXfwLpmKey) {
 	*v = NetXfwLpmKey{}
 	lpmKeyPool.Put(v)
@@ -104,12 +121,16 @@ func releaseLpmKey(v *NetXfwLpmKey) {
 
 // acquireLpmIPPortKey gets a NetXfwLpmIpPortKey from the pool.
 // acquireLpmIPPortKey 从对象池获取一个 NetXfwLpmIpPortKey。
+//
+//nolint:unused
 func acquireLpmIPPortKey() *NetXfwLpmIpPortKey {
 	return lpmIPPortKeyPool.Get().(*NetXfwLpmIpPortKey)
 }
 
 // releaseLpmIPPortKey returns a NetXfwLpmIpPortKey to the pool after resetting it.
 // releaseLpmIPPortKey 将 NetXfwLpmIpPortKey 重置后归还到对象池。
+//
+//nolint:unused
 func releaseLpmIPPortKey(v *NetXfwLpmIpPortKey) {
 	*v = NetXfwLpmIpPortKey{}
 	lpmIPPortKeyPool.Put(v)

@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+//nolint:unused
 func intToIP(nn uint32) net.IP {
 	ip := make(net.IP, 4)
 	binary.LittleEndian.PutUint32(ip, nn)

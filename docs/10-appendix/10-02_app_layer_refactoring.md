@@ -250,6 +250,6 @@ jobs:
 
 ## 相关文档
 
-- [API 迁移指南](./api-migration-guide.md)
-- [废弃策略](./deprecation-policy.md)
-- [版本兼容性](./version-compatibility.md)
+- [API 迁移指南](./10-03_api_migration_guide.md)
+- [废弃策略](./10-03_api_migration_guide.md)
+- [版本兼容性](./10-03_api_migration_guide.md)

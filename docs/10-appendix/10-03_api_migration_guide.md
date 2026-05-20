@@ -225,5 +225,5 @@ A: 可以回滚到旧 API，或者提交 Issue 寻求帮助。
 ## 相关文档
 
 - [应用服务层重构计划](./10-02_app_layer_refactoring.md)
-- [版本兼容性策略](./version-compatibility.md)
-- [CHANGELOG](../CHANGELOG.md)
+- [版本兼容性策略（废弃策略）](#废弃策略)
+- [CHANGELOG](../../CHANGELOG.md)

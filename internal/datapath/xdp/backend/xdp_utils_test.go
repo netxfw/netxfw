@@ -1,7 +1,5 @@
 //go:build integration
 
-
-
 package xdp
 
 import (

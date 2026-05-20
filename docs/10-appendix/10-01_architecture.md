@@ -497,7 +497,7 @@ var (
 
 ### pkg/sdk/ - SDK 接口
 
-SDK 接口提供统一的 API 抽象，详见 [09-04_sdk_api.md](09-api-reference/09-04_sdk_api.md)。
+SDK 接口提供统一的 API 抽象，详见 [09-04_sdk_api.md](../09-api-reference/09-04_sdk_api.md)。
 
 ### pkg/storage/ - 存储抽象
 

@@ -520,7 +520,7 @@ flowchart TD
   A --> K["port"]
 ```
 
-Source anchors: `cmd/netxfw/root.go`; command handlers in `cmd/agent/*.go` and `cmd/dp/conntrack.go`; execution framework `cmd/agent/executor.go`; service entrypoints `internal/application/services/*`.
+Source anchors: `cmd/netxfw/root.go`; command handlers in `cmd/agent/*.go` and `cmd/dp/conntrack.go`; execution framework `cmd/agent/executor.go`; service entrypoints `internal/app/*`.
 
 ### 2) allow/deny/list/del (including port list)
 
@@ -547,7 +547,7 @@ flowchart TD
   U --> APP
 ```
 
-Source anchors: `cmd/agent/simple_list.go`; execution framework `cmd/agent/executor.go`; service entrypoint `internal/application/services/rule_command_service.go`.
+Source anchors: `cmd/agent/simple_list.go`; execution framework `cmd/agent/executor.go`; service entrypoint `internal/app/rule_service.go`.
 
 ### 3) rule (add/del/list/import/export/clear)
 
@@ -566,7 +566,7 @@ flowchart TD
   E1 --> APP
 ```
 
-Source anchors: `cmd/agent/rule.go`; execution framework `cmd/agent/executor.go`; service entrypoints `internal/application/services/rule_command_service.go`, `internal/application/services/rule_service.go`.
+Source anchors: `cmd/agent/rule.go`; execution framework `cmd/agent/executor.go`; service entrypoint `internal/app/rule_service.go`.
 
 ### 4) system (attach/load/unload/on/off/reload/status/sync/test/init/daemon/update)
 
@@ -586,7 +586,7 @@ flowchart TD
   J1 --> J3["systemService.SyncConfigToRuntimeOverwrite()"]
 ```
 
-Source anchors: `cmd/agent/system.go`, `cmd/agent/system_display.go`, `cmd/agent/system_stats.go`; execution framework `cmd/agent/executor.go`; service entrypoints `internal/application/services/system_service.go`, `internal/application/services/system_query_service.go`.
+Source anchors: `cmd/agent/system.go`, `cmd/agent/system_display.go`, `cmd/agent/system_stats.go`; execution framework `cmd/agent/executor.go`; service entrypoints `internal/app/ops_xdp.go`, `internal/app/rule_service.go`.
 
 ### 5) dynamic (add/del/list, alias dyn)
 
@@ -652,7 +652,7 @@ flowchart TD
   Q --> APP["internal/app.LoadPerformanceStats()"]
 ```
 
-Source anchors: `cmd/agent/perf.go`; execution framework `cmd/agent/executor.go`; service entrypoint `internal/application/services/performance_query_service.go`.
+Source anchors: `cmd/agent/perf.go`; execution framework `cmd/agent/executor.go`; service entrypoint `internal/app/ops_stats.go`.
 
 ### 9) conntrack
 
@@ -679,7 +679,7 @@ flowchart TD
   I["web"] --> I1["Print web information"]
 ```
 
-Source anchors: `cmd/agent/simple.go`; execution framework `cmd/agent/executor.go`; service entrypoints `internal/application/services/command_runtime_service.go`, `internal/application/services/system_service.go`.
+Source anchors: `cmd/agent/simple.go`; execution framework `cmd/agent/executor.go`; service entrypoints `cmd/agent/runtime_support.go`, `internal/app/`.
 
 ## Maintenance Rules
 
@@ -692,11 +692,11 @@ Source anchors: `cmd/agent/simple.go`; execution framework `cmd/agent/executor.g
 
 1. `rule export <file>`  
 Path: `netxfw` -> `rule` -> `export` -> `ruleExportCmd.Run` -> `Execute(...)` -> `RuleService.ExportStructured/ExportCSV/ExportBinary`.  
-Anchors: `cmd/netxfw/root.go:72`, `cmd/agent/rule.go:438`, `cmd/agent/rule.go:450`, `cmd/agent/executor.go:165`, `internal/application/services/rule_service.go:28`.
+Anchors: `cmd/netxfw/root.go:72`, `cmd/agent/rule.go:429`, `cmd/agent/rule.go:441`, `cmd/agent/executor.go:165`, `internal/app/rule_service.go:30`.
 
 2. `system sync to-map`  
 Path: `netxfw` -> `system` -> `sync` -> `to-map` -> `syncToMapCmd.Run` -> `Execute(...)` -> `SystemService.SyncConfigToRuntimeOverwrite`.  
-Anchors: `cmd/netxfw/root.go:92`, `cmd/agent/system.go:383`, `cmd/agent/system.go:388`, `cmd/agent/executor.go:165`, `internal/application/services/system_service.go:41`.
+Anchors: `cmd/netxfw/root.go:92`, `cmd/agent/system_xdp_commands.go:186`, `cmd/agent/system_xdp_commands.go:191`, `cmd/agent/executor.go:165`, `internal/app/rule_service.go:72`.
 
 3. `deny port list`  
 Path: `netxfw` -> `deny` -> `port` -> `list` -> `denyPortListCmd.Run` -> `CommandExecutor.ExecuteWithSDK(...)` -> `listIPPortRulesByAction(...)` -> `s.GetManager().ListIPPortRules(...)`.  
@@ -708,4 +708,4 @@ Anchors: `cmd/netxfw/root.go:76`, `cmd/agent/dynamic.go:34`, `cmd/agent/dynamic.
 
 5. `perf show`  
 Path: `netxfw` -> `perf` -> `show` -> `perfShowCmd.Run` -> `Execute(...)` -> `showPerformanceStats(...)` -> `perfQueryService.LoadPerformanceStats(...)`.  
-Anchors: `cmd/netxfw/root.go:83`, `cmd/agent/perf.go:27`, `cmd/agent/perf.go:33`, `cmd/agent/perf.go:130`, `internal/application/services/performance_query_service.go:21`.
+Anchors: `cmd/netxfw/root.go:83`, `cmd/agent/perf.go:24`, `cmd/agent/perf.go:30`, `cmd/agent/perf.go:122`, `internal/app/ops_stats.go:10`.
