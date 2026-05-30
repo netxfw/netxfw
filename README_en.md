@@ -262,67 +262,78 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
 
 Enable Auto-Blocking in your configuration file (default: `/etc/netxfw/config.toml`):
 
-```yaml
-rate_limit:
-  enabled: true
-  auto_block: true          # Enable automatic blocking
-  auto_block_expiry: "5m"   # Duration of the block (s, m, h)
-  rules:
-    - ip: "0.0.0.0/0"
-      rate: 1000            # Packets per second limit
-      burst: 2000           # Maximum burst allowed
+```toml
+[rate_limit]
+enabled = true
+auto_block = true           # Enable automatic blocking
+auto_block_expiry = "10m"   # Duration of the block (s, m, h)
+rules = [
+    { ip = "0.0.0.0/0", rate = 1000, burst = 2000 },  # rate: Packets per second limit, burst: Maximum burst allowed
+]
 ```
 
 ### BPF Map Capacity Configuration
 
 Adjust Map capacity based on your memory environment:
 
-```yaml
-capacity:
-  whitelist: 10000          # Whitelist capacity
-  blacklist: 50000          # Static blacklist capacity
-  dynamic_blacklist: 20000  # Dynamic blacklist capacity
-  conntrack: 100000         # Connection tracking table capacity
+```toml
+[capacity]
+lock_list = 20000           # Static blacklist capacity
+dyn_lock_list = 2000        # Dynamic blacklist capacity
+whitelist = 30              # Whitelist capacity
+ip_port_rules = 30          # IP-Port rules capacity
+rate_limits = 1000          # Rate limit rules capacity
+drop_reason_stats = 1000000 # Drop statistics capacity
+pass_reason_stats = 1000000 # Pass statistics capacity
+
+[conntrack]
+enabled = true
+max_entries = 100000        # Connection tracking table capacity
+tcp_timeout = "1h"
+udp_timeout = "5m"
 ```
 
 ### Log Engine Configuration
 
 The Log Engine analyzes log files in real-time and automatically executes defense actions:
 
-```yaml
-log_engine:
-  enabled: true             # Enable log engine
-  workers: 4                # Concurrent processing workers
-  files:                    # Log files to monitor
-    - "/var/log/nginx/access.log"
-    - "/var/log/auth.log"
-    - "/var/log/syslog"
-  rules:
-    # SSH brute-force defense: block after 5 failures in 60s
-    - id: "ssh_bruteforce"
-      path: "/var/log/auth.log"
-      action: "dynblack"    # Dynamic block (default 5 minutes)
-      is: ["Failed password"]
-      threshold: 5
-      interval: 60
+```toml
+[log_engine]
+enabled = true              # Enable log engine
+workers = 4                 # Concurrent processing workers
+files = [                   # Log files to monitor
+    "/var/log/nginx/access.log",
+    "/var/log/auth.log",
+    "/var/log/syslog",
+]
+rules = []
 
-    # Block malicious scrapers
-    - id: "block_scrapers"
-      path: "/var/log/nginx/access.log"
-      action: "dynblack:1h" # Block for 1 hour
-      or:
-        - "Go-http-client"
-        - "python-requests"
-        - "curl/"
+# SSH brute-force defense: block after 5 failures in 60s
+[[log_engine.rules]]
+id = "ssh_bruteforce"
+path = "/var/log/auth.log"
+action = "dynblack"         # Dynamic block (default 5 minutes)
+is = ["Failed password"]
+threshold = 5
+interval = 60
 
-    # Nginx 404/500 high-frequency scanning
-    - id: "nginx_scan"
-      path: "/var/log/nginx/access.log"
-      action: "dynblack"
-      expression: |
-        (Fields()[8] == "404" || Fields()[8] == "500") &&
-        Contains(Fields()[6], "admin") &&
-        Count(30) > 10
+# Block malicious scrapers
+[[log_engine.rules]]
+id = "block_scrapers"
+path = "/var/log/nginx/access.log"
+action = "dynblack:1h"      # Block for 1 hour
+or = ["Go-http-client", "python-requests", "curl/"]
+
+# Nginx 404/500 high-frequency scanning
+[[log_engine.rules]]
+id = "nginx_scan"
+path = "/var/log/nginx/access.log"
+action = "dynblack"
+expression = '''
+(Fields()[8] == "404" || Fields()[8] == "500") &&
+Contains(Fields()[6], "admin") &&
+Count(30) > 10
+'''
 ```
 
 **Log Engine Actions**:

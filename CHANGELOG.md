@@ -4,6 +4,14 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，并且本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/spec/v2.0.0.html) 语义化版本规范。
 
+## [v1.1.0] - 2026-05-24
+
+### 修复
+- **文档**: 修复 README 和 README_en.md 中的配置示例格式（YAML → TOML）
+- **文档**: 修正 capacity 配置字段名称（blacklist → lock_list, dynamic_blacklist → dyn_lock_list）
+- **文档**: 修正 auto_block_expiry 默认值（5m → 10m）
+- **文档**: 将 conntrack 配置从 capacity 段移至独立的 [conntrack] 段
+
 ## [v1.0.24] - 2026-02-26
 
 ### 修复

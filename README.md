@@ -262,67 +262,78 @@ netxfw completion fish > ~/.config/fish/completions/netxfw.fish
 
 在配置文件（默认为 `/etc/netxfw/config.toml`）中启用自动拦截功能：
 
-```yaml
-rate_limit:
-  enabled: true
-  auto_block: true          # 开启自动拦截
-  auto_block_expiry: "5m"   # 自动拦截的时长，支持 s, m, h
-  rules:
-    - ip: "0.0.0.0/0"
-      rate: 1000            # 每秒包数限制
-      burst: 2000           # 允许的最大突发
+```toml
+[rate_limit]
+enabled = true
+auto_block = true           # 开启自动拦截
+auto_block_expiry = "10m"   # 自动拦截的时长，支持 s, m, h
+rules = [
+    { ip = "0.0.0.0/0", rate = 1000, burst = 2000 },  # rate: 每秒包数限制, burst: 允许的最大突发
+]
 ```
 
 ### BPF Map 容量配置
 
 根据内存环境调整 Map 容量：
 
-```yaml
-capacity:
-  whitelist: 10000          # 白名单容量
-  blacklist: 50000          # 静态黑名单容量
-  dynamic_blacklist: 20000  # 动态黑名单容量
-  conntrack: 100000         # 连接跟踪表容量
+```toml
+[capacity]
+lock_list = 20000           # 静态黑名单容量
+dyn_lock_list = 2000        # 动态黑名单容量
+whitelist = 30              # 白名单容量
+ip_port_rules = 30          # IP-端口规则容量
+rate_limits = 1000          # 速率限制容量
+drop_reason_stats = 1000000 # 丢弃统计容量
+pass_reason_stats = 1000000 # 通过统计容量
+
+[conntrack]
+enabled = true
+max_entries = 100000        # 连接跟踪表容量
+tcp_timeout = "1h"
+udp_timeout = "5m"
 ```
 
 ### 日志引擎配置
 
 日志引擎用于实时分析日志文件并自动执行防御动作：
 
-```yaml
-log_engine:
-  enabled: true             # 启用日志引擎
-  workers: 4                # 并发处理协程数
-  files:                    # 监控的日志文件列表
-    - "/var/log/nginx/access.log"
-    - "/var/log/auth.log"
-    - "/var/log/syslog"
-  rules:
-    # SSH 爆破防御：60秒内失败5次则封禁
-    - id: "ssh_bruteforce"
-      path: "/var/log/auth.log"
-      action: "dynblack"    # 动态封禁（默认5分钟）
-      is: ["Failed password"]
-      threshold: 5
-      interval: 60
+```toml
+[log_engine]
+enabled = true              # 启用日志引擎
+workers = 4                 # 并发处理协程数
+files = [                   # 监控的日志文件列表
+    "/var/log/nginx/access.log",
+    "/var/log/auth.log",
+    "/var/log/syslog",
+]
+rules = []
 
-    # 拦截恶意爬虫
-    - id: "block_scrapers"
-      path: "/var/log/nginx/access.log"
-      action: "dynblack:1h" # 封禁1小时
-      or:
-        - "Go-http-client"
-        - "python-requests"
-        - "curl/"
+# SSH 爆破防御：60秒内失败5次则封禁
+[[log_engine.rules]]
+id = "ssh_bruteforce"
+path = "/var/log/auth.log"
+action = "dynblack"         # 动态封禁（默认5分钟）
+is = ["Failed password"]
+threshold = 5
+interval = 60
 
-    # Nginx 404/500 高频扫描
-    - id: "nginx_scan"
-      path: "/var/log/nginx/access.log"
-      action: "dynblack"
-      expression: |
-        (Fields()[8] == "404" || Fields()[8] == "500") &&
-        Contains(Fields()[6], "admin") &&
-        Count(30) > 10
+# 拦截恶意爬虫
+[[log_engine.rules]]
+id = "block_scrapers"
+path = "/var/log/nginx/access.log"
+action = "dynblack:1h"      # 封禁1小时
+or = ["Go-http-client", "python-requests", "curl/"]
+
+# Nginx 404/500 高频扫描
+[[log_engine.rules]]
+id = "nginx_scan"
+path = "/var/log/nginx/access.log"
+action = "dynblack"
+expression = '''
+(Fields()[8] == "404" || Fields()[8] == "500") &&
+Contains(Fields()[6], "admin") &&
+Count(30) > 10
+'''
 ```
 
 **日志引擎动作说明**：

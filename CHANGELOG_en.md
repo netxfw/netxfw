@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.0] - 2026-05-24
+
+### Fixed
+- **Docs**: Fixed configuration example format in README and README_en.md (YAML → TOML)
+- **Docs**: Corrected capacity config field names (blacklist → lock_list, dynamic_blacklist → dyn_lock_list)
+- **Docs**: Corrected auto_block_expiry default value (5m → 10m)
+- **Docs**: Moved conntrack config from capacity section to standalone [conntrack] section
+
 ## [v1.0.24] - 2026-02-26
 
 ### Fixed

@@ -41,63 +41,63 @@ NetXFW uses multiple BPF Maps to store firewall rules, connection tracking, and 
 
 In `config.toml`, configure through `capacity` and `conntrack` sections:
 
-```yaml
-conntrack:
-  enabled: true
-  max_entries: 100000      # conntrack_map size
-  tcp_timeout: "1h"
-  udp_timeout: "5m"
+```toml
+[conntrack]
+enabled = true
+max_entries = 100000       # conntrack_map size
+tcp_timeout = "1h"
+udp_timeout = "5m"
 
-capacity:
-  lock_list: 2000000       # static_blacklist size
-  dyn_lock_list: 2000000   # dynamic_blacklist size
-  whitelist: 65536         # whitelist size
-  ip_port_rules: 65536     # rule_map size
-  rate_limits: 1000        # ratelimit_map size
-  drop_reason_stats: 1000000   # top_drop_map size
-  pass_reason_stats: 1000000   # top_pass_map size
+[capacity]
+lock_list = 2000000        # static_blacklist size
+dyn_lock_list = 2000000    # dynamic_blacklist size
+whitelist = 65536          # whitelist size
+ip_port_rules = 65536      # rule_map size
+rate_limits = 1000         # ratelimit_map size
+drop_reason_stats = 1000000    # top_drop_map size
+pass_reason_stats = 1000000    # top_pass_map size
 ```
 
 ## Default Configuration (High-End Server)
 
 For servers with 16+ cores, 32GB+ memory:
 
-```yaml
-conntrack:
-  enabled: true
-  max_entries: 100000
-  tcp_timeout: "1h"
-  udp_timeout: "5m"
+```toml
+[conntrack]
+enabled = true
+max_entries = 100000
+tcp_timeout = "1h"
+udp_timeout = "5m"
 
-capacity:
-  lock_list: 2000000           # Static blacklist
-  dyn_lock_list: 2000000       # Dynamic blacklist
-  whitelist: 65536             # Whitelist
-  ip_port_rules: 65536         # IP+Port rules
-  rate_limits: 1000            # Rate limits
-  drop_reason_stats: 1000000   # Drop statistics
-  pass_reason_stats: 1000000   # Pass statistics
+[capacity]
+lock_list = 2000000            # Static blacklist
+dyn_lock_list = 2000000        # Dynamic blacklist
+whitelist = 65536              # Whitelist
+ip_port_rules = 65536          # IP+Port rules
+rate_limits = 1000             # Rate limits
+drop_reason_stats = 1000000    # Drop statistics
+pass_reason_stats = 1000000    # Pass statistics
 ```
 
 **Memory Estimate**: ~211 MB
 
 ## Medium Configuration (4-8 Cores, 8GB Memory)
 
-```yaml
-conntrack:
-  enabled: true
-  max_entries: 50000
-  tcp_timeout: "30m"
-  udp_timeout: "2m"
+```toml
+[conntrack]
+enabled = true
+max_entries = 50000
+tcp_timeout = "30m"
+udp_timeout = "2m"
 
-capacity:
-  lock_list: 500000
-  dyn_lock_list: 500000
-  whitelist: 65536
-  ip_port_rules: 65536
-  rate_limits: 10000
-  drop_reason_stats: 100000
-  pass_reason_stats: 100000
+[capacity]
+lock_list = 500000
+dyn_lock_list = 500000
+whitelist = 65536
+ip_port_rules = 65536
+rate_limits = 10000
+drop_reason_stats = 100000
+pass_reason_stats = 100000
 ```
 
 **Memory Estimate**: ~60 MB
@@ -106,37 +106,37 @@ capacity:
 
 For low-end servers, embedded devices:
 
-```yaml
-base:
-  default_deny: true
-  allow_return_traffic: false
-  allow_icmp: true
-  persist_rules: true
-  cleanup_interval: "30s"
-  enable_pprof: false
+```toml
+[base]
+default_deny = true
+allow_return_traffic = false
+allow_icmp = true
+persist_rules = true
+cleanup_interval = "30s"
+enable_pprof = false
 
-conntrack:
-  enabled: true
-  max_entries: 50000
-  tcp_timeout: "30m"
-  udp_timeout: "2m"
+[conntrack]
+enabled = true
+max_entries = 50000
+tcp_timeout = "30m"
+udp_timeout = "2m"
 
-capacity:
-  lock_list: 20000           # Static blacklist
-  dyn_lock_list: 20000       # Dynamic blacklist
-  whitelist: 30              # Whitelist
-  ip_port_rules: 50          # IP+Port rules
-  rate_limits: 1000          # Rate limits
-  drop_reason_stats: 5000    # Drop statistics
-  pass_reason_stats: 5000    # Pass statistics
+[capacity]
+lock_list = 20000            # Static blacklist
+dyn_lock_list = 20000        # Dynamic blacklist
+whitelist = 30               # Whitelist
+ip_port_rules = 50           # IP+Port rules
+rate_limits = 1000           # Rate limits
+drop_reason_stats = 5000     # Drop statistics
+pass_reason_stats = 5000     # Pass statistics
 
-rate_limit:
-  enabled: true
-  auto_block: true
-  auto_block_expiry: "5m"
+[rate_limit]
+enabled = true
+auto_block = true
+auto_block_expiry = "10m"
 
-metrics:
-  enabled: false
+[metrics]
+enabled = false
 ```
 
 **Memory Estimate**: ~8 MB
