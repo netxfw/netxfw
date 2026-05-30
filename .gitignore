@@ -22,7 +22,7 @@
 /.kilocode/
 /plans
 
-/.codex
+.codex
 config/*.yaml
 
 internal/datapath/xdp/backend/*.o
@@ -33,3 +33,5 @@ internal/datapath/xdp/backend/*.o
 Thumbs.db
 # Added by code-review-graph
 .code-review-graph/
+
+CLAUDE.md
