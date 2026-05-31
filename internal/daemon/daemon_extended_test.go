@@ -179,6 +179,8 @@ func TestStartPprof_MultiplePorts(t *testing.T) {
 	// Use a unique port based on test name to avoid conflicts
 	// 使用基于测试名称的唯一端口避免冲突
 	port := 65500 + int(time.Now().UnixNano()%100)
+	setSuppressPprofBindErrorLog(true)
+	defer setSuppressPprofBindErrorLog(false)
 
 	// Start first pprof server
 	// 启动第一个 pprof 服务器

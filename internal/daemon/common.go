@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"sync/atomic"
 	"time"
 
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
@@ -20,6 +22,12 @@ import (
 	"github.com/netxfw/netxfw/internal/utils/logger"
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
+
+var suppressPprofBindErrorLog atomic.Bool
+
+func setSuppressPprofBindErrorLog(enabled bool) {
+	suppressPprofBindErrorLog.Store(enabled)
+}
 
 // managePidFile ensures only one instance of the daemon is running by checking/writing a PID file.
 // managePidFile 通过检查/编写 PID 文件来确保只有一个守护进程实例在运行。
@@ -134,6 +142,9 @@ func startPprofOn(bind string, port int) {
 		}
 		err := pprofServer.ListenAndServe()
 		if err != nil {
+			if suppressPprofBindErrorLog.Load() && errors.Is(err, syscall.EADDRINUSE) {
+				return
+			}
 			log.Errorf("[ERROR] Pprof server error: %v", err)
 		}
 	}()
