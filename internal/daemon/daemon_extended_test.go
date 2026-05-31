@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
-	"github.com/netxfw/netxfw/internal/utils/logger"
 	xdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	types "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
@@ -198,7 +196,7 @@ func TestStartPprof_MultiplePorts(t *testing.T) {
 // TestWaitForSignal_MultipleSIGHUP tests multiple SIGHUP signals
 // TestWaitForSignal_MultipleSIGHUP 测试多个 SIGHUP 信号
 func TestWaitForSignal_MultipleSIGHUP(t *testing.T) {
-	ctx := logger.WithContext(context.Background(), zap.NewNop().Sugar())
+	ctx := quietDaemonContext()
 
 	reloadCount := 0
 	reloadFunc := func() error {
@@ -229,7 +227,7 @@ func TestWaitForSignal_MultipleSIGHUP(t *testing.T) {
 // TestWaitForSignal_SIGTERM tests SIGTERM signal
 // TestWaitForSignal_SIGTERM 测试 SIGTERM 信号
 func TestWaitForSignal_SIGTERM(t *testing.T) {
-	ctx := logger.WithContext(context.Background(), zap.NewNop().Sugar())
+	ctx := quietDaemonContext()
 
 	stopCalled := false
 	stopFunc := func() {

@@ -16,7 +16,6 @@ import (
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
 	xdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	"github.com/netxfw/netxfw/internal/runtime"
-	"github.com/netxfw/netxfw/internal/utils/logger"
 	types "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -142,7 +141,7 @@ func TestRealDaemon_CleanupLoop_Disabled(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	ctx := context.Background()
+	ctx := quietDaemonContext()
 
 	// Create test config with cleanup disabled
 	// 创建禁用清理的测试配置
@@ -376,7 +375,7 @@ func TestRealDaemon_SignalHandling_SIGHUP(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	ctx := context.Background()
+	ctx := quietDaemonContext()
 
 	reloadCalled := false
 	reloadFunc := func() error {

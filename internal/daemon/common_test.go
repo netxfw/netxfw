@@ -12,11 +12,17 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	types "github.com/netxfw/netxfw/pkg/sdk"
 )
+
+func quietDaemonContext() context.Context {
+	return logger.WithContext(context.Background(), zap.NewNop().Sugar())
+}
 
 // TestManagePidFile_NewFile_Extended tests managePidFile with a new PID file (extended version)
 // TestManagePidFile_NewFile_Extended 测试 managePidFile 使用新的 PID 文件（扩展版本）

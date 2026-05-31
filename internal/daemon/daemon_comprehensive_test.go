@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
-	"github.com/netxfw/netxfw/internal/utils/logger"
 	types "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
@@ -184,7 +182,7 @@ func TestManagePidFile_DeadProcess(t *testing.T) {
 // TestWaitForSignal_SIGHUP tests waitForSignal with SIGHUP
 // TestWaitForSignal_SIGHUP 测试 waitForSignal 的 SIGHUP 信号
 func TestWaitForSignal_SIGHUP(t *testing.T) {
-	ctx := logger.WithContext(context.Background(), zap.NewNop().Sugar())
+	ctx := quietDaemonContext()
 
 	reloadCalled := false
 	reloadFunc := func() error {
@@ -227,7 +225,7 @@ func TestWaitForSignal_SIGHUP(t *testing.T) {
 // TestWaitForSignal_ReloadError tests waitForSignal with reload error
 // TestWaitForSignal_ReloadError 测试 waitForSignal 的 reload 错误
 func TestWaitForSignal_ReloadError(t *testing.T) {
-	ctx := context.Background()
+	ctx := quietDaemonContext()
 
 	reloadFunc := func() error {
 		return assert.AnError
@@ -257,7 +255,7 @@ func TestWaitForSignal_ReloadError(t *testing.T) {
 // TestWaitForSignal_NilFunctions tests waitForSignal with nil functions
 // TestWaitForSignal_NilFunctions 测试 waitForSignal 的 nil 函数
 func TestWaitForSignal_NilFunctions(t *testing.T) {
-	ctx := context.Background()
+	ctx := quietDaemonContext()
 
 	done := make(chan bool)
 	go func() {
@@ -274,7 +272,7 @@ func TestWaitForSignal_NilFunctions(t *testing.T) {
 // TestWaitForSignal_SIGINT tests waitForSignal with SIGINT
 // TestWaitForSignal_SIGINT 测试 waitForSignal 的 SIGINT 信号
 func TestWaitForSignal_SIGINT(t *testing.T) {
-	ctx := context.Background()
+	ctx := quietDaemonContext()
 
 	stopCalled := false
 	stopFunc := func() {
