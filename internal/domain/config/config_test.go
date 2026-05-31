@@ -3,6 +3,9 @@ package config
 import "testing"
 
 func TestDefaultConfig(t *testing.T) {
+	SetDefaultLogDirCreationEnabled(false)
+	defer SetDefaultLogDirCreationEnabled(true)
+
 	cfg := DefaultConfig()
 	if cfg.Base.ICMPRate != 10 {
 		t.Fatalf("unexpected icmp_rate: %d", cfg.Base.ICMPRate)
@@ -13,6 +16,9 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	SetDefaultLogDirCreationEnabled(false)
+	defer SetDefaultLogDirCreationEnabled(true)
+
 	cfg := DefaultConfig()
 	if err := Validate(&cfg); err != nil {
 		t.Fatalf("unexpected validate error: %v", err)
