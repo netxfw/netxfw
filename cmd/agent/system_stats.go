@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
@@ -24,12 +25,13 @@ type mapCapacity struct {
 // getMapCapacity reads map capacity from config with sensible defaults.
 // getMapCapacity 从配置读取 Map 容量，使用合理的默认值。
 func getMapCapacity() mapCapacity {
+	def := domainconfig.DefaultConfig().Capacity
 	capacity := mapCapacity{
-		Blacklist:    2000000,
-		Whitelist:    65536,
-		DynBlacklist: 2000000,
-		IPPortRules:  65536,
-		RateLimits:   1000,
+		Blacklist:    def.LockList,
+		Whitelist:    def.Whitelist,
+		DynBlacklist: def.DynLockList,
+		IPPortRules:  def.IPPortRules,
+		RateLimits:   def.RateLimits,
 	}
 
 	cfg, err := systemQueryService.LoadConfig()

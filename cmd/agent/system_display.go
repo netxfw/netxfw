@@ -408,6 +408,7 @@ func showMapStatisticsFromMetrics(w io.Writer, s *sdk.SDK, metrics *MetricsData,
 		return false
 	}
 
+	mapCap := getMapCapacity()
 	blacklist, okBlacklist := metrics.MapUsage.Maps["static_blacklist"]
 	dynBlacklist, okDyn := metrics.MapUsage.Maps["dynamic_blacklist"]
 	whitelist, okWhitelist := metrics.MapUsage.Maps["whitelist"]
@@ -424,20 +425,20 @@ func showMapStatisticsFromMetrics(w io.Writer, s *sdk.SDK, metrics *MetricsData,
 	fmt.Fprintf(w, "   %-18s %12s / %-12s %s\n", "Map", "Used", "Max", "Usage")
 	fmt.Fprintf(w, "   %s\n", strings.Repeat("-", 70))
 	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
-		"[LOCK] Blacklist", blacklist.Entries, blacklist.MaxEntries,
-		renderUsageBar(blacklist.Entries, blacklist.MaxEntries, 20))
+		"[LOCK] Blacklist", blacklist.Entries, mapCap.Blacklist,
+		renderUsageBar(blacklist.Entries, mapCap.Blacklist, 20))
 	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
-		"[DYNDYNLOCK] Dyn Blacklist", dynBlacklist.Entries, dynBlacklist.MaxEntries,
-		renderUsageBar(dynBlacklist.Entries, dynBlacklist.MaxEntries, 20))
+		"[DYNDYNLOCK] Dyn Blacklist", dynBlacklist.Entries, mapCap.DynBlacklist,
+		renderUsageBar(dynBlacklist.Entries, mapCap.DynBlacklist, 20))
 	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
-		"[WHITE] Whitelist", whitelist.Entries, whitelist.MaxEntries,
-		renderUsageBar(whitelist.Entries, whitelist.MaxEntries, 20))
+		"[WHITE] Whitelist", whitelist.Entries, mapCap.Whitelist,
+		renderUsageBar(whitelist.Entries, mapCap.Whitelist, 20))
 	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
-		"[IPPort] IP+Port Rules", ruleMap.Entries, ruleMap.MaxEntries,
-		renderUsageBar(ruleMap.Entries, ruleMap.MaxEntries, 20))
+		"[IPPort] IP+Port Rules", ruleMap.Entries, mapCap.IPPortRules,
+		renderUsageBar(ruleMap.Entries, mapCap.IPPortRules, 20))
 	fmt.Fprintf(w, "   %-18s %12d / %-12d %s\n",
-		"[Limit]  Rate Limits", rateLimit.Entries, rateLimit.MaxEntries,
-		renderUsageBar(rateLimit.Entries, rateLimit.MaxEntries, 20))
+		"[Limit]  Rate Limits", rateLimit.Entries, mapCap.RateLimits,
+		renderUsageBar(rateLimit.Entries, mapCap.RateLimits, 20))
 	fmt.Fprintf(w, "   %-18s %12d\n", "[Allowport] Allowed Ports", len(allowedPorts))
 
 	return true
