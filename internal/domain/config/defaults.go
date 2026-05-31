@@ -1,9 +1,34 @@
 package config
 
-import "github.com/netxfw/netxfw/internal/utils/logger"
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/netxfw/netxfw/internal/utils/logger"
+)
+
+func ensureDefaultLogDir(path string) {
+	if path == "" {
+		return
+	}
+
+	dir := filepath.Dir(path)
+	if _, err := os.Stat(dir); err == nil {
+		return
+	} else if !os.IsNotExist(err) {
+		return
+	}
+
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		panic(fmt.Sprintf("failed to create default log directory %q: %v", dir, err))
+	}
+}
 
 // DefaultConfig returns the canonical default configuration snapshot.
 func DefaultConfig() Config {
+	ensureDefaultLogDir("/var/log/netxfw/agent.log")
+
 	return Config{
 		Cluster: ClusterConfig{
 			Enabled:    false,
