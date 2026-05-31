@@ -417,7 +417,7 @@ func TestRealDaemon_SignalHandling_MultipleSIGHUP(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	ctx := context.Background()
+	ctx := quietDaemonContext()
 
 	reloadCount := 0
 	reloadFunc := func() error {

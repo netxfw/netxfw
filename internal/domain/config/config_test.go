@@ -4,7 +4,6 @@ import "testing"
 
 func TestDefaultConfig(t *testing.T) {
 	SetDefaultLogDirCreationEnabled(false)
-	defer SetDefaultLogDirCreationEnabled(true)
 
 	cfg := DefaultConfig()
 	if cfg.Base.ICMPRate != 10 {
@@ -17,7 +16,6 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	SetDefaultLogDirCreationEnabled(false)
-	defer SetDefaultLogDirCreationEnabled(true)
 
 	cfg := DefaultConfig()
 	if err := Validate(&cfg); err != nil {
