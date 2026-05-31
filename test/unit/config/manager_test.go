@@ -14,6 +14,8 @@ import (
 // TestConfigPersistence tests saving/loading config via app/domain config APIs.
 // TestConfigPersistence 测试通过 app/domain 配置 API 保存和加载配置。
 func TestConfigPersistence(t *testing.T) {
+	domainconfig.SetDefaultLogDirCreationEnabled(false)
+	defer domainconfig.SetDefaultLogDirCreationEnabled(true)
 	tmpDir := t.TempDir()
 	tempConfigFile := filepath.Join(tmpDir, "config.toml")
 
@@ -77,6 +79,8 @@ func TestConfigPersistence(t *testing.T) {
 // TestConfigPathSingletonBehavior tests the shared config path behavior.
 // TestConfigPathSingletonBehavior 测试共享配置路径行为。
 func TestConfigPathSingletonBehavior(t *testing.T) {
+	domainconfig.SetDefaultLogDirCreationEnabled(false)
+	defer domainconfig.SetDefaultLogDirCreationEnabled(true)
 	originalPath := appconfig.GetConfigPath()
 	appconfig.SetConfigPath("/tmp/test_singleton_config.toml")
 	defer appconfig.SetConfigPath(originalPath)
@@ -91,6 +95,8 @@ func TestConfigPathSingletonBehavior(t *testing.T) {
 // TestConfigConcurrentAccess tests concurrent read/write access through clone/load helpers.
 // TestConfigConcurrentAccess 测试通过 clone/load 辅助方法进行并发读写访问。
 func TestConfigConcurrentAccess(t *testing.T) {
+	domainconfig.SetDefaultLogDirCreationEnabled(false)
+	defer domainconfig.SetDefaultLogDirCreationEnabled(true)
 	cfg := &domainconfig.Config{}
 	var wg sync.WaitGroup
 	var mu sync.RWMutex

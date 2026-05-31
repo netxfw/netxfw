@@ -4,12 +4,34 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/netxfw/netxfw/internal/utils/logger"
 )
 
+var (
+	defaultLogDirMu              sync.RWMutex
+	defaultLogDirCreationEnabled = true
+)
+
+func SetDefaultLogDirCreationEnabled(enabled bool) {
+	defaultLogDirMu.Lock()
+	defer defaultLogDirMu.Unlock()
+	defaultLogDirCreationEnabled = enabled
+}
+
+func defaultLogDirEnabled() bool {
+	defaultLogDirMu.RLock()
+	defer defaultLogDirMu.RUnlock()
+	return defaultLogDirCreationEnabled
+}
+
 func ensureDefaultLogDir(path string) {
 	if path == "" {
+		return
+	}
+
+	if !defaultLogDirEnabled() {
 		return
 	}
 
