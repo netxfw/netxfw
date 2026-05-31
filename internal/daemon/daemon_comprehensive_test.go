@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 	types "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 )
@@ -51,7 +53,7 @@ func TestRun_NilOptions(t *testing.T) {
 func TestStartPprof(t *testing.T) {
 	// Use a unique port based on test name to avoid conflicts
 	// 使用基于测试名称的唯一端口避免冲突
-	port := 65400 + int(time.Now().UnixNano()%1000)
+	port := 62000 + int(time.Now().UnixNano()%3000)
 
 	// Start pprof
 	// 启动 pprof
@@ -182,7 +184,7 @@ func TestManagePidFile_DeadProcess(t *testing.T) {
 // TestWaitForSignal_SIGHUP tests waitForSignal with SIGHUP
 // TestWaitForSignal_SIGHUP 测试 waitForSignal 的 SIGHUP 信号
 func TestWaitForSignal_SIGHUP(t *testing.T) {
-	ctx := context.Background()
+	ctx := logger.WithContext(context.Background(), zap.NewNop().Sugar())
 
 	reloadCalled := false
 	reloadFunc := func() error {

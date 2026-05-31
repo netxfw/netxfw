@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+	"github.com/netxfw/netxfw/internal/utils/logger"
 	xdp "github.com/netxfw/netxfw/internal/datapath/xdp/backend"
 	types "github.com/netxfw/netxfw/pkg/sdk"
 	"github.com/stretchr/testify/assert"
@@ -178,7 +180,7 @@ func TestManagePidFile_PermissionError(t *testing.T) {
 func TestStartPprof_MultiplePorts(t *testing.T) {
 	// Use a unique port based on test name to avoid conflicts
 	// 使用基于测试名称的唯一端口避免冲突
-	port := 65500 + int(time.Now().UnixNano()%100)
+	port := 62000 + int(time.Now().UnixNano()%3000)
 	setSuppressPprofBindErrorLog(true)
 	defer setSuppressPprofBindErrorLog(false)
 
@@ -196,7 +198,7 @@ func TestStartPprof_MultiplePorts(t *testing.T) {
 // TestWaitForSignal_MultipleSIGHUP tests multiple SIGHUP signals
 // TestWaitForSignal_MultipleSIGHUP 测试多个 SIGHUP 信号
 func TestWaitForSignal_MultipleSIGHUP(t *testing.T) {
-	ctx := context.Background()
+	ctx := logger.WithContext(context.Background(), zap.NewNop().Sugar())
 
 	reloadCount := 0
 	reloadFunc := func() error {
@@ -227,7 +229,7 @@ func TestWaitForSignal_MultipleSIGHUP(t *testing.T) {
 // TestWaitForSignal_SIGTERM tests SIGTERM signal
 // TestWaitForSignal_SIGTERM 测试 SIGTERM 信号
 func TestWaitForSignal_SIGTERM(t *testing.T) {
-	ctx := context.Background()
+	ctx := logger.WithContext(context.Background(), zap.NewNop().Sugar())
 
 	stopCalled := false
 	stopFunc := func() {
