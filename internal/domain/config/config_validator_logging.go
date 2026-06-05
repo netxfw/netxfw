@@ -110,6 +110,9 @@ func (v *ConfigValidator) validateCapacityConfig(cfg *CapacityConfig, result *Va
 	if cfg.AllowedPorts < 0 {
 		result.AddError("capacity.allowed_ports", "Allowed ports capacity cannot be negative", cfg.AllowedPorts)
 	}
+	if cfg.RateLimits < 0 {
+		result.AddError("capacity.rate_limits", "Rate limits capacity cannot be negative", cfg.RateLimits)
+	}
 	if cfg.DropReasonStats < 0 {
 		result.AddError("capacity.drop_reason_stats", "Drop reason stats capacity cannot be negative", cfg.DropReasonStats)
 	}

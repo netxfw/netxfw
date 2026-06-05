@@ -20,6 +20,11 @@ import (
  * internal/datapath/xdp/programs and internal/datapath/xdp/lifecycle.
  */
 func (m *Manager) MatchesCapacity(cfg sdk.CapacityConfig) bool {
+	if cfg.Conntrack > 0 {
+		if m.conntrackMap == nil || m.conntrackMap.MaxEntries() != uint32(cfg.Conntrack) { // #nosec G115
+			return false
+		}
+	}
 	if cfg.LockList > 0 {
 		if m.staticBlacklist == nil || m.staticBlacklist.MaxEntries() != uint32(cfg.LockList) { // #nosec G115 // cfg values are always valid for uint32
 			return false
@@ -32,6 +37,27 @@ func (m *Manager) MatchesCapacity(cfg sdk.CapacityConfig) bool {
 	}
 	if cfg.Whitelist > 0 {
 		if m.whitelist == nil || m.whitelist.MaxEntries() != uint32(cfg.Whitelist) { // #nosec G115 // cfg values are always valid for uint32
+			return false
+		}
+	}
+	if cfg.IPPortRules > 0 || cfg.AllowedPorts > 0 {
+		expectedRuleMapCapacity := uint32(cfg.IPPortRules + cfg.AllowedPorts)
+		if m.ruleMap == nil || m.ruleMap.MaxEntries() != expectedRuleMapCapacity {
+			return false
+		}
+	}
+	if cfg.RateLimits > 0 {
+		if m.ratelimitMap == nil || m.ratelimitMap.MaxEntries() != uint32(cfg.RateLimits) { // #nosec G115
+			return false
+		}
+	}
+	if cfg.DropReasonStats > 0 {
+		if m.topDropMap == nil || m.topDropMap.MaxEntries() != uint32(cfg.DropReasonStats) { // #nosec G115
+			return false
+		}
+	}
+	if cfg.PassReasonStats > 0 {
+		if m.topPassMap == nil || m.topPassMap.MaxEntries() != uint32(cfg.PassReasonStats) { // #nosec G115
 			return false
 		}
 	}
@@ -79,6 +105,26 @@ func NewManager(cfg sdk.CapacityConfig, logger Logger) (*Manager, error) {
 	if cfg.Whitelist > 0 {
 		if m, ok := spec.Maps[MapNameWhitelist]; ok {
 			m.MaxEntries = uint32(cfg.Whitelist) // #nosec G115 // cfg values are always valid for uint32
+		}
+	}
+	if cfg.IPPortRules > 0 || cfg.AllowedPorts > 0 {
+		if m, ok := spec.Maps[MapNameRuleMap]; ok {
+			m.MaxEntries = uint32(cfg.IPPortRules + cfg.AllowedPorts) // #nosec G115
+		}
+	}
+	if cfg.RateLimits > 0 {
+		if m, ok := spec.Maps[MapNameRatelimit]; ok {
+			m.MaxEntries = uint32(cfg.RateLimits) // #nosec G115
+		}
+	}
+	if cfg.DropReasonStats > 0 {
+		if m, ok := spec.Maps[MapNameTopDrop]; ok {
+			m.MaxEntries = uint32(cfg.DropReasonStats) // #nosec G115
+		}
+	}
+	if cfg.PassReasonStats > 0 {
+		if m, ok := spec.Maps[MapNameTopPass]; ok {
+			m.MaxEntries = uint32(cfg.PassReasonStats) // #nosec G115
 		}
 	}
 

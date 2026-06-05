@@ -26,4 +26,11 @@ func TestValidate(t *testing.T) {
 	if err := Validate(&cfg); err == nil {
 		t.Fatalf("expected validation error")
 	}
+
+	// Test negative rate limits capacity
+	cfg = DefaultConfig()
+	cfg.Capacity.RateLimits = -1
+	if err := Validate(&cfg); err == nil {
+		t.Fatalf("expected validation error for negative rate_limits")
+	}
 }
