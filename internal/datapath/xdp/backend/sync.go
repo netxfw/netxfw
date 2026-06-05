@@ -13,7 +13,6 @@ import (
 	"github.com/netxfw/netxfw/internal/binary"
 	"github.com/netxfw/netxfw/internal/utils/ipmerge"
 	"github.com/netxfw/netxfw/internal/utils/iputil"
-	"github.com/netxfw/netxfw/internal/utils/logger"
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -247,14 +246,20 @@ func (m *Manager) syncRateLimitRules(rules []sdk.RateLimitRule) {
 // syncGlobalConfig syncs global configuration to BPF maps.
 // syncGlobalConfig 将全局配置同步到 BPF Map。
 func (m *Manager) syncGlobalConfig(cfg *sdk.GlobalConfig) {
-	m.logger.Infof("[CONFIG] Syncing global config: default_deny=%v, allow_return=%v, allow_icmp=%v, enable_afxdp=%v, enable_ratelimit=%v, conntrack=%v",
-		cfg.Base.DefaultDeny, cfg.Base.AllowReturnTraffic, cfg.Base.AllowICMP, cfg.Base.EnableAFXDP, cfg.RateLimit.Enabled, cfg.Conntrack.Enabled)
+	m.logger.Infof("[CONFIG] Syncing global config: default_deny=%v, allow_return=%v, allow_icmp=%v, enable_afxdp=%v, enable_ratelimit=%v, conntrack=%v, strict_proto=%v, drop_frags=%v, strict_tcp=%v, syn_limit=%v, bogon_filter=%v",
+		cfg.Base.DefaultDeny, cfg.Base.AllowReturnTraffic, cfg.Base.AllowICMP, cfg.Base.EnableAFXDP, cfg.RateLimit.Enabled, cfg.Conntrack.Enabled,
+		cfg.Base.StrictProtocol, cfg.Base.DropFragments, cfg.Base.StrictTCP, cfg.Base.SYNLimit, cfg.Base.BogonFilter)
 	m.setGlobalConfigValue(m.SetDefaultDeny, cfg.Base.DefaultDeny, "default deny")
 	m.setGlobalConfigValue(m.SetAllowReturnTraffic, cfg.Base.AllowReturnTraffic, "allow return traffic")
 	m.setGlobalConfigValue(m.SetAllowICMP, cfg.Base.AllowICMP, "allow ICMP")
 	m.setGlobalConfigValue(m.SetEnableAFXDP, cfg.Base.EnableAFXDP, "enable AF_XDP")
 	m.setGlobalConfigValue(m.SetEnableRateLimit, cfg.RateLimit.Enabled, "enable rate limit")
 	m.setGlobalConfigValue(m.SetConntrack, cfg.Conntrack.Enabled, "conntrack")
+	m.setGlobalConfigValue(m.SetStrictProtocol, cfg.Base.StrictProtocol, "strict protocol")
+	m.setGlobalConfigValue(m.SetDropFragments, cfg.Base.DropFragments, "drop fragments")
+	m.setGlobalConfigValue(m.SetStrictTCP, cfg.Base.StrictTCP, "strict TCP")
+	m.setGlobalConfigValue(m.SetSYNLimit, cfg.Base.SYNLimit, "SYN limit")
+	m.setGlobalConfigValue(m.SetBogonFilter, cfg.Base.BogonFilter, "Bogon filter")
 
 	if err := m.SetICMPRateLimit(cfg.Base.ICMPRate, cfg.Base.ICMPBurst); err != nil {
 		m.logger.Warnf("[WARN]  Failed to set ICMP rate limit: %v", err)
@@ -385,7 +390,7 @@ func (m *Manager) ClearMaps() {
 	maps := []*ebpf.Map{m.staticBlacklist, m.dynamicBlacklist, m.criticalBlacklist, m.whitelist, m.ruleMap}
 	for _, emap := range maps {
 		if emap == nil {
-			logger.Get(nil).Warnf("Map is nil, skipping")
+			m.logger.Warnf("Map is nil, skipping")
 			continue
 		}
 
@@ -419,12 +424,12 @@ func (m *Manager) ClearMaps() {
 			if key != nil {
 				err := emap.Delete(key)
 				if err != nil {
-					logger.Get(nil).Warnf("Failed to delete key from map: %v", err)
+					m.logger.Warnf("Failed to delete key from map: %v", err)
 				}
 			}
 		}
 	}
-	logger.Get(nil).Infof("[OK] All BPF maps cleared.")
+	m.logger.Infof("[OK] All BPF maps cleared.")
 }
 
 // ClearMap clears all rules from a specific BPF map.

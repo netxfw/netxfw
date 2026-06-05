@@ -7,6 +7,8 @@ docs/
 ├── README.md                           # 文档总索引（入口）
 ├── document-structure.md               # 文档结构说明（中文）
 ├── document-structure_en.md            # 文档结构说明（英文）
+├── project_architecture_diagrams.md    # 项目架构与核心流量流程报告（Mermaid与Style 7翡翠图）
+├── dev-project-use.md                  # 开发与架构文档定位指南（项目文档关联定位说明）
 ├── 01-getting-started/                 # 新手入门
 │   ├── 01-00_document_guide.md            # 🌟 从这里开始！
 │   ├── 01-01_project_introduction.md      # NetXFW 是什么
@@ -169,7 +171,7 @@ docs/
 
 ### 📑 10-appendix (附录)
 **目标读者**：技术人员、研究人员
-**内容**：架构设计、技术细节、测试报告
+**内容**：架构设计、技术细节、测试报告、项目架构与核心流量流程报告、开发与架构文档定位指南
 **必读指数**：⭐⭐
 
 ---

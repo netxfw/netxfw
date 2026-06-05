@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netxfw 交互式架构与代码流向浏览器</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: rgba(17, 24, 39, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --accent-cyan: #06b6d4;
+            --accent-purple: #a855f7;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --glow-cyan: rgba(6, 182, 212, 0.15);
+            --glow-purple: rgba(168, 85, 247, 0.15);
+            --glow-emerald: rgba(16, 185, 129, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image:
+                radial-gradient(at 10% 20%, rgba(168, 85, 247, 0.1) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(6, 182, 212, 0.1) 0px, transparent 50%);
+            color: var(--text-primary);
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            height: 70px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            z-index: 10;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+        }
+
+        .logo-text h1 {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .logo-text p {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .workflow-tabs {
+            display: flex;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 4px;
+            border-radius: 30px;
+            border: 1px solid var(--border-color);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active[data-flow="dp"] {
+            background: var(--accent-cyan);
+            color: #0b0f19;
+            box-shadow: 0 0 15px var(--glow-cyan);
+        }
+
+        .tab-btn.active[data-flow="agent"] {
+            background: var(--accent-purple);
+            color: #fff;
+            box-shadow: 0 0 15px var(--glow-purple);
+        }
+
+        .tab-btn.active[data-flow="engine"] {
+            background: var(--accent-emerald);
+            color: #0b0f19;
+            box-shadow: 0 0 15px var(--glow-emerald);
+        }
+
+        .tab-btn.active[data-flow="arch"] {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            color: #fff;
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        #panel-left {
+            width: 320px;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        #panel-middle {
+            flex: 1;
+            overflow-y: auto;
+            padding: 25px;
+            background: rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        #panel-right {
+            width: 400px;
+            border-right: none;
+            border-left: 1px solid var(--border-color);
+            overflow-y: auto;
+            padding: 25px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        /* 左侧树图样式 */
+        .tree-node {
+            margin-bottom: 12px;
+        }
+
+        .tree-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .tree-header:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .tree-header.active {
+            background: rgba(6, 182, 212, 0.08);
+            border-color: rgba(6, 182, 212, 0.2);
+        }
+
+        .tree-icon {
+            font-size: 16px;
+        }
+
+        .tree-title {
+            font-size: 14px;
+            font-weight: 500;
+            flex: 1;
+        }
+
+        .tree-children {
+            margin-left: 26px;
+            border-left: 1px dashed rgba(255, 255, 255, 0.1);
+            padding-left: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .tree-children.open {
+            display: block;
+        }
+
+        .tree-leaf {
+            padding: 8px 10px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .tree-leaf:hover {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-primary);
+        }
+
+        .tree-leaf.active {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--accent-cyan);
+            font-weight: 500;
+        }
+
+        .badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .badge-dp {
+            background: rgba(6, 182, 212, 0.15);
+            color: var(--accent-cyan);
+        }
+
+        .badge-agent {
+            background: rgba(168, 85, 247, 0.15);
+            color: var(--accent-purple);
+        }
+
+        .badge-map {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--accent-amber);
+        }
+
+        /* 中间时序流样式 */
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 700px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .flow-step {
+            display: flex;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 2;
+        }
+
+        .flow-step::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.05), rgba(168, 85, 247, 0.05));
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: -1;
+        }
+
+        .flow-step:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .flow-step:hover::before {
+            opacity: 1;
+        }
+
+        .flow-step.active {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.1);
+        }
+
+        .flow-step.active::before {
+            opacity: 1;
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(168, 85, 247, 0.1));
+        }
+
+        .flow-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 15px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+            transition: all 0.3s;
+        }
+
+        .flow-step.active .flow-number {
+            background: var(--accent-cyan);
+            color: #0b0f19;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+        }
+
+        .flow-step-content {
+            flex: 1;
+        }
+
+        .flow-step-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .flow-step-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .flow-step-meta {
+            font-size: 11px;
+            font-family: 'Fira Code', monospace;
+            color: var(--accent-cyan);
+            margin-top: 8px;
+        }
+
+        /* 虚线连接器 */
+        .flow-connector {
+            position: absolute;
+            left: 31px;
+            top: 32px;
+            width: 2px;
+            bottom: 32px;
+            background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 50%, transparent 50%);
+            background-size: 2px 8px;
+            z-index: 1;
+        }
+
+        /* 右侧代码面板样式 */
+        .code-header {
+            margin-bottom: 20px;
+        }
+
+        .code-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .code-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-family: 'Fira Code', monospace;
+        }
+
+        .code-block {
+            background: #05070c;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Fira Code', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            overflow-x: auto;
+            color: #a9b2c3;
+        }
+
+        .keyword {
+            color: #f472b6;
+        }
+
+        .function {
+            color: #60a5fa;
+        }
+
+        .string {
+            color: #34d399;
+        }
+
+        .comment {
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .type {
+            color: #fbbf24;
+        }
+
+        .details-list {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .details-item {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .details-item-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .details-item-val {
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .map-badge-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .map-badge {
+            font-family: 'Fira Code', monospace;
+            font-size: 11px;
+            padding: 3px 8px;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            color: var(--accent-amber);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon">N</div>
+            <div class="logo-text">
+                <h1>Netxfw</h1>
+                <p>交互式架构与代码流向浏览器</p>
+            </div>
+        </div>
+        <div class="workflow-tabs">
+            <button class="tab-btn active" data-flow="dp">
+                <span
+                    style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent-cyan)"></span>
+                数据面启动流程 (Dataplane)
+            </button>
+            <button class="tab-btn" data-flow="agent">
+                <span
+                    style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent-purple)"></span>
+                控制面代理流程 (Agent)
+            </button>
+            <button class="tab-btn active" data-flow="engine">
+                <span
+                    style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent-emerald)"></span>
+                安全规则同步流程 (Engine)
+            </button>
+            <button class="tab-btn" data-flow="arch">
+                <span
+                    style="display:inline-block;width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--accent-cyan),var(--accent-purple))"></span>
+                架构总览
+            </button>
+        </div>
+        <div style="width: 150px; text-align: right; font-size: 12px; color: var(--text-secondary)">
+            架构深度: 物理映射
+        </div>
+    </header>
+
+    <div class="main-container">
+
+        <!-- 左侧导航树面板 -->
+        <div class="panel" id="panel-left">
+            <div class="section-title">组件导航</div>
+
+            <div class="tree-node">
+                <div class="tree-header" onclick="toggleFolder('folder-cmd')">
+                    <span class="tree-icon">📁</span>
+                    <span class="tree-title">cmd / 运行入口</span>
+                </div>
+                <div class="tree-children open" id="folder-cmd">
+                    <div class="tree-leaf" onclick="selectNode('cmd-netxfwdp')">
+                        <span>📄 netxfwdp / 数据面</span>
+                        <span class="badge badge-dp">DP</span>
+                    </div>
+                    <div class="tree-leaf" onclick="selectNode('cmd-netxfwagent')">
+                        <span>📄 netxfwagent / 代理</span>
+                        <span class="badge badge-agent">Agent</span>
+                    </div>
+                    <div class="tree-leaf" onclick="selectNode('cmd-netxfw')">
+                        <span>📄 netxfw / CLI控制器</span>
+                        <span class="badge badge-dp">CLI</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tree-node">
+                <div class="tree-header" onclick="toggleFolder('folder-datapath')">
+                    <span class="tree-icon">📁</span>
+                    <span class="tree-title">internal/datapath / 驱动</span>
+                </div>
+                <div class="tree-children open" id="folder-datapath">
+                    <div class="tree-leaf" onclick="selectNode('dp-manager')">
+                        <span>📄 xdp_manager.go</span>
+                        <span class="badge badge-dp">Manager</span>
+                    </div>
+                    <div class="tree-leaf" onclick="selectNode('dp-lifecycle')">
+                        <span>📄 lifecycle_xdp.go</span>
+                        <span class="badge badge-dp">Attach</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tree-node">
+                <div class="tree-header" onclick="toggleFolder('folder-engine')">
+                    <span class="tree-icon">📁</span>
+                    <span class="tree-title">internal/daemon/engine</span>
+                </div>
+                <div class="tree-children open" id="folder-engine">
+                    <div class="tree-leaf" onclick="selectNode('engine-port')">
+                        <span>📄 port.go / 端口过滤</span>
+                        <span class="badge badge-dp">Sync</span>
+                    </div>
+                    <div class="tree-leaf" onclick="selectNode('engine-ct')">
+                        <span>📄 conntrack.go / 连接追踪</span>
+                        <span class="badge badge-dp">Sync</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tree-node">
+                <div class="tree-header" onclick="toggleFolder('folder-maps')">
+                    <span class="tree-icon">📁</span>
+                    <span class="tree-title">eBPF Maps / 内核映射表</span>
+                </div>
+                <div class="tree-children" id="folder-maps">
+                    <div class="tree-leaf" onclick="selectNode('map-rule')">
+                        <span>🔑 rule_map</span>
+                        <span class="badge badge-map">MAP_HASH</span>
+                    </div>
+                    <div class="tree-leaf" onclick="selectNode('map-ct')">
+                        <span>🔑 conntrack_map</span>
+                        <span class="badge badge-map">MAP_HASH</span>
+                    </div>
+                    <div class="tree-leaf" onclick="selectNode('map-blacklist')">
+                        <span>🔑 static_blacklist</span>
+                        <span class="badge badge-map">MAP_LPM</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 中间时序流向面板 -->
+        <div class="panel" id="panel-middle">
+            <div class="section-title" id="flow-section-title">流程时序图 (数据面启动)</div>
+
+            <div class="flow-container" id="flow-steps-container">
+                <!-- 动态载入流程步骤 -->
+            </div>
+        </div>
+
+        <!-- 右侧代码与观察面板 -->
+        <div class="panel" id="panel-right">
+            <div class="section-title">代码与结构定义</div>
+
+            <div id="inspector-content">
+                <div style="text-align: center; padding-top: 100px; color: var(--text-secondary);">
+                    <p style="font-size: 40px; margin-bottom: 20px;">🔍</p>
+                    <p>在左侧导航或中间流程图中点击任意节点，可以加载其具体代码逻辑与行号导航</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 数据集定义
+        const dataset = {
+            // 流程步骤数据
+            flows: {
+                dp: [
+                    {
+                        step: 1,
+                        title: "初始化守护进程模式",
+                        desc: "调用 BootstrapDaemon('dp') 初始化系统日志，将全局状态 runtime.Mode 设为数据面模式 'dp'。",
+                        meta: "cmd/netxfwdp/main.go:L9 ➔ internal/app/ops_daemon.go:L27",
+                        nodeId: "cmd-netxfwdp"
+                    },
+                    {
+                        step: 2,
+                        title: "创建/加载 eBPF 管理器",
+                        desc: "读取本地 TOML 配置文件并调用 LoadOrCreateManager。如果之前已有运行状态且 Map 已固定在 /sys/fs/bpf 下，则复用它们，否则新建管理器。",
+                        meta: "internal/daemon/dp.go:L40 ➔ internal/datapath/xdp/programs/load.go:L10",
+                        nodeId: "dp-manager"
+                    },
+                    {
+                        step: 3,
+                        title: "动态内存解锁与 BPF 加载",
+                        desc: "调用 rlimit.RemoveMemlock() 移除系统锁定内存上限，加载编译好的 netxfw_bpfel.o 字节码，解析并使用配置的容量重写 Map 的 MaxEntries，随后挂载并绑定全局 Map 引用。",
+                        meta: "internal/datapath/xdp/backend/xdp_manager.go:L49 (NewManager)",
+                        nodeId: "dp-manager"
+                    },
+                    {
+                        step: 4,
+                        title: "网络物理接口挂载 (XDP)",
+                        desc: "遍历配置的网卡接口，尝试以 原子替换 (XDPLinkUpdate) -> Native (网卡驱动模式) -> Generic (通用模式) 挂载 XDP 字节码，并固定在 sys/fs/bpf 目录下持久化。",
+                        meta: "internal/datapath/xdp/backend/lifecycle_xdp.go:L67 (Attach)",
+                        nodeId: "dp-lifecycle"
+                    },
+                    {
+                        step: 5,
+                        title: "数据面 TC Egress 流量挂载",
+                        desc: "利用 clsact 机制，将 TC 监控出口程序 (TcEgress) 挂载到对应网卡的 egress 方向上，为状态防火墙连接追踪(Conntrack)提供出方向流量数据。",
+                        meta: "internal/datapath/xdp/backend/lifecycle_xdp.go:L145",
+                        nodeId: "dp-lifecycle"
+                    },
+                    {
+                        step: 6,
+                        title: "启动安全模块并阻塞等待",
+                        desc: "实例化基础拦截、连接追踪、端口过滤、限流过滤四大内核模块，执行 Start 策略同步，并进入信号等待，支持 SIGHUP 动态热加载策略。",
+                        meta: "internal/daemon/dp.go:L70 (StartCoreModules) ➔ L95 (waitForSignal)",
+                        nodeId: "engine-port"
+                    }
+                ],
+                agent: [
+                    {
+                        step: 1,
+                        title: "检验数据面是否正常运行",
+                        desc: "Agent 启动时，调用 RequirePinnedManager 验证数据面 netxfwdp 是否已把 eBPF Map 挂载到了固定目录中。若没有则报错退出，因为 Agent 本身不加载驱动，只负责治理 Map。",
+                        meta: "cmd/netxfwagent/main.go:L9 ➔ internal/daemon/agent.go:L51",
+                        nodeId: "cmd-netxfwagent"
+                    },
+                    {
+                        step: 2,
+                        title: "校验 Map 一致性",
+                        desc: "调用 VerifyRuntimeConfigAndMaps 比对内核中加载的 BPF Map 限制属性，是否与本地配置文件一致，若异常则执行修复。",
+                        meta: "internal/daemon/agent.go:L62",
+                        nodeId: "dp-manager"
+                    },
+                    {
+                        step: 3,
+                        title: "启动 API Web 服务",
+                        desc: "调用 api.NewServer 启动后台管理端 Web API，接收来自控制层或者用户的命令行规则下发请求。",
+                        meta: "internal/daemon/agent.go:L71 ➔ internal/api/server.go",
+                        nodeId: "cmd-netxfw"
+                    },
+                    {
+                        step: 4,
+                        title: "启动后台回收与统计协程",
+                        desc: "并发运行 runCleanupLoop 回收已过期的连接追踪 Map (conntrack_map) 缓存条目，同时开启 runTrafficStatsLoop 将统计数据写回。",
+                        meta: "internal/daemon/agent.go:L79-L82",
+                        nodeId: "engine-ct"
+                    }
+                ],
+                engine: [
+                    {
+                        step: 1,
+                        title: "触发安全策略模块 Sync",
+                        desc: "防火墙收到规则变更指令后，PortModule.Sync 会通过拉取内核当前配置，执行增量同步下发。",
+                        meta: "internal/daemon/engine/port.go:L42 (Sync)",
+                        nodeId: "engine-port"
+                    },
+                    {
+                        step: 2,
+                        title: "拉取内核已有 IP+Port 规则",
+                        desc: "调用 SDK 包中的 List(false, 0, '') 方法（最终调用封装的 datapath.Adapter），读取内核 BPF 对应 rule_map 中的所有现有规则列表。",
+                        meta: "internal/daemon/engine/port.go:L47 ➔ pkg/sdk/rule.go:L21",
+                        nodeId: "map-rule"
+                    },
+                    {
+                        step: 3,
+                        title: "计算多余规则差量并剔除",
+                        desc: "将在内核中的已有规则与期望的配置比对，若有多余的规则，调用 RemoveIPPortRule(ip, port) 将其从 BPF rule_map 中移出。",
+                        meta: "internal/daemon/engine/port.go:L84 ➔ pkg/sdk/rule.go:L29",
+                        nodeId: "map-rule"
+                    },
+                    {
+                        step: 4,
+                        title: "批量下发新规则写入 eBPF Map",
+                        desc: "遍历配置中的新增过滤规则，调用 AddIPPortRule 将新规则写入 rule_map，通知内核防火墙拦截对应包。",
+                        meta: "internal/daemon/engine/port.go:L92 ➔ pkg/sdk/rule.go:L25",
+                        nodeId: "map-rule"
+                    }
+                ]
+            },
+
+            // 节点详情定义 (点击左侧或流程高亮)
+            nodes: {
+                "cmd-netxfwdp": {
+                    title: "netxfwdp / 数据面入口",
+                    subtitle: "cmd/netxfwdp/main.go",
+                    code: `<span class="keyword">package</span> main<br><br><span class="keyword">func</span> <span class="function">main</span>() {<br>&nbsp;&nbsp;&nbsp;&nbsp;ctx := app.<span class="function">BootstrapDaemon</span>(<span class="string">"dp"</span>)<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">defer</span> app.<span class="function">SyncLogger</span>()<br><br>&nbsp;&nbsp;&nbsp;&nbsp;app.<span class="function">InitConfiguration</span>(ctx)<br>&nbsp;&nbsp;&nbsp;&nbsp;app.<span class="function">TestConfiguration</span>(ctx)<br>&nbsp;&nbsp;&nbsp;&nbsp;app.<span class="function">RunDaemon</span>(ctx)<br>}`,
+                    details: [
+                        { title: "定位角色", val: "整个数据面的加载源头。本身作为一个轻量守护进程，只负责配置调优及 XDP 的装载维护。" },
+                        { title: "数据交互", val: "依赖 internal/app 进行日志及信号预处理，启动后会编译/锁定 PID 文件以防止重复挂载。" }
+                    ],
+                    maps: []
+                },
+                "cmd-netxfwagent": {
+                    title: "netxfwagent / 代理入口",
+                    subtitle: "cmd/netxfwagent/main.go",
+                    code: `<span class="keyword">package</span> main<br><br><span class="keyword">func</span> <span class="function">main</span>() {<br>&nbsp;&nbsp;&nbsp;&nbsp;ctx := app.<span class="function">BootstrapDaemon</span>(<span class="string">"agent"</span>)<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">defer</span> app.<span class="function">SyncLogger</span>()<br><br>&nbsp;&nbsp;&nbsp;&nbsp;app.<span class="function">InitConfiguration</span>(ctx)<br>&nbsp;&nbsp;&nbsp;&nbsp;app.<span class="function">RunDaemon</span>(ctx)<br>}`,
+                    details: [
+                        { title: "定位角色", val: "系统控制面的中心代理，负责规则解析校验、API 暴露以及状态上报。它通过访问已经挂载好的 eBPF 接口进行规则管理。" },
+                        { title: "依赖关系", val: "自身不直接调用 Attach 挂载网卡，而是调用 RequirePinnedManager 共享数据面已经初始化的 Map 对象。" }
+                    ],
+                    maps: ["conntrack_map", "rule_map", "static_blacklist"]
+                },
+                "cmd-netxfw": {
+                    title: "netxfw / CLI 控制器",
+                    subtitle: "cmd/netxfw/root.go",
+                    code: `<span class="keyword">func</span> <span class="function">Execute</span>() {<br>&nbsp;&nbsp;&nbsp;&nbsp;ctx := <span class="function">InitRootCommandContext</span>(context.<span class="function">Background</span>())<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if</span> err := rootCmd.<span class="function">ExecuteContext</span>(ctx); err != nil {<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;os.<span class="function">Exit</span>(1)<br>&nbsp;&nbsp;&nbsp;&nbsp;}<br>}`,
+                    details: [
+                        { title: "定位角色", val: "用户级命令行控制工具，基于 Cobra 实现。支持用户在物理机命令行执行过滤状态查看、规则增删。" }
+                    ],
+                    maps: []
+                },
+                "dp-manager": {
+                    title: "xdp_manager.go / eBPF驱动管理器",
+                    subtitle: "internal/datapath/xdp/backend/xdp_manager.go",
+                    code: `<span class="keyword">func</span> <span class="function">NewManager</span>(cfg sdk.CapacityConfig, logger Logger) (*Manager, error) {<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 1. 移除锁定内存限制</span><br>&nbsp;&nbsp;&nbsp;&nbsp;rlimit.<span class="function">RemoveMemlock</span>()<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 2. 加载 BPF 镜像</span><br>&nbsp;&nbsp;&nbsp;&nbsp;spec, _ := <span class="function">LoadNetXfw</span>()<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 3. 修改 Map 大小</span><br>&nbsp;&nbsp;&nbsp;&nbsp;spec.Maps[MapNameConntrack].MaxEntries = uint32(cfg.Conntrack)<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 4. 装载加载至内核</span><br>&nbsp;&nbsp;&nbsp;&nbsp;spec.<span class="function">LoadAndAssign</span>(&objs, nil)<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return</span> manager, nil<br>}`,
+                    details: [
+                        { title: "定位角色", val: "操作底层 eBPF 与 XDP 系统核心的实体类。负责将 bpf2go 生成的 C 字节码装载入 Linux 内核并映射用户态结构体。" },
+                        { title: "核心行为", val: "初始化 core jmp_table，绑定如 rule_map、conntrack_map 等在 Go 与 C 内核之间共享的哈希映射。" }
+                    ],
+                    maps: ["conntrack_map", "rule_map", "static_blacklist", "whitelist", "jmp_table"]
+                },
+                "dp-lifecycle": {
+                    title: "lifecycle_xdp.go / 网卡生命周期挂载",
+                    subtitle: "internal/datapath/xdp/backend/lifecycle_xdp.go",
+                    code: `<span class="keyword">func</span> (m *Manager) <span class="function">Attach</span>(interfaces []string) error {<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">for</span> _, name := range interfaces {<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 1. 尝试原子更新已有 Link</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;l, _ := link.<span class="function">LoadPinnedLink</span>(linkPath, nil)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;l.<span class="function">Update</span>(m.objs.XdpFirewall)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 2. 依次降级尝试 Offload ➔ Native ➔ Generic</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;link.<span class="function">AttachXDP</span>(...)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 3. 固定持久连接</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;l.<span class="function">Pin</span>(linkPath)<br>&nbsp;&nbsp;&nbsp;&nbsp;}<br>}`,
+                    details: [
+                        { title: "挂载机制", val: "根据系统网卡能力自动检测，若不支持硬件卸载 (Offload) 和驱动 (Native) 则自动 fallback 降级到 Generic 模式，避免网络中断。" },
+                        { title: "持久化 (Pin)", val: "挂载成功后把 Link 对象 Pin 到 /sys/fs/bpf/netxfw 中，这确保了当 Go 进程重启时，内核中的网络数据过滤仍然连续运行。" }
+                    ],
+                    maps: ["jmp_table"]
+                },
+                "engine-port": {
+                    title: "port.go / 端口过滤策略模块",
+                    subtitle: "internal/daemon/engine/port.go",
+                    code: `<span class="keyword">func</span> (m *PortModule) <span class="function">Sync</span>() error {<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 1. 读出内核已有策略</span><br>&nbsp;&nbsp;&nbsp;&nbsp;currentRules, _, _ := m.rule.<span class="function">List</span>(false, 0, "")<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 2. 计算删除差集并调用移除</span><br>&nbsp;&nbsp;&nbsp;&nbsp;m.rule.<span class="function">RemoveIPPortRule</span>(rule.IP, rule.Port)<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 3. 新增写入新规则</span><br>&nbsp;&nbsp;&nbsp;&nbsp;m.rule.<span class="function">AddIPPortRule</span>(rule.IP, rule.Port, rule.Action)<br>}`,
+                    details: [
+                        { title: "策略角色", val: "三层 IP + 四层 Port 复合匹配规则的同步模块。负责接收用户配置的 AllowedPorts 并执行增量计算。" },
+                        { title: "数据交互", val: "借助封装后的 SDK API 最终写入底层 BPF 的 rule_map 表中。" }
+                    ],
+                    maps: ["rule_map"]
+                },
+                "engine-ct": {
+                    title: "conntrack.go / 连接追踪清理服务",
+                    subtitle: "internal/daemon/engine/conntrack.go",
+                    code: `<span class="keyword">func</span> (m *ConntrackModule) <span class="function">Sync</span>() error {<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 定期轮询清除内核 Map 中已死或超时的状态连接记录</span><br>&nbsp;&nbsp;&nbsp;&nbsp;m.logger.<span class="function">Infof</span>(<span class="string">"[CLEANUP] Cleaning expired conntrack entries..."</span>)<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return</span> nil<br>}`,
+                    details: [
+                        { title: "定位角色", val: "状态追踪策略的管理器。定期轮询 conntrack_map 清理已死或超时的 TCP/UDP 连接，保证内核 Map 容量不溢出。" }
+                    ],
+                    maps: ["conntrack_map"]
+                },
+                "map-rule": {
+                    title: "rule_map / 内核规则规则表",
+                    subtitle: "eBPF Hash Map",
+                    code: `<span class="comment">// C 语言内核定义</span><br><span class="keyword">struct</span> bpf_map_def SEC(<span class="string">"maps"</span>) rule_map = {<br>&nbsp;&nbsp;&nbsp;&nbsp;.type = BPF_MAP_TYPE_HASH,<br>&nbsp;&nbsp;&nbsp;&nbsp;.key_size = <span class="keyword">sizeof</span>(<span class="keyword">struct</span> rule_key),<br>&nbsp;&nbsp;&nbsp;&nbsp;.value_size = <span class="keyword">sizeof</span>(<span class="keyword">struct</span> rule_val),<br>&nbsp;&nbsp;&nbsp;&nbsp;.max_entries = 65536,<br>};`,
+                    details: [
+                        { title: "数据结构", val: "以 (源IP/子网 + 目的端口) 作为复合 Key，过滤动作 (Allow/Deny) 作为 Value 的哈希表。C 语言内核程序在接收到每个数据包时进行快速哈希查表查找。" }
+                    ],
+                    maps: []
+                },
+                "map-ct": {
+                    title: "conntrack_map / 连接追踪状态表",
+                    subtitle: "eBPF Hash Map",
+                    code: `<span class="comment">// C 语言内核定义</span><br><span class="keyword">struct</span> bpf_map_def SEC(<span class="string">"maps"</span>) conntrack_map = {<br>&nbsp;&nbsp;&nbsp;&nbsp;.type = BPF_MAP_TYPE_HASH,<br>&nbsp;&nbsp;&nbsp;&nbsp;.key_size = <span class="keyword">sizeof</span>(<span class="keyword">struct</span> flow_key),<br>&nbsp;&nbsp;&nbsp;&nbsp;.value_size = <span class="keyword">sizeof</span>(<span class="keyword">struct</span> flow_state),<br>&nbsp;&nbsp;&nbsp;&nbsp;.max_entries = 131072,<br>};`,
+                    details: [
+                        { title: "功能作用", val: "用于实现有状态防火墙的核心。当发起 TCP 连接时，内核自动在此 Map 记录五元组状态，对符合 TCP 握手状态的包直接放行，避免重复做高开销匹配。" }
+                    ],
+                    maps: []
+                },
+                "map-blacklist": {
+                    title: "static_blacklist / LPM最长匹配前缀树",
+                    subtitle: "eBPF LPM Trie Map",
+                    code: `<span class="comment">// C 语言前缀匹配定义</span><br><span class="keyword">struct</span> bpf_map_def SEC(<span class="string">"maps"</span>) static_blacklist = {<br>&nbsp;&nbsp;&nbsp;&nbsp;.type = BPF_MAP_TYPE_LPM_TRIE,<br>&nbsp;&nbsp;&nbsp;&nbsp;.key_size = <span class="keyword">sizeof</span>(<span class="keyword">struct</span> ip_key),<br>&nbsp;&nbsp;&nbsp;&nbsp;.value_size = <span class="keyword">sizeof</span>(uint8_t),<br>&nbsp;&nbsp;&nbsp;&nbsp;.max_entries = 16384,<br>};`,
+                    details: [
+                        { title: "功能作用", val: "IP 黑名单前缀匹配树，用于 CIDR 子网段的极速匹配（例如匹配 192.168.0.0/16 整体拦截）。内核在匹配 LPM 树时比哈希更快。" }
+                    ],
+                    maps: []
+                }
+            }
+        };
+
+        // 切换左侧目录折叠
+        function toggleFolder(id) {
+            const folder = document.getElementById(id);
+            folder.classList.toggle('open');
+        }
+
+        // 加载左侧树的高亮
+        function selectNode(id) {
+            // 清除之前的激活状态
+            document.querySelectorAll('.tree-leaf').forEach(el => el.classList.remove('active'));
+
+            // 高亮当前的节点
+            const activeLeaf = document.querySelector(`.tree-leaf[onclick="selectNode('${id}')"]`);
+            if (activeLeaf) activeLeaf.classList.add('active');
+
+            // 更新右侧代码检查器
+            renderInspector(id);
+        }
+
+        // 渲染右侧观察器
+        function renderInspector(id) {
+            const nodeData = dataset.nodes[id];
+            const container = document.getElementById('inspector-content');
+            if (!nodeData) return;
+
+            let mapsHtml = '';
+            if (nodeData.maps.length > 0) {
+                mapsHtml = `
+                    <div class="details-item">
+                        <div class="details-item-title">关联的 eBPF Maps</div>
+                        <div class="map-badge-container">
+                            ${nodeData.maps.map(m => `<span class="map-badge">${m}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div class="code-header">
+                    <div class="code-title">${nodeData.title}</div>
+                    <div class="code-subtitle">${nodeData.subtitle}</div>
+                </div>
+                
+                <div class="code-block">
+                    ${nodeData.code}
+                </div>
+
+                <div class="details-list">
+                    ${nodeData.details.map(d => `
+                        <div class="details-item">
+                            <div class="details-item-title">${d.title}</div>
+                            <div class="details-item-val">${d.val}</div>
+                        </div>
+                    `).join('')}
+                    ${mapsHtml}
+                </div>
+            `;
+        }
+
+        // 渲染中间时序步骤（或架构总览）
+        function renderFlow(flowName) {
+            const container = document.getElementById('flow-steps-container');
+            const sectionTitle = document.getElementById('flow-section-title');
+
+            if (flowName === 'arch') {
+                sectionTitle.textContent = "NetxFW 完整架构图 (7层分层结构)";
+                container.innerHTML = `
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 0;">
+                        <object data="docs/netxfw_architecture.svg" type="image/svg+xml" style="width:100%;max-width:1320px;border-radius:12px;box-shadow:0 0 40px rgba(0,0,0,0.5);background:#0b0f19;">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='60'%3E%3Ctext x='10' y='35' fill='%2394a3b8' font-family='sans-serif' font-size='14'%3EArchitecture SVG not available%3C/text%3E%3C/svg%3E" alt="Architecture Diagram"/>
+                        </object>
+                        <div style="font-size:12px;color:#475569;text-align:center;max-width:800px;">
+                            <p style="margin-bottom:4px;">点击任意组件可在右侧查看代码详情</p>
+                            <p>Entry Points → App Bootstrap → Daemon Engine → XDP Datapath → API Layer → SDK Layer → eBPF Kernel</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const steps = dataset.flows[flowName];
+
+            const titles = {
+                dp: "流程时序图 (数据面 netxfwdp 启动流程)",
+                agent: "流程时序图 (控制面 netxfwagent 规则拉取/校验)",
+                engine: "流程时序图 (PortModule 安全规则增量下发同步)"
+            };
+
+            sectionTitle.textContent = titles[flowName];
+
+            container.innerHTML = '<div class="flow-connector"></div>';
+
+            steps.forEach((s, idx) => {
+                const stepEl = document.createElement('div');
+                stepEl.className = 'flow-step';
+                stepEl.innerHTML = `
+                    <div class="flow-number">${s.step}</div>
+                    <div class="flow-step-content">
+                        <div class="flow-step-title">
+                            <span>${s.title}</span>
+                        </div>
+                        <div class="flow-step-desc">${s.desc}</div>
+                        <div class="flow-step-meta">${s.meta}</div>
+                    </div>
+                `;
+
+                stepEl.addEventListener('click', () => {
+                    document.querySelectorAll('.flow-step').forEach(el => el.classList.remove('active'));
+                    stepEl.classList.add('active');
+                    // 级联高亮左侧并在右侧展示关联的代码
+                    selectNode(s.nodeId);
+                });
+
+                container.appendChild(stepEl);
+            });
+
+            // 默认激活第一步
+            container.querySelector('.flow-step').click();
+        }
+
+        // 初始化切换监听器
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+                btn.classList.add('active');
+                renderFlow(btn.getAttribute('data-flow'));
+            });
+        });
+
+        // 页面首次加载默认渲染 DP
+        renderFlow('dp');
+    </script>
+</body>
+
+</html>
