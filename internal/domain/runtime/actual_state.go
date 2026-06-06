@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/cilium/ebpf"
 	datapathmaps "github.com/netxfw/netxfw/internal/datapath/xdp/maps"
 	"github.com/netxfw/netxfw/internal/ports"
 )
@@ -26,6 +27,16 @@ type Uint64Field struct {
 type IntField struct {
 	Value int
 	Known bool
+}
+
+type topStatsMapProvider interface {
+	TopDropMap() *ebpf.Map
+	TopPassMap() *ebpf.Map
+}
+
+type legacyStatsMapProvider interface {
+	DropReasonStats() *ebpf.Map
+	PassReasonStats() *ebpf.Map
 }
 
 // ActualState captures runtime-visible state from maps and manager APIs.
@@ -55,6 +66,15 @@ type ActualState struct {
 	IPPortRuleCount    IntField
 	RateLimitRuleCount IntField
 	ConntrackCount     IntField
+
+	ConntrackCapacity       IntField
+	LockListCapacity        IntField
+	DynLockListCapacity     IntField
+	WhitelistCapacity       IntField
+	RuleMapCapacity         IntField
+	RateLimitsCapacity      IntField
+	DropReasonStatsCapacity IntField
+	PassReasonStatsCapacity IntField
 }
 
 // FromManager reads runtime state from the manager without failing the whole projection on partial errors.
@@ -88,6 +108,20 @@ func FromManager(mgr ports.RuntimeStateReader) ActualState {
 	}
 	if rules, _, err := mgr.ListRateLimitRules(0, ""); err == nil {
 		state.RateLimitRuleCount = knownInt(len(rules))
+	}
+
+	state.ConntrackCapacity = mapCapacity(mgr.ConntrackMap())
+	state.LockListCapacity = mapCapacity(mgr.LockList())
+	state.DynLockListCapacity = mapCapacity(mgr.DynLockList())
+	state.WhitelistCapacity = mapCapacity(mgr.Whitelist())
+	state.RuleMapCapacity = mapCapacity(mgr.IPPortRules())
+	state.RateLimitsCapacity = mapCapacity(mgr.RateLimitConfig())
+	if provider, ok := any(mgr).(topStatsMapProvider); ok {
+		state.DropReasonStatsCapacity = mapCapacity(provider.TopDropMap())
+		state.PassReasonStatsCapacity = mapCapacity(provider.TopPassMap())
+	} else if provider, ok := any(mgr).(legacyStatsMapProvider); ok {
+		state.DropReasonStatsCapacity = mapCapacity(provider.DropReasonStats())
+		state.PassReasonStatsCapacity = mapCapacity(provider.PassReasonStats())
 	}
 
 	return state
@@ -132,6 +166,13 @@ func (f Uint64Field) Duration() time.Duration {
 
 func knownInt(v int) IntField {
 	return IntField{Value: v, Known: true}
+}
+
+func mapCapacity(m *ebpf.Map) IntField {
+	if m == nil {
+		return IntField{}
+	}
+	return knownInt(int(m.MaxEntries()))
 }
 
 func readBool(globalConfig lookupReader, idx uint32) BoolField {

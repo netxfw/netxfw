@@ -96,6 +96,7 @@ func init() {
 
 	systemReloadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to attach XDP to")
 	SystemCmd.AddCommand(systemReloadCmd)
+	SystemCmd.AddCommand(systemCheckCmd)
 
 	SystemCmd.AddCommand(systemOnCmd)
 	SystemCmd.AddCommand(systemOffCmd)
@@ -105,6 +106,7 @@ func init() {
 	RegisterCommonFlags(systemTestCmd)
 	RegisterCommonFlags(systemDaemonCmd)
 	RegisterCommonFlags(systemUpdateCmd)
+	RegisterCommonFlags(systemCheckCmd)
 	RegisterCommonFlags(systemOnCmd)
 	RegisterCommonFlags(systemOffCmd)
 

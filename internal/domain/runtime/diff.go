@@ -45,6 +45,14 @@ func CompareDesired(desired systemstate.DesiredState, actual ActualState) StateD
 	compareInt(&diff, "allowed_port_count", desired.AllowedPortCount, actual.AllowedPortCount)
 	compareInt(&diff, "ip_port_rule_count", desired.IPPortRuleCount, actual.IPPortRuleCount)
 	compareInt(&diff, "rate_limit_rule_count", desired.RateLimitRuleCount, actual.RateLimitRuleCount)
+	compareInt(&diff, "capacity.conntrack", desired.ConntrackCapacity, actual.ConntrackCapacity)
+	compareInt(&diff, "capacity.lock_list", desired.LockListCapacity, actual.LockListCapacity)
+	compareInt(&diff, "capacity.dyn_lock_list", desired.DynLockListCapacity, actual.DynLockListCapacity)
+	compareInt(&diff, "capacity.whitelist", desired.WhitelistCapacity, actual.WhitelistCapacity)
+	compareInt(&diff, "capacity.rule_map", desired.RuleMapCapacity, actual.RuleMapCapacity)
+	compareInt(&diff, "capacity.rate_limits", desired.RateLimitsCapacity, actual.RateLimitsCapacity)
+	compareInt(&diff, "capacity.drop_reason_stats", desired.DropReasonStatsCapacity, actual.DropReasonStatsCapacity)
+	compareInt(&diff, "capacity.pass_reason_stats", desired.PassReasonStatsCapacity, actual.PassReasonStatsCapacity)
 
 	return diff
 }

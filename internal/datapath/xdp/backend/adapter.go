@@ -51,11 +51,13 @@ func (a *Adapter) VerifyAndRepair(cfg *sdk.GlobalConfig) error {
 func (a *Adapter) LockList() *ebpf.Map        { return a.manager.LockList() }
 func (a *Adapter) DynLockList() *ebpf.Map     { return a.manager.DynLockList() }
 func (a *Adapter) Whitelist() *ebpf.Map       { return a.manager.Whitelist() }
-func (a *Adapter) IPPortRules() *ebpf.Map     { return a.manager.IPPortRules() }
-func (a *Adapter) AllowedPorts() *ebpf.Map    { return a.manager.AllowedPorts() }
-func (a *Adapter) RateLimitConfig() *ebpf.Map { return a.manager.RatelimitConfig() }
+func (a *Adapter) IPPortRules() *ebpf.Map     { return a.manager.RuleMap() }
+func (a *Adapter) AllowedPorts() *ebpf.Map    { return a.manager.RuleMap() }
+func (a *Adapter) RateLimitConfig() *ebpf.Map { return a.manager.RatelimitMap() }
 func (a *Adapter) GlobalConfig() *ebpf.Map    { return a.manager.GlobalConfig() }
 func (a *Adapter) ConntrackMap() *ebpf.Map    { return a.manager.ConntrackMap() }
+func (a *Adapter) TopDropMap() *ebpf.Map      { return a.manager.TopDropMap() }
+func (a *Adapter) TopPassMap() *ebpf.Map      { return a.manager.TopPassMap() }
 
 // Configuration
 // 配置操作

@@ -32,6 +32,15 @@ type DesiredState struct {
 	IPPortRuleCount    int
 	RateLimitRuleCount int
 	InterfaceCount     int
+
+	ConntrackCapacity       int
+	LockListCapacity        int
+	DynLockListCapacity     int
+	WhitelistCapacity       int
+	RuleMapCapacity         int
+	RateLimitsCapacity      int
+	DropReasonStatsCapacity int
+	PassReasonStatsCapacity int
 }
 
 // FromConfig projects a configuration file into a runtime-oriented desired state.
@@ -43,26 +52,34 @@ func FromConfig(cfg *domainconfig.Config) DesiredState {
 	autoBlockExpiry, _ := time.ParseDuration(cfg.RateLimit.AutoBlockExpiry)
 
 	return DesiredState{
-		DefaultDeny:        cfg.Base.DefaultDeny,
-		AllowReturnTraffic: cfg.Base.AllowReturnTraffic,
-		AllowICMP:          cfg.Base.AllowICMP,
-		EnableAFXDP:        cfg.Base.EnableAFXDP,
-		EnableConntrack:    cfg.Conntrack.Enabled,
-		EnableRateLimit:    cfg.RateLimit.Enabled,
-		StrictProtocol:     cfg.Base.StrictProtocol,
-		StrictTCP:          cfg.Base.StrictTCP,
-		SYNLimit:           cfg.Base.SYNLimit,
-		BogonFilter:        cfg.Base.BogonFilter,
-		DropFragments:      cfg.Base.DropFragments,
-		AutoBlock:          cfg.RateLimit.AutoBlock,
-		ICMPRate:           cfg.Base.ICMPRate,
-		ICMPBurst:          cfg.Base.ICMPBurst,
-		AutoBlockExpiry:    autoBlockExpiry,
-		ConntrackTimeout:   cfg.Conntrack.TCPTimeout,
-		WhitelistCount:     len(cfg.Base.Whitelist),
-		AllowedPortCount:   len(cfg.Port.AllowedPorts),
-		IPPortRuleCount:    len(cfg.Port.IPPortRules),
-		RateLimitRuleCount: len(cfg.RateLimit.Rules),
-		InterfaceCount:     len(cfg.Base.Interfaces),
+		DefaultDeny:             cfg.Base.DefaultDeny,
+		AllowReturnTraffic:      cfg.Base.AllowReturnTraffic,
+		AllowICMP:               cfg.Base.AllowICMP,
+		EnableAFXDP:             cfg.Base.EnableAFXDP,
+		EnableConntrack:         cfg.Conntrack.Enabled,
+		EnableRateLimit:         cfg.RateLimit.Enabled,
+		StrictProtocol:          cfg.Base.StrictProtocol,
+		StrictTCP:               cfg.Base.StrictTCP,
+		SYNLimit:                cfg.Base.SYNLimit,
+		BogonFilter:             cfg.Base.BogonFilter,
+		DropFragments:           cfg.Base.DropFragments,
+		AutoBlock:               cfg.RateLimit.AutoBlock,
+		ICMPRate:                cfg.Base.ICMPRate,
+		ICMPBurst:               cfg.Base.ICMPBurst,
+		AutoBlockExpiry:         autoBlockExpiry,
+		ConntrackTimeout:        cfg.Conntrack.TCPTimeout,
+		WhitelistCount:          len(cfg.Base.Whitelist),
+		AllowedPortCount:        len(cfg.Port.AllowedPorts),
+		IPPortRuleCount:         len(cfg.Port.IPPortRules),
+		RateLimitRuleCount:      len(cfg.RateLimit.Rules),
+		InterfaceCount:          len(cfg.Base.Interfaces),
+		ConntrackCapacity:       cfg.Capacity.Conntrack,
+		LockListCapacity:        cfg.Capacity.LockList,
+		DynLockListCapacity:     cfg.Capacity.DynLockList,
+		WhitelistCapacity:       cfg.Capacity.Whitelist,
+		RuleMapCapacity:         cfg.Capacity.IPPortRules + cfg.Capacity.AllowedPorts,
+		RateLimitsCapacity:      cfg.Capacity.RateLimits,
+		DropReasonStatsCapacity: cfg.Capacity.DropReasonStats,
+		PassReasonStatsCapacity: cfg.Capacity.PassReasonStats,
 	}
 }

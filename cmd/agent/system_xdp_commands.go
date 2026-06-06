@@ -116,6 +116,33 @@ This is faster than full reload and maintains existing connections.`,
 	},
 }
 
+var systemCheckCmd = &cobra.Command{
+	Use:   "check",
+	Short: "Check config drift against runtime BPF maps",
+	Long:  `Check whether the active runtime BPF maps match the configuration file and print all differences.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		Execute(cmd, args, func(s *sdk.SDK) error {
+			snapshot, err := systemQueryService.LoadStatusSnapshot(s)
+			if err != nil {
+				return fmt.Errorf("[ERROR] Failed to load config check snapshot: %w", err)
+			}
+
+			out := cmd.OutOrStdout()
+			fmt.Fprintln(out, "[CHECK] Runtime configuration consistency:")
+			if !snapshot.Drift.HasMismatch() {
+				fmt.Fprintln(out, "[OK] Runtime BPF maps match configuration file")
+				return nil
+			}
+
+			fmt.Fprintf(out, "[WARN]  Found %d difference(s):\n", len(snapshot.Drift.Mismatches))
+			for _, item := range snapshot.Drift.Mismatches {
+				fmt.Fprintf(out, "  - %s: config=%s runtime=%s\n", item.Field, item.Desired, item.Actual)
+			}
+			return nil
+		})
+	},
+}
+
 var systemOnCmd = &cobra.Command{
 	Use:   "on [interface...]",
 	Short: "Load XDP driver (alias for 'load')",
