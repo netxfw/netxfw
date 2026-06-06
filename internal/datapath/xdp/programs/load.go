@@ -10,6 +10,24 @@ import (
 func LoadOrCreateManager(log *zap.SugaredLogger, pinPath string, globalCfg *sdk.GlobalConfig) (*Handle, error) {
 	manager, err := OpenPinnedManager(pinPath, log)
 	if err == nil {
+		if globalCfg == nil || manager.MatchesCapacity(globalCfg.Capacity) {
+			return manager, nil
+		}
+
+		log.Info("[DATA] Pinned XDP map capacity differs from config. Recreating maps...")
+		oldManager := manager
+		manager, err = CreateManager(globalCfg.Capacity, log)
+		if err != nil {
+			_ = oldManager.Close()
+			return nil, err
+		}
+		if err := MigrateState(manager, oldManager); err != nil {
+			log.Warnf("[WARN]  State transfer partial or failed: %v", err)
+		}
+		_ = oldManager.Close()
+		if err := PinManager(manager, pinPath); err != nil {
+			log.Warnf("[WARN]  Failed to pin maps: %v", err)
+		}
 		return manager, nil
 	}
 
