@@ -824,3 +824,10 @@ func TestShowPassStatisticsSorting(t *testing.T) {
 	// 第一条记录应为 CONNTRACK (200)
 	assert.Contains(t, output, "CONNTRACK")
 }
+
+func TestSystemCheckCommandRegistered(t *testing.T) {
+	cmd, _, err := SystemCmd.Find([]string{"check"})
+	assert.NoError(t, err)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "check", cmd.Name())
+}
