@@ -63,6 +63,9 @@ title: NetXFW Documentation
 - [数据包过滤总结](10-appendix/10-04_summary_packet_filter.md)
 - [测试文档](10-appendix/10-05_testing.md)
 - [评估报告](10-appendix/10-06_evaluation.md)
+- [架构交互图](netxfw_architecture.html) - 架构设计交互图
+- [代码库可视化](codebase_visualizer.html) - 交互式代码流浏览器
+- [开发与项目使用指南](dev-project-use.md) - 开发者指南
 
 ---
 

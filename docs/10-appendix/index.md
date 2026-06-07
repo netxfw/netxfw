@@ -25,11 +25,11 @@ title: 附录
 | [Evaluation Report](10-06_evaluation_en.md) | Project evaluation report (English) |
 | [领域驱动设计](10-07_domain_driven_design.md) | 领域驱动设计说明 |
 | [适配器](10-08_adapters.md) | 适配器说明 |
-| [Interactive Architecture](../netxfw_architecture.html) | Architecture diagram (interactive) |
+| [架构交互图](../netxfw_architecture.html) | 架构设计交互图 |
 | [Interactive Architecture](../netxfw_architecture_en.html) | Architecture diagram (English) |
-| [Codebase Visualizer](../codebase_visualizer.html) | Interactive code flow browser |
+| [代码库可视化](../codebase_visualizer.html) | 交互式代码流浏览器 |
 | [Codebase Visualizer](../codebase_visualizer_en.html) | Interactive code flow browser (English) |
-| [Dev & Project Use Guide](../dev-project-use.md) | Developer guide |
+| [开发与项目使用指南](../dev-project-use.md) | 开发者指南 |
 | [Dev & Project Use Guide](../dev-project-use_en.md) | Developer guide (English) |
 
 ---

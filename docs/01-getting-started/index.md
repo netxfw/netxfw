@@ -37,6 +37,9 @@ title: NetXFW - eBPF Firewall
 | 故障排查 | [故障排查指南](../08-troubleshooting/08-01_troubleshooting.md) | [Troubleshooting](../08-troubleshooting/08-01_troubleshooting_en.md) |
 | 性能调优 | [性能调优指南](../04-configuration/04-01_performance_tuning.md) | [Performance Tuning](../04-configuration/04-01_performance_tuning_en.md) |
 | 安全最佳实践 | [安全最佳实践](../02-installation/02-01_security_best_practices.md) | [Security Best Practices](../02-installation/02-01_security_best_practices_en.md) |
+| 开发与项目指南 | [开发与项目使用指南](../dev-project-use.md) | [Dev & Project Guide](../dev-project-use_en.md) |
+| 架构交互图 | [架构交互图](../netxfw_architecture.html) | [Architecture Diagram](../netxfw_architecture_en.html) |
+| 代码库可视化 | [代码库可视化](../codebase_visualizer.html) | [Codebase Visualizer](../codebase_visualizer_en.html) |
 
 ---
 
