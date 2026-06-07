@@ -37,6 +37,9 @@ title: NetXFW - eBPF Firewall
 | Troubleshooting | [Troubleshooting Guide](../08-troubleshooting/08-01_troubleshooting.md) | [Troubleshooting](../08-troubleshooting/08-01_troubleshooting_en.md) |
 | Performance Tuning | [Performance Tuning Guide](../04-configuration/04-01_performance_tuning.md) | [Performance Tuning](../04-configuration/04-01_performance_tuning_en.md) |
 | Security Best Practices | [Security Best Practices](../02-installation/02-01_security_best_practices.md) | [Security Best Practices](../02-installation/02-01_security_best_practices_en.md) |
+| Dev & Project Guide | [Dev & Project Guide](../dev-project-use.md) | [Dev & Project Guide](../dev-project-use_en.md) |
+| Interactive Architecture | [Architecture Diagram](../netxfw_architecture.html) | [Architecture Diagram](../netxfw_architecture_en.html) |
+| Codebase Visualizer | [Codebase Visualizer](../codebase_visualizer.html) | [Codebase Visualizer](../codebase_visualizer_en.html) |
 
 ---
 

@@ -1,235 +1,360 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <title>NetxFW Architecture Diagram</title>
-    <style>
-        body { margin: 0; padding: 20px; background: #0b0f19; display: flex; justify-content: center; }
-        svg { max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
-    </style>
-</head>
-<body>
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1100" width="1400" height="1100">
-  <defs>
-    <marker id="arrowPurple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#a855f7"/>
-    </marker>
-    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e"/>
-    </marker>
-    <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
-    </marker>
-    <marker id="arrowOrange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b"/>
-    </marker>
-    <marker id="arrowRed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444"/>
-    </marker>
-    <marker id="arrowTeal" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#14b8a6"/>
-    </marker>
-    <marker id="arrowCyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#06b6d4"/>
-    </marker>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0b0f19"/>
-      <stop offset="100%" stop-color="#1a1a2e"/>
-    </linearGradient>
-    <filter id="glowCyan" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#06b6d4" flood-opacity="0.5"/>
-    </filter>
-    <filter id="glowPurple" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#a855f7" flood-opacity="0.5"/>
-    </filter>
-    <filter id="glowGreen" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#22c55e" flood-opacity="0.5"/>
-    </filter>
-    <filter id="shadowSoft" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
-    </filter>
-    <filter id="shadowGlass" x="-20%" y="-20%" width="140%" height="160%">
-      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#020617" flood-opacity="0.4"/>
-    </filter>
-    <style>
-    text { font-family: 'SF Mono', 'Fira Code', Menlo, 'Microsoft YaHei', 'PingFang SC', sans-serif; }
-    .title { font-size: 32px; font-weight: 700; fill: #f1f5f9; }
-    .subtitle { font-size: 14px; font-weight: 500; fill: #94a3b8; }
-    .layer-label { font-size: 13px; font-weight: 700; letter-spacing: 2px; fill: #64748b; text-transform: uppercase; }
-    .mod-title { font-size: 15px; font-weight: 600; fill: #f8fafc; }
-    .mod-sub { font-size: 11px; font-weight: 400; fill: #94a3b8; }
-    .map-label { font-size: 12px; font-weight: 500; fill: #fbbf24; }
-    .arrow-label { font-size: 10px; font-weight: 500; fill: #64748b; }
-    .legend-text { font-size: 12px; font-weight: 500; fill: #94a3b8; }
-    .footnote { font-size: 11px; font-weight: 400; fill: #475569; }
-    </style>
-  </defs>
-  <!-- Background -->
-  <rect width="1400" height="1100" fill="url(#bgGrad)"/>
-  <rect width="1400" height="1100" fill="url(#bgGrad)" opacity="0.5"/>
-  
-  <!-- Background grid dots -->
-  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-    <circle cx="20" cy="20" r="1" fill="rgba(255,255,255,0.03)"/>
-  </pattern>
-  <rect width="1400" height="1100" fill="url(#grid)"/>
-  
-  <!-- Title -->
-  <text x="700.0" y="45" text-anchor="middle" class="title">NetxFW Architecture</text>
-  <text x="700.0" y="68" text-anchor="middle" class="subtitle">Dataplane Firewall — eBPF/XDP Kernel Module Architecture</text>
+<html lang="en">
 
-  <rect x="40" y="75" width="1320" height="80" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-  <text x="55" y="120" class="layer-label" fill="#06b6d4">Entry Points</text>
-  <rect x="305" y="85" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#06b6d4" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="430" y="109" text-anchor="middle" class="mod-title">netxfwdp</text>
-  <text x="430" y="129" text-anchor="middle" class="mod-sub">Dataplane Daemon</text>
-  <rect x="575" y="85" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#06b6d4" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="700" y="109" text-anchor="middle" class="mod-title">netxfwagent</text>
-  <text x="700" y="129" text-anchor="middle" class="mod-sub">Agent Daemon</text>
-  <rect x="845" y="85" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#06b6d4" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="970" y="109" text-anchor="middle" class="mod-title">netxfw</text>
-  <text x="970" y="129" text-anchor="middle" class="mod-sub">CLI Controller</text>
-  <rect x="40" y="185" width="1320" height="80" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-  <text x="55" y="230" class="layer-label" fill="#a855f7">App Bootstrap</text>
-  <rect x="575" y="195" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#a855f7" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="700" y="219" text-anchor="middle" class="mod-title">internal/app</text>
-  <text x="700" y="239" text-anchor="middle" class="mod-sub">Bootstrap & Daemon Init</text>
-  <rect x="40" y="295" width="1320" height="110" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-  <text x="55" y="355" class="layer-label" fill="#10b981">Daemon Engine</text>
-  <rect x="305" y="305" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#10b981" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="430" y="344" text-anchor="middle" class="mod-title">daemon/dp.go</text>
-  <text x="430" y="364" text-anchor="middle" class="mod-sub">Dataplane Lifecycle</text>
-  <rect x="575" y="305" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#10b981" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="700" y="344" text-anchor="middle" class="mod-title">daemon/agent.go</text>
-  <text x="700" y="364" text-anchor="middle" class="mod-sub">Agent Lifecycle</text>
-  <rect x="845" y="305" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#10b981" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="970" y="344" text-anchor="middle" class="mod-title">daemon/engine/</text>
-  <text x="970" y="364" text-anchor="middle" class="mod-sub">Rule Sync Engines</text>
-  <rect x="40" y="435" width="1320" height="110" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-  <text x="55" y="495" class="layer-label" fill="#f59e0b">XDP Datapath</text>
-  <rect x="305" y="445" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="430" y="484" text-anchor="middle" class="mod-title">datapath/xdp_manager</text>
-  <text x="430" y="504" text-anchor="middle" class="mod-sub">BPF Manager (Load/Pin)</text>
-  <rect x="575" y="445" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="700" y="484" text-anchor="middle" class="mod-title">datapath/lifecycle_xdp</text>
-  <text x="700" y="504" text-anchor="middle" class="mod-sub">XDP Attach/Detach</text>
-  <rect x="845" y="445" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="970" y="484" text-anchor="middle" class="mod-title">datapath/adapter</text>
-  <text x="970" y="504" text-anchor="middle" class="mod-sub">Map I/O Adapter</text>
-  <rect x="40" y="575" width="1320" height="80" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-  <text x="55" y="620" class="layer-label" fill="#ef4444">API Layer</text>
-  <rect x="305" y="585" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#ef4444" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="430" y="609" text-anchor="middle" class="mod-title">api/server</text>
-  <text x="430" y="629" text-anchor="middle" class="mod-sub">REST API (Gin)</text>
-  <rect x="575" y="585" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#ef4444" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="700" y="609" text-anchor="middle" class="mod-title">api/auth</text>
-  <text x="700" y="629" text-anchor="middle" class="mod-sub">JWT Auth</text>
-  <rect x="845" y="585" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#ef4444" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="970" y="609" text-anchor="middle" class="mod-title">api/handlers</text>
-  <text x="970" y="629" text-anchor="middle" class="mod-sub">Metrics & Status</text>
-  <rect x="40" y="685" width="1320" height="80" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-  <text x="55" y="730" class="layer-label" fill="#3b82f6">SDK Layer</text>
-  <rect x="305" y="695" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="430" y="719" text-anchor="middle" class="mod-title">pkg/sdk</text>
-  <text x="430" y="739" text-anchor="middle" class="mod-sub">eBPF Map SDK</text>
-  <rect x="575" y="695" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="700" y="719" text-anchor="middle" class="mod-title">pkg/config</text>
-  <text x="700" y="739" text-anchor="middle" class="mod-sub">Configuration</text>
-  <rect x="845" y="695" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="970" y="719" text-anchor="middle" class="mod-title">pkg/storage</text>
-  <text x="970" y="739" text-anchor="middle" class="mod-sub">TOML/File/Redis/MySQL</text>
-  <rect x="40" y="795" width="1320" height="90" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-  <text x="55" y="845" class="layer-label" fill="#14b8a6">eBPF Kernel</text>
-  <rect x="305" y="805" width="250" height="70" rx="10" fill="rgba(17,24,39,0.8)" stroke="#14b8a6" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="430" y="834" text-anchor="middle" class="mod-title">bpf/</text>
-  <text x="430" y="854" text-anchor="middle" class="mod-sub">XDP Firewall (C)</text>
-  <rect x="575" y="805" width="250" height="70" rx="10" fill="rgba(17,24,39,0.8)" stroke="#14b8a6" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="700" y="834" text-anchor="middle" class="mod-title">bpf/ (Conntrack)</text>
-  <text x="700" y="854" text-anchor="middle" class="mod-sub">Connection Tracking</text>
-  <rect x="845" y="805" width="250" height="70" rx="10" fill="rgba(17,24,39,0.8)" stroke="#14b8a6" stroke-width="1.5" filter="url(#shadowGlass)"/>
-  <text x="970" y="834" text-anchor="middle" class="mod-title">bpf/ (Blacklist)</text>
-  <text x="970" y="854" text-anchor="middle" class="mod-sub">IP Blacklist (LPM)</text>
-  <rect x="40" y="915" width="1320" height="60" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-  <text x="55" y="950" class="layer-label" fill="#f97316">eBPF Kernel Maps</text>
-  <rect x="100" y="925" width="228" height="40" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="4,3" filter="url(#shadowSoft)"/>
-  <text x="214" y="949" text-anchor="middle" class="map-label">rule_map (BPF_MAP_TYPE_HASH)</text>
-  <rect x="343" y="925" width="228" height="40" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="4,3" filter="url(#shadowSoft)"/>
-  <text x="457" y="949" text-anchor="middle" class="map-label">conntrack_map (BPF_MAP_TYPE_HASH)</text>
-  <rect x="586" y="925" width="228" height="40" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="4,3" filter="url(#shadowSoft)"/>
-  <text x="700" y="949" text-anchor="middle" class="map-label">static_blacklist (LPM_TRIE)</text>
-  <rect x="829" y="925" width="228" height="40" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="4,3" filter="url(#shadowSoft)"/>
-  <text x="943" y="949" text-anchor="middle" class="map-label">whitelist (BPF_MAP_TYPE_HASH)</text>
-  <rect x="1072" y="925" width="228" height="40" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="4,3" filter="url(#shadowSoft)"/>
-  <text x="1186" y="949" text-anchor="middle" class="map-label">jmp_table (BPF_MAP_TYPE_PROG_ARRAY)</text>
-  <path d="M 430 145 Q 430 170.0, 565.0 170.0 Q 700 170.0, 700 195" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowCyan)"/>
-  <text x="575.0" y="164.0" class="arrow-label">BootstrapDaemon('dp')</text>
-  <path d="M 700 145 L 700 195" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none" marker-end="url(#arrowCyan)"/>
-  <text x="712" y="174.0" class="arrow-label">BootstrapDaemon('agent')</text>
-  <path d="M 970 145 Q 970 170.0, 835.0 170.0 Q 700 170.0, 700 195" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowCyan)"/>
-  <text x="845.0" y="164.0" class="arrow-label">Execute</text>
-  <path d="M 700 255 Q 700 280.0, 565.0 280.0 Q 430 280.0, 430 305" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="575.0" y="274.0" class="arrow-label">RunDaemon → dp.go</text>
-  <path d="M 700 255 L 700 305" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="712" y="284.0" class="arrow-label">RunDaemon → agent.go</text>
-  <path d="M 430 395 L 430 445" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="442" y="424.0" class="arrow-label">LoadOrCreateManager</text>
-  <path d="M 430 395 Q 430 420.0, 565.0 420.0 Q 700 420.0, 700 445" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="575.0" y="414.0" class="arrow-label">Attach XDP/TC</text>
-  <path d="M 700 395 Q 700 420.0, 565.0 420.0 Q 430 420.0, 430 445" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="575.0" y="414.0" class="arrow-label">RequirePinnedManager</text>
-  <path d="M 700 395 Q 700 420.0, 835.0 420.0 Q 970 420.0, 970 445" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="845.0" y="414.0" class="arrow-label">VerifyRuntimeConfig</text>
-  <path d="M 970 395 L 970 445" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="982" y="424.0" class="arrow-label">Sync rules via Adapter</text>
-  <path d="M 700 395 Q 700 490.0, 565.0 490.0 Q 430 490.0, 430 585" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="575.0" y="484.0" class="arrow-label">api.NewServer</text>
-  <path d="M 700 395 L 700 585" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="712" y="494.0" class="arrow-label">JWT auth config</text>
-  <path d="M 700 395 Q 700 490.0, 835.0 490.0 Q 970 490.0, 970 585" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="845.0" y="484.0" class="arrow-label">metrics/stats</text>
-  <path d="M 430 535 L 430 695" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none" marker-end="url(#arrowOrange)"/>
-  <text x="442" y="619.0" class="arrow-label">SDK capacity config</text>
-  <path d="M 970 535 Q 970 615.0, 700.0 615.0 Q 430 615.0, 430 695" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowOrange)"/>
-  <text x="710.0" y="609.0" class="arrow-label">Map I/O via SDK</text>
-  <path d="M 970 535 Q 970 615.0, 835.0 615.0 Q 700 615.0, 700 695" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowOrange)"/>
-  <text x="845.0" y="609.0" class="arrow-label">CapacityConfig</text>
-  <path d="M 430 535 L 430 805" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none" marker-end="url(#arrowOrange)"/>
-  <text x="442" y="674.0" class="arrow-label">Load Netxfw BPF</text>
-  <path d="M 970 535 Q 970 730.0, 592.0 730.0 Q 214 730.0, 214 925" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowOrange)"/>
-  <text x="602.0" y="724.0" class="arrow-label">read/write rule_map</text>
-  <path d="M 970 535 Q 970 730.0, 713.5 730.0 Q 457 730.0, 457 925" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowOrange)"/>
-  <text x="723.5" y="724.0" class="arrow-label">read/write conntrack</text>
-  <path d="M 970 535 Q 970 730.0, 835.0 730.0 Q 700 730.0, 700 925" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowOrange)"/>
-  <text x="845.0" y="724.0" class="arrow-label">read/write blacklist</text>
-  <path d="M 970 535 L 970 925" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none" marker-end="url(#arrowOrange)"/>
-  <text x="982" y="734.0" class="arrow-label">read/write whitelist</text>
-  <path d="M 700 535 Q 700 730.0, 943.0 730.0 Q 1186 730.0, 1186 925" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowOrange)"/>
-  <text x="953.0" y="724.0" class="arrow-label">jmp_table dispatch</text>
-  <path d="M 970 395 Q 970 660.0, 592.0 660.0 Q 214 660.0, 214 925" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="602.0" y="654.0" class="arrow-label">Sync IP/Port rules</text>
-  <path d="M 970 395 Q 970 660.0, 713.5 660.0 Q 457 660.0, 457 925" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowPurple)"/>
-  <text x="723.5" y="654.0" class="arrow-label">cleanup expired CT</text>
-  <path d="M 430 645 L 430 695" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none" marker-end="url(#arrowRed)"/>
-  <text x="442" y="674.0" class="arrow-label">SDK for Map ops</text>
-  <path d="M 970 645 Q 970 670.0, 700.0 670.0 Q 430 670.0, 430 695" stroke="rgba(255,255,255,0.12)" stroke-width="1" fill="none" marker-end="url(#arrowRed)"/>
-  <text x="710.0" y="664.0" class="arrow-label">read Map stats</text>
-  <rect x="55" y="1010" width="1290" height="70" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
-  <text x="70" y="1032" class="legend-text" font-weight="600" fill="#f1f5f9">Legend</text>
-  <rect x="75" y="1042" width="12" height="12" rx="3" fill="#06b6d4" opacity="0.8"/>
-  <text x="93" y="1053" class="legend-text">Entry Points</text>
-  <rect x="195" y="1042" width="12" height="12" rx="3" fill="#a855f7" opacity="0.8"/>
-  <text x="213" y="1053" class="legend-text">App / Bootstrap</text>
-  <rect x="315" y="1042" width="12" height="12" rx="3" fill="#10b981" opacity="0.8"/>
-  <text x="333" y="1053" class="legend-text">Daemon / Engine</text>
-  <rect x="435" y="1042" width="12" height="12" rx="3" fill="#f59e0b" opacity="0.8"/>
-  <text x="453" y="1053" class="legend-text">XDP / Datapath</text>
-  <rect x="555" y="1042" width="12" height="12" rx="3" fill="#ef4444" opacity="0.8"/>
-  <text x="573" y="1053" class="legend-text">API Layer</text>
-  <rect x="675" y="1042" width="12" height="12" rx="3" fill="#3b82f6" opacity="0.8"/>
-  <text x="693" y="1053" class="legend-text">SDK / Storage</text>
-  <rect x="795" y="1042" width="12" height="12" rx="3" fill="#14b8a6" opacity="0.8"/>
-  <text x="813" y="1053" class="legend-text">eBPF Kernel</text>
-  <text x="700.0" y="1085" text-anchor="middle" class="footnote">Generated from graph-code database • Entry → Points → eBPFKernel</text>
-</svg>
+<head>
+  <meta charset="UTF-8">
+  <title>NetxFW Architecture Diagram</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #0b0f19;
+      display: flex;
+      justify-content: center;
+    }
+
+    svg {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1100" width="1400" height="1100">
+    <defs>
+      <marker id="arrowPurple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#a855f7" />
+      </marker>
+      <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e" />
+      </marker>
+      <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+      </marker>
+      <marker id="arrowOrange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b" />
+      </marker>
+      <marker id="arrowRed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444" />
+      </marker>
+      <marker id="arrowTeal" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#14b8a6" />
+      </marker>
+      <marker id="arrowCyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#06b6d4" />
+      </marker>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#0b0f19" />
+        <stop offset="100%" stop-color="#1a1a2e" />
+      </linearGradient>
+      <filter id="glowCyan" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#06b6d4" flood-opacity="0.5" />
+      </filter>
+      <filter id="glowPurple" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#a855f7" flood-opacity="0.5" />
+      </filter>
+      <filter id="glowGreen" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#22c55e" flood-opacity="0.5" />
+      </filter>
+      <filter id="shadowSoft" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.3" />
+      </filter>
+      <filter id="shadowGlass" x="-20%" y="-20%" width="140%" height="160%">
+        <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#020617" flood-opacity="0.4" />
+      </filter>
+      <style>
+        text {
+          font-family: 'SF Mono', 'Fira Code', Menlo, 'Microsoft YaHei', 'PingFang SC', sans-serif;
+        }
+
+        .title {
+          font-size: 32px;
+          font-weight: 700;
+          fill: #f1f5f9;
+        }
+
+        .subtitle {
+          font-size: 14px;
+          font-weight: 500;
+          fill: #94a3b8;
+        }
+
+        .layer-label {
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 2px;
+          fill: #64748b;
+          text-transform: uppercase;
+        }
+
+        .mod-title {
+          font-size: 15px;
+          font-weight: 600;
+          fill: #f8fafc;
+        }
+
+        .mod-sub {
+          font-size: 11px;
+          font-weight: 400;
+          fill: #94a3b8;
+        }
+
+        .map-label {
+          font-size: 12px;
+          font-weight: 500;
+          fill: #fbbf24;
+        }
+
+        .arrow-label {
+          font-size: 10px;
+          font-weight: 500;
+          fill: #64748b;
+        }
+
+        .legend-text {
+          font-size: 12px;
+          font-weight: 500;
+          fill: #94a3b8;
+        }
+
+        .footnote {
+          font-size: 11px;
+          font-weight: 400;
+          fill: #475569;
+        }
+      </style>
+    </defs>
+    <!-- Background -->
+    <rect width="1400" height="1100" fill="url(#bgGrad)" />
+    <rect width="1400" height="1100" fill="url(#bgGrad)" opacity="0.5" />
+
+    <!-- Background grid dots -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="1" fill="rgba(255,255,255,0.03)" />
+    </pattern>
+    <rect width="1400" height="1100" fill="url(#grid)" />
+
+    <!-- Title -->
+    <text x="700.0" y="45" text-anchor="middle" class="title">NetxFW Architecture</text>
+    <text x="700.0" y="68" text-anchor="middle" class="subtitle">Dataplane Firewall — eBPF/XDP Kernel Module
+      Architecture</text>
+
+    <rect x="40" y="75" width="1320" height="80" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)"
+      stroke-width="1" />
+    <text x="55" y="120" class="layer-label" fill="#06b6d4">Entry Points</text>
+    <rect x="305" y="85" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#06b6d4" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="430" y="109" text-anchor="middle" class="mod-title">netxfwdp</text>
+    <text x="430" y="129" text-anchor="middle" class="mod-sub">Dataplane Daemon</text>
+    <rect x="575" y="85" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#06b6d4" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="700" y="109" text-anchor="middle" class="mod-title">netxfwagent</text>
+    <text x="700" y="129" text-anchor="middle" class="mod-sub">Agent Daemon</text>
+    <rect x="845" y="85" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#06b6d4" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="970" y="109" text-anchor="middle" class="mod-title">netxfw</text>
+    <text x="970" y="129" text-anchor="middle" class="mod-sub">CLI Controller</text>
+    <rect x="40" y="185" width="1320" height="80" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)"
+      stroke-width="1" />
+    <text x="55" y="230" class="layer-label" fill="#a855f7">App Bootstrap</text>
+    <rect x="575" y="195" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#a855f7" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="700" y="219" text-anchor="middle" class="mod-title">internal/app</text>
+    <text x="700" y="239" text-anchor="middle" class="mod-sub">Bootstrap & Daemon Init</text>
+    <rect x="40" y="295" width="1320" height="110" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)"
+      stroke-width="1" />
+    <text x="55" y="355" class="layer-label" fill="#10b981">Daemon Engine</text>
+    <rect x="305" y="305" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#10b981" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="430" y="344" text-anchor="middle" class="mod-title">daemon/dp.go</text>
+    <text x="430" y="364" text-anchor="middle" class="mod-sub">Dataplane Lifecycle</text>
+    <rect x="575" y="305" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#10b981" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="700" y="344" text-anchor="middle" class="mod-title">daemon/agent.go</text>
+    <text x="700" y="364" text-anchor="middle" class="mod-sub">Agent Lifecycle</text>
+    <rect x="845" y="305" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#10b981" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="970" y="344" text-anchor="middle" class="mod-title">daemon/engine/</text>
+    <text x="970" y="364" text-anchor="middle" class="mod-sub">Rule Sync Engines</text>
+    <rect x="40" y="435" width="1320" height="110" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)"
+      stroke-width="1" />
+    <text x="55" y="495" class="layer-label" fill="#f59e0b">XDP Datapath</text>
+    <rect x="305" y="445" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#f59e0b" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="430" y="484" text-anchor="middle" class="mod-title">datapath/xdp_manager</text>
+    <text x="430" y="504" text-anchor="middle" class="mod-sub">BPF Manager (Load/Pin)</text>
+    <rect x="575" y="445" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#f59e0b" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="700" y="484" text-anchor="middle" class="mod-title">datapath/lifecycle_xdp</text>
+    <text x="700" y="504" text-anchor="middle" class="mod-sub">XDP Attach/Detach</text>
+    <rect x="845" y="445" width="250" height="90" rx="10" fill="rgba(17,24,39,0.8)" stroke="#f59e0b" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="970" y="484" text-anchor="middle" class="mod-title">datapath/adapter</text>
+    <text x="970" y="504" text-anchor="middle" class="mod-sub">Map I/O Adapter</text>
+    <rect x="40" y="575" width="1320" height="80" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)"
+      stroke-width="1" />
+    <text x="55" y="620" class="layer-label" fill="#ef4444">API Layer</text>
+    <rect x="305" y="585" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#ef4444" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="430" y="609" text-anchor="middle" class="mod-title">api/server</text>
+    <text x="430" y="629" text-anchor="middle" class="mod-sub">REST API (Gin)</text>
+    <rect x="575" y="585" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#ef4444" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="700" y="609" text-anchor="middle" class="mod-title">api/auth</text>
+    <text x="700" y="629" text-anchor="middle" class="mod-sub">JWT Auth</text>
+    <rect x="845" y="585" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#ef4444" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="970" y="609" text-anchor="middle" class="mod-title">api/handlers</text>
+    <text x="970" y="629" text-anchor="middle" class="mod-sub">Metrics & Status</text>
+    <rect x="40" y="685" width="1320" height="80" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)"
+      stroke-width="1" />
+    <text x="55" y="730" class="layer-label" fill="#3b82f6">SDK Layer</text>
+    <rect x="305" y="695" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#3b82f6" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="430" y="719" text-anchor="middle" class="mod-title">pkg/sdk</text>
+    <text x="430" y="739" text-anchor="middle" class="mod-sub">eBPF Map SDK</text>
+    <rect x="575" y="695" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#3b82f6" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="700" y="719" text-anchor="middle" class="mod-title">pkg/config</text>
+    <text x="700" y="739" text-anchor="middle" class="mod-sub">Configuration</text>
+    <rect x="845" y="695" width="250" height="60" rx="10" fill="rgba(17,24,39,0.8)" stroke="#3b82f6" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="970" y="719" text-anchor="middle" class="mod-title">pkg/storage</text>
+    <text x="970" y="739" text-anchor="middle" class="mod-sub">TOML/File/Redis/MySQL</text>
+    <rect x="40" y="795" width="1320" height="90" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)"
+      stroke-width="1" />
+    <text x="55" y="845" class="layer-label" fill="#14b8a6">eBPF Kernel</text>
+    <rect x="305" y="805" width="250" height="70" rx="10" fill="rgba(17,24,39,0.8)" stroke="#14b8a6" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="430" y="834" text-anchor="middle" class="mod-title">bpf/</text>
+    <text x="430" y="854" text-anchor="middle" class="mod-sub">XDP Firewall (C)</text>
+    <rect x="575" y="805" width="250" height="70" rx="10" fill="rgba(17,24,39,0.8)" stroke="#14b8a6" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="700" y="834" text-anchor="middle" class="mod-title">bpf/ (Conntrack)</text>
+    <text x="700" y="854" text-anchor="middle" class="mod-sub">Connection Tracking</text>
+    <rect x="845" y="805" width="250" height="70" rx="10" fill="rgba(17,24,39,0.8)" stroke="#14b8a6" stroke-width="1.5"
+      filter="url(#shadowGlass)" />
+    <text x="970" y="834" text-anchor="middle" class="mod-title">bpf/ (Blacklist)</text>
+    <text x="970" y="854" text-anchor="middle" class="mod-sub">IP Blacklist (LPM)</text>
+    <rect x="40" y="915" width="1320" height="60" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)"
+      stroke-width="1" />
+    <text x="55" y="950" class="layer-label" fill="#f97316">eBPF Kernel Maps</text>
+    <rect x="100" y="925" width="228" height="40" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1"
+      stroke-dasharray="4,3" filter="url(#shadowSoft)" />
+    <text x="214" y="949" text-anchor="middle" class="map-label">rule_map (BPF_MAP_TYPE_HASH)</text>
+    <rect x="343" y="925" width="228" height="40" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1"
+      stroke-dasharray="4,3" filter="url(#shadowSoft)" />
+    <text x="457" y="949" text-anchor="middle" class="map-label">conntrack_map (BPF_MAP_TYPE_HASH)</text>
+    <rect x="586" y="925" width="228" height="40" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1"
+      stroke-dasharray="4,3" filter="url(#shadowSoft)" />
+    <text x="700" y="949" text-anchor="middle" class="map-label">static_blacklist (LPM_TRIE)</text>
+    <rect x="829" y="925" width="228" height="40" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1"
+      stroke-dasharray="4,3" filter="url(#shadowSoft)" />
+    <text x="943" y="949" text-anchor="middle" class="map-label">whitelist (BPF_MAP_TYPE_HASH)</text>
+    <rect x="1072" y="925" width="228" height="40" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1"
+      stroke-dasharray="4,3" filter="url(#shadowSoft)" />
+    <text x="1186" y="949" text-anchor="middle" class="map-label">jmp_table (BPF_MAP_TYPE_PROG_ARRAY)</text>
+    <path d="M 430 145 Q 430 170.0, 565.0 170.0 Q 700 170.0, 700 195" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowCyan)" />
+    <text x="575.0" y="164.0" class="arrow-label">BootstrapDaemon('dp')</text>
+    <path d="M 700 145 L 700 195" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none"
+      marker-end="url(#arrowCyan)" />
+    <text x="712" y="174.0" class="arrow-label">BootstrapDaemon('agent')</text>
+    <path d="M 970 145 Q 970 170.0, 835.0 170.0 Q 700 170.0, 700 195" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowCyan)" />
+    <text x="845.0" y="164.0" class="arrow-label">Execute</text>
+    <path d="M 700 255 Q 700 280.0, 565.0 280.0 Q 430 280.0, 430 305" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowPurple)" />
+    <text x="575.0" y="274.0" class="arrow-label">RunDaemon → dp.go</text>
+    <path d="M 700 255 L 700 305" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none"
+      marker-end="url(#arrowPurple)" />
+    <text x="712" y="284.0" class="arrow-label">RunDaemon → agent.go</text>
+    <path d="M 430 395 L 430 445" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none"
+      marker-end="url(#arrowPurple)" />
+    <text x="442" y="424.0" class="arrow-label">LoadOrCreateManager</text>
+    <path d="M 430 395 Q 430 420.0, 565.0 420.0 Q 700 420.0, 700 445" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowPurple)" />
+    <text x="575.0" y="414.0" class="arrow-label">Attach XDP/TC</text>
+    <path d="M 700 395 Q 700 420.0, 565.0 420.0 Q 430 420.0, 430 445" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowPurple)" />
+    <text x="575.0" y="414.0" class="arrow-label">RequirePinnedManager</text>
+    <path d="M 700 395 Q 700 420.0, 835.0 420.0 Q 970 420.0, 970 445" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowPurple)" />
+    <text x="845.0" y="414.0" class="arrow-label">VerifyRuntimeConfig</text>
+    <path d="M 970 395 L 970 445" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none"
+      marker-end="url(#arrowPurple)" />
+    <text x="982" y="424.0" class="arrow-label">Sync rules via Adapter</text>
+    <path d="M 700 395 Q 700 490.0, 565.0 490.0 Q 430 490.0, 430 585" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowPurple)" />
+    <text x="575.0" y="484.0" class="arrow-label">api.NewServer</text>
+    <path d="M 700 395 L 700 585" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none"
+      marker-end="url(#arrowPurple)" />
+    <text x="712" y="494.0" class="arrow-label">JWT auth config</text>
+    <path d="M 700 395 Q 700 490.0, 835.0 490.0 Q 970 490.0, 970 585" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowPurple)" />
+    <text x="845.0" y="484.0" class="arrow-label">metrics/stats</text>
+    <path d="M 430 535 L 430 695" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none"
+      marker-end="url(#arrowOrange)" />
+    <text x="442" y="619.0" class="arrow-label">SDK capacity config</text>
+    <path d="M 970 535 Q 970 615.0, 700.0 615.0 Q 430 615.0, 430 695" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowOrange)" />
+    <text x="710.0" y="609.0" class="arrow-label">Map I/O via SDK</text>
+    <path d="M 970 535 Q 970 615.0, 835.0 615.0 Q 700 615.0, 700 695" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowOrange)" />
+    <text x="845.0" y="609.0" class="arrow-label">CapacityConfig</text>
+    <path d="M 430 535 L 430 805" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none"
+      marker-end="url(#arrowOrange)" />
+    <text x="442" y="674.0" class="arrow-label">Load Netxfw BPF</text>
+    <path d="M 970 535 Q 970 730.0, 592.0 730.0 Q 214 730.0, 214 925" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowOrange)" />
+    <text x="602.0" y="724.0" class="arrow-label">read/write rule_map</text>
+    <path d="M 970 535 Q 970 730.0, 713.5 730.0 Q 457 730.0, 457 925" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowOrange)" />
+    <text x="723.5" y="724.0" class="arrow-label">read/write conntrack</text>
+    <path d="M 970 535 Q 970 730.0, 835.0 730.0 Q 700 730.0, 700 925" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowOrange)" />
+    <text x="845.0" y="724.0" class="arrow-label">read/write blacklist</text>
+    <path d="M 970 535 L 970 925" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none"
+      marker-end="url(#arrowOrange)" />
+    <text x="982" y="734.0" class="arrow-label">read/write whitelist</text>
+    <path d="M 700 535 Q 700 730.0, 943.0 730.0 Q 1186 730.0, 1186 925" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowOrange)" />
+    <text x="953.0" y="724.0" class="arrow-label">jmp_table dispatch</text>
+    <path d="M 970 395 Q 970 660.0, 592.0 660.0 Q 214 660.0, 214 925" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowPurple)" />
+    <text x="602.0" y="654.0" class="arrow-label">Sync IP/Port rules</text>
+    <path d="M 970 395 Q 970 660.0, 713.5 660.0 Q 457 660.0, 457 925" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowPurple)" />
+    <text x="723.5" y="654.0" class="arrow-label">cleanup expired CT</text>
+    <path d="M 430 645 L 430 695" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" fill="none"
+      marker-end="url(#arrowRed)" />
+    <text x="442" y="674.0" class="arrow-label">SDK for Map ops</text>
+    <path d="M 970 645 Q 970 670.0, 700.0 670.0 Q 430 670.0, 430 695" stroke="rgba(255,255,255,0.12)" stroke-width="1"
+      fill="none" marker-end="url(#arrowRed)" />
+    <text x="710.0" y="664.0" class="arrow-label">read Map stats</text>
+    <rect x="55" y="1010" width="1290" height="70" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.05)"
+      stroke-width="1" />
+    <text x="70" y="1032" class="legend-text" font-weight="600" fill="#f1f5f9">Legend</text>
+    <rect x="75" y="1042" width="12" height="12" rx="3" fill="#06b6d4" opacity="0.8" />
+    <text x="93" y="1053" class="legend-text">Entry Points</text>
+    <rect x="195" y="1042" width="12" height="12" rx="3" fill="#a855f7" opacity="0.8" />
+    <text x="213" y="1053" class="legend-text">App / Bootstrap</text>
+    <rect x="315" y="1042" width="12" height="12" rx="3" fill="#10b981" opacity="0.8" />
+    <text x="333" y="1053" class="legend-text">Daemon / Engine</text>
+    <rect x="435" y="1042" width="12" height="12" rx="3" fill="#f59e0b" opacity="0.8" />
+    <text x="453" y="1053" class="legend-text">XDP / Datapath</text>
+    <rect x="555" y="1042" width="12" height="12" rx="3" fill="#ef4444" opacity="0.8" />
+    <text x="573" y="1053" class="legend-text">API Layer</text>
+    <rect x="675" y="1042" width="12" height="12" rx="3" fill="#3b82f6" opacity="0.8" />
+    <text x="693" y="1053" class="legend-text">SDK / Storage</text>
+    <rect x="795" y="1042" width="12" height="12" rx="3" fill="#14b8a6" opacity="0.8" />
+    <text x="813" y="1053" class="legend-text">eBPF Kernel</text>
+    <text x="700.0" y="1085" text-anchor="middle" class="footnote">Generated from graph-code database • Entry → Points →
+      eBPFKernel</text>
+  </svg>
 </body>
+
 </html>

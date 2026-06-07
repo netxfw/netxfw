@@ -71,6 +71,9 @@ title: NetXFW Documentation
 - [Documentation Guide](01-getting-started/01-00_document_guide_en.md)
 - [Project Introduction](01-getting-started/01-01_project_introduction_en.md)
 - [Quick Navigation](01-getting-started/index_en.md)
+- [Interactive Architecture](netxfw_architecture_en.html) - Architecture diagram (English)
+- [Codebase Visualizer](codebase_visualizer_en.html) - Interactive code flow browser (English)
+- [Dev & Project Use Guide](dev-project-use_en.md) - Developer guide (English)
 
 ---
 

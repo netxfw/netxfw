@@ -3,7 +3,7 @@
 
 title: NetXFW Documentation
 description: High-performance eBPF/XDP firewall documentation - 高性能 eBPF/XDP 防火墙文档
-baseurl: ""
+baseurl: "/netxfw"
 url: ""
 
 # Build settings - 构建设置
