@@ -21,7 +21,7 @@ Welcome to NetXFW documentation. This document directory contains all NetXFW pro
 - [Rule Import/Export](../03-quick-start/03-02_rule_import_export.md) - Rule import/export functionality details
 
 ### 📊 Performance and Monitoring
-- [Performance Benchmarks](../07-performance-tuning/07-01_benchmarks.md) - Performance test data and benchmarks
+- [Performance Regression Testing](../07-testing/07-03_performance_regression.md) - Performance regression testing and benchmarks
 - [Web API Metrics Unification](../09-api-reference/09-02_unified_web_api_metrics.md) - Unified Web API metrics design
 
 ### ☁️ Cloud Environment and Special Scenarios
@@ -53,7 +53,7 @@ Welcome to NetXFW documentation. This document directory contains all NetXFW pro
 | [04-configuration/](../04-configuration/) | Configuration management documentation |
 | [05-advanced-features/](../05-advanced-features/) | Advanced features documentation |
 | [06-plugin-development/](../06-plugin-development/) | Plugin development documentation |
-| [07-performance-tuning/](../07-performance-tuning/) | Performance tuning documentation |
+| [07-testing/](../07-testing/) | Performance testing documentation |
 | [08-troubleshooting/](../08-troubleshooting/) | Troubleshooting documentation |
 | [09-api-reference/](../09-api-reference/) | API reference documentation |
 | [10-appendix/](../10-appendix/) | Appendix documentation |
@@ -70,7 +70,7 @@ We provide bilingual documentation in Chinese and English to facilitate differen
 | CLI Commands | [03-01_cli.md](../03-quick-start/03-01_cli.md) | [03-01_cli_en.md](../03-quick-start/03-01_cli_en.md) |
 | Plugin Development | [06-01_plugins.md](../06-plugin-development/06-01_plugins.md) | [06-01_plugins_en.md](../06-plugin-development/06-01_plugins_en.md) |
 | Rule Import/Export | [03-02_rule_import_export.md](../03-quick-start/03-02_rule_import_export.md) | [03-02_rule_import_export_en.md](../03-quick-start/03-02_rule_import_export_en.md) |
-| Performance Benchmarks | [07-01_benchmarks.md](../07-performance-tuning/07-01_benchmarks.md) | [07-01_benchmarks_en.md](../07-performance-tuning/07-01_benchmarks_en.md) |
+| Performance Benchmarks | [07-03_performance_regression.md](../07-testing/07-03_performance_regression.md) | [07-03_performance_regression.md](../07-testing/07-03_performance_regression.md) |
 | Cloud Environment Support | [05-01_realip.md](../05-advanced-features/05-01_realip.md) | [05-01_realip_en.md](../05-advanced-features/05-01_realip_en.md) |
 | Project Evaluation | [10-06_evaluation.md](../10-appendix/10-06_evaluation.md) | [10-06_evaluation_en.md](../10-appendix/10-06_evaluation_en.md) |
 | Feature Documentation | [05-02_interface_specific_agent.md](../05-advanced-features/05-02_interface_specific_agent.md) | [05-02_interface_specific_agent_en.md](../05-advanced-features/05-02_interface_specific_agent_en.md) |
@@ -110,7 +110,7 @@ We provide bilingual documentation in Chinese and English to facilitate differen
 1. **Getting Started**: Start with [Getting Started Documentation](../01-getting-started/) to understand basic concepts and deployment
 2. **Daily Operations**: Refer to [CLI Reference](../03-quick-start/03-01_cli.md) for daily management operations
 3. **Deep Customization**: Implement feature extensions through [Plugin Development Guide](../06-plugin-development/06-01_plugins.md)
-4. **Performance Tuning**: Check [Performance Benchmarks](../07-performance-tuning/07-01_benchmarks.md) to optimize system performance
+4. **Performance Tuning**: Check [Performance Regression Testing](../07-testing/07-03_performance_regression.md) to optimize system performance
 5. **Cloud Deployment**: Refer to [Cloud Environment Documentation](../05-advanced-features/) for cloud environment configuration
 
 > **Note**: Chinese is the default documentation (no suffix), English is auxiliary documentation (_en.md suffix). Core documents are available in bilingual versions.

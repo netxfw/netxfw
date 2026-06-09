@@ -508,7 +508,9 @@ trusted_lb_ranges = [
 ]
 ```
 
-### 6.3 AI 助手 (AI Assistant)
+### 6.3 AI 助手 (AI Assistant)（实验性）
+
+> **注意**：此功能目前处于实验阶段，配置项已预留但尚未完整实现。
 
 ```toml
 [ai]
@@ -527,7 +529,9 @@ base_url = ""
 | `model` | string | `""` | 使用的 AI 模型 |
 | `base_url` | string | `""` | AI 服务基础 URL |
 
-### 6.4 MCP 服务器 (MCP Server)
+### 6.4 MCP 服务器 (MCP Server)（实验性）
+
+> **注意**：此功能目前处于实验阶段，配置项已预留但尚未完整实现。
 
 ```toml
 [mcp]

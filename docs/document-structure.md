@@ -55,9 +55,8 @@ docs/
 │   ├── 06-02_xdp_development_guide.md  # XDP 插件开发
 │   └── 06-03_golang_development_guide.md   # Go 插件开发
 │
-├── 07-performance-tuning/              # 性能调优
-│   ├── 07-01_benchmarks.md             # 性能测试
-│   └── 07-01_benchmarks_en.md
+├── 07-testing/                          # 性能测试
+│   └── 07-03_performance_regression.md  # 性能回归测试
 │
 ├── 08-troubleshooting/                 # 故障排查
 │   ├── 08-01_troubleshooting.md        # 问题诊断
@@ -154,9 +153,9 @@ docs/
 **内容**：插件开发指南、API文档
 **必读指数**：⭐⭐⭐
 
-### 📖 07-performance-tuning (性能调优)
+### 📖 07-testing (性能测试)
 **目标读者**：性能工程师
-**内容**：性能测试数据、优化建议
+**内容**：性能回归测试、优化建议
 **必读指数**：⭐⭐⭐
 
 ### 📒 08-troubleshooting (故障排查)
@@ -186,7 +185,7 @@ docs/
 ### 对于运维人员
 1. 重点阅读 `03-quick-start` 和 `04-configuration`
 2. 收藏 `08-troubleshooting` 作为参考
-3. 参考 `07-performance-tuning` 优化系统
+3. 参考 `07-testing` 优化系统
 
 ### 对于开发者
 1. 阅读 `06-plugin-development` 了解开发流程

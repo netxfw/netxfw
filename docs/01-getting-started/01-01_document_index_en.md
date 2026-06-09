@@ -76,8 +76,8 @@
 
 | Number | Document | Description |
 |--------|----------|-------------|
-| 06-01 | [Performance Benchmarks](../07-performance-tuning/07-01_benchmarks.md) | Performance test data and benchmarks |
-| 06-02 | [Performance Benchmarks (EN)](../07-performance-tuning/07-01_benchmarks_en.md) | Performance benchmarks (English) |
+| 06-01 | [Performance Regression Testing](../07-testing/07-03_performance_regression.md) | Performance regression testing and benchmarks |
+| 06-02 | [Performance Regression (EN)](../07-testing/07-03_performance_regression.md) | Performance regression testing (English) |
 | 06-03 | [BPF Map Capacity Configuration](../04-configuration/04-02_bpf_map_capacity.md) | BPF Map capacity configuration guide |
 | 06-04 | [BPF Map Capacity (EN)](../04-configuration/04-02_bpf_map_capacity_en.md) | BPF Map capacity (English) |
 
@@ -169,5 +169,5 @@ If you are new to NetXFW, it is recommended to read the documents in the followi
 1. **01-01 [README](../../README.md)** - Understand project overview
 2. **02-01 [Architecture Overview](../10-appendix/10-01_architecture.md)** - Understand system architecture
 3. **03-01 [CLI Reference](../03-quick-start/03-01_cli.md)** - Learn basic operations
-4. **06-01 [Performance Benchmarks](../07-performance-tuning/07-01_benchmarks.md)** - Understand performance characteristics
+4. **06-01 [Performance Regression Testing](../07-testing/07-03_performance_regression.md)** - Understand performance characteristics
 5. **06-03 [BPF Map Capacity Configuration](../04-configuration/04-02_bpf_map_capacity.md)** - Configure memory parameters

@@ -2,7 +2,7 @@
 
 **版本**: v2.0  
 **最后更新**: 2026-04-19  
-**状态**: 已实施
+**状态**: 部分实施（配置适配器和插件适配器已实现，数据平面适配器尚未实现）
 
 ---
 
@@ -323,9 +323,9 @@ func CreateSnapshot(cfg *domainconfig.Config) (string, error) {
 }
 ```
 
-### 3.2 数据平面适配器
+### 3.2 数据平面适配器（规划中）
 
-**位置**: `internal/adapters/datapath/`
+> **注意**：此适配器目前处于设计规划阶段，尚未实现。当前数据平面操作通过 `internal/datapath/xdp/backend/` 直接管理。
 
 **职责**: 实现数据平面操作端口，将领域模型转换为 BPF Map 操作。
 
@@ -1054,7 +1054,7 @@ func (a *DataPathAdapter) SyncRules(rules []*Rule) error {
 ### A. 相关文件
 
 - [`adapters/configfile/`](file:///root/work1/netxfw/netxfw/internal/adapters/configfile/) - 配置文件适配器
-- [`adapters/datapath/`](file:///root/work1/netxfw/netxfw/internal/adapters/datapath/) - 数据平面适配器
+- `adapters/datapath/` - 数据平面适配器（规划中）
 - [`adapters/plugins/`](file:///root/work1/netxfw/netxfw/internal/adapters/plugins/) - 插件运行时适配器
 - [`api/`](file:///root/work1/netxfw/netxfw/internal/api/) - HTTP API 适配器
 

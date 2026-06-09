@@ -31,7 +31,7 @@ title: NetXFW - eBPF Firewall
 | 命令行手册 | [CLI 命令](../03-quick-start/03-01_cli.md) | [CLI Commands](../03-quick-start/03-01_cli_en.md) |
 | 插件开发 | [插件开发指南](../06-plugin-development/06-01_plugins.md) | [Plugin Guide](../06-plugin-development/06-01_plugins_en.md) |
 | 规则导入导出 | [规则导入导出](../03-quick-start/03-02_rule_import_export.md) | [Rule Import/Export](../03-quick-start/03-02_rule_import_export_en.md) |
-| 性能基准 | [性能基准测试](../07-performance-tuning/07-01_benchmarks.md) | [Benchmarks](../07-performance-tuning/07-01_benchmarks_en.md) |
+| 性能基准 | [性能回归测试](../07-testing/07-03_performance_regression.md) | [Performance Regression](../07-testing/07-03_performance_regression.md) |
 | BPF Map 容量 | [容量配置](../04-configuration/04-02_bpf_map_capacity.md) | [Capacity Config](../04-configuration/04-02_bpf_map_capacity_en.md) |
 | 日志引擎 | [日志引擎](../05-advanced-features/05-03_log_engine.md) | [Log Engine](../05-advanced-features/05-03_log_engine_en.md) |
 | 故障排查 | [故障排查指南](../08-troubleshooting/08-01_troubleshooting.md) | [Troubleshooting](../08-troubleshooting/08-01_troubleshooting_en.md) |

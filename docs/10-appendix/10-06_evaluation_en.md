@@ -28,7 +28,7 @@
 | **Programming Language** | Go + eBPF C |
 | **Total Lines of Code** | 59,331 lines of Go code |
 | **Dependencies** | 62 |
-| **License** | MIT License |
+| **License** | Apache-2.0 (Go) / Dual BSD/GPL (BPF) |
 | **Git Commits** | 139 |
 
 ### 1.2 Documentation Completeness
@@ -196,7 +196,7 @@ netxfw/
 
 | File | Status | Notes |
 |------|--------|-------|
-| **LICENSE** | ✅ Present | MIT License |
+| **LICENSE** | ✅ Present | Apache-2.0 (Go) / Dual BSD/GPL (BPF) |
 | **README.md** | ✅ Present | Bilingual (CN/EN) |
 | **README_en.md** | ✅ Present | English version |
 | **CONTRIBUTING.md** | ✅ Present | Contribution guide |
@@ -252,7 +252,7 @@ docs/
 |-----------|-------|-------|
 | Required Files | 100% | All required files present |
 | Documentation Completeness | 95% | 20 docs, comprehensive coverage |
-| License Clarity | 100% | MIT License |
+| License Clarity | 100% | Apache-2.0 License |
 | Contribution Process | 90% | Clear contribution guide |
 | Internationalization | 95% | Bilingual (CN/EN) |
 | **Total** | **96/100** | ✅ Excellent |

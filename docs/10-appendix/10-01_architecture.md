@@ -115,7 +115,7 @@
 控制面由 Go 语言编写，运行在用户空间，负责管理 BPF 程序的生命周期并与 BPF Map 交互。
 *   **位置**: `cmd/netxfw`, `internal/`
 *   **主要职责**:
-    *   **加载/卸载**: 使用 `cilium/ebpf` 库加载 XDP 程序并将 Map 固定 (Pin) 到 `/sys/fs/bpf/netxfw_v2`。
+    *   **加载/卸载**: 使用 `cilium/ebpf` 库加载 XDP 程序并将 Map 固定 (Pin) 到 `/sys/fs/bpf/netxfw`。
     *   **Map 管理**: 对 BPF Map 进行增删改查操作 (添加/移除规则)。
     *   **持久化**: 将运行时 BPF Map 状态同步到配置与规则持久化文件（以 `config.toml` 为核心入口）。
     *   **CLI**: 提供用户友好的命令行接口 (`netxfw rule add`, `netxfw system status`)。
@@ -235,11 +235,11 @@ NetXFW 采用领域驱动设计，将业务逻辑清晰地组织在领域层：
 
 | 领域 | 职责 | 关键文件 |
 |------|------|----------|
-| `domain/rule/` | 规则领域模型 | `rule.go`, `validator.go`, `repository.go` |
-| `domain/config/` | 配置领域模型 | `config.go`, `loader.go` |
-| `domain/plugin/` | 插件领域模型 | `plugin.go`, `registry.go` |
-| `domain/runtime/` | 运行时领域模型 | `runtime.go`, `state.go` |
-| `domain/system/` | 系统领域模型 | `system.go`, `health.go` |
+| `domain/rule/` | 规则领域模型 | `rule.go`, `validator.go`, `selector.go`, `ruleset.go` |
+| `domain/config/` | 配置领域模型 | `config.go`, `config_validator.go`, `defaults.go`, `types_*.go` |
+| `domain/plugin/` | 插件领域模型 | `datapath/model.go`, `runtime/model.go` |
+| `domain/runtime/` | 运行时领域模型 | `actual_state.go`, `diff.go` |
+| `domain/system/` | 系统领域模型 | `desired_state.go` |
 | `domain/errors/` | 领域错误定义 | `errors.go` |
 
 ### 适配器模式
@@ -248,9 +248,8 @@ NetXFW 采用领域驱动设计，将业务逻辑清晰地组织在领域层：
 
 | 适配器 | 职责 | 关键文件 |
 |--------|------|----------|
-| `adapters/configfile/` | 配置文件适配器 | `loader.go`, `saver.go`, `restorer.go` |
-| `adapters/datapath/` | 数据平面适配器 | `manager.go`, `operations.go` |
-| `adapters/plugins/` | 插件运行时适配器 | `runtime.go`, `loader.go` |
+| `adapters/configfile/` | 配置文件适配器 | `load.go`, `save.go`, `restore.go`, `snapshot.go` |
+| `adapters/plugins/runtime/` | 插件运行时适配器 | `host.go`, `registry.go` |
 
 ### 应用服务层
 
@@ -309,7 +308,6 @@ netxfw/
 ├── internal/                     # 内部实现（私有包）
 │   ├── adapters/                 # 适配器层（端口适配）
 │   │   ├── configfile/           # 配置文件适配器（加载/保存/恢复）
-│   │   ├── datapath/             # 数据平面适配器
 │   │   └── plugins/              # 插件运行时适配器
 │   │
 │   ├── api/                      # HTTP API 服务
@@ -353,7 +351,7 @@ netxfw/
 │   │   ├── runtime/              # 运行时领域模型
 │   │   └── system/               # 系统领域模型
 │   │
-│   ├── engine/                   # TinyML 引擎（异常检测）
+│   ├── engine/                   # 引擎模块（实验性）
 │   ├── errors/                   # 统一错误处理
 │   ├── i18n/                     # 国际化消息
 │   │
@@ -392,69 +390,7 @@ netxfw/
 │   └── yaml2toml/                # YAML 转 TOML 工具
 │
 ├── Makefile                      # 构建脚本
-├── go.mod                        # Go 模块定义
-└── config.toml                   # 默认配置文件
-```
-│   │
-│   ├── api/                      # HTTP API
-│   │   ├── server.go             # API 服务器
-│   │   ├── handlers.go           # 请求处理
-│   │   ├── auth.go               # JWT 认证
-│   │   └── ui.go                 # Web UI
-│   │
-│   ├── daemon/                   # 守护进程
-│   │   ├── agent.go              # Agent 模式
-│   │   ├── dp.go                 # DP 模式
-│   │   └── standalone.go         # 单机模式
-│   │
-│   ├── app/                      # 应用入口
-│   │   └── ops.go                # InstallXDP, RemoveXDP, ReloadXDP
-│   │
-│   ├── config/                   # 配置管理
-│   │   ├── manager.go            # 配置管理器
-│   │   └── constants.go          # 常量定义
-│   │
-│   ├── core/engine/              # 核心引擎模块
-│   │   ├── base.go               # 基础策略模块
-│   │   ├── conntrack.go          # 连接跟踪模块
-│   │   ├── port.go               # 端口管理模块
-│   │   └── ratelimit.go          # 限速模块
-│   │
-│   ├── plugins/                  # 插件系统
-│   │   ├── types/                # 插件类型定义
-│   │   ├── registry.go           # 插件注册表
-│   │   └── agent/
-│   │       ├── logengine/        # 日志引擎插件
-│   │       ├── metrics/          # 指标收集插件
-│   │       └── web/              # Web UI 插件
-│   │
-│   ├── cloudconfig/              # 云服务商配置
-│   ├── proxyproto/               # Proxy Protocol 解析
-│   ├── realip/                   # 真实 IP 管理
-│   ├── ppfilter/                 # 连接过滤器
-│   ├── cluster/                  # 集群管理
-│   ├── engine/                   # TinyML 引擎
-│   ├── optimizer/                # 规则优化
-│   ├── metrics/                  # 指标系统
-│   ├── runtime/                  # 运行时状态
-│   ├── version/                  # 版本信息
-│   │
-│   └── utils/                    # 工具函数
-│       ├── logger/               # 日志框架 (Zap)
-│       ├── fmtutil/              # 格式化工具
-│       ├── iputil/               # IP 工具
-│       ├── ipmerge/              # IP 合并
-│       └── fileutil/             # 文件工具
-│
-├── config/                       # 配置文件示例
-├── docs/                         # 文档
-├── test/                         # 测试
-│   ├── unit/                     # 单元测试
-│   ├── integration/              # 集成测试
-│   ├── demo/                     # 演示程序
-│   └── log-engine/               # 日志引擎测试
-│
-└── scripts/                      # 脚本
+└── go.mod                        # Go 模块定义
 ```
 
 ## 公共包说明 (pkg/)
@@ -569,7 +505,7 @@ SDK 接口提供统一的 API 抽象，详见 [09-04_sdk_api.md](../09-api-refer
 ```
 
 ## 持久化模型
-*   **运行时**: `/sys/fs/bpf/netxfw_v2/*` (固定的 BPF Maps)
+*   **运行时**: `/sys/fs/bpf/netxfw/*` (固定的 BPF Maps)
 *   **存储**: `config.toml` 与规则持久化文件（路径由配置项定义）
 *   **同步**: `netxfw system sync` 命令负责运行时状态与存储之间的双向同步
 

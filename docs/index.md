@@ -45,8 +45,8 @@ title: NetXFW Documentation
 - [XDP 开发指南](06-plugin-development/06-02_xdp_development_guide.md) - XDP 开发指南
 - [Golang 开发指南](06-plugin-development/06-03_golang_development_guide.md) - Golang 开发指南
 
-#### [性能调优](07-performance-tuning/)
-- [性能基准测试](07-performance-tuning/07-01_benchmarks.md) - 性能测试报告
+#### [性能测试](07-testing/)
+- [性能回归测试](07-testing/07-03_performance_regression.md) - 性能回归测试报告
 
 #### [故障排查](08-troubleshooting/)
 - [故障排查指南](08-troubleshooting/08-01_troubleshooting.md) - 常见问题解决

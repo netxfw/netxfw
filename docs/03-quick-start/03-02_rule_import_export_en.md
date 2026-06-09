@@ -207,4 +207,4 @@ netxfw status
 
 - [CLI Manual](../03-quick-start/03-01_cli_en.md)
 - [Advanced Configuration Guide](../04-configuration/04-01_performance_tuning_en.md)
-- [Performance Benchmarks](../07-performance-tuning/07-01_benchmarks_en.md)
+- [Performance Regression Testing](../07-testing/07-03_performance_regression.md)

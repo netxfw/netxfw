@@ -17,7 +17,7 @@ The data plane is written in C and compiled into BPF bytecode. It runs directly 
 The control plane is written in Go and runs in user space. It manages the lifecycle of the BPF programs and interacts with BPF maps.
 *   **Location**: `cmd/netxfw`, `internal/`
 *   **Responsibilities**:
-    *   **Load/Unload**: Loads XDP programs using `cilium/ebpf` and pins Maps to `/sys/fs/bpf/netxfw_v2`.
+    *   **Load/Unload**: Loads XDP programs using `cilium/ebpf` and pins Maps to `/sys/fs/bpf/netxfw`.
     *   **Map Management**: CRUD operations on BPF Maps (add/remove rules).
     *   **Persistence**: Syncs runtime BPF Map state to configuration/rule persistence files, with `config.toml` as the primary entry.
     *   **CLI**: User-friendly command-line interface (`netxfw rule add`, `netxfw system status`).
@@ -35,7 +35,7 @@ To simplify maintenance and reduce memory usage, `netxfw` uses a unified Map str
 ## Directory Structure
 *   `bpf/`: eBPF source code (`.c`) and headers.
 *   `cmd/netxfw/`: Main entry point for the Go binary.
-*   `internal/app/`, `internal/domain/`, `internal/core/`: Application orchestration, domain modeling, and core rule logic.
+*   `internal/app/`, `internal/domain/`: Application orchestration and domain modeling.
 *   `internal/datapath/xdp/`: Low-level XDP datapath packages (backend, maps, lifecycle, stats, health, sync, plugins, programs).
 *   `rules/`: Default configuration files.
 *   `test/`: Integration and unit tests.
@@ -52,6 +52,6 @@ To simplify maintenance and reduce memory usage, `netxfw` uses a unified Map str
     *   If No Match -> `XDP_PASS` (Continue to kernel stack).
 
 ## Persistence Model
-*   **Runtime**: `/sys/fs/bpf/netxfw_v2/*` (Pinned BPF Maps).
+*   **Runtime**: `/sys/fs/bpf/netxfw/*` (Pinned BPF Maps).
 *   **Storage**: `config.toml` and rule persistence files (paths are defined by configuration).
 *   **Sync**: `netxfw system sync` command handles bidirectional sync between runtime state and storage.

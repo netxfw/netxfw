@@ -2,7 +2,7 @@
 
 **版本**: v2.0  
 **最后更新**: 2026-04-19  
-**状态**: 已实施
+**状态**: 部分实施（领域模型已建立，部分仓储/加载器接口尚未实现）
 
 ---
 
@@ -137,7 +137,7 @@ type Config struct {
     Plugins   PluginConfig
 }
 
-// domain/config/loader.go
+// domain/config/loader.go (设计参考，尚未实现)
 type Loader interface {
     Load(path string) (*Config, error)
     Validate(cfg *Config) error
@@ -165,7 +165,7 @@ type Plugin interface {
     Stop() error
 }
 
-// domain/plugin/registry.go
+// domain/plugin/registry.go (设计参考，尚未实现)
 type Registry struct {
     plugins map[string]Plugin
     mu      sync.RWMutex
@@ -183,7 +183,7 @@ type Registry struct {
 
 **示例**:
 ```go
-// domain/runtime/runtime.go
+// domain/runtime/runtime.go (设计参考，实际实现在 actual_state.go)
 type RuntimeState struct {
     Status      Status
     Uptime      time.Duration
@@ -211,7 +211,7 @@ type Stats struct {
 
 **示例**:
 ```go
-// domain/system/health.go
+// domain/system/health.go (设计参考，实际实现在 desired_state.go)
 type HealthStatus struct {
     Status      string
     Components  []ComponentHealth
@@ -718,9 +718,7 @@ func SetupEventHandlers(eventBus EventBus, xdpMgr *xdp.Manager) {
 #### RuleRepository
 
 ```go
-// domain/rule/repository.go
-
-// RuleRepository 规则仓库接口
+// domain/rule/repository.go (设计参考，尚未实现)
 type RuleRepository interface {
     // 保存规则
     Save(rule *Rule) error
@@ -923,14 +921,14 @@ NetXFW 采用四层架构：
 **依赖倒置原则**:
 
 ```go
-// 领域层定义接口
+// 领域层定义接口 (设计参考)
 // domain/rule/repository.go
 type RuleRepository interface {
     Save(rule *Rule) error
     FindByID(id string) (*Rule, error)
 }
 
-// 基础设施层实现接口
+// 基础设施层实现接口 (设计参考)
 // internal/adapters/rule_repository.go
 type FileRuleRepository struct {
     filePath string

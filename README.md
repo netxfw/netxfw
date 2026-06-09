@@ -51,7 +51,7 @@ sudo mv netxfw /usr/local/bin/
 
 **使用的开发环境**：
 - Linux Kernel >= 6.x
-- Go >= 1.24（仓库当前 `go.mod` 为 `go 1.24.0`，并声明 `toolchain go1.24.12`）
+- Go >= 1.25（仓库当前 `go.mod` 为 `go 1.25.6`）
 
 **安装编译工具**：
 ```bash
@@ -427,7 +427,7 @@ sudo netxfw system unload
 ### API 与附录
 - [API 参考](docs/09-api-reference/09-03_api_reference.md)
 - [OpenAPI 规范](docs/09-api-reference/openapi.yaml)
-- [性能基准](docs/07-performance-tuning/07-01_benchmarks.md)
+- [性能回归测试](docs/07-testing/07-03_performance_regression.md)
 - [架构图](docs/10-appendix/10-02_architecture_diagrams.md)
 - [包过滤流程](docs/10-appendix/10-03_packet_filter_flow.md)
 - [完整文档索引](docs/01-getting-started/01-01_document_index.md)

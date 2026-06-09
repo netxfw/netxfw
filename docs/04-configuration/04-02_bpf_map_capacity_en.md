@@ -208,4 +208,4 @@ sudo netxfw system reload -i eth0
 
 - [Architecture Overview](../10-appendix/10-01_architecture_en.md) - System architecture
 - [Config Management](../09-api-reference/09-01_config_management_unification_en.md) - Configuration reference
-- [Performance Benchmarks](../07-performance-tuning/07-01_benchmarks_en.md) - Performance testing
+- [Performance Regression Testing](../07-testing/07-03_performance_regression.md) - Performance testing

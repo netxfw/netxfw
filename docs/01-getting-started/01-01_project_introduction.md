@@ -21,7 +21,7 @@
 - [规则导入导出](../03-quick-start/03-02_rule_import_export.md) - 规则导入导出功能详解
 
 ### 📊 性能与监控
-- [性能基准测试](../07-performance-tuning/07-01_benchmarks.md) - 性能测试数据和基准
+- [性能回归测试](../07-testing/07-03_performance_regression.md) - 性能回归测试和基准
 - [Web API 指标统一](../09-api-reference/09-02_unified_web_api_metrics.md) - 统一的 Web API 指标设计
 
 ### ☁️ 云环境与特殊场景
@@ -53,7 +53,7 @@
 | [04-configuration/](../04-configuration/) | 配置管理文档 |
 | [05-advanced-features/](../05-advanced-features/) | 高级功能文档 |
 | [06-plugin-development/](../06-plugin-development/) | 插件开发文档 |
-| [07-performance-tuning/](../07-performance-tuning/) | 性能调优文档 |
+| [07-testing/](../07-testing/) | 性能测试文档 |
 | [08-troubleshooting/](../08-troubleshooting/) | 故障排查文档 |
 | [09-api-reference/](../09-api-reference/) | API 参考文档 |
 | [10-appendix/](../10-appendix/) | 附录文档 |
@@ -70,7 +70,7 @@
 | CLI 命令 | [03-01_cli.md](../03-quick-start/03-01_cli.md) | [03-01_cli_en.md](../03-quick-start/03-01_cli_en.md) |
 | 插件开发 | [06-01_plugins.md](../06-plugin-development/06-01_plugins.md) | [06-01_plugins_en.md](../06-plugin-development/06-01_plugins_en.md) |
 | 规则导入导出 | [03-02_rule_import_export.md](../03-quick-start/03-02_rule_import_export.md) | [03-02_rule_import_export_en.md](../03-quick-start/03-02_rule_import_export_en.md) |
-| 性能基准 | [07-01_benchmarks.md](../07-performance-tuning/07-01_benchmarks.md) | [07-01_benchmarks_en.md](../07-performance-tuning/07-01_benchmarks_en.md) |
+| 性能基准 | [07-03_performance_regression.md](../07-testing/07-03_performance_regression.md) | [07-03_performance_regression.md](../07-testing/07-03_performance_regression.md) |
 | 云环境支持 | [05-01_realip.md](../05-advanced-features/05-01_realip.md) | [05-01_realip_en.md](../05-advanced-features/05-01_realip_en.md) |
 | 项目评估 | [10-06_evaluation.md](../10-appendix/10-06_evaluation.md) | [10-06_evaluation_en.md](../10-appendix/10-06_evaluation_en.md) |
 | 特性文档 | [05-02_interface_specific_agent.md](../05-advanced-features/05-02_interface_specific_agent.md) | [05-02_interface_specific_agent_en.md](../05-advanced-features/05-02_interface_specific_agent_en.md) |
@@ -110,7 +110,7 @@
 1. **新手入门**：从 [新手入门文档](../01-getting-started/) 开始了解基础概念和部署
 2. **日常操作**：参考 [命令行手册](../03-quick-start/03-01_cli.md) 进行日常管理操作
 3. **深度定制**：通过 [插件开发指南](../06-plugin-development/06-01_plugins.md) 实现功能扩展
-4. **性能调优**：查阅 [性能基准测试](../07-performance-tuning/07-01_benchmarks.md) 优化系统性能
+4. **性能调优**：查阅 [性能回归测试](../07-testing/07-03_performance_regression.md) 优化系统性能
 5. **云端部署**：参考 [云环境文档](../05-advanced-features/) 进行云端环境配置
 
 > **说明**: 中文为默认文档 (无后缀)，英文为辅助文档 (_en.md 后缀)。核心文档均已提供双语版本。

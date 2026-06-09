@@ -244,4 +244,4 @@ curl http://localhost:11811/api/log-engine/health
 
 - [配置管理](../09-api-reference/09-01_config_management_unification.md)
 - [API 参考](../09-api-reference/09-03_api_reference.md)
-- [性能测试](../07-performance-tuning/07-01_benchmarks.md)
+- [性能回归测试](../07-testing/07-03_performance_regression.md)

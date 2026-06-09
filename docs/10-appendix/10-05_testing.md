@@ -85,7 +85,7 @@ netxfw 采用多层次测试策略，包括单元测试、集成测试、性能�
   - 并发读写性能
 
 #### 3.5 配置缓存基准测试
-- **文件**: `internal/core/benchmark_test.go`
+- **文件**: `internal/core/benchmark_test.go` [未实现]
 - **测试内容**:
   - 配置加载性能
   - 配置更新性能
@@ -94,7 +94,7 @@ netxfw 采用多层次测试策略，包括单元测试、集成测试、性能�
 ### 4. 配置热重载测试
 
 #### 4.1 配置缓存热重载测试
-- **文件**: `internal/core/config_cache_hot_reload_test.go`
+- **文件**: `internal/core/config_cache_hot_reload_test.go` [未实现]
 - **测试内容**:
   - 基本热重载功能
   - 多次连续更新
@@ -143,10 +143,10 @@ go run test/verify_hybrid_approval.go
 go test ./...
 
 # 运行特定包的测试
-go test ./internal/core/... -v
+go test ./internal/core/... -v  # internal/core/ 尚未实现
 
 # 运行热重载测试
-go test ./internal/core/... -v -run "TestConfigCache_HotReload"
+go test ./internal/core/... -v -run "TestConfigCache_HotReload"  # internal/core/ 尚未实现
 ```
 
 ### 运行性能基准测试
@@ -164,7 +164,7 @@ go test ./internal/api/... -bench=. -benchmem -run=^$
 go test ./internal/datapath/xdp/... -bench=. -benchmem -run=^$
 
 # 运行配置缓存基准测试
-go test ./internal/core/... -bench=. -benchmem -run=^$
+go test ./internal/core/... -bench=. -benchmem -run=^$  # internal/core/ 尚未实现
 ```
 
 ### 运行集成测试

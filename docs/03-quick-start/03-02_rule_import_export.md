@@ -207,4 +207,4 @@ netxfw status
 
 - [CLI 命令手册](../03-quick-start/03-01_cli.md)
 - [高级配置指南](../04-configuration/04-01_performance_tuning.md)
-- [性能基准测试](../07-performance-tuning/07-01_benchmarks.md)
+- [性能回归测试](../07-testing/07-03_performance_regression.md)

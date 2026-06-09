@@ -51,7 +51,7 @@ sudo mv netxfw /usr/local/bin/
 
 **Requirements**:
 - Linux Kernel >= 6.x
-- Go >= 1.24 (the repository currently declares `go 1.24.0` and `toolchain go1.24.12`)
+- Go >= 1.25 (the repository currently declares `go 1.25.6`)
 
 **Install Build Tools**:
 ```bash
@@ -427,7 +427,7 @@ sudo netxfw system unload
 ### API & Appendices
 - [API Reference](docs/09-api-reference/09-03_api_reference_en.md)
 - [OpenAPI Specification](docs/09-api-reference/openapi.yaml)
-- [Performance Benchmarks](docs/07-performance-tuning/07-01_benchmarks_en.md)
+- [Performance Regression Testing](docs/07-testing/07-03_performance_regression.md)
 - [Architecture Diagrams](docs/10-appendix/10-02_architecture_diagrams_en.md)
 - [Packet Filter Flow](docs/10-appendix/10-03_packet_filter_flow_en.md)
 - [Full Documentation Map](docs/01-getting-started/01-01_document_index_en.md)

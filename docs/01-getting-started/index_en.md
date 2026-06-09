@@ -31,7 +31,7 @@ title: NetXFW - eBPF Firewall
 | CLI Reference | [CLI Commands](../03-quick-start/03-01_cli.md) | [CLI Commands](../03-quick-start/03-01_cli_en.md) |
 | Plugin Development | [Plugin Development Guide](../06-plugin-development/06-01_plugins.md) | [Plugin Guide](../06-plugin-development/06-01_plugins_en.md) |
 | Rule Import/Export | [Rule Import/Export](../03-quick-start/03-02_rule_import_export.md) | [Rule Import/Export](../03-quick-start/03-02_rule_import_export_en.md) |
-| Performance Benchmarks | [Performance Benchmarks](../07-performance-tuning/07-01_benchmarks.md) | [Benchmarks](../07-performance-tuning/07-01_benchmarks_en.md) |
+| Performance Benchmarks | [Performance Regression](../07-testing/07-03_performance_regression.md) | [Performance Regression](../07-testing/07-03_performance_regression.md) |
 | BPF Map Capacity | [Capacity Configuration](../04-configuration/04-02_bpf_map_capacity.md) | [Capacity Config](../04-configuration/04-02_bpf_map_capacity_en.md) |
 | Log Engine | [Log Engine](../05-advanced-features/05-03_log_engine.md) | [Log Engine](../05-advanced-features/05-03_log_engine_en.md) |
 | Troubleshooting | [Troubleshooting Guide](../08-troubleshooting/08-01_troubleshooting.md) | [Troubleshooting](../08-troubleshooting/08-01_troubleshooting_en.md) |

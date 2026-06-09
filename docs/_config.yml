@@ -57,7 +57,7 @@ defaults:
     values:
       layout: default
   - scope:
-      path: "07-performance-tuning"
+      path: "07-testing"
     values:
       layout: default
   - scope:

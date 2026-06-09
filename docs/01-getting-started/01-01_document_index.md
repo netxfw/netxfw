@@ -76,8 +76,8 @@
 
 | 编号 | 文档 | 说明 |
 |------|------|------|
-| 06-01 | [性能基准测试](../07-performance-tuning/07-01_benchmarks.md) | 性能测试数据和基准 |
-| 06-02 | [Performance Benchmarks (EN)](../07-performance-tuning/07-01_benchmarks_en.md) | Performance benchmarks (English) |
+| 06-01 | [性能回归测试](../07-testing/07-03_performance_regression.md) | 性能回归测试和基准 |
+| 06-02 | [Performance Regression (EN)](../07-testing/07-03_performance_regression.md) | Performance regression testing (English) |
 | 06-03 | [BPF Map 容量配置](../04-configuration/04-02_bpf_map_capacity.md) | BPF Map 容量配置指南 |
 | 06-04 | [BPF Map Capacity (EN)](../04-configuration/04-02_bpf_map_capacity_en.md) | BPF Map capacity (English) |
 
@@ -169,5 +169,5 @@
 1. **01-01 [README](../../README.md)** - 了解项目概述
 2. **02-01 [架构概览](../10-appendix/10-01_architecture.md)** - 理解系统架构
 3. **03-01 [命令行手册](../03-quick-start/03-01_cli.md)** - 学习基本操作
-4. **06-01 [性能基准测试](../07-performance-tuning/07-01_benchmarks.md)** - 了解性能特点
+4. **06-01 [性能回归测试](../07-testing/07-03_performance_regression.md)** - 了解性能特点
 5. **06-03 [BPF Map 容量配置](../04-configuration/04-02_bpf_map_capacity.md)** - 配置内存参数

@@ -461,7 +461,9 @@ cache_ttl = "5m"
 | `trusted_lb_ranges` | []string | `[]` | Trusted load balancer IP ranges |
 | `cache_ttl` | string | `"5m"` | Real IP cache duration |
 
-### 6.3 AI Assistant
+### 6.3 AI Assistant (Experimental)
+
+> **Note**: This feature is currently experimental. Configuration options are reserved but not yet fully implemented.
 
 ```toml
 [ai]
@@ -480,7 +482,9 @@ base_url = ""
 | `model` | string | `""` | AI model to use |
 | `base_url` | string | `""` | AI service base URL |
 
-### 6.4 MCP Server
+### 6.4 MCP Server (Experimental)
+
+> **Note**: This feature is currently experimental. Configuration options are reserved but not yet fully implemented.
 
 ```toml
 [mcp]

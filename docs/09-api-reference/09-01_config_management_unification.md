@@ -80,10 +80,10 @@ err := cfgManager.SaveConfig()  // 保存到文件
 1. `/internal/api/server.go` - API服务器配置加载
 2. `/internal/api/handlers.go` - API处理器配置访问
 3. `/internal/api/auth.go` - 认证中间件配置访问
-4. `/internal/app/ops.go` - 操作命令配置访问
+4. `/internal/app/ops.go` - 操作命令配置访问 [未实现]
 5. `/internal/daemon/dp.go` - 数据平面配置访问
 6. `/internal/daemon/agent.go` - 控制平面配置访问
-7. `/internal/core/sync.go` - 同步模块配置访问
+7. `/internal/core/sync.go` - 同步模块配置访问 [未实现]
 
 ## 优势 (Benefits)
 

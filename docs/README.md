@@ -60,9 +60,8 @@ title: Documentation Index - 文档索引
 - [06-03_golang_development_guide](06-plugin-development/06-03_golang_development_guide.md) - Go language plugin development
 - [06-03_golang_development_guide_en](06-plugin-development/06-03_golang_development_guide_en.md) - Go Development (English)
 
-### [07-performance-tuning](07-performance-tuning/)
-- [07-01_benchmarks](07-performance-tuning/07-01_benchmarks.md) - Performance test data
-- [07-01_benchmarks_en](07-performance-tuning/07-01_benchmarks_en.md) - Benchmarks (English)
+### [07-testing](07-testing/)
+- [07-03_performance_regression](07-testing/07-03_performance_regression.md) - Performance regression testing
 
 ### [08-troubleshooting](08-troubleshooting/)
 - [08-01_troubleshooting](08-troubleshooting/08-01_troubleshooting.md) - Problem diagnosis
