@@ -9,7 +9,7 @@ netxfw 采用多层次测试策略，包括单元测试、集成测试、性能�
 ### 1. 功能测试
 
 #### 1.1 攻击模拟测试
-- **文件**: `test/verify_attack.py`
+- **文件**: `test/verify_attack.py` [未实现]
 - **功能**: 模拟高速攻击流量，验证系统在高压下的表现
 - **测试内容**:
   - 每秒数千数据包的处理能力
@@ -17,7 +17,7 @@ netxfw 采用多层次测试策略，包括单元测试、集成测试、性能�
   - 系统资源使用情况
 
 #### 1.2 混合审批流程测试
-- **文件**: `test/verify_hybrid_approval.go`
+- **文件**: `test/verify_hybrid_approval.go` [未实现]
 - **功能**: 测试手动和自动规则添加的工作流程
 - **测试场景**:
   - 手动添加规则并立即激活
@@ -27,7 +27,7 @@ netxfw 采用多层次测试策略，包括单元测试、集成测试、性能�
 ### 2. 集成测试
 
 #### 2.1 CLI 命令集成测试
-- **文件**: `cmd/netxfw/commands/root_test.go`, `cmd/netxfw/commands/agent/integration_test.go`
+- **文件**: `cmd/netxfw/root_test.go`, `cmd/agent/integration_test.go`
 - **功能**: 测试 CLI 命令的完整执行流程
 - **测试内容**:
   - 根命令和子命令的执行
@@ -131,10 +131,10 @@ netxfw 采用多层次测试策略，包括单元测试、集成测试、性能�
 ### 运行功能测试
 ```bash
 # 运行攻击模拟测试
-sudo python3 test/verify_attack.py
+sudo python3 test/verify_attack.py  # 尚未实现
 
 # 运行混合审批流程测试
-go run test/verify_hybrid_approval.go
+go run test/verify_hybrid_approval.go  # 尚未实现
 ```
 
 ### 运行单元测试

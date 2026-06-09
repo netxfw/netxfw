@@ -1,5 +1,7 @@
 # Netxfw Development & Architecture Guide: How to Locate and Use Documentation
 
+> **Note**: The `project_architecture_diagrams.md` file referenced in this document has not yet been created.
+
 This guide helps developers and system maintainers understand the relationship and mapping between the [project_architecture_diagrams.md](project_architecture_diagrams.md) report and the existing system architecture and process documentation in the `docs/` directory, enabling quick navigation to target code and design decisions during daily development and troubleshooting.
 
 ---

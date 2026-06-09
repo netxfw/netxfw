@@ -50,43 +50,41 @@
 netxfw/
 ├── cmd/                      # 命令行入口
 │   ├── netxfw/              # 主命令
-│   ├── netxfw-agent/        # Agent 进程
-│   └── netxfw-dp/          # 数据平面进程
+│   ├── netxfwagent/         # Agent 入口
+│   ├── netxfwdp/            # 数据平面入口
+│   ├── agent/               # Agent 命令实现
+│   ├── common/              # 公共工具
+│   └── dp/                  # 数据平面命令
 ├── pkg/
 │   └── sdk/                 # SDK 层
 │       └── mock/           # Mock 实现
 ├── internal/
-│   ├── api/                 # API 服务 (覆盖率 45.5%)
-│   ├── app/                 # 应用层 (覆盖率 68.2%)
-│   ├── binary/              # BPF 二进制 (覆盖率 75.0%)
-│   ├── cloudconfig/         # 云配置 (覆盖率 93.9%)
-│   ├── config/              # 配置管理 (覆盖率 80.6%)
-│   ├── core/                # 核心引擎 (覆盖率 59.9%)
-│   ├── daemon/              # 守护进程 (覆盖率 22.2%)
-│   ├── engine/              # 引擎 (覆盖率 100.0%)
-│   ├── optimizer/           # 优化器 (覆盖率 93.9%)
+│   ├── adapters/            # 适配器层
+│   ├── api/                 # API 服务
+│   ├── app/                 # 应用层
+│   ├── application/         # 应用编排
+│   ├── binary/              # BPF 二进制
+│   ├── cloudconfig/         # 云配置
+│   ├── daemon/              # 守护进程
+│   ├── datapath/            # XDP 数据平面
+│   ├── domain/              # 领域模型
+│   ├── engine/              # 引擎
+│   ├── errors/              # 错误定义
+│   ├── i18n/                # 国际化
+│   ├── metrics/             # 指标采集
+│   ├── optimizer/           # 优化器
 │   ├── plugins/             # 插件系统
+│   ├── ports/               # 端口接口
 │   ├── ppfilter/            # Proxy Protocol 过滤
-│   ├── proxyproto/          # Proxy Protocol 解析 (覆盖率 74.4%)
-│   ├── realip/              # 真实 IP 管理 (覆盖率 52.0%)
-│   ├── xdp/                 # XDP 核心
-│   │   └── map_benchmark_test.go  # 基准测试
+│   ├── proxyproto/          # Proxy Protocol 解析
+│   ├── realip/              # 真实 IP 管理
+│   ├── runtime/             # 运行时状态
+│   ├── version/             # 版本信息
 │   └── utils/               # 工具函数
-│       ├── fileutil/       # 文件工具 (覆盖率 79.2%)
-│       ├── fmtutil/        # 格式化工具 (覆盖率 86.8%)
-│       ├── ipmerge/        # IP 合并 (覆盖率 87.8%)
-│       ├── iputil/         # IP 工具 (覆盖率 100.0%)
-│       └── logger/         # 日志工具
-├── docs/                    # 文档 (20 篇)
-│   ├── architecture.md  # 架构设计
-│   ├── cli/cli.md          # CLI 命令
-│   ├── plugins/plugins.md  # 插件开发
-│   ├── api/reference.md    # API 参考
-│   ├── cloud/realip.md     # 云环境支持
-│   └── performance/benchmarks.md  # 性能基准
-├── ebpf/                    # eBPF 代码
+├── bpf/                     # eBPF 代码
+├── docs/                    # 文档
 ├── test/                    # 测试
-└── ...
+└── config/                  # 配置示例
 ```
 
 ---
@@ -199,14 +197,12 @@ netxfw/
 | **LICENSE** | ✅ 存在 | Apache-2.0 (Go) / Dual BSD/GPL (BPF) |
 | **README.md** | ✅ 存在 | 中英文双版本 |
 | **README_en.md** | ✅ 存在 | 英文版本 |
-| **CONTRIBUTING.md** | ✅ 存在 | 贡献指南 |
-| **CONTRIBUTING_zh.md** | ✅ 存在 | 中文贡献指南 |
-| **CODE_OF_CONDUCT.md** | ✅ 存在 | 行为准则 |
-| **CODE_OF_CONDUCT_zh.md** | ✅ 存在 | 中文行为准则 |
-| **SECURITY.md** | ✅ 存在 | 安全政策 |
-| **SECURITY_zh.md** | ✅ 存在 | 中文安全政策 |
-| **CHANGELOG.md** | ✅ 存在 | 变更日志 |
-| **CHANGELOG_zh.md** | ✅ 存在 | 中文变更日志 |
+| **CONTRIBUTING.md** | ✅ 存在 | 贡献指南（中文） |
+| **CONTRIBUTING_en.md** | ✅ 存在 | 贡献指南（英文） |
+| **CODE_OF_CONDUCT.md** | ❌ 不存在 | 尚未创建 |
+| **SECURITY.md** | ❌ 不存在 | 尚未创建 |
+| **CHANGELOG.md** | ✅ 存在 | 变更日志（中文） |
+| **CHANGELOG_en.md** | ✅ 存在 | 变更日志（英文） |
 | **Makefile** | ✅ 存在 | 构建脚本 |
 | **.golangci.yml** | ✅ 存在 | Lint 配置 |
 | **.goreleaser.yaml** | ✅ 存在 | 发布配置 |
@@ -216,34 +212,35 @@ netxfw/
 ```
 docs/
 ├── README.md                          # 文档索引
-├── architecture.md                    # 架构设计 (英文)
-├── architecture.md                 # 架构设计 (中文) ⭐ 详细
-├── cli/
-│   ├── cli.md                         # CLI 命令 (中文) ⭐
-│   └── cli_en.md                      # CLI 命令 (英文)
-├── plugins/
-│   ├── plugins.md                     # 插件开发 (中文) ⭐
-│   ├── plugins_en.md                  # 插件开发 (英文)
-│   ├── golang/
-│   │   └── development_guide.md       # Go 插件开发
-│   └── xdp/
-│       └── development_guide.md       # XDP 插件开发
-├── api/
-│   └── reference.md                   # API 参考 ⭐
-├── cloud/
-│   └── realip.md                      # 云环境真实 IP 获取 ⭐ 新增
-├── performance/
-│   └── benchmarks.md               # 性能基准测试 ⭐ 新增
-├── testing/
-│   └── TESTING.md                     # 测试指南
-├── log-engine/
-│   └── README.md                      # 日志引擎
-├── standalone/
-│   ├── architecture.md                # 单机版架构
-│   ├── architecture_diagrams.md       # 架构图
-│   ├── SUMMARY_PACKET_FILTER.md       # 包过滤摘要
-│   └── PACKET_FILTER_FLOW.md          # 包过滤流程
-└── ...
+├── 01-getting-started/                # 新手入门
+│   ├── 01-00_document_guide.md        # 文档指南
+│   ├── 01-01_document_index.md        # 文档目录
+│   └── 01-01_project_introduction.md  # 项目介绍
+├── 02-installation/                   # 安装指南
+│   └── 02-01_security_best_practices.md
+├── 03-quick-start/                    # 快速开始
+│   ├── 03-01_cli.md                   # CLI 命令手册
+│   └── 03-02_rule_import_export.md    # 规则导入导出
+├── 04-configuration/                  # 配置管理
+│   ├── 04-01_performance_tuning.md    # 性能调优
+│   ├── 04-02_bpf_map_capacity.md      # BPF Map 容量
+│   └── 04-03_configuration_reference.md # 配置参考
+├── 05-advanced-features/              # 高级功能
+│   ├── 05-01_realip.md                # 云环境真实 IP
+│   └── 05-03_log_engine.md            # 日志引擎
+├── 06-plugin-development/             # 插件开发
+│   ├── 06-01_plugins.md               # 插件开发指南
+│   └── 06-02_xdp_development_guide.md # XDP 开发指南
+├── 07-testing/                        # 测试
+│   └── 07-03_performance_regression.md # 性能回归测试
+├── 08-troubleshooting/                # 故障排查
+│   └── 08-01_troubleshooting.md
+├── 09-api-reference/                  # API 参考
+│   ├── 09-03_api_reference.md         # API 参考
+│   └── openapi.yaml                   # OpenAPI 规范
+└── 10-appendix/                       # 附录
+    ├── 10-01_architecture.md          # 架构设计
+    └── 10-06_evaluation.md            # 项目评估
 ```
 
 ### 3.3 开源评分
@@ -304,7 +301,7 @@ docs/
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                    │                                         │
 │  ┌─────────────────────────────────▼─────────────────────────────────────┐  │
-│  │                         eBPF 层 (ebpf/)                                 │  │
+│  │                         eBPF 层 (bpf/)                                   │  │
 │  │  Filter | Ratelimit | Conntrack | Protocols                            │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │

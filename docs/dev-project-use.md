@@ -1,5 +1,7 @@
 # Netxfw 开发与架构指南：如何定位与使用文档
 
+> **注意**：本文档引用的 `project_architecture_diagrams.md` 文件尚未创建。
+
 本指南旨在帮助开发人员与系统维护人员了解新版 [project_architecture_diagrams.md](project_architecture_diagrams.md) 报告与 `docs/` 目录下现有系统架构及流程文档的关系与映射，从而在日常开发、排查故障时能够快速定位目标代码与设计决策。
 
 ---

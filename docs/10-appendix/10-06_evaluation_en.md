@@ -50,43 +50,41 @@
 netxfw/
 ├── cmd/                      # Command-line entry points
 │   ├── netxfw/              # Main command
-│   ├── netxfw-agent/        # Agent process
-│   └── netxfw-dp/          # Data plane process
+│   ├── netxfwagent/         # Agent entry
+│   ├── netxfwdp/            # Data plane entry
+│   ├── agent/               # Agent command implementation
+│   ├── common/              # Common utilities
+│   └── dp/                  # Data plane commands
 ├── pkg/
 │   └── sdk/                 # SDK layer
 │       └── mock/           # Mock implementations
 ├── internal/
-│   ├── api/                 # API service (coverage: 45.5%)
-│   ├── app/                 # Application layer (coverage: 68.2%)
-│   ├── binary/              # BPF binary (coverage: 75.0%)
-│   ├── cloudconfig/         # Cloud config (coverage: 93.9%)
-│   ├── config/              # Configuration (coverage: 80.6%)
-│   ├── core/                # Core engine (coverage: 59.9%)
-│   ├── daemon/              # Daemon (coverage: 22.2%)
-│   ├── engine/              # Engine (coverage: 100.0%)
-│   ├── optimizer/           # Optimizer (coverage: 93.9%)
+│   ├── adapters/            # Adapters layer
+│   ├── api/                 # API service
+│   ├── app/                 # Application layer
+│   ├── application/         # Application orchestration
+│   ├── binary/              # BPF binary
+│   ├── cloudconfig/         # Cloud config
+│   ├── daemon/              # Daemon
+│   ├── datapath/            # XDP data plane
+│   ├── domain/              # Domain models
+│   ├── engine/              # Engine
+│   ├── errors/              # Error definitions
+│   ├── i18n/                # Internationalization
+│   ├── metrics/             # Metrics collection
+│   ├── optimizer/           # Optimizer
 │   ├── plugins/             # Plugin system
+│   ├── ports/               # Port interfaces
 │   ├── ppfilter/            # Proxy Protocol filter
-│   ├── proxyproto/          # Proxy Protocol parser (coverage: 74.4%)
-│   ├── realip/              # Real IP management (coverage: 52.0%)
-│   ├── xdp/                 # XDP core
-│   │   └── map_benchmark_test.go  # Benchmark tests
+│   ├── proxyproto/          # Proxy Protocol parser
+│   ├── realip/              # Real IP management
+│   ├── runtime/             # Runtime state
+│   ├── version/             # Version info
 │   └── utils/               # Utility functions
-│       ├── fileutil/       # File utilities (coverage: 79.2%)
-│       ├── fmtutil/        # Format utilities (coverage: 86.8%)
-│       ├── ipmerge/        # IP merge (coverage: 87.8%)
-│       ├── iputil/         # IP utilities (coverage: 100.0%)
-│       └── logger/         # Logging utilities
-├── docs/                    # Documentation (20 docs)
-│   ├── architecture.md  # Architecture design
-│   ├── cli/cli.md          # CLI commands
-│   ├── plugins/plugins.md  # Plugin development
-│   ├── api/reference.md    # API reference
-│   ├── cloud/realip.md     # Cloud environment support
-│   └── performance/benchmarks.md  # Performance benchmarks
-├── ebpf/                    # eBPF code
+├── bpf/                     # eBPF code
+├── docs/                    # Documentation
 ├── test/                    # Tests
-└── ...
+└── config/                  # Configuration examples
 ```
 
 ---
@@ -199,14 +197,12 @@ netxfw/
 | **LICENSE** | ✅ Present | Apache-2.0 (Go) / Dual BSD/GPL (BPF) |
 | **README.md** | ✅ Present | Bilingual (CN/EN) |
 | **README_en.md** | ✅ Present | English version |
-| **CONTRIBUTING.md** | ✅ Present | Contribution guide |
-| **CONTRIBUTING_zh.md** | ✅ Present | Chinese guide |
-| **CODE_OF_CONDUCT.md** | ✅ Present | Code of conduct |
-| **CODE_OF_CONDUCT_zh.md** | ✅ Present | Chinese version |
-| **SECURITY.md** | ✅ Present | Security policy |
-| **SECURITY_zh.md** | ✅ Present | Chinese version |
-| **CHANGELOG.md** | ✅ Present | Changelog |
-| **CHANGELOG_zh.md** | ✅ Present | Chinese version |
+| **CONTRIBUTING.md** | ✅ Present | Contribution guide (Chinese) |
+| **CONTRIBUTING_en.md** | ✅ Present | Contribution guide (English) |
+| **CODE_OF_CONDUCT.md** | ❌ Missing | Not yet created |
+| **SECURITY.md** | ❌ Missing | Not yet created |
+| **CHANGELOG.md** | ✅ Present | Changelog (Chinese) |
+| **CHANGELOG_en.md** | ✅ Present | Changelog (English) |
 | **Makefile** | ✅ Present | Build script |
 | **.golangci.yml** | ✅ Present | Lint config |
 | **.goreleaser.yaml** | ✅ Present | Release config |
@@ -216,34 +212,35 @@ netxfw/
 ```
 docs/
 ├── README.md                          # Documentation index
-├── architecture.md                    # Architecture (English)
-├── architecture.md                 # Architecture (Chinese) ⭐ Detailed
-├── cli/
-│   ├── cli.md                         # CLI commands (Chinese) ⭐
-│   └── cli_en.md                      # CLI commands (English)
-├── plugins/
-│   ├── plugins.md                     # Plugin development (Chinese) ⭐
-│   ├── plugins_en.md                  # Plugin development (English)
-│   ├── golang/
-│   │   └── development_guide.md       # Go plugin development
-│   └── xdp/
-│       └── development_guide.md       # XDP plugin development
-├── api/
-│   └── reference.md                   # API reference ⭐
-├── cloud/
-│   └── realip.md                      # Cloud real IP support ⭐ New
-├── performance/
-│   └── benchmarks.md               # Performance benchmarks ⭐ New
-├── testing/
-│   └── TESTING.md                     # Testing guide
-├── log-engine/
-│   └── README.md                      # Log engine
-├── standalone/
-│   ├── architecture.md                # Standalone architecture
-│   ├── architecture_diagrams.md       # Architecture diagrams
-│   ├── SUMMARY_PACKET_FILTER.md       # Packet filter summary
-│   └── PACKET_FILTER_FLOW.md          # Packet filter flow
-└── ...
+├── 01-getting-started/                # Getting started
+│   ├── 01-00_document_guide.md        # Document guide
+│   ├── 01-01_document_index.md        # Document index
+│   └── 01-01_project_introduction.md  # Project introduction
+├── 02-installation/                   # Installation
+│   └── 02-01_security_best_practices.md
+├── 03-quick-start/                    # Quick start
+│   ├── 03-01_cli.md                   # CLI reference
+│   └── 03-02_rule_import_export.md    # Rule import/export
+├── 04-configuration/                  # Configuration
+│   ├── 04-01_performance_tuning.md    # Performance tuning
+│   ├── 04-02_bpf_map_capacity.md      # BPF Map capacity
+│   └── 04-03_configuration_reference.md # Configuration reference
+├── 05-advanced-features/              # Advanced features
+│   ├── 05-01_realip.md                # Cloud real IP
+│   └── 05-03_log_engine.md            # Log engine
+├── 06-plugin-development/             # Plugin development
+│   ├── 06-01_plugins.md               # Plugin guide
+│   └── 06-02_xdp_development_guide.md # XDP development guide
+├── 07-testing/                        # Testing
+│   └── 07-03_performance_regression.md # Performance regression
+├── 08-troubleshooting/                # Troubleshooting
+│   └── 08-01_troubleshooting.md
+├── 09-api-reference/                  # API reference
+│   ├── 09-03_api_reference.md         # API reference
+│   └── openapi.yaml                   # OpenAPI specification
+└── 10-appendix/                       # Appendix
+    ├── 10-01_architecture.md          # Architecture design
+    └── 10-06_evaluation.md            # Project evaluation
 ```
 
 ### 3.3 Open Source Score
@@ -304,7 +301,7 @@ docs/
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                    │                                         │
 │  ┌─────────────────────────────────▼─────────────────────────────────────┐  │
-│  │                         eBPF Layer (ebpf/)                            │  │
+│  │                         eBPF Layer (bpf/)                             │  │
 │  │  Filter | Ratelimit | Conntrack | Protocols                          │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │

@@ -78,8 +78,12 @@ err := cfgManager.SaveConfig()  // Save to file
 The following files have been updated to use the new configuration manager:
 
 1. `/internal/api/server.go` - API server configuration loading
-2. `/cmd/netxfw/commands/agent/*.go` - CLI command configuration access
-3. `/internal/plugins/manager.go` - Plugin manager configuration
+2. `/internal/api/handlers.go` - API handler configuration access
+3. `/internal/api/auth.go` - Authentication middleware configuration access
+4. `/internal/app/ops.go` - Operation command configuration access [Not implemented]
+5. `/internal/daemon/dp.go` - Dataplane configuration access
+6. `/internal/daemon/agent.go` - Control plane configuration access
+7. `/internal/core/sync.go` - Sync module configuration access [Not implemented]
 
 ## Configuration Structure
 

@@ -9,7 +9,7 @@ NetXFW adopts a multi-layered testing strategy, including unit tests, integratio
 ### 1. Functional Testing
 
 #### 1.1 Attack Simulation Testing
-- **File**: `test/verify_attack.py`
+- **File**: `test/verify_attack.py` [Not implemented]
 - **Function**: Simulates high-speed attack traffic, verifies system performance under pressure
 - **Test Content**:
   - Processing capacity of thousands of packets per second
@@ -17,7 +17,7 @@ NetXFW adopts a multi-layered testing strategy, including unit tests, integratio
   - System resource usage
 
 #### 1.2 Hybrid Approval Process Testing
-- **File**: `test/verify_hybrid_approval.go`
+- **File**: `test/verify_hybrid_approval.go` [Not implemented]
 - **Function**: Tests manual and automatic rule addition workflows
 - **Test Scenarios**:
   - Manual rule addition with immediate activation
@@ -27,7 +27,7 @@ NetXFW adopts a multi-layered testing strategy, including unit tests, integratio
 ### 2. Integration Testing
 
 #### 2.1 CLI Command Integration Testing
-- **Files**: `cmd/netxfw/commands/root_test.go`, `cmd/netxfw/commands/agent/integration_test.go`
+- **Files**: `cmd/netxfw/root_test.go`, `cmd/agent/integration_test.go`
 - **Function**: Tests complete execution flow of CLI commands
 - **Test Content**:
   - Root command and subcommand execution
