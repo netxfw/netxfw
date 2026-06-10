@@ -37,7 +37,7 @@ To simplify maintenance and reduce memory usage, `netxfw` uses a unified Map str
 *   `cmd/netxfw/`: Main entry point for the Go binary.
 *   `internal/app/`, `internal/domain/`: Application orchestration and domain modeling.
 *   `internal/datapath/xdp/`: Low-level XDP datapath packages (backend, maps, lifecycle, stats, health, sync, plugins, programs).
-*   `rules/`: Default configuration files.
+*   `config/`: Default configuration files.
 *   `test/`: Integration and unit tests.
 
 ## Data Flow
