@@ -55,7 +55,7 @@ func (t *Tailer) tailFile(filename string, mode string) {
 		Follow:    true,
 		ReOpen:    true, // Handle log rotation
 		MustExist: false,
-		Poll:      true, // Fallback if inotify fails
+		Poll:      false, // Use inotify for lower CPU usage
 		Logger:    tail.DiscardingLogger,
 	}
 

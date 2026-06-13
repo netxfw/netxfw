@@ -2,6 +2,7 @@ package logengine
 
 import (
 	"net/netip"
+	"strings"
 	"sync"
 	"time"
 
@@ -103,7 +104,7 @@ func (le *LogEngine) Stop() {
 }
 
 func (le *LogEngine) runCleanup() {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
@@ -122,6 +123,12 @@ func (le *LogEngine) worker(id int) {
 	ipBuf := make([]netip.Addr, 0, 16)
 
 	for event := range le.tailer.Events {
+		// Quick pre-filter: skip lines without IP-like characters ('.' or ':')
+		// to avoid expensive IP extraction scan for non-IP log lines.
+		if strings.IndexByte(event.Line, '.') < 0 && strings.IndexByte(event.Line, ':') < 0 {
+			continue
+		}
+
 		// 1. Extract IPs (No regex, zero allocation path)
 		// WARNING: ExtractIPsWithBuf returns a slice sharing the backing array of ipBuf.
 		// If we reuse ipBuf in the loop, we must be careful.

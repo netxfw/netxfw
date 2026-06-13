@@ -83,7 +83,7 @@ func (cm *CheckpointManager) Save() {
 // Start periodic saving.
 func (cm *CheckpointManager) Start() {
 	cm.Load()
-	cm.ticker = time.NewTicker(2 * time.Second)
+	cm.ticker = time.NewTicker(10 * time.Second)
 	go func() {
 		for {
 			select {
