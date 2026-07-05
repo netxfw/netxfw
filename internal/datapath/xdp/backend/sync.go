@@ -297,6 +297,26 @@ func (m *Manager) setGlobalConfigValue(setter func(bool) error, value bool, name
 // SyncFromFiles 从文本或二进制文件读取规则并更新 BPF Map。
 // 如果 overwrite 为 true，则先清除 Map 中的现有规则。
 func (m *Manager) SyncFromFiles(cfg *sdk.GlobalConfig, overwrite bool) error {
+	// Optimize CIDR ranges before syncing to BPF maps
+	// Groups whitelist entries by port, merges CIDRs with threshold promotion,
+	// then re-assembles entries. This reduces BPF map usage and improves lookup performance.
+	// 在同步到 BPF Map 之前优化 CIDR 范围。
+	// 按端口分组白名单条目、合并 CIDR（带阈值提升），然后重新组装条目。
+	threshold := cfg.Base.LockListMergeThreshold
+	v4Mask := cfg.Base.LockListV4Mask
+	v6Mask := cfg.Base.LockListV6Mask
+	if threshold <= 0 {
+		threshold = 128
+	}
+	if v4Mask <= 0 {
+		v4Mask = 24
+	}
+	if v6Mask <= 0 {
+		v6Mask = 64
+	}
+	cfg.Base.Whitelist = mergeWhitelistEntries(cfg.Base.Whitelist, threshold, v4Mask, v6Mask)
+	cfg.Port.IPPortRules = mergeIPPortCIDRs(cfg.Port.IPPortRules, threshold, v4Mask, v6Mask)
+
 	if overwrite {
 		m.logger.Infof("[CLEAN] Overwrite mode: Clearing BPF maps before sync...")
 		m.ClearMaps()
@@ -373,7 +393,7 @@ func (m *Manager) SyncFromFiles(cfg *sdk.GlobalConfig, overwrite bool) error {
 	m.syncIPPortRules(cfg.Port.IPPortRules)
 
 	// 9. Update binary cache / 9. 更新二进制缓存
-	go m.UpdateBinaryCache(cfg, records)
+	m.UpdateBinaryCache(cfg, records)
 
 	// 10. Sync Modules Chain / 10. 同步模块链
 	if err := m.SyncModules(cfg.Modules); err != nil {
@@ -450,4 +470,64 @@ func ClearMap(mapPtr *ebpf.Map) (int, error) {
 		}
 	}
 	return removed, iter.Err()
+}
+
+// mergeWhitelistEntries merges whitelist CIDR entries with threshold promotion.
+// Entries with ports are grouped by port, merged, then reassembled.
+// mergeWhitelistEntries 合并白名单 CIDR 条目（带阈值提升）。
+// 有端口的条目按端口分组、合并，然后重新组装。
+func mergeWhitelistEntries(entries []string, threshold int, v4Mask int, v6Mask int) []string {
+	groups := make(map[uint16][]string)
+	for _, line := range entries {
+		host, port, err := iputil.ParseIPPort(line)
+		if err == nil {
+			groups[port] = append(groups[port], host)
+		} else {
+			groups[0] = append(groups[0], line)
+		}
+	}
+	var merged []string
+	for port, cidrs := range groups {
+		result, err := ipmerge.MergeCIDRsWithThreshold(cidrs, threshold, v4Mask, v6Mask)
+		if err != nil {
+			result = cidrs
+		}
+		for _, c := range result {
+			if port > 0 {
+				merged = append(merged, fmt.Sprintf("%s:%d", c, port))
+			} else {
+				merged = append(merged, c)
+			}
+		}
+	}
+	return merged
+}
+
+// mergeIPPortCIDRs merges CIDRs within each (port, action) group, with threshold promotion.
+// mergeIPPortCIDRs 对每个 (port, action) 组内的 CIDR 进行合并（带阈值提升）。
+func mergeIPPortCIDRs(rules []sdk.IPPortRule, threshold int, v4Mask int, v6Mask int) []sdk.IPPortRule {
+	type groupKey struct {
+		port   uint16
+		action uint8
+	}
+	groups := make(map[groupKey][]string)
+	for _, r := range rules {
+		key := groupKey{r.Port, r.Action}
+		groups[key] = append(groups[key], r.IP)
+	}
+	var merged []sdk.IPPortRule
+	for key, cidrs := range groups {
+		mergedCIDRs, err := ipmerge.MergeCIDRsWithThreshold(cidrs, threshold, v4Mask, v6Mask)
+		if err != nil {
+			mergedCIDRs = cidrs
+		}
+		for _, c := range mergedCIDRs {
+			merged = append(merged, sdk.IPPortRule{
+				IP:     c,
+				Port:   key.port,
+				Action: key.action,
+			})
+		}
+	}
+	return merged
 }

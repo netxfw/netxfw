@@ -648,12 +648,11 @@ func ClearPortMap(m *ebpf.Map) error {
 	}
 	var keys []uint16
 	var key uint16
-	// PERCPU map value is slice
-	numCPU, _ := ebpf.PossibleCPU()
-	val := make([]NetXfwRuleValue, numCPU)
+	val := acquireRuleValueSlice()
+	defer releaseRuleValueSlice(val)
 
 	iter := m.Iterate()
-	for iter.Next(&key, &val) {
+	for iter.Next(&key, val) {
 		keys = append(keys, key)
 	}
 	if err := iter.Err(); err != nil {

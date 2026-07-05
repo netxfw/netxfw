@@ -79,7 +79,7 @@ func runUnified(ctx context.Context) {
 	log.Info("[SHIELD] NetXFW Unified is running.")
 
 	reloadFunc := createReloadFunc(configPath, coreModules, pluginCtx, log)
-	waitForSignal(ctx, configPath, s, reloadFunc, nil)
+	waitForSignal(ctx, configPath, s, reloadFunc, stopPprof)
 }
 
 // createReloadFunc creates a reload function for configuration changes.

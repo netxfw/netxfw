@@ -37,6 +37,7 @@ func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
 	snapshot, snapshotErr := systemQueryService.LoadStatusSnapshot(s)
 	pluginSnapshot, pluginErr := loadPluginStatusSnapshot(ctx, snapshot, snapshotErr)
 	pluginHealth := systemQueryService.LoadPluginHealth(pluginSnapshot)
+
 	metrics, metricsErr := systemQueryService.LoadMetrics(s)
 	pass, drops, err := s.Stats.GetCounters()
 	if err != nil {
@@ -44,20 +45,14 @@ func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
 		return nil
 	}
 
-	showDropStatistics(w, s.Stats, drops, pass)
-	showPassStatistics(w, s.Stats, pass, drops)
-	if !showProtocolDistributionFromMetrics(w, metrics, metricsErr, pass, drops) {
-		showProtocolDistribution(w, s.Stats, pass, drops)
-	}
-	if !showConntrackHealthFromMetrics(w, metrics, metricsErr) {
-		showConntrackHealth(w, s)
-	}
+	showDropStatisticsCached(w, metrics, metricsErr, drops, pass)
+	showPassStatisticsCached(w, metrics, metricsErr, pass, drops)
+	showProtocolDistributionFromMetrics(w, metrics, metricsErr, pass, drops)
+	showConntrackHealthFromMetrics(w, metrics, metricsErr)
 	showPolicyConfiguration(w, snapshot, snapshotErr)
 	showPluginStatus(w, pluginSnapshot, pluginHealth, pluginErr)
 	showConclusionStatistics(w, s, s.Stats)
-	if !showMapStatisticsFromMetrics(w, s, metrics, metricsErr) {
-		showMapStatistics(w, s)
-	}
+	showMapStatisticsFromMetrics(w, s, metrics, metricsErr)
 	showTrafficMetrics(w, pass, drops)
 	showAttachedInterfaces(w)
 
@@ -500,5 +495,80 @@ func printWebConfig(w io.Writer, cfg *sdk.GlobalConfig) {
 		fmt.Fprintf(w, "   └─ [WEB] Web Interface: Enabled (Port: %d)\n", cfg.Web.Port)
 	} else {
 		fmt.Fprintln(w, "   └─ [WEB] Web Interface: Disabled")
+	}
+}
+
+func showDropStatisticsCached(w io.Writer, metrics *MetricsData, metricsErr error, drops, pass uint64) {
+	if metricsErr != nil || metrics == nil {
+		return
+	}
+	trafficStats, err := systemQueryService.LoadTrafficStats()
+	var pps uint64
+	if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
+		pps = trafficStats.CurrentDropPPS
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[BLOCK] Drop Statistics:")
+	fmt.Fprintf(w, "   ├─ Total Drops: %s\n", systemQueryService.FormatNumberWithComma(drops))
+	if pps > 0 {
+		fmt.Fprintf(w, "   └─ Current Rate: %s pkt/s\n", systemQueryService.FormatNumberWithComma(pps))
+	} else {
+		fmt.Fprintln(w, "   └─ Current Rate: N/A")
+	}
+}
+
+func showPassStatisticsCached(w io.Writer, metrics *MetricsData, metricsErr error, pass, drops uint64) {
+	if metricsErr != nil || metrics == nil {
+		return
+	}
+	trafficStats, err := systemQueryService.LoadTrafficStats()
+	var pps uint64
+	if err == nil && trafficStats.LastUpdateTime.After(time.Time{}) {
+		pps = trafficStats.CurrentPassPPS
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[OK] Pass Statistics:")
+	fmt.Fprintf(w, "   ├─ Total Passes: %s\n", systemQueryService.FormatNumberWithComma(pass))
+	if pps > 0 {
+		fmt.Fprintf(w, "   └─ Current Rate: %s pkt/s\n", systemQueryService.FormatNumberWithComma(pps))
+	} else {
+		fmt.Fprintln(w, "   └─ Current Rate: N/A")
+	}
+}
+
+func showTopBlockedIPsFromDetails(w io.Writer, dropDetails []sdk.DropDetailEntry, err error, drops uint64) {
+	if err != nil || len(dropDetails) == 0 || drops == 0 {
+		return
+	}
+
+	ipCounts := make(map[string]uint64)
+	for _, d := range dropDetails {
+		ipCounts[d.SrcIP] += d.Count
+	}
+
+	type ipCount struct {
+		ip    string
+		count uint64
+	}
+	sorted := make([]ipCount, 0, len(ipCounts))
+	for ip, count := range ipCounts {
+		sorted = append(sorted, ipCount{ip, count})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].count > sorted[j].count
+	})
+
+	if len(sorted) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "[ALERT] Top Blocked Attackers:")
+		maxShow := 3
+		if len(sorted) < maxShow {
+			maxShow = len(sorted)
+		}
+		for i := 0; i < maxShow; i++ {
+			percent := float64(sorted[i].count) / float64(drops) * 100
+			fmt.Fprintf(w, "   %d. %s - %s drops (%.1f%%)\n", i+1, sorted[i].ip,
+				systemQueryService.FormatNumberWithComma(sorted[i].count), percent)
+		}
 	}
 }

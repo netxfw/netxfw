@@ -28,7 +28,19 @@ func OptimizeWhitelistConfig(cfg *domainconfig.Config) {
 
 	var newWhitelist []string
 	for port, cidrs := range rulesByPort {
-		merged, err := ipmerge.MergeCIDRs(cidrs)
+		threshold := cfg.Base.LockListMergeThreshold
+		v4Mask := cfg.Base.LockListV4Mask
+		v6Mask := cfg.Base.LockListV6Mask
+		if threshold <= 0 {
+			threshold = 128
+		}
+		if v4Mask <= 0 {
+			v4Mask = 24
+		}
+		if v6Mask <= 0 {
+			v6Mask = 64
+		}
+		merged, err := ipmerge.MergeCIDRsWithThreshold(cidrs, threshold, v4Mask, v6Mask)
 		if err != nil {
 			merged = cidrs
 		}
@@ -58,7 +70,19 @@ func OptimizeIPPortRulesConfig(cfg *domainconfig.Config) {
 	}
 	var newRules []domainconfig.IPPortRule
 	for key, cidrs := range rulesByGroup {
-		merged, err := ipmerge.MergeCIDRs(cidrs)
+		threshold := cfg.Base.LockListMergeThreshold
+		v4Mask := cfg.Base.LockListV4Mask
+		v6Mask := cfg.Base.LockListV6Mask
+		if threshold <= 0 {
+			threshold = 128
+		}
+		if v4Mask <= 0 {
+			v4Mask = 24
+		}
+		if v6Mask <= 0 {
+			v6Mask = 64
+		}
+		merged, err := ipmerge.MergeCIDRsWithThreshold(cidrs, threshold, v4Mask, v6Mask)
 		if err != nil {
 			merged = cidrs
 		}

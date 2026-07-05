@@ -32,7 +32,7 @@ pprof_port = 6060
 lock_list_file = "/etc/netxfw/deny_list.txt"
 lock_list_binary = "/etc/netxfw/deny_list.bin.zst"
 bpf_pin_path = ""
-lock_list_merge_threshold = 0
+lock_list_merge_threshold = 128
 lock_list_v4_mask = 24
 lock_list_v6_mask = 64
 # Example / 示例:

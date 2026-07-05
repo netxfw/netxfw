@@ -64,6 +64,7 @@ func DefaultConfig() Config {
 			CleanupInterval:    "1m",
 			ICMPRate:           10,
 			ICMPBurst:          50,
+			LockListMergeThreshold: 128,
 			LockListV4Mask:     24,
 			LockListV6Mask:     64,
 			EnablePprof:        false,

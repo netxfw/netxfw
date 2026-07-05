@@ -183,6 +183,14 @@ func (e *Extractor) IsEnabled() bool {
 	return e.enabled
 }
 
+// Stop stops the extractor and releases resources.
+// Stop 停止提取器并释放资源。
+func (e *Extractor) Stop() {
+	if e.cache != nil {
+		e.cache.Stop()
+	}
+}
+
 // ProxyProtocolListener wraps a net.Listener to handle Proxy Protocol.
 // ProxyProtocolListener 包装 net.Listener 以处理 Proxy Protocol。
 type ProxyProtocolListener struct {
@@ -245,9 +253,10 @@ type ConnectionInfo struct {
 // ConnectionCache caches connection information.
 // ConnectionCache 缓存连接信息。
 type ConnectionCache struct {
-	entries map[string]*ConnectionInfo
-	mu      sync.RWMutex
-	ttl     time.Duration
+	entries  map[string]*ConnectionInfo
+	mu       sync.RWMutex
+	ttl      time.Duration
+	stopChan chan struct{}
 }
 
 // NewConnectionCache creates a new ConnectionCache.
@@ -258,8 +267,9 @@ func NewConnectionCache(ttl time.Duration) *ConnectionCache {
 	}
 
 	c := &ConnectionCache{
-		entries: make(map[string]*ConnectionInfo),
-		ttl:     ttl,
+		entries:  make(map[string]*ConnectionInfo),
+		ttl:      ttl,
+		stopChan: make(chan struct{}),
 	}
 
 	go c.cleanup()
@@ -310,16 +320,27 @@ func (c *ConnectionCache) cleanup() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		c.mu.Lock()
-		now := time.Now()
-		for id, info := range c.entries {
-			if now.Sub(info.Timestamp) > c.ttl {
-				delete(c.entries, id)
+	for {
+		select {
+		case <-c.stopChan:
+			return
+		case <-ticker.C:
+			c.mu.Lock()
+			now := time.Now()
+			for id, info := range c.entries {
+				if now.Sub(info.Timestamp) > c.ttl {
+					delete(c.entries, id)
+				}
 			}
+			c.mu.Unlock()
 		}
-		c.mu.Unlock()
 	}
+}
+
+// Stop stops the cleanup goroutine and releases resources.
+// Stop 停止清理 goroutine 并释放资源。
+func (c *ConnectionCache) Stop() {
+	close(c.stopChan)
 }
 
 // generateConnID generates a unique connection ID.

@@ -13,30 +13,27 @@ import (
 type MetricsCollector struct {
 	mu sync.RWMutex
 
-	// PPS/BPS metrics / PPS/BPS 指标
 	TrafficMetrics TrafficMetrics `json:"traffic_metrics"`
-
-	// Conntrack health / 连接跟踪健康度
 	ConntrackHealth ConntrackHealth `json:"conntrack_health"`
-
-	// Map usage statistics / Map 使用率统计
 	MapUsage MapUsageStats `json:"map_usage"`
-
-	// Rate limit hit statistics / 限速命中统计
 	RateLimitStats RateLimitHitStats `json:"rate_limit_stats"`
-
-	// Protocol distribution / 协议分布
 	ProtocolStats ProtocolDistribution `json:"protocol_stats"`
 
-	// Start time / 启动时间
-	StartTime time.Time `json:"start_time"`
-
-	// Last update time / 最后更新时间
+	StartTime  time.Time `json:"start_time"`
 	LastUpdate time.Time `json:"last_update"`
 
-	// Reference to manager / 管理器引用
 	manager *Manager
+
+	mapEntryCache   map[string]mapEntryCacheEntry
+	mapEntryCacheMu sync.RWMutex
 }
+
+type mapEntryCacheEntry struct {
+	count     int
+	checkedAt time.Time
+}
+
+const mapEntryCacheTTL = 30 * time.Second
 
 // TrafficMetrics holds PPS/BPS statistics.
 // TrafficMetrics 保存 PPS/BPS 统计信息。
@@ -222,6 +219,7 @@ func NewMetricsCollector(m *Manager) *MetricsCollector {
 			Rules:       make(map[string]RateLimitRuleHit),
 			TopHitRules: make([]RateLimitRuleHit, 0),
 		},
+		mapEntryCache: make(map[string]mapEntryCacheEntry),
 	}
 }
 
@@ -352,24 +350,6 @@ func (mc *MetricsCollector) collectConntrackHealth() {
 		mc.ConntrackHealth.Status = StatusHealthy
 		mc.ConntrackHealth.Message = "Conntrack table healthy / 连接跟踪表健康"
 	}
-
-	// Get conntrack entries for protocol breakdown / 获取连接跟踪条目以进行协议分布
-	entries, err := mc.manager.ListConntrackEntries()
-	if err == nil {
-		mc.ConntrackHealth.ActiveConnections = uint64(len(entries))
-		for _, entry := range entries {
-			switch entry.Protocol {
-			case 6: // TCP
-				mc.ConntrackHealth.TCPConnections++
-			case 17: // UDP
-				mc.ConntrackHealth.UDPConnections++
-			case 1: // ICMP
-				mc.ConntrackHealth.ICMPConnections++
-			default:
-				mc.ConntrackHealth.OtherConnections++
-			}
-		}
-	}
 }
 
 // collectMapUsage collects BPF map usage statistics.
@@ -418,9 +398,23 @@ func (mc *MetricsCollector) checkMapUsage(name string, mapObj *ebpf.Map, mapType
 	}
 
 	maxEntries := int(mapObj.MaxEntries())
-	entries, err := countMapEntriesFast(mapObj)
-	if err != nil {
-		entries = 0
+
+	mc.mapEntryCacheMu.RLock()
+	cached, ok := mc.mapEntryCache[name]
+	mc.mapEntryCacheMu.RUnlock()
+
+	var entries int
+	if ok && time.Since(cached.checkedAt) < mapEntryCacheTTL {
+		entries = cached.count
+	} else {
+		var err error
+		entries, err = countMapEntriesFast(mapObj)
+		if err != nil {
+			entries = 0
+		}
+		mc.mapEntryCacheMu.Lock()
+		mc.mapEntryCache[name] = mapEntryCacheEntry{count: entries, checkedAt: time.Now()}
+		mc.mapEntryCacheMu.Unlock()
 	}
 
 	usagePct := 0
@@ -471,7 +465,10 @@ func (mc *MetricsCollector) collectRateLimitStats() {
 
 	mc.RateLimitStats.TotalRules = len(rules)
 	mc.RateLimitStats.ActiveRules = len(rules)
-	mc.RateLimitStats.Rules = make(map[string]RateLimitRuleHit)
+
+	for cidr := range mc.RateLimitStats.Rules {
+		delete(mc.RateLimitStats.Rules, cidr)
+	}
 
 	// Calculate hit statistics / 计算命中统计
 	// Note: RateLimitConf only has Rate and Burst, no hit statistics

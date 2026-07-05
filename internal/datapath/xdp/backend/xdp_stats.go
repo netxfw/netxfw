@@ -20,7 +20,7 @@ func (m *Manager) GetDropDetails() ([]sdk.DropDetailEntry, error) {
 	if m.topDropMap == nil {
 		return nil, nil
 	}
-	return GetTopStatsFromMap(m.topDropMap, "top_drop_map")
+	return GetTopStatsFromMap(m.topDropMap, "top_drop_map", 0)
 }
 
 /**
@@ -31,7 +31,7 @@ func (m *Manager) GetPassDetails() ([]sdk.DropDetailEntry, error) {
 	if m.topPassMap == nil {
 		return nil, nil
 	}
-	return GetTopStatsFromMap(m.topPassMap, "top_pass_map")
+	return GetTopStatsFromMap(m.topPassMap, "top_pass_map", 0)
 }
 
 /**
@@ -40,7 +40,7 @@ func (m *Manager) GetPassDetails() ([]sdk.DropDetailEntry, error) {
  * Deprecated: Use GetTopStatsFromMap instead.
  */
 func GetDropDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
-	return GetTopStatsFromMap(m, "top_drop_map")
+	return GetTopStatsFromMap(m, "top_drop_map", 0)
 }
 
 /**
@@ -49,7 +49,7 @@ func GetDropDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
  * Deprecated: Use GetTopStatsFromMap instead.
  */
 func GetPassDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
-	return GetTopStatsFromMap(m, "top_pass_map")
+	return GetTopStatsFromMap(m, "top_pass_map", 0)
 }
 
 /**
@@ -58,7 +58,7 @@ func GetPassDetailsFromMap(m *ebpf.Map) ([]sdk.DropDetailEntry, error) {
  * Uses unified top_stats_key struct.
  * 使用统一的 top_stats_key 结构体。
  */
-func GetTopStatsFromMap(m *ebpf.Map, mapName string) ([]sdk.DropDetailEntry, error) {
+func GetTopStatsFromMap(m *ebpf.Map, mapName string, maxResults int) ([]sdk.DropDetailEntry, error) {
 	var results []sdk.DropDetailEntry
 	var key NetXfwTopStatsKey
 	var value uint64
@@ -76,11 +76,14 @@ func GetTopStatsFromMap(m *ebpf.Map, mapName string) ([]sdk.DropDetailEntry, err
 
 			results = append(results, sdk.DropDetailEntry{
 				Reason:   key.Reason,
-				Protocol: uint8(key.Protocol), // #nosec G115 // protocol is always 0-255
+				Protocol: uint8(key.Protocol),
 				SrcIP:    srcIP,
 				DstPort:  key.DstPort,
 				Count:    value,
 			})
+			if maxResults > 0 && len(results) >= maxResults {
+				break
+			}
 		}
 	}
 	if err := iter.Err(); err != nil {
@@ -106,19 +109,12 @@ func (m *Manager) GetStats() (uint64, uint64) {
 	}
 
 	var key uint32
-	// PERCPU map requires slice of values
-	// PERCPU Map 需要值切片
-	numCPU, err := ebpf.PossibleCPU()
-	if err != nil {
-		return 0, 0
-	}
-	statsSlice := make([]NetXfwStatsGlobal, numCPU)
-	if err := m.statsGlobalMap.Lookup(&key, &statsSlice); err == nil {
-		// Sum values from all CPUs
-		// 汇总所有 CPU 的值
-		for i := range statsSlice {
-			totalPass += statsSlice[i].TotalPass
-			totalDrop += statsSlice[i].TotalDrop
+	statsSlice := acquireStatsGlobalSlice()
+	defer releaseStatsGlobalSlice(statsSlice)
+	if err := m.statsGlobalMap.Lookup(&key, statsSlice); err == nil {
+		for i := range *statsSlice {
+			totalPass += (*statsSlice)[i].TotalPass
+			totalDrop += (*statsSlice)[i].TotalDrop
 		}
 	}
 
@@ -154,21 +150,14 @@ func (m *Manager) GetDropCount() (uint64, error) {
 		return 0, nil
 	}
 	var key uint32
-	// PERCPU map requires slice of values
-	// PERCPU Map 需要值切片
-	numCPU, err := ebpf.PossibleCPU()
-	if err != nil {
+	statsSlice := acquireStatsGlobalSlice()
+	defer releaseStatsGlobalSlice(statsSlice)
+	if err := m.statsGlobalMap.Lookup(&key, statsSlice); err != nil {
 		return 0, err
 	}
-	statsSlice := make([]NetXfwStatsGlobal, numCPU)
-	if err := m.statsGlobalMap.Lookup(&key, &statsSlice); err != nil {
-		return 0, err
-	}
-	// Sum values from all CPUs
-	// 汇总所有 CPU 的值
 	var totalDrop uint64
-	for i := range statsSlice {
-		totalDrop += statsSlice[i].TotalDrop
+	for i := range *statsSlice {
+		totalDrop += (*statsSlice)[i].TotalDrop
 	}
 	return totalDrop, nil
 }
@@ -184,21 +173,14 @@ func (m *Manager) GetPassCount() (uint64, error) {
 		return 0, nil
 	}
 	var key uint32
-	// PERCPU map requires slice of values
-	// PERCPU Map 需要值切片
-	numCPU, err := ebpf.PossibleCPU()
-	if err != nil {
+	statsSlice := acquireStatsGlobalSlice()
+	defer releaseStatsGlobalSlice(statsSlice)
+	if err := m.statsGlobalMap.Lookup(&key, statsSlice); err != nil {
 		return 0, err
 	}
-	statsSlice := make([]NetXfwStatsGlobal, numCPU)
-	if err := m.statsGlobalMap.Lookup(&key, &statsSlice); err != nil {
-		return 0, err
-	}
-	// Sum values from all CPUs
-	// 汇总所有 CPU 的值
 	var totalPass uint64
-	for i := range statsSlice {
-		totalPass += statsSlice[i].TotalPass
+	for i := range *statsSlice {
+		totalPass += (*statsSlice)[i].TotalPass
 	}
 	return totalPass, nil
 }
@@ -315,35 +297,28 @@ func (m *Manager) GetGlobalStats() (*sdk.GlobalStats, error) {
 	}
 
 	var key uint32
-	// PERCPU map requires slice of values
-	// PERCPU Map 需要值切片
-	numCPU, err := ebpf.PossibleCPU()
-	if err != nil {
-		return result, err
-	}
-	statsSlice := make([]NetXfwStatsGlobal, numCPU)
-	if err := m.statsGlobalMap.Lookup(&key, &statsSlice); err != nil {
+	statsSlice := acquireStatsGlobalSlice()
+	defer releaseStatsGlobalSlice(statsSlice)
+	if err := m.statsGlobalMap.Lookup(&key, statsSlice); err != nil {
 		return result, err
 	}
 
-	// Sum values from all CPUs
-	// 汇总所有 CPU 的值
-	for i := range statsSlice {
-		result.TotalPackets += statsSlice[i].TotalPackets
-		result.TotalPass += statsSlice[i].TotalPass
-		result.TotalDrop += statsSlice[i].TotalDrop
-		result.DropBlacklist += statsSlice[i].DropBlacklist
-		result.DropNoRule += statsSlice[i].DropNoRule
-		result.DropInvalid += statsSlice[i].DropInvalid
-		result.DropRateLimit += statsSlice[i].DropRateLimit
-		result.DropSynFlood += statsSlice[i].DropSynFlood
-		result.DropIcmpLimit += statsSlice[i].DropIcmpLimit
-		result.DropPortBlocked += statsSlice[i].DropPortBlocked
-		result.DropDefaultDeny += statsSlice[i].DropDefaultDeny
-		result.PassWhitelist += statsSlice[i].PassWhitelist
-		result.PassRule += statsSlice[i].PassRule
-		result.PassReturn += statsSlice[i].PassReturn
-		result.PassEstablished += statsSlice[i].PassEstablished
+	for i := range *statsSlice {
+		result.TotalPackets += (*statsSlice)[i].TotalPackets
+		result.TotalPass += (*statsSlice)[i].TotalPass
+		result.TotalDrop += (*statsSlice)[i].TotalDrop
+		result.DropBlacklist += (*statsSlice)[i].DropBlacklist
+		result.DropNoRule += (*statsSlice)[i].DropNoRule
+		result.DropInvalid += (*statsSlice)[i].DropInvalid
+		result.DropRateLimit += (*statsSlice)[i].DropRateLimit
+		result.DropSynFlood += (*statsSlice)[i].DropSynFlood
+		result.DropIcmpLimit += (*statsSlice)[i].DropIcmpLimit
+		result.DropPortBlocked += (*statsSlice)[i].DropPortBlocked
+		result.DropDefaultDeny += (*statsSlice)[i].DropDefaultDeny
+		result.PassWhitelist += (*statsSlice)[i].PassWhitelist
+		result.PassRule += (*statsSlice)[i].PassRule
+		result.PassReturn += (*statsSlice)[i].PassReturn
+		result.PassEstablished += (*statsSlice)[i].PassEstablished
 	}
 
 	return result, nil

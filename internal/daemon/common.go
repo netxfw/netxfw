@@ -11,8 +11,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
+	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
@@ -23,7 +24,11 @@ import (
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
-var suppressPprofBindErrorLog atomic.Bool
+var (
+	suppressPprofBindErrorLog atomic.Bool
+	pprofServer              *http.Server
+	pprofMu                  sync.Mutex
+)
 
 func setSuppressPprofBindErrorLog(enabled bool) {
 	suppressPprofBindErrorLog.Store(enabled)
@@ -131,23 +136,45 @@ func startPprofOn(bind string, port int) {
 	addr := net.JoinHostPort(bind, strconv.Itoa(port))
 	log := logger.Get(context.Background())
 	log.Infof("[STATS] Pprof enabled on %s", addr)
+
+	pprofMu.Lock()
+	if pprofServer != nil {
+		pprofMu.Unlock()
+		log.Warn("[WARN]  Pprof server already running, skipping")
+		return
+	}
+
+	server := &http.Server{
+		Addr:         addr,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+	pprofServer = server
+	pprofMu.Unlock()
+
 	go func() {
-		// Create HTTP server with timeouts for security
-		// 创建带有超时的 HTTP 服务器以提高安全性
-		pprofServer := &http.Server{
-			Addr:         addr,
-			ReadTimeout:  30 * time.Second,
-			WriteTimeout: 30 * time.Second,
-			IdleTimeout:  120 * time.Second,
-		}
-		err := pprofServer.ListenAndServe()
-		if err != nil {
+		err := server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
 			if suppressPprofBindErrorLog.Load() && errors.Is(err, syscall.EADDRINUSE) {
 				return
 			}
 			log.Errorf("[ERROR] Pprof server error: %v", err)
 		}
 	}()
+}
+
+func stopPprof() {
+	pprofMu.Lock()
+	server := pprofServer
+	pprofServer = nil
+	pprofMu.Unlock()
+
+	if server != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
+	}
 }
 
 // waitForSignal blocks until a termination signal is received.

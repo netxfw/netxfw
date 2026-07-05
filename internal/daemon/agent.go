@@ -82,5 +82,5 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	go runTrafficStatsLoop(ctxCleanup, s)
 
 	log.Info("[SHIELD] Agent is running.")
-	waitForSignal(ctx, configPath, s, nil, nil) // nil means reload all / nil 表示重新加载所有内容
+	waitForSignal(ctx, configPath, s, nil, stopPprof)
 }

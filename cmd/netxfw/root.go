@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/netxfw/netxfw/cmd/agent"
+	"github.com/netxfw/netxfw/cmd/common"
 	"github.com/netxfw/netxfw/cmd/dp"
 	"github.com/netxfw/netxfw/internal/app"
 	"github.com/spf13/cobra"
@@ -90,6 +91,10 @@ func init() {
 	// Register system management commands
 	// 注册系统管理命令
 	RootCmd.AddCommand(agent.SystemCmd) // system - 系统管理（load/unload/reload/status/sync 等）
+
+	// Register utility commands
+	// 注册工具命令
+	RootCmd.AddCommand(common.MergeCIDRsCmd) // merge-cidrs - 合并 CIDR 网段
 
 	// Disable powershell completion (Linux-focused project doesn't need it)
 	// 禁用 powershell 补全（Linux 项目不需要）

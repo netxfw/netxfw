@@ -1,21 +1,18 @@
 package sdk
 
 import (
+	"reflect"
 	"sync"
 	"time"
 )
 
-// EventType defines the type of event.
 type EventType string
 
 const (
-	// EventTypeRateLimitBlock is triggered when an IP is automatically blocked due to rate limiting.
 	EventTypeRateLimitBlock EventType = "rate_limit_block"
-	// EventTypeConfigReload is triggered when the configuration is reloaded.
-	EventTypeConfigReload EventType = "config_reload"
+	EventTypeConfigReload   EventType = "config_reload"
 )
 
-// Event represents a system event.
 type Event struct {
 	Type      EventType
 	Payload   any
@@ -23,7 +20,6 @@ type Event struct {
 	Source    string
 }
 
-// NewEvent creates a new event with the current timestamp.
 func NewEvent(eventType EventType, source string, payload any) Event {
 	return Event{
 		Type:      eventType,
@@ -33,53 +29,90 @@ func NewEvent(eventType EventType, source string, payload any) Event {
 	}
 }
 
-// EventHandler is a function that handles an event.
 type EventHandler func(event Event)
 
-// EventBus defines the interface for the system event bus.
+type CancelFunc func()
+
 type EventBus interface {
 	// Subscribe registers a handler for a specific event type.
-	Subscribe(eventType EventType, handler EventHandler)
+	// Returns a CancelFunc that can be used to unsubscribe the handler.
+	Subscribe(eventType EventType, handler EventHandler) CancelFunc
 	// Unsubscribe removes a handler for a specific event type.
 	Unsubscribe(eventType EventType, handler EventHandler)
 	// Publish publishes an event to all subscribers.
 	Publish(event Event)
 }
 
-// DefaultEventBus is a simple in-memory event bus implementation.
-type DefaultEventBus struct {
-	handlers map[EventType][]EventHandler
-	mu       sync.RWMutex
+type subscription struct {
+	id      uint64
+	handler EventHandler
 }
 
-// NewEventBus creates a new DefaultEventBus.
+type DefaultEventBus struct {
+	mu       sync.RWMutex
+	handlers map[EventType][]subscription
+	nextID   uint64
+}
+
 func NewEventBus() *DefaultEventBus {
 	return &DefaultEventBus{
-		handlers: make(map[EventType][]EventHandler),
+		handlers: make(map[EventType][]subscription),
 	}
 }
 
-// Subscribe registers a handler for a specific event type.
-func (b *DefaultEventBus) Subscribe(eventType EventType, handler EventHandler) {
+func (b *DefaultEventBus) Subscribe(eventType EventType, handler EventHandler) CancelFunc {
+	b.mu.Lock()
+	b.nextID++
+	id := b.nextID
+	b.handlers[eventType] = append(b.handlers[eventType], subscription{id: id, handler: handler})
+	b.mu.Unlock()
+
+	return func() {
+		b.mu.Lock()
+		subs := b.handlers[eventType]
+		for i, sub := range subs {
+			if sub.id == id {
+				b.handlers[eventType] = append(subs[:i], subs[i+1:]...)
+				if len(b.handlers[eventType]) == 0 {
+					delete(b.handlers, eventType)
+				}
+				b.mu.Unlock()
+				return
+			}
+		}
+		b.mu.Unlock()
+	}
+}
+
+func (b *DefaultEventBus) Unsubscribe(eventType EventType, handler EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.handlers[eventType] = append(b.handlers[eventType], handler)
+	subs := b.handlers[eventType]
+	var filtered []subscription
+	for _, sub := range subs {
+		if reflect.ValueOf(sub.handler).Pointer() == reflect.ValueOf(handler).Pointer() {
+			continue
+		}
+		filtered = append(filtered, sub)
+	}
+	if len(filtered) == 0 {
+		delete(b.handlers, eventType)
+	} else {
+		b.handlers[eventType] = filtered
+	}
 }
 
-// Unsubscribe removes a handler.
-func (b *DefaultEventBus) Unsubscribe(eventType EventType, handler EventHandler) {
-	// Implementation simplified for now
-}
-
-// Publish publishes an event to all subscribers.
 func (b *DefaultEventBus) Publish(event Event) {
 	b.mu.RLock()
-	defer b.mu.RUnlock()
+	if len(b.handlers[event.Type]) == 0 {
+		b.mu.RUnlock()
+		return
+	}
+	subs := make([]subscription, len(b.handlers[event.Type]))
+	copy(subs, b.handlers[event.Type])
+	b.mu.RUnlock()
 
-	if handlers, ok := b.handlers[event.Type]; ok {
-		for _, handler := range handlers {
-			// Execute handler in a separate goroutine to avoid blocking the publisher
-			go handler(event)
-		}
+	for _, sub := range subs {
+		sub.handler(event)
 	}
 }

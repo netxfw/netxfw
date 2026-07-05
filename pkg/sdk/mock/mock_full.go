@@ -213,8 +213,12 @@ type MockEventBus struct {
 	mock.Mock
 }
 
-func (m *MockEventBus) Subscribe(eventType sdk.EventType, handler sdk.EventHandler) {
-	m.Called(eventType, handler)
+func (m *MockEventBus) Subscribe(eventType sdk.EventType, handler sdk.EventHandler) sdk.CancelFunc {
+	args := m.Called(eventType, handler)
+	if fn, ok := args.Get(0).(sdk.CancelFunc); ok {
+		return fn
+	}
+	return nil
 }
 
 func (m *MockEventBus) Unsubscribe(eventType sdk.EventType, handler sdk.EventHandler) {

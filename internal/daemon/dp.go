@@ -92,5 +92,5 @@ func runDataPlane(ctx context.Context) {
 		return nil
 	}
 
-	waitForSignal(ctx, configPath, s, reloadFunc, nil)
+	waitForSignal(ctx, configPath, s, reloadFunc, stopPprof)
 }

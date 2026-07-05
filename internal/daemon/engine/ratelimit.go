@@ -61,18 +61,24 @@ func (m *RateLimitModule) monitorBlacklist() {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
+	var lastKnownCount int
 	for {
 		select {
 		case <-m.stopChan:
 			return
 		case <-ticker.C:
-			ips, _, err := m.sdk.Blacklist.List(0, "")
+			dynamicList, totalCount, err := m.sdk.Blacklist.ListDynamic(0, "")
 			if err != nil {
 				continue
 			}
 
-			currentIPs := make(map[string]bool)
-			for _, ip := range ips {
+			if totalCount == lastKnownCount {
+				continue
+			}
+			lastKnownCount = totalCount
+
+			currentIPs := make(map[string]bool, len(dynamicList))
+			for _, ip := range dynamicList {
 				currentIPs[ip.IP] = true
 				if !m.knownIPs[ip.IP] {
 					m.logger.Infof("[BLOCK] [RateLimit] Detected new blocked IP: %s", ip.IP)
