@@ -49,7 +49,7 @@ static __always_inline int check_ip_port_rule(struct in6_addr *ip, __u16 port) {
     };
     __builtin_memcpy(&key.ip, ip, sizeof(struct in6_addr));
 
-    struct rule_value *val = bpf_map_lookup_elem(&ip_port_rules, &key);
+    struct rule_value *val = bpf_map_lookup_elem(&rule_map, &key);
     if (!val) return -1;
 
     __u8 action = (__u8)val->counter;

@@ -731,8 +731,8 @@ func TestRealDaemon_CleanupExpiredRules(t *testing.T) {
 
 	// Test cleanup with actual map
 	// 测试实际 map 的清理
-	if mgr.LockList() != nil {
-		removed, err = xdp.CleanupExpiredRules(mgr.LockList(), false)
+	if mgr.StaticBlacklist() != nil {
+		removed, err = xdp.CleanupExpiredRules(mgr.StaticBlacklist(), false)
 		assert.NoError(t, err)
 		t.Logf("Cleaned up %d expired rules from lock_list", removed)
 	}

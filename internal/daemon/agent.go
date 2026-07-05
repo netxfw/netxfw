@@ -28,7 +28,8 @@ func runControlPlane(ctx context.Context, opts *DaemonOptions) {
 	}
 
 	if err := managePidFileWithInterfaces(pidPath, interfaces); err != nil {
-		log.Fatalf("[ERROR] %v", err)
+		log.Errorf("[ERROR] %v", err)
+		return
 	}
 	defer removePidFileWithInterfaces(pidPath, interfaces)
 

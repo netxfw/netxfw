@@ -151,14 +151,14 @@ func (h *Handle) VerifyAndRepair(cfg *sdk.GlobalConfig) error {
 	return h.manager.VerifyAndRepair(cfg)
 }
 
-// LockList returns the static blacklist map.
-func (h *Handle) LockList() *ebpf.Map {
-	return h.manager.LockList()
+// StaticBlacklist returns the static blacklist map.
+func (h *Handle) StaticBlacklist() *ebpf.Map {
+	return h.manager.StaticBlacklist()
 }
 
-// DynLockList returns the dynamic blacklist map.
-func (h *Handle) DynLockList() *ebpf.Map {
-	return h.manager.DynLockList()
+// DynamicBlacklist returns the dynamic blacklist map.
+func (h *Handle) DynamicBlacklist() *ebpf.Map {
+	return h.manager.DynamicBlacklist()
 }
 
 // Whitelist returns the whitelist map.
@@ -166,8 +166,8 @@ func (h *Handle) Whitelist() *ebpf.Map {
 	return h.manager.Whitelist()
 }
 
-// IPPortRules returns the active unified rule map.
-func (h *Handle) IPPortRules() *ebpf.Map {
+// RuleMap returns the active unified rule map.
+func (h *Handle) RuleMap() *ebpf.Map {
 	return h.manager.RuleMap()
 }
 

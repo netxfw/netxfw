@@ -357,12 +357,11 @@ func TestMockManager_MapGetters_Comprehensive(t *testing.T) {
 	mockMgr := NewMockManager()
 
 	// All map getters should return nil for mock
-	assert.Nil(t, mockMgr.LockList())
-	assert.Nil(t, mockMgr.DynLockList())
+	assert.Nil(t, mockMgr.StaticBlacklist())
+	assert.Nil(t, mockMgr.DynamicBlacklist())
 	assert.Nil(t, mockMgr.Whitelist())
-	assert.Nil(t, mockMgr.IPPortRules())
-	assert.Nil(t, mockMgr.AllowedPorts())
-	assert.Nil(t, mockMgr.RateLimitConfig())
+	assert.Nil(t, mockMgr.RuleMap())
+	assert.Nil(t, mockMgr.RatelimitMap())
 	assert.Nil(t, mockMgr.GlobalConfig())
 	assert.Nil(t, mockMgr.ConntrackMap())
 }

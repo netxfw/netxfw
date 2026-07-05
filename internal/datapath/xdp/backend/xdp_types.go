@@ -62,17 +62,6 @@ type Manager struct {
 	// Performance statistics tracker / 性能统计跟踪器
 	perfStats *PerformanceStats
 
-	// Older-name aliases (deprecated) / 旧名称别名（已弃用）
-	// These will be removed in a future version / 这些将在未来版本中移除
-	//
-	//nolint:unused // Reserved for older callers
-	lockList *ebpf.Map // Deprecated: use staticBlacklist / 已弃用：使用 staticBlacklist
-	//nolint:unused // Reserved for older callers
-	dynLockList *ebpf.Map // Deprecated: use dynamicBlacklist / 已弃用：使用 dynamicBlacklist
-	//nolint:unused // Reserved for older callers
-	dropReasonStats *ebpf.Map // Deprecated: use topDropMap / 已弃用：使用 topDropMap
-	//nolint:unused // Reserved for older callers
-	passReasonStats *ebpf.Map // Deprecated: use topPassMap / 已弃用：使用 topPassMap
 }
 
 // Map getters / Map 获取器
@@ -179,49 +168,4 @@ func (m *Manager) XdpFirewall() *ebpf.Program {
 	return m.objs.XdpFirewall
 }
 
-// Older-name getters (deprecated) / 旧名称获取器（已弃用）
 
-// LockList returns the static blacklist map (deprecated: use StaticBlacklist).
-// LockList 返回静态黑名单 Map（已弃用：使用 StaticBlacklist）。
-func (m *Manager) LockList() *ebpf.Map {
-	return m.staticBlacklist
-}
-
-// DynLockList returns the dynamic blacklist map (deprecated: use DynamicBlacklist).
-// DynLockList 返回动态黑名单 Map（已弃用：使用 DynamicBlacklist）。
-func (m *Manager) DynLockList() *ebpf.Map {
-	return m.dynamicBlacklist
-}
-
-// DropReasonStats returns the top drop map (deprecated: use TopDropMap).
-// DropReasonStats 返回 Top 丢弃 Map（已弃用：使用 TopDropMap）。
-func (m *Manager) DropReasonStats() *ebpf.Map {
-	return m.topDropMap
-}
-
-// PassReasonStats returns the top pass map (deprecated: use TopPassMap).
-// PassReasonStats 返回 Top 通过 Map（已弃用：使用 TopPassMap）。
-func (m *Manager) PassReasonStats() *ebpf.Map {
-	return m.topPassMap
-}
-
-// Deprecated getters for removed maps / 已移除 Map 的弃用获取器
-// These return nil and will be removed in a future version / 这些返回 nil，将在未来版本中移除
-
-// AllowedPorts returns nil (deprecated: use RuleMap).
-// AllowedPorts 返回 nil（已弃用：使用 RuleMap）。
-func (m *Manager) AllowedPorts() *ebpf.Map {
-	return nil
-}
-
-// IPPortRules returns nil (deprecated: use RuleMap).
-// IPPortRules 返回 nil（已弃用：使用 RuleMap）。
-func (m *Manager) IPPortRules() *ebpf.Map {
-	return nil
-}
-
-// RatelimitConfig returns nil (deprecated: use RatelimitMap).
-// RatelimitConfig 返回 nil（已弃用：使用 RatelimitMap）。
-func (m *Manager) RatelimitConfig() *ebpf.Map {
-	return nil
-}

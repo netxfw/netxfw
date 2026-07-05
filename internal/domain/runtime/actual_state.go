@@ -34,11 +34,6 @@ type topStatsMapProvider interface {
 	TopPassMap() *ebpf.Map
 }
 
-type legacyStatsMapProvider interface {
-	DropReasonStats() *ebpf.Map
-	PassReasonStats() *ebpf.Map
-}
-
 // ActualState captures runtime-visible state from maps and manager APIs.
 type ActualState struct {
 	DefaultDeny        BoolField
@@ -111,17 +106,14 @@ func FromManager(mgr ports.RuntimeStateReader) ActualState {
 	}
 
 	state.ConntrackCapacity = mapCapacity(mgr.ConntrackMap())
-	state.LockListCapacity = mapCapacity(mgr.LockList())
-	state.DynLockListCapacity = mapCapacity(mgr.DynLockList())
+	state.LockListCapacity = mapCapacity(mgr.StaticBlacklist())
+	state.DynLockListCapacity = mapCapacity(mgr.DynamicBlacklist())
 	state.WhitelistCapacity = mapCapacity(mgr.Whitelist())
-	state.RuleMapCapacity = mapCapacity(mgr.IPPortRules())
-	state.RateLimitsCapacity = mapCapacity(mgr.RateLimitConfig())
+	state.RuleMapCapacity = mapCapacity(mgr.RuleMap())
+	state.RateLimitsCapacity = mapCapacity(mgr.RatelimitMap())
 	if provider, ok := any(mgr).(topStatsMapProvider); ok {
 		state.DropReasonStatsCapacity = mapCapacity(provider.TopDropMap())
 		state.PassReasonStatsCapacity = mapCapacity(provider.TopPassMap())
-	} else if provider, ok := any(mgr).(legacyStatsMapProvider); ok {
-		state.DropReasonStatsCapacity = mapCapacity(provider.DropReasonStats())
-		state.PassReasonStatsCapacity = mapCapacity(provider.PassReasonStats())
 	}
 
 	return state

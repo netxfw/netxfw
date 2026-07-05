@@ -304,7 +304,9 @@ var SimpleInitCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			systemService.InitConfiguration(cmd.Context())
+			if err := systemService.InitConfiguration(cmd.Context()); err != nil {
+				return err
+			}
 			executor.PrintSuccess("Configuration initialized")
 			return nil
 		})
@@ -320,7 +322,9 @@ var SimpleTestCmd = &cobra.Command{
 		executor := NewCommandExecutor(cmd).WithConfig(configFile)
 
 		executor.Do(func() error {
-			systemService.TestConfiguration(cmd.Context())
+			if !systemService.TestConfiguration(cmd.Context()) {
+				return fmt.Errorf("configuration test failed")
+			}
 			executor.PrintSuccess("Configuration test passed")
 			return nil
 		})

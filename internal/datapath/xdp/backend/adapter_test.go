@@ -487,12 +487,11 @@ func TestMockManager_MapGetters(t *testing.T) {
 
 	// All map getters should return nil for MockManager
 	// 所有 Map 获取器对于 MockManager 应该返回 nil
-	assert.Nil(t, mockMgr.LockList())
-	assert.Nil(t, mockMgr.DynLockList())
+	assert.Nil(t, mockMgr.StaticBlacklist())
+	assert.Nil(t, mockMgr.DynamicBlacklist())
 	assert.Nil(t, mockMgr.Whitelist())
-	assert.Nil(t, mockMgr.IPPortRules())
-	assert.Nil(t, mockMgr.AllowedPorts())
-	assert.Nil(t, mockMgr.RateLimitConfig())
+	assert.Nil(t, mockMgr.RuleMap())
+	assert.Nil(t, mockMgr.RatelimitMap())
 	assert.Nil(t, mockMgr.GlobalConfig())
 	assert.Nil(t, mockMgr.ConntrackMap())
 }

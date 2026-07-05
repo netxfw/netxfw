@@ -796,8 +796,8 @@ func TestRealBPF_AdapterMapGetters(t *testing.T) {
 
 	// Test map getters (new unified names)
 	// 测试 Map 获取器（新的统一名称）
-	assert.NotNil(t, adapter.LockList(), "LockList (static_blacklist) should not be nil")
-	assert.NotNil(t, adapter.DynLockList(), "DynLockList (dynamic_blacklist) should not be nil")
+	assert.NotNil(t, adapter.StaticBlacklist(), "StaticBlacklist should not be nil")
+	assert.NotNil(t, adapter.DynamicBlacklist(), "DynamicBlacklist should not be nil")
 	assert.NotNil(t, adapter.Whitelist(), "Whitelist should not be nil")
 	assert.NotNil(t, adapter.GlobalConfig(), "GlobalConfig should not be nil")
 	assert.NotNil(t, adapter.ConntrackMap(), "ConntrackMap should not be nil")

@@ -48,16 +48,15 @@ func (a *Adapter) VerifyAndRepair(cfg *sdk.GlobalConfig) error {
 // Map Getters
 // Map 获取器
 
-func (a *Adapter) LockList() *ebpf.Map        { return a.manager.LockList() }
-func (a *Adapter) DynLockList() *ebpf.Map     { return a.manager.DynLockList() }
-func (a *Adapter) Whitelist() *ebpf.Map       { return a.manager.Whitelist() }
-func (a *Adapter) IPPortRules() *ebpf.Map     { return a.manager.RuleMap() }
-func (a *Adapter) AllowedPorts() *ebpf.Map    { return a.manager.RuleMap() }
-func (a *Adapter) RateLimitConfig() *ebpf.Map { return a.manager.RatelimitMap() }
-func (a *Adapter) GlobalConfig() *ebpf.Map    { return a.manager.GlobalConfig() }
-func (a *Adapter) ConntrackMap() *ebpf.Map    { return a.manager.ConntrackMap() }
-func (a *Adapter) TopDropMap() *ebpf.Map      { return a.manager.TopDropMap() }
-func (a *Adapter) TopPassMap() *ebpf.Map      { return a.manager.TopPassMap() }
+func (a *Adapter) StaticBlacklist() *ebpf.Map  { return a.manager.StaticBlacklist() }
+func (a *Adapter) DynamicBlacklist() *ebpf.Map { return a.manager.DynamicBlacklist() }
+func (a *Adapter) Whitelist() *ebpf.Map        { return a.manager.Whitelist() }
+func (a *Adapter) RuleMap() *ebpf.Map          { return a.manager.RuleMap() }
+func (a *Adapter) RatelimitMap() *ebpf.Map     { return a.manager.RatelimitMap() }
+func (a *Adapter) GlobalConfig() *ebpf.Map     { return a.manager.GlobalConfig() }
+func (a *Adapter) ConntrackMap() *ebpf.Map     { return a.manager.ConntrackMap() }
+func (a *Adapter) TopDropMap() *ebpf.Map       { return a.manager.TopDropMap() }
+func (a *Adapter) TopPassMap() *ebpf.Map       { return a.manager.TopPassMap() }
 
 // Configuration
 // 配置操作
@@ -107,7 +106,7 @@ func (a *Adapter) SetICMPRateLimit(rate, burst uint64) error {
 // 黑名单操作
 
 func (a *Adapter) AddBlacklistIP(cidr string) error {
-	return LockIP(a.manager.LockList(), cidr)
+	return LockIP(a.manager.StaticBlacklist(), cidr)
 }
 func (a *Adapter) AddBlacklistIPWithFile(cidr string, file string) error {
 	return a.manager.BlockStatic(cidr, file)
@@ -116,22 +115,22 @@ func (a *Adapter) AddDynamicBlacklistIP(cidr string, ttl time.Duration) error {
 	return a.manager.BlockDynamic(cidr, ttl)
 }
 func (a *Adapter) RemoveBlacklistIP(cidr string) error {
-	return UnlockIP(a.manager.LockList(), cidr)
+	return UnlockIP(a.manager.StaticBlacklist(), cidr)
 }
 func (a *Adapter) RemoveDynamicBlacklistIP(cidr string) error {
 	return a.manager.UnblockDynamic(cidr)
 }
 func (a *Adapter) ClearBlacklist() error {
-	return ClearBlacklistMap(a.manager.LockList())
+	return ClearBlacklistMap(a.manager.StaticBlacklist())
 }
 func (a *Adapter) IsIPInBlacklist(cidr string) (bool, error) {
-	return IsIPInMap(a.manager.LockList(), cidr)
+	return IsIPInMap(a.manager.StaticBlacklist(), cidr)
 }
 func (a *Adapter) ListBlacklistIPs(limit int, search string) ([]BlockedIP, int, error) {
-	return ListBlockedIPs(a.manager.LockList(), false, limit, search)
+	return ListBlockedIPs(a.manager.StaticBlacklist(), false, limit, search)
 }
 func (a *Adapter) ListDynamicBlacklistIPs(limit int, search string) ([]BlockedIP, int, error) {
-	return ListDynamicBlockedIPs(a.manager.DynLockList(), limit, search)
+	return ListDynamicBlockedIPs(a.manager.DynamicBlacklist(), limit, search)
 }
 
 // Whitelist Operations

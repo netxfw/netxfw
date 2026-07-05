@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"context"
-	"os"
 
 	runtimehost "github.com/netxfw/netxfw/internal/adapters/plugins/runtime"
 	appconfig "github.com/netxfw/netxfw/internal/app/config"
@@ -13,14 +12,15 @@ import (
  * TestConfiguration validates the syntax and values of configuration files.
  * TestConfiguration 验证配置文件的语法和值。
  */
-func TestConfiguration(ctx context.Context) {
+func TestConfiguration(ctx context.Context) bool {
 	log := logger.Get(ctx)
 	configPath := appconfig.GetConfigPath()
 	log.Infof("[SCAN] Testing global configuration in %s...", configPath)
 
 	cfg, err := appconfig.LoadConfig()
 	if err != nil {
-		log.Fatalf("[ERROR] Error loading TOML config: %v", err)
+		log.Errorf("[ERROR] Error loading TOML config: %v", err)
+		return false
 	}
 
 	host := runtimehost.NewHost(nil)
@@ -43,6 +43,7 @@ func TestConfiguration(ctx context.Context) {
 	if allValid {
 		log.Infof("[SUCCESS] All configurations are valid!")
 	} else {
-		os.Exit(1)
+		log.Errorf("[ERROR] Configuration validation failed")
 	}
+	return allValid
 }

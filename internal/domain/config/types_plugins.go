@@ -1,20 +1,13 @@
 package config
 
+import sdk "github.com/netxfw/netxfw/pkg/sdk"
+
+// Re-export constants for backward compatibility with domain-level callers.
 const (
-	// BPFPluginSlotStart and BPFPluginSlotEnd define the supported jump-table
-	// slot range for configured datapath plugins.
-	BPFPluginSlotStart = 2
-	BPFPluginSlotEnd   = 14
+	BPFPluginSlotStart = sdk.BPFPluginSlotStart
+	BPFPluginSlotEnd   = sdk.BPFPluginSlotEnd
 )
 
-type BPFPluginConfig struct {
-	Path        string `toml:"path"`
-	Index       int    `toml:"index"`
-	Enabled     bool   `toml:"enabled"`
-	Description string `toml:"description"`
-}
-
-type BPFPluginSettings struct {
-	Enabled bool              `toml:"enabled"`
-	Plugins []BPFPluginConfig `toml:"plugins"`
-}
+// Type aliases for SDK types — single source of truth, no conversion needed.
+type BPFPluginConfig = sdk.BPFPluginConfig
+type BPFPluginSettings = sdk.BPFPluginSettings

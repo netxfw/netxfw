@@ -9,11 +9,11 @@ import (
 // RuntimeStateReader exposes the subset of runtime manager reads needed by app/domain projections.
 type RuntimeStateReader interface {
 	GlobalConfig() *ebpf.Map
-	LockList() *ebpf.Map
-	DynLockList() *ebpf.Map
+	StaticBlacklist() *ebpf.Map
+	DynamicBlacklist() *ebpf.Map
 	Whitelist() *ebpf.Map
-	IPPortRules() *ebpf.Map
-	RateLimitConfig() *ebpf.Map
+	RuleMap() *ebpf.Map
+	RatelimitMap() *ebpf.Map
 	ConntrackMap() *ebpf.Map
 	GetLockedIPCount() (int, error)
 	GetWhitelistCount() (int, error)

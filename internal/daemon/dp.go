@@ -22,7 +22,8 @@ func runDataPlane(ctx context.Context) {
 	log.Info("[START] Starting netxfw in DP (Data Plane) mode")
 
 	if err := managePidFile(pidPath); err != nil {
-		log.Fatalf("[ERROR] %v", err)
+		log.Errorf("[ERROR] %v", err)
+		return
 	}
 	defer removePidFile(pidPath)
 

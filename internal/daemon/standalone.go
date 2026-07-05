@@ -22,7 +22,8 @@ func runUnified(ctx context.Context) {
 	pidPath := runtime.DefaultPidPath
 
 	if err := managePidFile(pidPath); err != nil {
-		log.Fatalf("[ERROR] %v", err)
+		log.Errorf("[ERROR] %v", err)
+		return
 	}
 	defer removePidFile(pidPath)
 

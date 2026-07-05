@@ -16,7 +16,19 @@ const (
 	IPPortRuleActionDenyCompat = configvalidate.IPPortRuleActionDenyCompat
 )
 
-func (c *BPFPluginConfig) Validate() error {
+// ValidateConfig runs the comprehensive domain-level validator on the config.
+// This supplements the basic SDK Validate() method with normalization and
+// cross-field conflict checks.
+func ValidateConfigFull(c *Config) error {
+	validator := NewConfigValidator()
+	if err := validator.Normalize(c); err != nil {
+		return err
+	}
+	return validator.ValidateErr(c)
+}
+
+// ValidateBPFPlugin validates a single BPF plugin config entry.
+func ValidateBPFPlugin(c *BPFPluginConfig) error {
 	validator := NewConfigValidator()
 	result := newValidationResult()
 	validator.validateBPFPluginEntry(c, 0, result)
@@ -26,7 +38,8 @@ func (c *BPFPluginConfig) Validate() error {
 	return errors.New(result.Errors[0].Message)
 }
 
-func (c *BPFPluginSettings) Validate() error {
+// ValidateBPFPluginSettings validates the BPF plugin settings.
+func ValidateBPFPluginSettings(c *BPFPluginSettings) error {
 	validator := NewConfigValidator()
 	result := newValidationResult()
 	validator.validateBPFPluginConfig(c, result)
@@ -34,39 +47,6 @@ func (c *BPFPluginSettings) Validate() error {
 		return nil
 	}
 	return errors.New(result.Errors[0].Message)
-}
-
-// Validate checks the configuration for errors.
-func (c *Config) Validate() error {
-	validator := NewConfigValidator()
-	if err := validator.Normalize(c); err != nil {
-		return err
-	}
-	return validator.ValidateErr(c)
-}
-
-func (c *BaseConfig) Validate() error {
-	cfg := DefaultConfig()
-	cfg.Base = *c
-	return NewConfigValidator().ValidateErr(&cfg)
-}
-
-func (c *PortConfig) Validate() error {
-	cfg := DefaultConfig()
-	cfg.Port = *c
-	return NewConfigValidator().ValidateErr(&cfg)
-}
-
-func (c *RateLimitConfig) Validate() error {
-	cfg := DefaultConfig()
-	cfg.RateLimit = *c
-	return NewConfigValidator().ValidateErr(&cfg)
-}
-
-func (c *LogEngineConfig) Validate() error {
-	cfg := DefaultConfig()
-	cfg.LogEngine = *c
-	return NewConfigValidator().ValidateErr(&cfg)
 }
 
 // ValidateIPPortRuleAction validates the configured action value for IP+port rules.

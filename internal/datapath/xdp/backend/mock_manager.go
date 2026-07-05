@@ -105,14 +105,13 @@ func NewMockManager() *MockManager {
 }
 
 // Map Getters (Return nil for mock)
-func (m *MockManager) LockList() *ebpf.Map        { return nil }
-func (m *MockManager) DynLockList() *ebpf.Map     { return nil }
-func (m *MockManager) Whitelist() *ebpf.Map       { return nil }
-func (m *MockManager) IPPortRules() *ebpf.Map     { return nil }
-func (m *MockManager) AllowedPorts() *ebpf.Map    { return nil }
-func (m *MockManager) RateLimitConfig() *ebpf.Map { return nil }
-func (m *MockManager) GlobalConfig() *ebpf.Map    { return nil }
-func (m *MockManager) ConntrackMap() *ebpf.Map    { return nil }
+func (m *MockManager) StaticBlacklist() *ebpf.Map  { return nil }
+func (m *MockManager) DynamicBlacklist() *ebpf.Map { return nil }
+func (m *MockManager) Whitelist() *ebpf.Map        { return nil }
+func (m *MockManager) RuleMap() *ebpf.Map          { return nil }
+func (m *MockManager) RatelimitMap() *ebpf.Map     { return nil }
+func (m *MockManager) GlobalConfig() *ebpf.Map     { return nil }
+func (m *MockManager) ConntrackMap() *ebpf.Map     { return nil }
 
 // Configuration
 func (m *MockManager) SetDefaultDeny(enable bool) error {

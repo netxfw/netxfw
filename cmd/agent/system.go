@@ -28,7 +28,9 @@ var systemInitCmd = &cobra.Command{
 	Long:  `Initialize default configuration file in /root/netxfw/`,
 	Run: func(cmd *cobra.Command, args []string) {
 		initCommand(cmd)
-		systemService.InitConfiguration(cmd.Context())
+		if err := systemService.InitConfiguration(cmd.Context()); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
+		}
 	},
 }
 
@@ -49,7 +51,9 @@ var systemTestCmd = &cobra.Command{
 	Long:  `Test configuration validity`,
 	Run: func(cmd *cobra.Command, args []string) {
 		initCommand(cmd)
-		systemService.TestConfiguration(cmd.Context())
+		if !systemService.TestConfiguration(cmd.Context()) {
+			fmt.Fprintln(cmd.ErrOrStderr(), "Configuration test failed")
+		}
 	},
 }
 

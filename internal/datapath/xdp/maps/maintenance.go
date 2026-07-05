@@ -29,9 +29,9 @@ func ClearPinnedBlacklist(pinPath string, dynamic bool, log *zap.SugaredLogger) 
 	defer manager.Close()
 
 	if dynamic {
-		return backendxdp.ClearBlacklistMap(manager.DynLockList())
+		return backendxdp.ClearBlacklistMap(manager.DynamicBlacklist())
 	}
-	return backendxdp.ClearBlacklistMap(manager.LockList())
+	return backendxdp.ClearBlacklistMap(manager.StaticBlacklist())
 }
 
 // CleanupExpiredPinned removes expired entries from pinned blacklist, whitelist,
@@ -43,9 +43,9 @@ func CleanupExpiredPinned(pinPath string, log *zap.SugaredLogger) (ExpiredCleanu
 	}
 	defer manager.Close()
 
-	locked, _ := backendxdp.CleanupExpiredRules(manager.LockList(), false)
+	locked, _ := backendxdp.CleanupExpiredRules(manager.StaticBlacklist(), false)
 	whitelist, _ := backendxdp.CleanupExpiredRules(manager.Whitelist(), false)
-	ipPort, _ := backendxdp.CleanupExpiredRules(manager.IPPortRules(), false)
+	ipPort, _ := backendxdp.CleanupExpiredRules(manager.RuleMap(), false)
 
 	return ExpiredCleanupSummary{
 		Locked:    locked,

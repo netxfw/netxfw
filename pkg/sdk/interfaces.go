@@ -36,33 +36,20 @@ type Firewall interface {
 	BlockIP(cidr string, duration time.Duration) error
 }
 
-// LowLevelMapProvider exposes raw eBPF maps for internal migration code.
-// New integrations should use the feature-specific APIs below instead.
-type LowLevelMapProvider interface {
-	// Deprecated: use BlacklistAPI and SyncAPI methods instead.
-	LockList() *ebpf.Map
-	// Deprecated: use BlacklistAPI and SyncAPI methods instead.
-	DynLockList() *ebpf.Map
-	// Deprecated: use WhitelistAPI and SyncAPI methods instead.
-	Whitelist() *ebpf.Map
-	// Deprecated: use RuleAPI and SyncAPI methods instead.
-	IPPortRules() *ebpf.Map
-	// Deprecated: use RuleAPI and SyncAPI methods instead.
-	AllowedPorts() *ebpf.Map
-	// Deprecated: use RuleAPI and SecurityAPI methods instead.
-	RateLimitConfig() *ebpf.Map
-	// Deprecated: use SecurityAPI, StatsAPI and SyncAPI methods instead.
-	GlobalConfig() *ebpf.Map
-	// Deprecated: use ConntrackAPI methods instead.
-	ConntrackMap() *ebpf.Map
-}
-
 // ManagerInterface defines the low-level interface for XDP operations.
 // This provides direct access to BPF maps for legacy callers; prefer feature APIs.
 // ManagerInterface 定义了 XDP 操作的低级接口。
 // 低层 Map 访问仅为兼容保留；新代码优先使用功能 API。
 type ManagerInterface interface {
-	LowLevelMapProvider
+
+	// Map getters (new unified names)
+	StaticBlacklist() *ebpf.Map
+	DynamicBlacklist() *ebpf.Map
+	Whitelist() *ebpf.Map
+	RuleMap() *ebpf.Map
+	RatelimitMap() *ebpf.Map
+	GlobalConfig() *ebpf.Map
+	ConntrackMap() *ebpf.Map
 
 	// Sync Operations - 同步操作
 	SyncFromFiles(cfg *GlobalConfig, overwrite bool) error

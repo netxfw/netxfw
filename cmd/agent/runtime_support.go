@@ -129,12 +129,12 @@ func (systemServiceSupport) SyncConfigToRuntimeOverwrite(fw *sdk.SDK) error {
 	return app.SyncConfigToRuntimeOverwrite(fw)
 }
 
-func (systemServiceSupport) InitConfiguration(ctx context.Context) {
-	app.InitConfiguration(ctx)
+func (systemServiceSupport) InitConfiguration(ctx context.Context) error {
+	return app.InitConfiguration(ctx)
 }
 
-func (systemServiceSupport) TestConfiguration(ctx context.Context) {
-	app.TestConfiguration(ctx)
+func (systemServiceSupport) TestConfiguration(ctx context.Context) bool {
+	return app.TestConfiguration(ctx)
 }
 
 func (systemServiceSupport) RunDaemon(ctx context.Context) {

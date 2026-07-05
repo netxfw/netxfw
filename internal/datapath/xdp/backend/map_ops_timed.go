@@ -219,7 +219,7 @@ func (m *Manager) BlockDynamicTimed(ipStr string, ttl time.Duration) error {
 		expiry = uint64(time.Now().Add(ttl).UnixNano()) // nolint:gosec // G115: timestamp is always valid
 	}
 
-	mapObj := m.DynLockList()
+	mapObj := m.DynamicBlacklist()
 	if mapObj == nil {
 		return fmt.Errorf("dyn_lock_list not available")
 	}

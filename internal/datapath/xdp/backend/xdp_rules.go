@@ -26,7 +26,7 @@ func (m *Manager) BlockStatic(ipStr string, persistFile string) error {
 		return fmt.Errorf("invalid IP or CIDR %s: %w", ipStr, err)
 	}
 	cidr := ipNet.String()
-	mapObj := m.LockList()
+	mapObj := m.StaticBlacklist()
 	existing, err := collectStaticBlacklistCIDRs(mapObj)
 	if err != nil {
 		return fmt.Errorf("failed to read static blacklist: %v", err)
@@ -133,7 +133,7 @@ func (m *Manager) BlockDynamic(ipStr string, ttl time.Duration) error {
 		return fmt.Errorf("invalid IP address %s: %w", ipStr, err)
 	}
 
-	mapObj := m.DynLockList()
+	mapObj := m.DynamicBlacklist()
 	if mapObj == nil {
 		return fmt.Errorf("dyn_lock_list not available")
 	}
@@ -165,7 +165,7 @@ func (m *Manager) UnblockDynamic(ipStr string) error {
 		return fmt.Errorf("invalid IP address %s: %w", ipStr, err)
 	}
 
-	mapObj := m.DynLockList()
+	mapObj := m.DynamicBlacklist()
 	if mapObj == nil {
 		return fmt.Errorf("dyn_lock_list not available")
 	}

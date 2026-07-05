@@ -3,6 +3,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -10,21 +11,21 @@ import (
 )
 
 // InitConfiguration initializes the default configuration files if they don't exist.
-func InitConfiguration(ctx context.Context) {
+func InitConfiguration(ctx context.Context) error {
 	log := logger.Get(ctx)
 	configPath := GetConfigPath()
 	configDir := filepath.Dir(configPath)
 
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(configDir, 0750); err != nil {
-			log.Fatalf("[ERROR] Failed to create config directory %s: %v", configDir, err)
+			return fmt.Errorf("failed to create config directory %s: %w", configDir, err)
 		}
 		log.Infof("[DIR] Created config directory: %s", configDir)
 	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		if err := os.WriteFile(configPath, []byte(DefaultConfigTemplate()), 0600); err != nil {
-			log.Fatalf("[ERROR] Failed to create config file: %v", err)
+			return fmt.Errorf("failed to create config file: %w", err)
 		}
 		log.Infof("[FILE] Created default global config with comments: %s", configPath)
 	} else {
@@ -49,4 +50,5 @@ func InitConfiguration(ctx context.Context) {
 			}
 		}
 	}
+	return nil
 }
