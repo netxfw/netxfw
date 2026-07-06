@@ -569,7 +569,15 @@ func (m *MockManager) GetDropDetails() ([]DropDetailEntry, error) {
 	return []DropDetailEntry{}, nil
 }
 
+func (m *MockManager) GetTopDropDetails(maxResults int) ([]DropDetailEntry, error) {
+	return []DropDetailEntry{}, nil
+}
+
 func (m *MockManager) GetPassDetails() ([]DropDetailEntry, error) {
+	return []DropDetailEntry{}, nil
+}
+
+func (m *MockManager) GetTopPassDetails(maxResults int) ([]DropDetailEntry, error) {
 	return []DropDetailEntry{}, nil
 }
 

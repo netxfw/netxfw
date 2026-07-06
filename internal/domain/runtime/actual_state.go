@@ -98,11 +98,11 @@ func FromManager(mgr ports.RuntimeStateReader) ActualState {
 	if ports, err := mgr.ListAllowedPorts(); err == nil {
 		state.AllowedPortCount = knownInt(len(ports))
 	}
-	if rules, _, err := mgr.ListIPPortRules(false, 0, ""); err == nil {
-		state.IPPortRuleCount = knownInt(len(rules))
+	if count := countMapEntries(mgr.RuleMap()); count >= 0 {
+		state.IPPortRuleCount = knownInt(count)
 	}
-	if rules, _, err := mgr.ListRateLimitRules(0, ""); err == nil {
-		state.RateLimitRuleCount = knownInt(len(rules))
+	if count := countMapEntries(mgr.RatelimitMap()); count >= 0 {
+		state.RateLimitRuleCount = knownInt(count)
 	}
 
 	state.ConntrackCapacity = mapCapacity(mgr.ConntrackMap())
@@ -165,6 +165,26 @@ func mapCapacity(m *ebpf.Map) IntField {
 		return IntField{}
 	}
 	return knownInt(int(m.MaxEntries()))
+}
+
+// countMapEntries counts entries in a BPF map by iteration without allocating
+// per-entry structs. Returns -1 if the map is nil or iteration fails.
+// countMapEntries 通过迭代计数 BPF Map 中的条目，不分配每条目的结构体。
+// 如果 map 为 nil 或迭代失败，返回 -1。
+func countMapEntries(m *ebpf.Map) int {
+	if m == nil {
+		return -1
+	}
+	count := 0
+	var key, val []byte
+	iter := m.Iterate()
+	for iter.Next(&key, &val) {
+		count++
+	}
+	if err := iter.Err(); err != nil {
+		return -1
+	}
+	return count
 }
 
 func readBool(globalConfig lookupReader, idx uint32) BoolField {

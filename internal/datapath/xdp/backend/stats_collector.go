@@ -502,8 +502,11 @@ func (mc *MetricsCollector) collectProtocolStats() {
 	}
 
 	// Get drop and pass details for protocol analysis / 获取丢弃和通过详情以进行协议分析
-	dropDetails, _ := mc.manager.GetDropDetails()
-	passDetails, _ := mc.manager.GetPassDetails()
+	// Limit to 500 entries to avoid excessive memory usage on maps with many entries
+	// 限制为 500 条以避免在条目过多的 Map 上消耗过多内存
+	const maxProtocolStatsEntries = 500
+	dropDetails, _ := GetTopStatsFromMap(mc.manager.topDropMap, "top_drop_map", maxProtocolStatsEntries)
+	passDetails, _ := GetTopStatsFromMap(mc.manager.topPassMap, "top_pass_map", maxProtocolStatsEntries)
 
 	// Reset protocol stats / 重置协议统计
 	mc.ProtocolStats = ProtocolDistribution{

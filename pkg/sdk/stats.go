@@ -22,8 +22,16 @@ func (s *StatsImpl) GetDropDetails() ([]DropDetailEntry, error) {
 	return s.mgr.GetDropDetails()
 }
 
+func (s *StatsImpl) GetTopDropDetails(maxResults int) ([]DropDetailEntry, error) {
+	return s.mgr.GetTopDropDetails(maxResults)
+}
+
 func (s *StatsImpl) GetPassDetails() ([]DropDetailEntry, error) {
 	return s.mgr.GetPassDetails()
+}
+
+func (s *StatsImpl) GetTopPassDetails(maxResults int) ([]DropDetailEntry, error) {
+	return s.mgr.GetTopPassDetails(maxResults)
 }
 
 func (s *StatsImpl) GetLockedIPCount() (int, error) {

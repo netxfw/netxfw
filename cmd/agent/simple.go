@@ -69,8 +69,13 @@ Use -v for verbose output with detailed statistics`,
 				fmt.Fprintf(w, "[Allow] Whitelisted IPs: %s\n", commandRuntimeService.FormatNumberWithComma(uint64(whitelistCount)))
 			}
 
-			showCompactMapStatistics(w, s)
-			showTopBlockedIPs(w, s.Stats, drops)
+			showCompactMapStatistics(w, s, mapCountsSnapshot{
+				Blacklist:    blacklistCount,
+				DynBlacklist: int(dynBlacklistCount),
+				Whitelist:    whitelistCount,
+			})
+			showTopDropDetails(w, s.Stats, drops)
+			showTopPassDetails(w, s.Stats, pass)
 
 			fmt.Fprintln(w)
 			fmt.Fprintln(w, "[Tip] Use 'netxfw status -v' for detailed info")

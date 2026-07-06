@@ -23,6 +23,15 @@ func (m *Manager) GetDropDetails() ([]sdk.DropDetailEntry, error) {
 	return GetTopStatsFromMap(m.topDropMap, "top_drop_map", 0)
 }
 
+// GetTopDropDetails returns at most maxResults drop detail entries.
+// GetTopDropDetails 返回最多 maxResults 条拦截详情。
+func (m *Manager) GetTopDropDetails(maxResults int) ([]sdk.DropDetailEntry, error) {
+	if m.topDropMap == nil {
+		return nil, nil
+	}
+	return GetTopStatsFromMap(m.topDropMap, "top_drop_map", maxResults)
+}
+
 /**
  * GetPassDetails retrieves detailed pass statistics from the top_pass_map.
  * GetPassDetails 从 top_pass_map 获取详细的通过统计信息。
@@ -32,6 +41,15 @@ func (m *Manager) GetPassDetails() ([]sdk.DropDetailEntry, error) {
 		return nil, nil
 	}
 	return GetTopStatsFromMap(m.topPassMap, "top_pass_map", 0)
+}
+
+// GetTopPassDetails returns at most maxResults pass detail entries.
+// GetTopPassDetails 返回最多 maxResults 条放行详情。
+func (m *Manager) GetTopPassDetails(maxResults int) ([]sdk.DropDetailEntry, error) {
+	if m.topPassMap == nil {
+		return nil, nil
+	}
+	return GetTopStatsFromMap(m.topPassMap, "top_pass_map", maxResults)
 }
 
 /**

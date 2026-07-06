@@ -28,7 +28,21 @@ func (s *stubStats) GetDropDetails() ([]sdk.DropDetailEntry, error) {
 	return s.drops, nil
 }
 
+func (s *stubStats) GetTopDropDetails(maxResults int) ([]sdk.DropDetailEntry, error) {
+	if maxResults > 0 && len(s.drops) > maxResults {
+		return s.drops[:maxResults], nil
+	}
+	return s.drops, nil
+}
+
 func (s *stubStats) GetPassDetails() ([]sdk.DropDetailEntry, error) {
+	return s.passes, nil
+}
+
+func (s *stubStats) GetTopPassDetails(maxResults int) ([]sdk.DropDetailEntry, error) {
+	if maxResults > 0 && len(s.passes) > maxResults {
+		return s.passes[:maxResults], nil
+	}
 	return s.passes, nil
 }
 

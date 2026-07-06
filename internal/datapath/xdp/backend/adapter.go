@@ -223,8 +223,14 @@ func (a *Adapter) ListAllConntrackEntries() ([]ConntrackEntry, error) {
 func (a *Adapter) GetDropDetails() ([]DropDetailEntry, error) {
 	return a.manager.GetDropDetails()
 }
+func (a *Adapter) GetTopDropDetails(maxResults int) ([]DropDetailEntry, error) {
+	return a.manager.GetTopDropDetails(maxResults)
+}
 func (a *Adapter) GetPassDetails() ([]DropDetailEntry, error) {
 	return a.manager.GetPassDetails()
+}
+func (a *Adapter) GetTopPassDetails(maxResults int) ([]DropDetailEntry, error) {
+	return a.manager.GetTopPassDetails(maxResults)
 }
 func (a *Adapter) GetDropCount() (uint64, error) {
 	return a.manager.GetDropCount()

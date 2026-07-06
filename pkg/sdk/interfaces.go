@@ -51,6 +51,10 @@ type ManagerInterface interface {
 	GlobalConfig() *ebpf.Map
 	ConntrackMap() *ebpf.Map
 
+	// Bounded top-stats getters (limit memory usage)
+	GetTopDropDetails(maxResults int) ([]DropDetailEntry, error)
+	GetTopPassDetails(maxResults int) ([]DropDetailEntry, error)
+
 	// Sync Operations - 同步操作
 	SyncFromFiles(cfg *GlobalConfig, overwrite bool) error
 	SyncToFiles(cfg *GlobalConfig) error
@@ -294,9 +298,17 @@ type StatsAPI interface {
 	// GetDropDetails 返回详细的拦截统计信息。
 	GetDropDetails() ([]DropDetailEntry, error)
 
+	// GetTopDropDetails returns at most maxResults drop detail entries.
+	// GetTopDropDetails 返回最多 maxResults 条拦截详情。
+	GetTopDropDetails(maxResults int) ([]DropDetailEntry, error)
+
 	// GetPassDetails returns detailed pass statistics.
 	// GetPassDetails 返回详细的放行统计信息。
 	GetPassDetails() ([]DropDetailEntry, error)
+
+	// GetTopPassDetails returns at most maxResults pass detail entries.
+	// GetTopPassDetails 返回最多 maxResults 条放行详情。
+	GetTopPassDetails(maxResults int) ([]DropDetailEntry, error)
 
 	// GetLockedIPCount returns the number of currently locked IPs.
 	// GetLockedIPCount 返回当前被锁定的 IP 数量。

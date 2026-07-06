@@ -384,7 +384,13 @@ func (m *MockManager) ListAllConntrackEntries() ([]ConntrackEntry, error) {
 
 // Stats
 func (m *MockManager) GetDropDetails() ([]DropDetailEntry, error) { return nil, nil }
+func (m *MockManager) GetTopDropDetails(maxResults int) ([]DropDetailEntry, error) {
+	return nil, nil
+}
 func (m *MockManager) GetPassDetails() ([]DropDetailEntry, error) { return nil, nil }
+func (m *MockManager) GetTopPassDetails(maxResults int) ([]DropDetailEntry, error) {
+	return nil, nil
+}
 func (m *MockManager) GetDropCount() (uint64, error)              { return 0, nil }
 func (m *MockManager) GetPassCount() (uint64, error)              { return 0, nil }
 func (m *MockManager) GetLockedIPCount() (int, error) {

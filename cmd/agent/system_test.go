@@ -33,8 +33,18 @@ func (m *MockStatsAPI) GetDropDetails() ([]sdk.DropDetailEntry, error) {
 	return args.Get(0).([]sdk.DropDetailEntry), args.Error(1)
 }
 
+func (m *MockStatsAPI) GetTopDropDetails(maxResults int) ([]sdk.DropDetailEntry, error) {
+	args := m.Called(maxResults)
+	return args.Get(0).([]sdk.DropDetailEntry), args.Error(1)
+}
+
 func (m *MockStatsAPI) GetPassDetails() ([]sdk.DropDetailEntry, error) {
 	args := m.Called()
+	return args.Get(0).([]sdk.DropDetailEntry), args.Error(1)
+}
+
+func (m *MockStatsAPI) GetTopPassDetails(maxResults int) ([]sdk.DropDetailEntry, error) {
+	args := m.Called(maxResults)
 	return args.Get(0).([]sdk.DropDetailEntry), args.Error(1)
 }
 

@@ -13,7 +13,9 @@ import (
 // StatsAPI 统计操作接口（用于测试和解耦）
 type StatsAPI interface {
 	GetDropDetails() ([]sdk.DropDetailEntry, error)
+	GetTopDropDetails(maxResults int) ([]sdk.DropDetailEntry, error)
 	GetPassDetails() ([]sdk.DropDetailEntry, error)
+	GetTopPassDetails(maxResults int) ([]sdk.DropDetailEntry, error)
 }
 
 // Numeric is a type constraint for numeric types that can be converted to float64.

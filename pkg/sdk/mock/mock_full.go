@@ -327,7 +327,9 @@ func SetupMockStats(m *sdk.SDK) *MockStatsAPI {
 		ms.On("GetWhitelistCount").Return(0, nil)
 		ms.On("GetConntrackCount").Return(0, nil)
 		ms.On("GetDropDetails").Return([]sdk.DropDetailEntry{}, nil)
+		ms.On("GetTopDropDetails", mock.Anything).Return([]sdk.DropDetailEntry{}, nil)
 		ms.On("GetPassDetails").Return([]sdk.DropDetailEntry{}, nil)
+		ms.On("GetTopPassDetails", mock.Anything).Return([]sdk.DropDetailEntry{}, nil)
 		ms.On("GetGlobalStats").Return(&sdk.GlobalStats{}, nil)
 		return ms
 	}

@@ -3,7 +3,6 @@ package agent
 import (
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"time"
 
@@ -186,24 +185,43 @@ func renderUsageBar(current, maximum int, width int) string {
 	return fmt.Sprintf("%s %5.1f%% %s", bar.String(), usage, status)
 }
 
-// showCompactMapStatistics displays compact map statistics in single line format
-// showCompactMapStatistics 以紧凑格式显示 Map 统计
-func showCompactMapStatistics(w io.Writer, s *sdk.SDK) {
+// mapCountsSnapshot holds pre-computed map entry counts to avoid redundant BPF map iterations.
+// mapCountsSnapshot 保存预计算的 Map 条目计数，避免重复遍历 BPF Map。
+type mapCountsSnapshot struct {
+	Blacklist    int
+	DynBlacklist int
+	Whitelist    int
+	IPPortRules  int
+	RateLimits   int
+}
+
+// showCompactMapStatistics displays compact map statistics using pre-computed counts.
+// Uses limit=1 for rule listing to avoid loading all rules into memory just for counting.
+// showCompactMapStatistics 使用预计算计数显示紧凑的 Map 统计。
+// 规则列表使用 limit=1 以避免仅为计数而加载所有规则到内存。
+func showCompactMapStatistics(w io.Writer, s *sdk.SDK, counts mapCountsSnapshot) {
 	mapCap := getMapCapacity()
 
-	blacklistCount, _ := s.Stats.GetLockedIPCount()
-	whitelistCount, _ := s.Stats.GetWhitelistCount()
-	dynBlacklistCount, _ := s.Stats.GetDynamicLockedIPCount()
-	rateLimitRules, _, _ := s.Rule.ListRateLimitRules(0, "")
-	ipPortRules, _, _ := s.Rule.List(false, 0, "")
+	// Use limit=1: the function returns total count via second return value
+	// while only allocating at most 1 entry in the slice
+	// 使用 limit=1：函数通过第二个返回值返回总数，切片最多只分配 1 个条目
+	_, ipPortCount, _ := s.Rule.List(false, 1, "")
+	_, rateLimitCount, _ := s.Rule.ListRateLimitRules(1, "")
+
+	if ipPortCount > 0 {
+		counts.IPPortRules = ipPortCount
+	}
+	if rateLimitCount > 0 {
+		counts.RateLimits = rateLimitCount
+	}
 
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[DATA] Map Usage:")
-	fmt.Fprintf(w, "   %-16s %s\n", "[LOCK] Blacklist:", renderMiniBar(blacklistCount, mapCap.Blacklist))
-	fmt.Fprintf(w, "   %-16s %s\n", "[DynLOCK] Dyn:", renderMiniBar(int(dynBlacklistCount), mapCap.DynBlacklist))
-	fmt.Fprintf(w, "   %-16s %s\n", "[WHITE] Whitelist:", renderMiniBar(whitelistCount, mapCap.Whitelist))
-	fmt.Fprintf(w, "   %-16s %s\n", "[IPPort] IP+Port:", renderMiniBar(len(ipPortRules), mapCap.IPPortRules))
-	fmt.Fprintf(w, "   %-16s %s\n", "[Limit] RateLimit:", renderMiniBar(len(rateLimitRules), mapCap.RateLimits))
+	fmt.Fprintf(w, "   %-16s %s\n", "[LOCK] Blacklist:", renderMiniBar(counts.Blacklist, mapCap.Blacklist))
+	fmt.Fprintf(w, "   %-16s %s\n", "[DynLOCK] Dyn:", renderMiniBar(counts.DynBlacklist, mapCap.DynBlacklist))
+	fmt.Fprintf(w, "   %-16s %s\n", "[WHITE] Whitelist:", renderMiniBar(counts.Whitelist, mapCap.Whitelist))
+	fmt.Fprintf(w, "   %-16s %s\n", "[IPPort] IP+Port:", renderMiniBar(counts.IPPortRules, mapCap.IPPortRules))
+	fmt.Fprintf(w, "   %-16s %s\n", "[Limit] RateLimit:", renderMiniBar(counts.RateLimits, mapCap.RateLimits))
 }
 
 // renderMiniBar renders a mini progress bar for compact display
@@ -231,6 +249,74 @@ func renderMiniBar(current, maximum int) string {
 	return fmt.Sprintf("[%s] %d/%d", bar.String(), current, maximum)
 }
 
+// showTopDropDetails displays top N drop details with bounded memory usage.
+// showTopDropDetails 以有限的内存使用量显示 Top N 拦截详情。
+func showTopDropDetails(w io.Writer, s StatsAPI, drops uint64) {
+	if drops == 0 {
+		return
+	}
+
+	topN := getTopNFromConfig()
+	dropDetails, err := s.GetTopDropDetails(topN)
+	if err != nil || len(dropDetails) == 0 {
+		return
+	}
+
+	wrappedDetails := make([]DropDetailEntryWrapper, len(dropDetails))
+	for i, d := range dropDetails {
+		wrappedDetails[i] = DropDetailEntryWrapper{d}
+	}
+
+	trafficStats, _ := systemQueryService.LoadTrafficStats()
+	var currentDropPPS uint64
+	if trafficStats.LastUpdateTime.After(time.Time{}) {
+		currentDropPPS = trafficStats.CurrentDropPPS
+	}
+
+	showDetailStatistics(w, wrappedDetails, detailStatsConfig{
+		title:      "[BLOCK] Drop Statistics:",
+		subTitle:   "[BLOCK] Top Drops by Reason & Source:",
+		reasonFunc: dropReasonToString,
+		totalCount: drops,
+		currentPPS: currentDropPPS,
+		showRate:   true,
+	})
+}
+
+// showTopPassDetails displays top N pass details with bounded memory usage.
+// showTopPassDetails 以有限的内存使用量显示 Top N 放行详情。
+func showTopPassDetails(w io.Writer, s StatsAPI, pass uint64) {
+	if pass == 0 {
+		return
+	}
+
+	topN := getTopNFromConfig()
+	passDetails, err := s.GetTopPassDetails(topN)
+	if err != nil || len(passDetails) == 0 {
+		return
+	}
+
+	wrappedDetails := make([]PassDetailEntryWrapper, len(passDetails))
+	for i, d := range passDetails {
+		wrappedDetails[i] = PassDetailEntryWrapper{d}
+	}
+
+	trafficStats, _ := systemQueryService.LoadTrafficStats()
+	var currentPassPPS uint64
+	if trafficStats.LastUpdateTime.After(time.Time{}) {
+		currentPassPPS = trafficStats.CurrentPassPPS
+	}
+
+	showDetailStatistics(w, wrappedDetails, detailStatsConfig{
+		title:      "[OK] Pass Statistics:",
+		subTitle:   "[OK] Top Allowed by Reason & Source:",
+		reasonFunc: passReasonToString,
+		totalCount: pass,
+		currentPPS: currentPassPPS,
+		showRate:   true,
+	})
+}
+
 // showTopBlockedIPs displays top blocked attacker IPs
 // showTopBlockedIPs 显示被拦截最多的攻击 IP
 func showTopBlockedIPs(w io.Writer, s StatsAPI, drops uint64) {
@@ -243,35 +329,49 @@ func showTopBlockedIPs(w io.Writer, s StatsAPI, drops uint64) {
 		return
 	}
 
+	// Aggregate counts by source IP, then find top 3 without full sort
+	// 按源 IP 聚合计数，然后不求全序直接找 Top 3
 	ipCounts := make(map[string]uint64)
 	for _, d := range dropDetails {
 		ipCounts[d.SrcIP] += d.Count
 	}
 
-	type ipCount struct {
+	// Track top 3 in a single pass — avoids allocating and sorting a full slice
+	// 单次遍历跟踪 Top 3 — 避免分配和排序完整切片
+	const maxShow = 3
+	var top [maxShow]struct {
 		ip    string
 		count uint64
 	}
-	sorted := make([]ipCount, 0, len(ipCounts))
 	for ip, count := range ipCounts {
-		sorted = append(sorted, ipCount{ip, count})
-	}
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].count > sorted[j].count
-	})
-
-	if len(sorted) > 0 {
-		fmt.Fprintln(w)
-		fmt.Fprintln(w, "[ALERT] Top Blocked Attackers:")
-		maxShow := 3
-		if len(sorted) < maxShow {
-			maxShow = len(sorted)
-		}
 		for i := 0; i < maxShow; i++ {
-			percent := float64(sorted[i].count) / float64(drops) * 100
-			fmt.Fprintf(w, "   %d. %s - %s drops (%.1f%%)\n", i+1, sorted[i].ip,
-				systemQueryService.FormatNumberWithComma(sorted[i].count), percent)
+			if count > top[i].count {
+				// Shift down and insert
+				for j := maxShow - 1; j > i; j-- {
+					top[j] = top[j-1]
+				}
+				top[i] = struct {
+					ip    string
+					count uint64
+				}{ip, count}
+				break
+			}
 		}
+	}
+
+	if top[0].count == 0 {
+		return
+	}
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[ALERT] Top Blocked Attackers:")
+	for i := 0; i < maxShow; i++ {
+		if top[i].count == 0 {
+			break
+		}
+		percent := float64(top[i].count) / float64(drops) * 100
+		fmt.Fprintf(w, "   %d. %s - %s drops (%.1f%%)\n", i+1, top[i].ip,
+			systemQueryService.FormatNumberWithComma(top[i].count), percent)
 	}
 }
 
@@ -290,4 +390,26 @@ func showConclusionStatistics(w io.Writer, fw *sdk.SDK, s StatsAPI) {
 	fmt.Fprintf(w, "   └─ Whitelisted IPs: %d\n", whitelistCount)
 
 	showTopBlockedIPs(w, s, 0)
+}
+
+// showConclusionStatisticsFromMetrics displays summary statistics reusing
+// already-loaded metrics data, avoiding redundant BPF map iterations.
+// showConclusionStatisticsFromMetrics 复用已加载的指标数据显示汇总统计，
+// 避免重复遍历 BPF Map。
+func showConclusionStatisticsFromMetrics(w io.Writer, metrics *MetricsData, metricsErr error) {
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[SUMMARY] System Summary:")
+
+	if metricsErr != nil || metrics == nil {
+		fmt.Fprintln(w, "   └─ Statistics unavailable")
+		return
+	}
+
+	blacklist := metrics.MapUsage.Maps["static_blacklist"].Entries
+	dynBlacklist := metrics.MapUsage.Maps["dynamic_blacklist"].Entries
+	whitelist := metrics.MapUsage.Maps["whitelist"].Entries
+
+	fmt.Fprintf(w, "   ├─ Blacklisted IPs: %d (static) + %d (dynamic) = %d total\n",
+		blacklist, dynBlacklist, blacklist+dynBlacklist)
+	fmt.Fprintf(w, "   └─ Whitelisted IPs: %d\n", whitelist)
 }
