@@ -223,7 +223,7 @@ static __always_inline int handle_ipv6(struct xdp_md *ctx, void *data_end, void 
     // 8. 返回流量
     if (unlikely(cached_allow_return == 1)) {
         if (next_proto == IPPROTO_TCP) {
-            struct tcphdr *tcp = (void *)ip6 + sizeof(*ip6);
+            struct tcphdr *tcp = cur_header;
             if ((void *)tcp + sizeof(*tcp) <= data_end && tcp->ack) {
                 update_pass_stats_with_reason(PASS_REASON_RETURN, next_proto, &ip6->saddr, dest_port);
                 return XDP_PASS;

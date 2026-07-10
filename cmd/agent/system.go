@@ -89,16 +89,20 @@ func init() {
 	SystemCmd.AddCommand(systemUpdateCmd)
 
 	systemLoadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to attach XDP to")
+	systemLoadCmd.Flags().StringP("config", "c", "", "Configuration file to use")
 	SystemCmd.AddCommand(systemLoadCmd)
 
 	systemAttachCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to attach XDP to")
+	systemAttachCmd.Flags().StringP("config", "c", "", "Configuration file to use")
 	systemAttachCmd.Flags().StringVarP(&xdpMode, "mode", "m", "skb", "XDP attach mode: offload, drv, skb")
 	SystemCmd.AddCommand(systemAttachCmd)
 
 	systemUnloadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to detach XDP from")
+	systemUnloadCmd.Flags().StringP("config", "c", "", "Configuration file to use")
 	SystemCmd.AddCommand(systemUnloadCmd)
 
 	systemReloadCmd.Flags().StringSliceVarP(&interfaces, "interface", "i", nil, "Interfaces to attach XDP to")
+	systemReloadCmd.Flags().StringP("config", "c", "", "Configuration file to use")
 	SystemCmd.AddCommand(systemReloadCmd)
 	SystemCmd.AddCommand(systemCheckCmd)
 

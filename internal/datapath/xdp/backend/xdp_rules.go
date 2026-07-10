@@ -640,6 +640,44 @@ func ClearIPPortMap(m *ebpf.Map) error {
 }
 
 /**
+ * ClearAllowedPortsFromMap clears only port-only rules from the rule map,
+ * preserving IP+Port specific rules.
+ * Port-only rules have Prefixlen == 32 (::/0 with fix) or
+ * Prefixlen == 96 with IPv4-mapped prefix (::ffff:0.0.0.0/0 without fix).
+ * ClearAllowedPortsFromMap 从 rule_map 中仅清除端口级规则，
+ * 保留 IP+端口级别规则。
+ * 仅端口规则的 Prefixlen == 32（修复后的 ::/0）或
+ * Prefixlen == 96 且为 IPv4 映射前缀（未修复的 ::ffff:0.0.0.0/0）。
+ */
+func ClearAllowedPortsFromMap(m *ebpf.Map) error {
+	if m == nil {
+		return nil
+	}
+	var keys []NetXfwLpmIpPortKey
+	var key NetXfwLpmIpPortKey
+	var val NetXfwRuleValue
+	iter := m.Iterate()
+	for iter.Next(&key, &val) {
+		// Check if this is a port-only rule (IP prefix = 0)
+		// 检查是否为仅端口规则（IP 前缀 = 0）
+		// Prefixlen 32 means only Port+Pad are matched (::/0 with fix).
+		// Prefixlen 96 covers older IPv4 rules (::ffff:0.0.0.0/0 without fix).
+		if key.Prefixlen == 32 || (key.Prefixlen == 96 &&
+			key.Ip.In6U.U6Addr8[10] == 0xff && key.Ip.In6U.U6Addr8[11] == 0xff) {
+			keys = append(keys, key)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return err
+	}
+
+	for _, k := range keys {
+		_ = m.Delete(k)
+	}
+	return nil
+}
+
+/**
  * ClearPortMap clears the allowed ports map.
  */
 func ClearPortMap(m *ebpf.Map) error {

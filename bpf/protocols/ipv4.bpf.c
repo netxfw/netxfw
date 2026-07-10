@@ -196,7 +196,7 @@ static __always_inline int handle_ipv4(struct xdp_md *ctx, void *data_end, void 
     // 8. 返回流量
     if (unlikely(cached_allow_return == 1)) {
         if (ip->protocol == IPPROTO_TCP) {
-            struct tcphdr *tcp = (void *)ip + sizeof(*ip);
+            struct tcphdr *tcp = (void *)ip + ip_len;
             if ((void *)tcp + sizeof(*tcp) <= data_end && tcp->ack) {
                 update_pass_stats_with_reason(PASS_REASON_RETURN, ip->protocol, &src_ip6, dest_port);
                 return XDP_PASS;

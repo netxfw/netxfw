@@ -30,6 +30,8 @@ Display Order / 显示顺序:
   9. Summary Statistics / 总结统计
 */
 
+// showStatus displays the full system status for 'netxfw system status' command.
+// showStatus 显示 'netxfw system status' 命令的完整系统状态。
 func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
 	_ = ctx
 	fmt.Fprintln(w, "[OK] XDP Program Status: Loaded and Running")
@@ -61,6 +63,8 @@ func showStatus(ctx context.Context, w io.Writer, s *sdk.SDK) error {
 	return nil
 }
 
+// loadPluginStatusSnapshot loads the plugin status snapshot from the status snapshot or config.
+// loadPluginStatusSnapshot 从状态快照或配置中加载插件状态快照。
 func loadPluginStatusSnapshot(ctx context.Context, snapshot StatusSnapshot, snapshotErr error) (PluginStatusSnapshot, error) {
 	var sdkCfg *sdk.GlobalConfig
 	if snapshot.Config != nil && snapshotErr == nil {
@@ -75,6 +79,8 @@ func loadPluginStatusSnapshot(ctx context.Context, snapshot StatusSnapshot, snap
 	return systemQueryService.LoadPluginStatus(ctx, sdkCfg)
 }
 
+// showPolicyConfiguration displays policy configuration from the snapshot.
+// showPolicyConfiguration 从快照显示策略配置。
 func showPolicyConfiguration(w io.Writer, snapshot StatusSnapshot, snapshotErr error) {
 	if snapshotErr != nil || snapshot.Config == nil {
 		return
@@ -108,6 +114,8 @@ func showPolicyConfiguration(w io.Writer, snapshot StatusSnapshot, snapshotErr e
 	printWebConfig(w, ports.ConfigToSDK(cfg))
 }
 
+// showAttachedInterfaces displays the list of attached network interfaces and their XDP programs.
+// showAttachedInterfaces 显示已附加的网络接口及其 XDP 程序列表。
 func showAttachedInterfaces(w io.Writer) {
 	fmt.Fprintln(w, "\n[LINK] Attached Interfaces:")
 	ifaceInfos, err := systemQueryService.GetAttachedInterfaceInfos()
@@ -125,6 +133,8 @@ func showAttachedInterfaces(w io.Writer) {
 	}
 }
 
+// showPluginStatus displays runtime and datapath plugin status and health.
+// showPluginStatus 显示运行时和数据面插件的状态与健康状况。
 func showPluginStatus(w io.Writer, snapshot PluginStatusSnapshot, health PluginHealthSnapshot, snapshotErr error) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[PLUGIN] Plugin Status:")
@@ -169,6 +179,8 @@ func showPluginStatus(w io.Writer, snapshot PluginStatusSnapshot, health PluginH
 	}
 }
 
+// showTrafficMetrics displays real-time traffic rate and byte rate from the daemon.
+// showTrafficMetrics 从守护进程显示实时流量速率和字节速率。
 func showTrafficMetrics(w io.Writer, pass, drops uint64) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[RATE] Traffic Rate:")
@@ -197,6 +209,8 @@ func showTrafficMetrics(w io.Writer, pass, drops uint64) {
 	fmt.Fprintf(w, "   └─ Drop PPS: %s pkt/s (%.2f%%)\n", systemQueryService.FormatNumberWithComma(trafficStats.CurrentDropPPS), dropRate)
 }
 
+// showConntrackHealth displays conntrack table usage and protocol distribution from SDK.
+// showConntrackHealth 从 SDK 显示 conntrack 表使用情况和协议分布。
 func showConntrackHealth(w io.Writer, s *sdk.SDK) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[TRACK]  Conntrack Health:")
@@ -232,10 +246,14 @@ func showConntrackHealth(w io.Writer, s *sdk.SDK) {
 	fmt.Fprintf(w, "   └─ %s\n", getConntrackHealthStatus(uint64(count), uint64(maxVal), hasRate, trafficStats))
 }
 
+// getConntrackMax returns the maximum conntrack table entries from the system.
+// getConntrackMax 从系统获取 conntrack 表的最大条目数。
 func getConntrackMax() int {
 	return systemQueryService.GetConntrackMax()
 }
 
+// getConntrackProtocolStats counts TCP/UDP/ICMP/Other connections from conntrack entries.
+// getConntrackProtocolStats 从 conntrack 条目中统计 TCP/UDP/ICMP/Other 连接数。
 func getConntrackProtocolStats(entries []sdk.ConntrackEntry) (tcp, udp, icmp, other int) {
 	for _, e := range entries {
 		switch e.Protocol {
@@ -252,6 +270,8 @@ func getConntrackProtocolStats(entries []sdk.ConntrackEntry) (tcp, udp, icmp, ot
 	return
 }
 
+// getConntrackHealthStatus returns a human-readable health status string based on usage and eviction rate.
+// getConntrackHealthStatus 根据使用率和驱逐速率返回人类可读的健康状态字符串。
 func getConntrackHealthStatus(count, maxVal uint64, hasRate bool, stats TrafficStats) string {
 	usage := calculatePercentGeneric(count, maxVal)
 	critical, high, _ := getThresholdsFromConfig()
@@ -270,6 +290,8 @@ func getConntrackHealthStatus(count, maxVal uint64, hasRate bool, stats TrafficS
 	}
 }
 
+// showProtocolDistribution displays protocol distribution from raw drop/pass details via SDK.
+// showProtocolDistribution 通过 SDK 从原始丢弃/通过详情中显示协议分布。
 func showProtocolDistribution(w io.Writer, s StatsAPI, pass, drops uint64) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "[PROTO] Protocol Distribution:")

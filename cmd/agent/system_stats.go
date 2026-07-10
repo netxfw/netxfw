@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	datapathstats "github.com/netxfw/netxfw/internal/datapath/xdp/stats"
+	domainconfig "github.com/netxfw/netxfw/internal/domain/config"
 	sdk "github.com/netxfw/netxfw/pkg/sdk"
 )
 
@@ -54,7 +54,8 @@ func getMapCapacity() mapCapacity {
 	return capacity
 }
 
-// showDropStatistics 显示带百分比的丢弃统计
+// showDropStatistics displays drop statistics with percentages.
+// showDropStatistics 显示带百分比的丢弃统计。
 func showDropStatistics(w io.Writer, s StatsAPI, drops, pass uint64) {
 	trafficStats, err := systemQueryService.LoadTrafficStats()
 	var currentDropPPS uint64

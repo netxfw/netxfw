@@ -74,8 +74,7 @@ Use -v for verbose output with detailed statistics`,
 				DynBlacklist: int(dynBlacklistCount),
 				Whitelist:    whitelistCount,
 			})
-			showTopDropDetails(w, s.Stats, drops)
-			showTopPassDetails(w, s.Stats, pass)
+			// showTopBlockedIPs(w, s.Stats, drops)
 
 			fmt.Fprintln(w)
 			fmt.Fprintln(w, "[Tip] Use 'netxfw status -v' for detailed info")

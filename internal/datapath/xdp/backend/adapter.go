@@ -175,11 +175,9 @@ func (a *Adapter) RemoveAllowedPort(port uint16) error {
 	return a.manager.RemovePort(port)
 }
 func (a *Adapter) ClearAllowedPorts() error {
-	// Note: Clearing allowed ports now requires clearing port-only rules from ruleMap
-	// 注意：清除允许端口现在需要从 ruleMap 中清除仅端口规则
-	// This is a no-op for now as it would require iterating over ruleMap
-	// 目前这是空操作，因为需要遍历 ruleMap
-	return nil
+	// Clear only port-only rules from ruleMap, preserving IP+Port specific rules.
+	// 仅从 ruleMap 中清除端口级规则，保留 IP+端口级别规则。
+	return ClearAllowedPortsFromMap(a.manager.RuleMap())
 }
 func (a *Adapter) ListAllowedPorts() ([]uint16, error) {
 	return a.manager.ListAllowedPorts()
@@ -202,11 +200,7 @@ func (a *Adapter) RemoveRateLimitRule(cidr string) error {
 	return a.manager.RemoveRateLimitRule(ipNet)
 }
 func (a *Adapter) ClearRateLimitRules() error {
-	// Note: Clearing rate limit rules now requires clearing from ratelimitMap
-	// 注意：清除速率限制规则现在需要从 ratelimitMap 中清除
-	// This is a no-op for now as it would require iterating over the map
-	// 目前这是空操作，因为需要遍历 Map
-	return nil
+	return ClearRateLimitMap(a.manager.RatelimitMap())
 }
 func (a *Adapter) ListRateLimitRules(limit int, search string) (map[string]RateLimitConf, int, error) {
 	return a.manager.ListRateLimitRules(limit, search)
