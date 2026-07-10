@@ -222,6 +222,15 @@ func (m *Manager) GetWhitelistCount() (uint64, error) {
 }
 
 /**
+ * GetRuleMapCount returns the total number of entries in the rule map (IP+Port rules and allowed ports).
+ * GetRuleMapCount 返回规则 Map（IP+端口规则和允许端口）中的条目总数。
+ */
+func (m *Manager) GetRuleMapCount() (uint64, error) {
+	count, err := GetMapCount(m.ruleMap)
+	return uint64(count), err // #nosec G115 // count is always valid
+}
+
+/**
  * GetConntrackCount returns the total number of entries in the conntrack map.
  * GetConntrackCount 返回连接跟踪 Map 中的条目总数。
  */

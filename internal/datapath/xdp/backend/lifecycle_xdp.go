@@ -108,6 +108,7 @@ func (m *Manager) Attach(interfaces []string) error {
 				if err == nil {
 					// Pin the link to filesystem to make it persistent after process exit
 					// 将链接固定到文件系统，使其在进程退出后保持持久
+					_ = l.Unpin()           // Unpin clears internal state if already pinned
 					_ = os.Remove(linkPath) // Remove old link pin if exists / 如果存在旧的链接固定点，则将其删除
 					if pinErr := l.Pin(linkPath); pinErr != nil {
 						m.logger.Warnf("[WARN]  Failed to pin link on %s: %v", name, pinErr)
@@ -149,6 +150,7 @@ func (m *Manager) Attach(interfaces []string) error {
 				Attach:    ebpf.AttachTCXEgress,
 			})
 			if attachErr == nil {
+				_ = tcLink.Unpin()      // Unpin clears internal state if already pinned
 				_ = os.Remove(tcLinkPath)
 				if pinErr := tcLink.Pin(tcLinkPath); pinErr != nil {
 					m.logger.Warnf("[WARN]  Failed to pin TC link on %s: %v", name, pinErr)
@@ -350,7 +352,8 @@ func (m *Manager) Pin(path string) error {
 			return
 		}
 		p := path + "/" + name
-		_ = os.Remove(p) // Ensure old pin is removed / 确保旧的固定点被移除
+		_ = ebpfMap.Unpin() // Unpin clears internal state if already pinned
+		_ = os.Remove(p)    // Ensure old pin is removed / 确保旧的固定点被移除
 		if err := ebpfMap.Pin(p); err != nil {
 			m.logger.Warnf("[WARN]  Failed to pin %s: %v", name, err)
 		} else {

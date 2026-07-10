@@ -59,6 +59,7 @@ func AttachWithMode(ctx context.Context, pinPath string, interfaces []string, mo
 		}
 
 		linkPath := filepath.Join(pinPath, fmt.Sprintf("link_%s", name))
+		_ = l.Unpin()           // Unpin clears internal state if already pinned
 		_ = os.Remove(linkPath)
 		if pinErr := l.Pin(linkPath); pinErr != nil {
 			log.Warnf("[WARN]  Failed to pin link on %s: %v", name, pinErr)

@@ -327,6 +327,10 @@ func (m *Manager) SyncFromFiles(cfg *sdk.GlobalConfig, overwrite bool) error {
 	m.logger.Infof("[SYNC] Syncing global config to BPF maps...")
 	m.syncGlobalConfig(cfg)
 
+	// 1. Sync Whitelist / 1. 同步白名单
+	m.logger.Infof("[CONFIG] Syncing whitelist: %v (count: %d)", cfg.Base.Whitelist, len(cfg.Base.Whitelist))
+	m.syncWhitelistFromConfig(cfg.Base.Whitelist)
+
 	// If no lock_list_file configured, skip file loading but sync other config
 	// 如果没有配置 lock_list_file，跳过文件加载但同步其他配置
 	if cfg.Base.LockListFile == "" {
@@ -354,10 +358,7 @@ func (m *Manager) SyncFromFiles(cfg *sdk.GlobalConfig, overwrite bool) error {
 		}
 	}
 
-	// 1. Sync Whitelist / 1. 同步白名单
-	m.logger.Infof("[CONFIG] Syncing whitelist: %v (count: %d)", cfg.Base.Whitelist, len(cfg.Base.Whitelist))
-	m.syncWhitelistFromConfig(cfg.Base.Whitelist)
-
+	// 2. Sync Blacklist / 2. 同步黑名单 (Placeholder comment for alignment)
 	var records []binary.Record
 	if loadedFromBinary {
 		// If we loaded from binary, we still need records for UpdateBinaryCache
@@ -373,10 +374,11 @@ func (m *Manager) SyncFromFiles(cfg *sdk.GlobalConfig, overwrite bool) error {
 		var err error
 		records, err = m.parseLockListFile(cfg.Base.LockListFile)
 		if err != nil {
-			return err
+			m.logger.Warnf("[WARN]  Failed to parse lock list file: %v (continuing with empty blacklist)", err)
+		} else {
+			// Log that we're syncing from text file
+			m.logger.Infof("[RELOAD] Syncing rules from %s and config to BPF maps...", cfg.Base.LockListFile)
 		}
-		// Log that we're syncing from text file
-		m.logger.Infof("[RELOAD] Syncing rules from %s and config to BPF maps...", cfg.Base.LockListFile)
 	}
 
 	// 3. Sync Blacklist / 3. 同步黑名单

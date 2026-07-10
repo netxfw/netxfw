@@ -60,6 +60,19 @@ func InstallXDP(ctx context.Context, cliInterfaces []string) error {
 	}
 	manager := result.Manager
 
+	// SAFETY CHECK: If default_deny is true, and both whitelist and rule_map are empty, it's a lock-out scenario.
+	// 安全检查：如果启用了默认拒绝，且白名单和规则Map都为空，这会导致直接断网。自动卸载 XDP 以进行保护。
+	if globalCfg.Base.DefaultDeny {
+		wlCount, _ := manager.GetWhitelistCount()
+		rmCount, _ := manager.GetRuleMapCount()
+		log.Infof("[DEBUG] Safety Check: whitelist count = %d, ruleMap count = %d", wlCount, rmCount)
+		if wlCount == 0 && rmCount == 0 {
+			log.Warnf("[WARN]  SAFETY CHECK FAILED: default_deny is true, but no whitelist or allowed_ports found. Detaching XDP to prevent network lock-out.")
+			_ = RemoveXDP(ctx, cliInterfaces)
+			return fmt.Errorf("safety check failed: BPF map is empty while default_deny is enabled. XDP detached automatically to prevent network disconnect")
+		}
+	}
+
 	err = loadBPFPlugins(manager, ports.ConfigFromSDK(globalCfg), log)
 	if err != nil {
 		log.Warnf("[WARN]  Failed to load BPF plugins: %v (continuing anyway)", err)
@@ -111,7 +124,27 @@ func ReloadXDP(ctx context.Context, cliInterfaces []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load global config: %v", err)
 	}
-	return datapathlifecycle.Reload(ctx, GetPinPath(), cliInterfaces, globalCfg)
+	err = datapathlifecycle.Reload(ctx, GetPinPath(), cliInterfaces, globalCfg)
+	if err != nil {
+		return err
+	}
+
+	// SAFETY CHECK
+	if globalCfg.Base.DefaultDeny {
+		log := logger.Get(ctx)
+		manager, err := datapathprograms.OpenPinnedManager(GetPinPath(), log)
+		if err == nil {
+			wlCount, _ := manager.GetWhitelistCount()
+			rmCount, _ := manager.GetRuleMapCount()
+			manager.Close()
+			if wlCount == 0 && rmCount == 0 {
+				log.Warnf("[WARN]  SAFETY CHECK FAILED: default_deny is true, but no whitelist or allowed_ports found. Detaching XDP to prevent network lock-out.")
+				_ = RemoveXDP(ctx, cliInterfaces)
+				return fmt.Errorf("safety check failed: BPF map is empty while default_deny is enabled. XDP detached automatically to prevent network disconnect")
+			}
+		}
+	}
+	return nil
 }
 
 /**
@@ -127,7 +160,27 @@ func AttachXDPWithMode(ctx context.Context, interfaces []string, mode string) ([
 		return nil, fmt.Errorf("config is nil after loading")
 	}
 
-	return datapathlifecycle.AttachWithMode(ctx, GetPinPath(), interfaces, mode, globalCfg, logger.Get(ctx))
+	res, err := datapathlifecycle.AttachWithMode(ctx, GetPinPath(), interfaces, mode, globalCfg, logger.Get(ctx))
+	if err != nil {
+		return res, err
+	}
+
+	// SAFETY CHECK
+	if globalCfg.Base.DefaultDeny {
+		log := logger.Get(ctx)
+		manager, err := datapathprograms.OpenPinnedManager(GetPinPath(), log)
+		if err == nil {
+			wlCount, _ := manager.GetWhitelistCount()
+			rmCount, _ := manager.GetRuleMapCount()
+			manager.Close()
+			if wlCount == 0 && rmCount == 0 {
+				log.Warnf("[WARN]  SAFETY CHECK FAILED: default_deny is true, but no whitelist or allowed_ports found. Detaching XDP to prevent network lock-out.")
+				_ = RemoveXDP(ctx, interfaces)
+				return nil, fmt.Errorf("safety check failed: BPF map is empty while default_deny is enabled. XDP detached automatically to prevent network disconnect")
+			}
+		}
+	}
+	return res, nil
 }
 
 /**

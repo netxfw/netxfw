@@ -176,6 +176,16 @@ func (h *Handle) MatchesCapacity(cfg sdk.CapacityConfig) bool {
 	return h.manager.MatchesCapacity(cfg)
 }
 
+// GetWhitelistCount returns the number of whitelist entries.
+func (h *Handle) GetWhitelistCount() (uint64, error) {
+	return h.manager.GetWhitelistCount()
+}
+
+// GetRuleMapCount returns the number of rule map entries.
+func (h *Handle) GetRuleMapCount() (uint64, error) {
+	return h.manager.GetRuleMapCount()
+}
+
 // XDPProgram returns the main XDP program handle.
 func (h *Handle) XDPProgram() *ebpf.Program {
 	return h.manager.XdpFirewall()
