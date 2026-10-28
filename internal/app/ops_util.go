@@ -90,12 +90,6 @@ func GetBackupKeep() int {
 	return appconfig.GetBackupKeep()
 }
 
-// RunDeployUpdate executes the trusted deployment update pipeline.
-func RunDeployUpdate() error {
-	execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
-	return RunShellPipeline(execCmd)
-}
-
 // ReloadXDP performs a hot-reload of the XDP program.
 // It loads new objects, migrates state from old pinned maps, and swaps the program.
 // ReloadXDP 执行 XDP 程序的平滑重载：加载新对象，从旧的固定 Map 迁移状态，并切换程序。

@@ -54,3 +54,20 @@ jobs:
           args: release --clean --skip=validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Sign scripts/deploy.sh with the release key so `netxfw update`
+      # can verify the script against the public key embedded in the
+      # binary (internal/app/deploy.PublicKeyHex) before running it as root.
+      # 用发布私钥对 scripts/deploy.sh 签名，供 netxfw update 用二进制内置
+      # 公钥校验后再以 root 执行（信任锚点见 internal/app/deploy）。
+      - name: Sign and publish deploy script
+        env:
+          DEPLOY_SCRIPT_PRIVATE_KEY: ${{ secrets.DEPLOY_SCRIPT_PRIVATE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$DEPLOY_SCRIPT_PRIVATE_KEY" ]; then
+            echo "::error::DEPLOY_SCRIPT_PRIVATE_KEY secret is required; unsigned releases break 'netxfw update'"
+            exit 1
+          fi
+          go run ./scripts/deploy-signer sign scripts/deploy.sh "$DEPLOY_SCRIPT_PRIVATE_KEY"
+          gh release upload "${GITHUB_REF_NAME}" scripts/deploy.sh scripts/deploy.sh.sig --clobber

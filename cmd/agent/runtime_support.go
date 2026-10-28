@@ -145,6 +145,10 @@ func (systemServiceSupport) RunShellPipeline(command string) error {
 	return app.RunShellPipeline(command)
 }
 
+func (systemServiceSupport) RunDeployUpdate() error {
+	return app.RunDeployUpdate()
+}
+
 func (systemQuerySupport) LoadConfig() (*sdk.GlobalConfig, error) {
 	cfg, err := appconfig.LoadConfig()
 	if err != nil {

@@ -228,9 +228,14 @@ func FilterIPPortRules(rules map[string]string, action string) []IPPortRule {
 				if err != nil {
 					continue
 				}
+				// Range-check before narrowing to uint16 to avoid silent wrap-around.
+				// 窄化为 uint16 前做范围校验，避免静默回绕。
+				if !IsValidPort(port) {
+					continue
+				}
 				result = append(result, IPPortRule{
 					IP:   parts[0],
-					Port: uint16(port),
+					Port: uint16(port), // #nosec G115 // port range-checked by IsValidPort above
 				})
 			}
 		}

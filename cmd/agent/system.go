@@ -74,8 +74,10 @@ var systemUpdateCmd = &cobra.Command{
 This will restart the netxfw service if an update is performed.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("[START] Checking for updates...")
-		execCmd := "curl -sSL https://raw.githubusercontent.com/netxfw/netxfw/main/scripts/deploy.sh | bash"
-		if err := systemService.RunShellPipeline(execCmd); err != nil {
+		// Script is downloaded together with its ed25519 signature and
+		// verified against the embedded release key before execution.
+		// 脚本与其 ed25519 签名一同下载，用内置发布公钥校验后才执行。
+		if err := systemService.RunDeployUpdate(); err != nil {
 			reportCommandError(cmd, fmt.Errorf("[ERROR] Update failed: %w", err))
 		}
 	},

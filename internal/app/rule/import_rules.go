@@ -75,9 +75,11 @@ func ImportStructured(w io.Writer, fw *sdk.SDK, filePath string, isJSON bool) er
 		if rule.IP == "" {
 			continue
 		}
-		var port uint16
-		if rule.Port > 0 {
-			port = uint16(rule.Port)
+		port, err := toPortUint16(rule.Port)
+		if err != nil {
+			_, _ = fmt.Fprintf(w, "[WARN]  Failed to add whitelist %s: %v\n", rule.IP, err)
+			wlResult.failed++
+			continue
 		}
 		if err := validatePlainIP(rule.IP); err != nil {
 			_, _ = fmt.Fprintf(w, "[WARN]  Failed to add whitelist %s\n", rule.IP)
@@ -94,6 +96,12 @@ func ImportStructured(w io.Writer, fw *sdk.SDK, filePath string, isJSON bool) er
 		if rule.IP == "" || rule.Port == 0 {
 			continue
 		}
+		port, perr := toPortUint16(rule.Port)
+		if perr != nil {
+			_, _ = fmt.Fprintf(w, "[WARN]  Failed to add IP+Port rule %s:%d: %v\n", rule.IP, rule.Port, perr)
+			ippResult.failed++
+			continue
+		}
 		action := uint8(0)
 		if rule.Action == "allow" {
 			action = 1
@@ -101,7 +109,7 @@ func ImportStructured(w io.Writer, fw *sdk.SDK, filePath string, isJSON bool) er
 		if err := validatePlainIP(rule.IP); err != nil {
 			_, _ = fmt.Fprintf(w, "[WARN]  Failed to add IP+Port rule %s:%d\n", rule.IP, rule.Port)
 			ippResult.failed++
-		} else if err := fw.Rule.AddIPPortRule(rule.IP, uint16(rule.Port), action); err != nil {
+		} else if err := fw.Rule.AddIPPortRule(rule.IP, port, action); err != nil {
 			_, _ = fmt.Fprintf(w, "[WARN]  Failed to add IP+Port rule %s:%d\n", rule.IP, rule.Port)
 			ippResult.failed++
 		} else {
@@ -291,5 +299,16 @@ func parsePort(raw string) (uint16, error) {
 	if err := domainrule.ValidatePort(port, true); err != nil {
 		return 0, err
 	}
-	return uint16(port), nil
+	return uint16(port), nil // #nosec G115 // port range-checked by ValidatePort above
+}
+
+// toPortUint16 range-checks an imported int port before narrowing to uint16,
+// preventing silent wrap-around that would open the wrong firewall port.
+// toPortUint16 在将导入的 int 端口窄化为 uint16 前做范围校验，
+// 防止静默回绕导致防火墙在错误端口上开门。
+func toPortUint16(port int) (uint16, error) {
+	if err := domainrule.ValidatePort(port, true); err != nil {
+		return 0, err
+	}
+	return uint16(port), nil // #nosec G115 // port range-checked by ValidatePort above
 }

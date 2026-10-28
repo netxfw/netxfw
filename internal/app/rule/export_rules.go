@@ -91,12 +91,18 @@ func ExportBinary(w io.Writer, fw *sdk.SDK, filePath string) error {
 		var ip net.IP
 		var prefixLen uint8
 		if strings.Contains(entry.IP, "/") {
-			ipStr, cidrNet, _ := net.ParseCIDR(entry.IP)
+			ipStr, cidrNet, err := net.ParseCIDR(entry.IP)
+			if err != nil || cidrNet == nil {
+				return fmt.Errorf("failed to export blacklist entry %q: invalid CIDR", entry.IP)
+			}
 			ip = ipStr
 			ones, _ := cidrNet.Mask.Size()
-			prefixLen = uint8(ones)
+			prefixLen = uint8(ones) // #nosec G115 // mask size is always 0-128
 		} else {
 			ip = net.ParseIP(entry.IP)
+			if ip == nil {
+				return fmt.Errorf("failed to export blacklist entry %q: invalid IP", entry.IP)
+			}
 			if ip.To4() != nil {
 				prefixLen = 32
 			} else {
