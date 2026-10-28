@@ -1,0 +1,123 @@
+[cluster]
+  enabled = false
+  configpath = "cluster.toml"
+
+[base]
+  default_deny = true
+  allow_return_traffic = true
+  allow_icmp = true
+  interfaces = ["ens16f0"]
+  enable_af_xdp = false
+  strict_protocol = true
+  drop_fragments = true
+  strict_tcp = false
+  syn_limit = true
+  bogon_filter = true
+  icmp_rate = 10
+  icmp_burst = 50
+  whitelist = ["10.0.0.1/32", "10.0.0.2/32", "10.0.0.4/32"]
+  lock_list_file = "/etc/netxfw/deny_list.txt"
+  lock_list_binary = "/etc/netxfw/deny_list.bin.zst"
+  lock_list_merge_threshold = 0
+  lock_list_v4_mask = 24
+  lock_list_v6_mask = 64
+  bpf_pin_path = ""
+  enable_expiry = true
+  cleanup_interval = "1m"
+  persist_rules = true
+  enable_pprof = false
+  pprof_bind = "127.0.0.1"
+  pprof_port = 6060
+  backup_keep = 3
+
+[web]
+  enabled = true
+  bind = "127.0.0.1"
+  port = 11811
+  token = "78d87b7c1fe5f30f8cd1d161eb2699c9"
+
+[metrics]
+  enabled = false
+  server_enabled = false
+  bind = "127.0.0.1"
+  port = 11812
+  token = ""
+  push_enabled = false
+  push_gateway_addr = ""
+  push_interval = "15s"
+  textfile_enabled = false
+  textfile_path = ""
+  top_n = 10
+  threshold_critical = 90
+  threshold_high = 75
+  threshold_medium = 50
+  stats_interval = "1s"
+  avg_packet_size = 500
+
+[port]
+  allowed_ports = [22]
+
+  [[port.ip_port_rules]]
+    IP = "192.168.3.100/32"
+    Port = 8080
+    Action = 0
+
+  [[port.ip_port_rules]]
+    IP = "10.0.0.1/32"
+    Port = 8080
+    Action = 1
+
+  [[port.ip_port_rules]]
+    IP = "10.0.0.3/32"
+    Port = 80
+    Action = 1
+
+[conntrack]
+  enabled = true
+  max_entries = 10000
+  tcp_timeout = "1h"
+  udp_timeout = "5m"
+
+[rate_limit]
+  enabled = false
+  auto_block = true
+  auto_block_expiry = "10m"
+  rules = []
+
+[log_engine]
+  enabled = false
+  workers = 4
+  max_window = 0
+  rules = []
+
+[capacity]
+  lock_list = 20000
+  dyn_lock_list = 2000
+  whitelist = 30
+  ip_port_rules = 30
+  allowed_ports = 30
+  rate_limits = 1000
+  drop_reason_stats = 1000000
+  pass_reason_stats = 1000000
+
+[logging]
+  enabled = false
+  level = ""
+  path = "/var/log/netxfw/agent.log"
+  format = ""
+  max_size = 10
+  max_backups = 3
+  max_age = 30
+  compress = true
+
+[cloud]
+  enabled = false
+  provider = "other"
+  [cloud.proxy_protocol]
+    enabled = false
+    trusted_lb_ranges = []
+    cache_ttl = "5m"
+
+[bpf_plugin]
+  enabled = false
+  plugins = []

@@ -2,9 +2,9 @@ name: Setup Go and BPF
 description: Set up Go toolchain and install BPF build dependencies
 inputs:
   go-version:
-    description: Go version to install
+    description: Go version to install (empty = read from go.mod toolchain directive)
     required: false
-    default: '1.24'
+    default: ''
 runs:
   using: composite
   steps:

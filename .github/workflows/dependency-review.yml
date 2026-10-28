@@ -3,6 +3,11 @@ name: Dependency Review
 on:
   pull_request:
     branches: [ main, master ]
+  schedule:
+    # Weekly scan on main so newly disclosed CVEs in already-merged
+    # dependencies are still caught (PR events cannot trigger this).
+    - cron: '0 3 * * 1'
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -10,6 +15,7 @@ permissions:
 jobs:
   dependency-review:
     name: Dependency Review
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -19,6 +25,27 @@ jobs:
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: moderate
+
+  govulncheck:
+    name: Vulnerability Gate (govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          cache: true
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      # Symbol-level scan of the actual call graph; fails CI on any
+      # reachable vulnerability (GO/CVE), so vulnerable dependency
+      # versions can no longer slip through a merge.
+      - name: Run govulncheck
+        run: govulncheck ./...
 
   go-mod-outdated:
     name: Check for Outdated Dependencies
@@ -30,7 +57,6 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
           cache: true
 
       - name: Check for outdated dependencies
